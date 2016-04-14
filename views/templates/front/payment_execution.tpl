@@ -25,6 +25,7 @@
             </p>
 
             <div class="payment_module">
+
                 {if $checkoutID != null && !$hasError}
                     <script src="https://test.monei-api.net/v1/paymentWidgets.js?checkoutId={{$checkoutID}}"></script>
                     <form action="{{{$base_dir|escape:'html'}}}?fc=module&module=moneipaymentplatform&controller=validation"
@@ -35,6 +36,13 @@
                     <div class="module_error alert alert-danger">
                         <button type="button" class="close" data-dismiss="alert">×</button>
                         {{$errorMessage}}
+                    </div>
+                {/if}
+
+                {if $isRedirectedWithError }
+                    <div class="module_error alert alert-danger">
+                        <button type="button" class="close" data-dismiss="alert">×</button>
+                        {{$redirectedErrorMessage}}
                     </div>
                 {/if}
 

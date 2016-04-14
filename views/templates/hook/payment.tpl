@@ -8,8 +8,12 @@
     </div>
     {if $hasError}
         <div class="module_error alert alert-danger col-xs-12">
-            <button type="button" class="close" data-dismiss="alert">×</button>
-            {{$errorMessage}}
+            <span>An error occured:<br/></span>
+            <div>
+                <p>
+                    {{$errorMessage}}
+                </p>
+            </div>
         </div>
     {/if}
 </div>
