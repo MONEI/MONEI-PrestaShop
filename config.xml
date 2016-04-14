@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <module>
-	<name>MoneiPaymentPlatform</name>
+	<name>moneipaymentplatform</name>
 	<displayName><![CDATA[MONEI Payment Platform]]></displayName>
 	<version><![CDATA[0.0.1]]></version>
 	<description><![CDATA[Payment Platform for Monei.]]></description>

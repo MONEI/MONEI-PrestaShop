@@ -11,4 +11,4 @@ include(dirname(__FILE__).'/../../init.php');
 //if ($cart->id_customer == 0 OR $cart->id_address_delivery == 0 OR $cart->id_address_invoice == 0 OR !$bankwire->active)
 //	Tools::redirect('index.php?controller=order&step=1');
 
-echo 'asdasd';
+die();
