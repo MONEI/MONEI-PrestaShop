@@ -63,6 +63,13 @@ class MoneiPaymentPlatformPaymentModuleFrontController extends ModuleFrontContro
 			}
 		}
 
+		$isRedirectedWithError =  false;
+		$redirectedErrorMessage = '';
+		if(isset($this->context->cookie->monei_redirect_error) && $this->context->cookie->monei_redirect_error){
+			$isRedirectedWithError = true;
+			$redirectedErrorMessage =  $this->context->cookie->monei_redirect_error;
+			$this->context->cookie->monei_redirect_error = false;
+		}
 
 		$this->context->smarty->assign(array(
 				'checkoutID' => $checkoutID,
@@ -72,6 +79,8 @@ class MoneiPaymentPlatformPaymentModuleFrontController extends ModuleFrontContro
 				'nbProducts' => $cart->nbProducts(),
 				'allowedPaymentMethods' => $this->module->getAllowedPaymentMethodsString(),
 				'total' => $cart->getOrderTotal(true, Cart::BOTH),
+				'isRedirectedWithError' =>$isRedirectedWithError,
+				'redirectedErrorMessage' => $redirectedErrorMessage
 
 		));
 

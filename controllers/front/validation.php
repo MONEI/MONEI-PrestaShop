@@ -42,16 +42,20 @@ class MoneiPaymentPlatformValidationModuleFrontController extends ModuleFrontCon
         $paymentStatus = Configuration::get('PS_OS_PAYMENT');
         $message = "Thanks for your order!";
 
-        if (!isset($paymentStatusObj->id) || !isset($paymentStatusObj->paymentType) || !isset($paymentStatusObj->paymentBrand)
-            || !isset($paymentStatusObj->amount) || !isset($paymentStatusObj->currency)
+       if (!isset($paymentStatusObj->id) || !isset($paymentStatusObj->paymentType) || !isset($paymentStatusObj->paymentBrand)
+            || !isset($paymentStatusObj->amount) || !isset($paymentStatusObj->currency) || floatval($cart->getOrderTotal(true)) != floatval($paymentStatusObj->amount)
         ) {
             //there is an error
             $paymentStatus = Configuration::get('PS_OS_ERROR');
+
             if (isset($paymentStatusObj->result) && isset($paymentStatusObj->result->description)) {
                 $message = $paymentStatusObj->result->description;
             } else {
                 $message = "An Unkown error occurred while processing your payment.";
             }
+
+           $this->context->cookie->monei_redirect_error = $message;
+           Tools::redirect($this->context->link->getModuleLink('moneipaymentplatform', 'payment', array('error' => 'paymentfailed')));
 
         }
 
