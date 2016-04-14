@@ -170,6 +170,7 @@ class MoneiPaymentPlatform extends PaymentModule
     {
         if (Tools::getValue('controller') == 'AdminModules' && Tools::getValue('configure') == 'moneipaymentplatform') {
             $this->context->controller->addCSS($this->_path . 'css/admin-style.css', 'all');
+            $this->context->controller->addJquery();
             $this->context->controller->addJS($this->_path . 'js/admin-js.js');
 
         }
