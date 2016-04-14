@@ -82,7 +82,7 @@
                 </div>
             </div>
             <div class="panel-footer">
-                <button type="submit" value="1" id="configuration_form_submit_btn" name="submitMoneiPaymentPlatform"
+                <button type="submit" value="1" id="configuration_form_submit_btn" name="submitmoneipaymentplatform"
                         class="pull-left">
                     <i class="process-icon-save"></i> Save
                 </button>
