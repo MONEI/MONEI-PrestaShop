@@ -15,7 +15,7 @@ class MoneiPaymentPlatformValidationModuleFrontController extends ModuleFrontCon
 
         $authorized = false;
         foreach (Module::getPaymentModules() as $module)
-            if ($module['name'] == 'MoneiPaymentPlatform') {
+            if ($module['name'] == 'moneipaymentplatform') {
                 $authorized = true;
                 break;
             }

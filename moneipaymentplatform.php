@@ -17,7 +17,7 @@ class MoneiPaymentPlatform extends PaymentModule
     public function __construct()
     {
 
-        $this->name = 'MoneiPaymentPlatform';
+        $this->name = 'moneipaymentplatform';
         $this->tab = 'payments_gateways';
         $this->version = '0.0.1';
         $this->author = 'Microapps';
