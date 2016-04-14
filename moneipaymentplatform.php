@@ -168,7 +168,7 @@ class MoneiPaymentPlatform extends PaymentModule
     public
     function hookDisplayBackOfficeHeader()
     {
-        if (Tools::getValue('controller') == 'AdminModules' && Tools::getValue('configure') == 'MoneiPaymentPlatform') {
+        if (Tools::getValue('controller') == 'AdminModules' && Tools::getValue('configure') == 'moneipaymentplatform') {
             $this->context->controller->addCSS($this->_path . 'css/admin-style.css', 'all');
             $this->context->controller->addJS($this->_path . 'js/admin-js.js');
 
