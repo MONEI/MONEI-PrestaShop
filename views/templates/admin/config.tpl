@@ -1,7 +1,7 @@
 <form id="configuration_form" class="defaultForm form-horizontal MoneiPaymentPlatform"
       action="index.php?controller=AdminModules&amp;configure=moneipaymentplatform&amp;token={{$token}}"
       method="post" enctype="multipart/form-data" novalidate="">
-    <input type="hidden" name="submitMoneiPaymentPlatform" value="1">
+    <input type="hidden" name="submitmoneipaymentplatform" value="1">
 
     <div class="oppcw-backend-form" id="moneiConfigForm">
 
