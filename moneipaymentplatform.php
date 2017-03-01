@@ -5,7 +5,7 @@
  * @author    Microapss
  * @link http://microapps.com/
  * @copyright Copyright &copy; 2016 http://microapps.com/
- * @version 0.0.2
+ * @version 0.0.3
  */
 
 if (!defined('_PS_VERSION_'))
@@ -19,7 +19,7 @@ class MoneiPaymentPlatform extends PaymentModule
 
         $this->name = 'moneipaymentplatform';
         $this->tab = 'payments_gateways';
-        $this->version = '0.0.2';
+        $this->version = '0.0.3';
         $this->author = 'Microapps';
         $this->need_instance = 1;
         $this->ps_versions_compliancy['min'] = '1.6.0';
