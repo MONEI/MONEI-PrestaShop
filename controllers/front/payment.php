@@ -79,13 +79,23 @@ class MoneiPaymentPlatformPaymentModuleFrontController extends ModuleFrontContro
 				'nbProducts' => $cart->nbProducts(),
 				'allowedPaymentMethods' => $this->module->getAllowedPaymentMethodsString(),
 				'total' => $cart->getOrderTotal(true, Cart::BOTH),
-				'isRedirectedWithError' =>$isRedirectedWithError,
-				'redirectedErrorMessage' => $redirectedErrorMessage
+				'isRedirectedWithError' => $isRedirectedWithError,
+				'redirectedErrorMessage' => $redirectedErrorMessage,
+				'apiHost' => $this->getApiHost()
 
 		));
 
-
-
 		$this->setTemplate('payment_execution.tpl');
 	}
+
+  private
+  function getApiHost()
+  {
+    $testMode = Configuration::get('mpp_operationMode_testMode');
+    if ($testMode != null)
+      return "test.monei-api.net";
+    else
+      return "monei-api.net";
+  }
 }
+

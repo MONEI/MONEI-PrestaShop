@@ -5,7 +5,7 @@
  * @author    Microapss
  * @link http://microapps.com/
  * @copyright Copyright &copy; 2016 http://microapps.com/
- * @version 0.0.1
+ * @version 0.0.2
  */
 
 if (!defined('_PS_VERSION_'))
@@ -19,7 +19,7 @@ class MoneiPaymentPlatform extends PaymentModule
 
         $this->name = 'moneipaymentplatform';
         $this->tab = 'payments_gateways';
-        $this->version = '0.0.1';
+        $this->version = '0.0.2';
         $this->author = 'Microapps';
         $this->need_instance = 1;
         $this->ps_versions_compliancy['min'] = '1.6.0';
@@ -182,8 +182,9 @@ class MoneiPaymentPlatform extends PaymentModule
         $userID = Configuration::get($this->prefix . 'moneiData_UserID');
         $password = Configuration::get($this->prefix . 'moneiData_Password');
         $channelID = Configuration::get($this->prefix . 'moneiData_ChannelID');
+        $apiHost = $this->getApiHost();
 
-        $url = "https://test.monei-api.net/v1/checkouts";
+        $url = "https://" . $apiHost . "/v1/checkouts";
         $data = "authentication.userId=$userID" .
             "&authentication.password=$password" .
             "&authentication.entityId=$channelID" .
@@ -202,6 +203,16 @@ class MoneiPaymentPlatform extends PaymentModule
         }
         curl_close($ch);
         return $responseData;
+    }
+
+    private
+    function getApiHost()
+    {
+        $testMode = Configuration::get($this->prefix . 'operationMode_testMode');
+        if ($testMode != null)
+            return "test.monei-api.net";
+        else
+            return "monei-api.net";
     }
 
     public
@@ -272,8 +283,10 @@ class MoneiPaymentPlatform extends PaymentModule
         $userID = Configuration::get($this->prefix . 'moneiData_UserID');
         $password = Configuration::get($this->prefix . 'moneiData_Password');
         $channelID = Configuration::get($this->prefix . 'moneiData_ChannelID');
+        $testMode = Configuration::get($this->prefix . 'operationMode_testMode');
+        $apiHost = $this->getApiHost($testMode);
 
-        $url = "https://test.monei-api.net$resourcePath";
+        $url = "https://" . $apiHost . "$resourcePath";
         $url .= "?authentication.userId=$userID";
         $url .= "&authentication.password=$password";
         $url .= "&authentication.entityId=$channelID";

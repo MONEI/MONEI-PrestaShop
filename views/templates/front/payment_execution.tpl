@@ -27,7 +27,7 @@
             <div class="payment_module">
 
                 {if $checkoutID != null && !$hasError}
-                    <script src="https://test.monei-api.net/v1/paymentWidgets.js?checkoutId={{$checkoutID}}"></script>
+                    <script src="https://{{$apiHost}}/v1/paymentWidgets.js?checkoutId={{$checkoutID}}"></script>
                     <form action="{{{$base_dir|escape:'html'}}}?fc=module&module=moneipaymentplatform&controller=validation"
                           class="paymentWidgets">{{$allowedPaymentMethods}}</form>
                 {/if}
