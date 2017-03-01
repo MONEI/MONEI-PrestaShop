@@ -2,7 +2,7 @@
 <module>
 	<name>moneipaymentplatform</name>
 	<displayName><![CDATA[MONEI Payment Platform]]></displayName>
-	<version><![CDATA[0.0.2]]></version>
+	<version><![CDATA[0.0.3]]></version>
 	<description><![CDATA[Payment Platform for Monei.]]></description>
 	<author><![CDATA[Microapps]]></author><author_uri><![CDATA[http://microapps.com/]]></author_uri>
 	<tab><![CDATA[payments_gateways]]></tab>

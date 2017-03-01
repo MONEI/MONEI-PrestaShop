@@ -11,16 +11,16 @@
 {include file="$tpl_dir./order-steps.tpl"}
 
 {if $nbProducts <= 0}
-    <p class="warning">{l s='Your shopping cart is empty.' mod='bankwire'}</p>
+    <p class="warning">{l s='Your shopping cart is empty.' mod='moneipaymentplatform'}</p>
     <a href="{$base_dir|escape:'html'}"
        class="button_large">Continue</a>
 {else}
     <div class="row">
         <div class="col-xs-12">
-            <h3>{l s='Monei Payment Method' mod='moneipaymentplaftform'}</h3>
+            <h3>{l s='Monei Payment Method' mod='moneipaymentplatform'}</h3>
 
             <p style="margin-top:20px;">
-                - {l s='The total amount of your order is' mod='bankwire'}
+                - {l s='The total amount of your order is' mod='moneipaymentplatform'}
                 <span id="amount" class="price">{displayPrice price=$total} </span>
             </p>
 
