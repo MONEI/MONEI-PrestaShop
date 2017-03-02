@@ -23,6 +23,14 @@
                 - {l s='The total amount of your order is' mod='moneipaymentplatform'}
                 <span id="amount" class="price">{displayPrice price=$total} </span>
             </p>
+            <script type="text/javascript">
+                var wpwlOptions = {};
+                var supportedLangs = ['ar', 'be', 'bg', 'cn', 'cz', 'da', 'de', 'el', 'en', 'es', 'fi', 'fr', 'gr', 'hu', 'it', 'ja', 'ko', 'nl', 'no', 'pl', 'pt', 'ro', 'ru', 'sk', 'sl', 'sv', 'tr', 'zh'];
+                var currentLang = '{{$lang_iso}}';
+                if (supportedLangs.indexOf(currentLang) >= 0) {
+                    wpwlOptions.locale = currentLang;
+                }
+            </script>
 
             <div class="payment_module">
 
