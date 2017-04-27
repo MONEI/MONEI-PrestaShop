@@ -5,7 +5,7 @@
  * @author    Microapss
  * @link http://microapps.com/
  * @copyright Copyright &copy; 2016 http://microapps.com/
- * @version 0.0.3
+ * @version 0.0.4
  */
 
 if (!defined('_PS_VERSION_'))
@@ -19,7 +19,7 @@ class MoneiPaymentPlatform extends PaymentModule
 
         $this->name = 'moneipaymentplatform';
         $this->tab = 'payments_gateways';
-        $this->version = '0.0.3';
+        $this->version = '0.0.4';
         $this->author = 'Microapps';
         $this->need_instance = 1;
         $this->ps_versions_compliancy['min'] = '1.6.0';
@@ -183,12 +183,13 @@ class MoneiPaymentPlatform extends PaymentModule
         $password = Configuration::get($this->prefix . 'moneiData_Password');
         $channelID = Configuration::get($this->prefix . 'moneiData_ChannelID');
         $apiHost = $this->getApiHost();
+        $formattedAmount = number_format($amount, 2);
 
         $url = "https://" . $apiHost . "/v1/checkouts";
         $data = "authentication.userId=$userID" .
             "&authentication.password=$password" .
             "&authentication.entityId=$channelID" .
-            "&amount=$amount" .
+            "&amount=$formattedAmount" .
             "&currency=$currency" .
             "&paymentType=DB";
         $ch = curl_init();
