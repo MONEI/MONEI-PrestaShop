@@ -5,7 +5,7 @@
  * @author    Microapss
  * @link http://microapps.com/
  * @copyright Copyright &copy; 2016 http://microapps.com/
- * @version 0.0.4
+ * @version 0.0.5
  */
 
 if (!defined('_PS_VERSION_'))
@@ -19,8 +19,8 @@ class MoneiPaymentPlatform extends PaymentModule
 
         $this->name = 'moneipaymentplatform';
         $this->tab = 'payments_gateways';
-        $this->version = '0.0.4';
-        $this->author = 'Microapps';
+        $this->version = '0.0.5';
+        $this->author = 'microapps';
         $this->need_instance = 1;
         $this->ps_versions_compliancy['min'] = '1.6.0';
         $this->author_uri = 'http://microapps.com/';
@@ -183,12 +183,18 @@ class MoneiPaymentPlatform extends PaymentModule
         $password = Configuration::get($this->prefix . 'moneiData_Password');
         $channelID = Configuration::get($this->prefix . 'moneiData_ChannelID');
         $apiHost = $this->getApiHost();
-        $formattedAmount = number_format($amount, 2);
+        $formattedAmount = number_format($amount, 2, '.', '');
+        $customerEmail = $this->context->customer->email;
+        $firstName = $this->context->customer->firstname;
+        $lastName = $this->context->customer->lastname;
 
         $url = "https://" . $apiHost . "/v1/checkouts";
         $data = "authentication.userId=$userID" .
             "&authentication.password=$password" .
             "&authentication.entityId=$channelID" .
+            "&customer.email=$customerEmail" .
+            "&customer.givenName=$firstName" .
+            "&customer.surname=$lastName" .
             "&amount=$formattedAmount" .
             "&currency=$currency" .
             "&paymentType=DB";

@@ -1,7 +1,7 @@
 <div class="row">
     <div class="col-xs-12">
         <p class="payment_module">
-            <a class="bankwire moneiPaymentModule" href="{{$moneiPaymentURL}}" title="Pay with Monei.">
+            <a class="bankwire moneiPaymentModule" href="{{$moneiPaymentURL}}" title="{l s='Pay with MONEI' mod='moneipaymentplatform'}">
                 {l s='Pay with MONEI' mod='moneipaymentplatform'}<span></span>
             </a>
         </p>
