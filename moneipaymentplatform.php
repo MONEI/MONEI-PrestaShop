@@ -31,8 +31,8 @@ class MoneiPaymentPlatform extends PaymentModule
         $this->isSubmitted = false;
         parent::__construct();
 
-        $this->displayName = $this->l('MONEI Payment Platform');
-        $this->description = $this->l('Payment Platform for Monei.');
+        $this->displayName = $this->l('MONEI Payment Gateway');
+        $this->description = $this->l('The easiest way to accept payments from your customers.');
 
 
         $this->confirmUninstall = $this->l('Are you sure you want to uninstall?');
@@ -113,7 +113,7 @@ class MoneiPaymentPlatform extends PaymentModule
         $this->context->smarty->assign(
             array(
                 'token' => Tools::getAdminTokenLite('AdminModules'),
-                'heading' => 'MONEI Payment Platform: ' . $this->l('Settings'),
+                'heading' => $this->l('Settings'),
                 'defaultValues' => $defaultValues,
                 'isSubmitted' => $this->isSubmitted
             )
@@ -170,7 +170,9 @@ class MoneiPaymentPlatform extends PaymentModule
     {
         if (Tools::getValue('controller') == 'AdminModules' && Tools::getValue('configure') == 'moneipaymentplatform') {
             $this->context->controller->addCSS($this->_path . 'css/admin-style.css', 'all');
+	        $this->context->controller->addCSS($this->_path . 'assets/chosen.min.css');
             $this->context->controller->addJquery();
+            $this->context->controller->addJS($this->_path . 'assets/chosen.jquery.min.js');
             $this->context->controller->addJS($this->_path . 'js/admin-js.js');
 
         }
@@ -234,7 +236,7 @@ class MoneiPaymentPlatform extends PaymentModule
         $tab_controller_main->active = true;
         $tab_controller_main->class_name = "MoneiPaymentPlatformSettings";
         foreach (Language::getLanguages() as $lang)
-            $tab_controller_main->name[$lang['id_lang']] = "MONEI Payment Platform";
+            $tab_controller_main->name[$lang['id_lang']] = "MONEI Payment Gateway";
 
         $tab_controller_main->id_parent = $parentId;
         $tab_controller_main->module = $this->name;
