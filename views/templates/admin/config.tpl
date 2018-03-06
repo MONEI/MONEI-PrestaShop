@@ -18,57 +18,47 @@
                     </p>
                 </div>
                 <div class="form-wrapper">
-                    <div class="form-group {if $isSubmitted && $defaultValues['monei_token']==null} has-error{/if}">
-                        <label class="control-label col-lg-3 required" for="monei_token">
+                    <div class="form-group">
+                        <label class="control-label col-lg-3 required" for="token">
                             Secret Token
                         </label>
                         <div class="col-lg-9">
-                            <input type="text" name="monei_token" id="monei_token" required="required">
+                            <input type="text" name="secret_token" id="secret_token" required="required" value="{{$values['secret_token']}}">
                             <p class="help-block">
-                                Secret token generated for your sub account in <a href="https://monei.net/"
-                                                                                  target="_blank">MONEI Dashboard</a>
+                                Secret token generated for your sub account in
+                                <a href="https://monei.net/" target="_blank">MONEI Dashboard</a>
                             </p>
                         </div>
                     </div>
-                    <div class="form-group {if $isSubmitted && $defaultValues['monei_brands']==null} has-error{/if}">
-                        <label class="control-label col-lg-3 required" for="monei_brands">
+                    <div class="form-group">
+                        <label class="control-label col-lg-3 required" for="brands">
                             Payment methods
                         </label>
                         <div class="col-lg-9">
-                            <select multiple="multiple" class="bootstrap" name="monei_brands[]"
-                                    id="monei_brands">
-                                <option value="AMEX">American Express</option>
-                                <option value="JCB">JCB</option>
-                                <option value="MAESTRO">Maestro</option>
-                                <option value="MASTER">MasterCard</option>
-                                <option value="MASTERDEBIT">MasterCard Debit</option>
-                                <option value="VISA">Visa</option>
-                                <option value="VISADEBIT">Visa Debit</option>
-                                <option value="VISAELECTRON">Visa Electron</option>
-                                <option value="PAYPAL">PayPal</option>
-                                <option value="BITCOIN">Bitcoin</option>
-                                <option value="ALIPAY">Alipay</option>
-                                <option value="DIRECTDEBIT_SEPA">SEPA Direct Debit</option>
+                            <select multiple="multiple" class="bootstrap" name="brands[]" id="brands">
+                                {foreach $supportedBrands as $value=>$label}
+                                    <option {if in_array($value, $brands)}selected=""{/if} value="{{$value}}">{{$label}}</option>
+                                {/foreach}
                             </select>
                         </div>
                     </div>
                     <div class="form-group">
-                        <label class="control-label col-lg-3" for="monei_descriptor">
+                        <label class="control-label col-lg-3" for="descriptor">
                             Descriptor
                         </label>
                         <div class="col-lg-9">
-                            <input type="text" name="monei_descriptor" id="monei_descriptor">
+                            <input type="text" name="descriptor" id="descriptor">
                             <p class="help-block">
                                 Descriptor that will be shown in customer's bank statement
                             </p>
                         </div>
                     </div>
                     <div class="form-group">
-                        <label class="control-label col-lg-3" for="monei_submit_text">
+                        <label class="control-label col-lg-3" for="submit_text">
                             Submit text
                         </label>
                         <div class="col-lg-9">
-                            <input type="text" name="monei_submit_text" id="monei_submit_text">
+                            <input type="text" name="submit_text" id="submit_text">
                             <p class="help-block">
                                 Submit button text, &#123;amount&#125; will be replaced with amount value with currency. Default:
                                 Pay now
@@ -76,19 +66,19 @@
                         </div>
                     </div>
                     <div class="form-group">
-                        <label class="control-label col-lg-3" for="monei_show_cardholder">
+                        <label class="control-label col-lg-3" for="show_cardholder">
                             Show carholder field
                         </label>
                         <div class="col-lg-9">
-                            <input type="checkbox" name="monei_show_cardholder" id="monei_show_cardholder" {if $defaultValues['monei_show_cardholder']!=null}checked="checked"{/if}></label>
+                            <input type="checkbox" name="show_cardholder" id="show_cardholder" {if $values['show_cardholder']!=null}checked="checked"{/if}></label>
                         </div>
                     </div>
                     <div class="form-group">
-                        <label class="control-label col-lg-3" for="monei_primary_color">
+                        <label class="control-label col-lg-3" for="primary_color">
                             Primary colour
                         </label>
                         <div class="col-lg-9">
-                            <input type="text" name="monei_primary_color" id="monei_primary_color">
+                            <input type="text" name="primary_color" id="primary_color">
                             <p class="help-block">
                                 A color for checkout and submit button. Default: #00796b
                             </p>
