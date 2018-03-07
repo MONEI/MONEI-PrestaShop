@@ -81,7 +81,7 @@ class MoneiPaymentPlatform extends PaymentModule {
 	}
 
 	public function displayForm() {
-		$settings = json_decode(Configuration::get( $this->prefix . 'settings' ));
+		$settings = json_decode(Configuration::get( $this->prefix . 'settings' ),true);
 
 		$this->context->smarty->assign(
 			array(

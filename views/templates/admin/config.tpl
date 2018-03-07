@@ -37,7 +37,7 @@
                         <div class="col-lg-9">
                             <select multiple="multiple" class="bootstrap" name="brands[]" id="brands">
                                 {foreach $supportedBrands as $value=>$label}
-                                    <option {if in_array($value, $brands)}selected=""{/if} value="{{$value}}">{{$label}}</option>
+                                    <option {if in_array($value, $values['brands'])}selected=""{/if} value="{{$value}}">{{$label}}</option>
                                 {/foreach}
                             </select>
                         </div>
