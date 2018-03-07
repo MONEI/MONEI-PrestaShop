@@ -12,53 +12,42 @@ class MoneiPaymentPlatformPaymentModuleFrontController extends ModuleFrontContro
 
 		$cart = $this->context->cart;
 
-
 		$hasError     = false;
 		$errorMessage = "";
 		$checkoutID   = null;
 
 
 		if ( ! $this->module->active ) {
-			$errorMessage = "An error ocurred while loading the Monei Platform Payment Module, please contact support (Monei Payment Plaftform Module not Active)" .
-			                $hasError = true;
+			$errorMessage =
+				"An error occurred while loading the Monei Platform Payment Module, please contact support (Monei Payment Plaftform Module not Active)" .
+				$hasError = true;
 		}
 
 		if ( ! isset( $cart ) || $cart == null && ! is_a( $cart, "Cart" ) ) {
-			$errorMessage = "An error ocurred while loading the Monei Platform Payment Module, please contact support (There is a problem with your Cart)" .
-			                $hasError = true;
+			$errorMessage =
+				"An error occurred while loading the Monei Platform Payment Module, please contact support (There is a problem with your Cart)" .
+				$hasError = true;
 
-		}
-
-
-		if ( Configuration::get( $this->module->prefix . 'acceptedPayment_visa' ) == null && Configuration::get( $this->module->prefix . 'acceptedPayment_mastercard' ) == null ) {
-			if ( Configuration::get( $this->module->prefix . 'acceptedPayment_maestro' ) == null && Configuration::get( $this->module->prefix . 'acceptedPayment_jcb' ) == null ) {
-				$errorMessage = "An error ocurred while loading the Monei Platform Payment Module, No payment methods allowed" .
-				                $hasError = true;
-
-			}
 		}
 
 		if ( ! $hasError ) {
-
-			$cartOjbect  = $cart;
-			$currency    = Currency::getCurrency( $cartOjbect->id_currency );
-			$checkout    = $this->module->prepareCheckout( $cartOjbect->getOrderTotal( true ), $currency['iso_code'] );
-			$checkoutObj = json_decode( $checkout );
-			if ( ! isset( $checkoutObj->id ) ) {
+			$checkout = $this->module->prepareCheckout( $cart );
+			if ( ! isset( $checkout['id'] ) ) {
 				$hasError = true;
 
-				if ( isset( $checkoutObj->result ) ) {
+				if ( isset( $checkout->result ) ) {
 					//CREATE AN ENTRY IN THE DATABASE
-					if ( isset( $checkoutObj->result->description ) && ! empty( $checkoutObj->result->description ) ) {
-						$errorMessage = $checkoutObj->result->description;
+					$desc = $checkout->result->description;
+					if ( isset( $desc ) && ! empty( $desc ) ) {
+						$errorMessage = $desc;
 					} else {
-						$errorMessage = "Monei Servers: An error occurred while processing your request";
+						$errorMessage = "MONEI Payment Gateway: An error occurred while processing your request";
 					}
 				} else {
-					$errorMessage = "Monei Servers: An error occurred while processing your request";
+					$errorMessage = "MONEI Payment Gateway: An error occurred while processing your request";
 				}
 			} else {
-				$checkoutID = $checkoutObj->id;
+				$checkoutID = $checkout['id'];
 			}
 		}
 
@@ -72,7 +61,11 @@ class MoneiPaymentPlatformPaymentModuleFrontController extends ModuleFrontContro
 
 		$this->context->smarty->assign( array(
 			'checkoutID'             => $checkoutID,
-			'returnURL'              => Tools::getShopDomainSsl( true, true ) . __PS_BASE_URI__ . 'modules/' . $this->module->name . '/',
+			'returnURL'              => Tools::getShopDomainSsl( true, true ) .
+			                            __PS_BASE_URI__ .
+			                            'modules/' .
+			                            $this->module->name .
+			                            '/',
 			'hasError'               => $hasError,
 			'errorMessage'           => $errorMessage,
 			'nbProducts'             => $cart->nbProducts(),
@@ -91,9 +84,9 @@ class MoneiPaymentPlatformPaymentModuleFrontController extends ModuleFrontContro
 	function getApiHost() {
 		$testMode = Configuration::get( 'mpp_operationMode_testMode' );
 		if ( $testMode != null ) {
-			return "test.monei-api.net";
+			return "test.moneipayments-api.net";
 		} else {
-			return "monei-api.net";
+			return "moneipayments-api.net";
 		}
 	}
 }

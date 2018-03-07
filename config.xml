@@ -4,7 +4,7 @@
     <displayName><![CDATA[MONEI Payment Gateway]]></displayName>
     <version><![CDATA[1.0.0]]></version>
     <description><![CDATA[The easiest way to accept payments from your customers.]]></description>
-    <author><![CDATA[MONEI]]></author><author_uri><![CDATA[https://monei.net/]]></author_uri>
+    <author><![CDATA[MONEI]]></author><author_uri><![CDATA[https://moneipayments.net/]]></author_uri>
     <tab><![CDATA[payments_gateways]]></tab>
 	<confirmUninstall><![CDATA[Are you sure you want to uninstall?]]></confirmUninstall>
     <is_configurable>1</is_configurable>
