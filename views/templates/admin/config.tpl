@@ -43,17 +43,6 @@
                             </select>
                         </div>
                     </div>
-                    <div class="form-group">
-                        <label class="control-label col-lg-3" for="descriptor">
-                            Descriptor
-                        </label>
-                        <div class="col-lg-9">
-                            <input type="text" name="descriptor" id="descriptor" value="{{$values['descriptor']}}">
-                            <p class="help-block">
-                                Descriptor that will be shown in customer's bank statement
-                            </p>
-                        </div>
-                    </div>
                     <div class="panel-footer">
                         <button type="submit" value="1" id="module_form_submit_btn" name="btnSubmit"
                                 class="btn btn-default pull-right">
@@ -87,39 +76,6 @@
                                placeholder="Pay via MONEI Payment Gateway.">
                         <p class="help-block">
                             Description of payment method which the user sees during checkout.
-                        </p>
-                    </div>
-                </div>
-                <div class="form-group">
-                    <label class="control-label col-lg-3" for="submit_text">
-                        Submit text
-                    </label>
-                    <div class="col-lg-9">
-                        <input type="text" name="submit_text" id="submit_text" value="{{$values['submit_text']}}"
-                               placeholder="Pay now">
-                        <p class="help-block">
-                            Submit button text, &#123;amount&#125; will be replaced with amount value with currency.
-                        </p>
-                    </div>
-                </div>
-                <div class="form-group">
-                    <label class="control-label col-lg-3" for="show_cardholder">
-                        Show carholder field
-                    </label>
-                    <div class="col-lg-9">
-                        <input type="checkbox" name="show_cardholder" id="show_cardholder"
-                               {if $values['show_cardholder']!=null}checked="checked"{/if}></label>
-                    </div>
-                </div>
-                <div class="form-group">
-                    <label class="control-label col-lg-3" for="primary_color">
-                        Primary colour
-                    </label>
-                    <div class="col-lg-9">
-                        <input type="text" name="primary_color" id="primary_color" value="{{$values['primary_color']}}"
-                               placeholder="#00796b">
-                        <p class="help-block">
-                            A color for checkout and submit button.
                         </p>
                     </div>
                 </div>

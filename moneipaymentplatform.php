@@ -17,9 +17,9 @@ if ( ! defined( '_PS_VERSION_' ) ) {
 include_once dirname( __FILE__ ) . '/lib/utils.php';
 
 class MoneiPaymentPlatform extends PaymentModule {
-	private $test_mode;
-	private $api_base_url;
-	private $auth_params;
+	public $test_mode;
+	public $api_base_url;
+	public $auth_params;
 
 	public function __construct() {
 		$this->name                   = 'moneipaymentplatform';
@@ -28,11 +28,11 @@ class MoneiPaymentPlatform extends PaymentModule {
 		$this->ps_versions_compliancy = array( 'min' => '1.7', 'max' => _PS_VERSION_ );
 		$this->author                 = 'MONEI';
 		$this->need_instance          = 1;
-		$this->author_uri             = 'https://moneipayments.net/';
-		$this->prefix                 = "monei_";
+		$this->author_uri             = 'https://moneip.net/';
 		$this->currencies             = true;
 		$this->currencies_mode        = 'checkbox';
 		$this->bootstrap              = true;
+		$this->paymentUrl             = 'https://payments.monei.net/';
 		$this->supportedBrands        = array(
 			'AMEX'             => "American Express",
 			'JCB'              => "JCB",
@@ -80,14 +80,9 @@ class MoneiPaymentPlatform extends PaymentModule {
 			$config = $this->verifyAndGetValues( array(
 				'secret_token',
 				'brands',
-				'descriptor',
 				'title',
-				'description',
-				'submit_text',
-				'show_cardholder',
-				'primary_color'
+				'description'
 			) );
-
 
 			if ( $config['secret_token'] == null ) {
 				$hasErrors = true;
@@ -123,28 +118,22 @@ class MoneiPaymentPlatform extends PaymentModule {
 		if ( ! $this->active ) {
 			return;
 		}
-		$config = $this->getConfig();
-		$this->smarty->assign( array(
-			'config' => $config
-		) );
+		$config    = $this->getConfig();
 		$newOption = new PaymentOption();
-		$newOption->setCallToActionText( $this->l( $config['title'] ) )
+		$newOption->setCallToActionText( $config['title'] )
 		          ->setAction( $this->context->link->getModuleLink( $this->name, 'payment', array(), true ) )
 		          ->setAdditionalInformation( $config['description'] );
-		$payment_options = [
-			$newOption,
-		];
+		$payment_options = [ $newOption ];
 
 		return $payment_options;
 	}
-
 
 	public function hookPaymentReturn( $params ) {
 		if ( ! $this->active ) {
 			return;
 		}
 
-		$state = $params['objOrder']->getCurrentState();
+		$state = $params['order']->getCurrentState();
 		if ( in_array( $state,
 			array(
 				Configuration::get( 'PS_OS_PAYMENT' ),
@@ -179,32 +168,25 @@ class MoneiPaymentPlatform extends PaymentModule {
 		}
 	}
 
-	public function prepareCheckout( $order ) {
-		$currency = Currency::getCurrency( $order->id_currency );
-		$amount   = $order->getOrderTotal( true );
-		$order_id = $order->id;
+	public function prepareCheckout() {
+		$cart     = $this->context->cart;
+		$currency = $this->context->currency->iso_code;
 		$customer = $this->context->customer;
-		$address  = $order->getAddressCollection();
-		$url    = $this->api_base_url . "/v1/checkouts";
-		$params = array_merge( $this->auth_params,
+		$amount   = (float) $cart->getOrderTotal( true, Cart::BOTH );
+		$order_id = $cart->id;
+		$url      = $this->api_base_url . "/v1/checkouts";
+		$params   = array_merge( $this->auth_params,
 			array(
 				'amount'                      => $amount,
-				'currency'                    => $currency['iso_code'],
+				'currency'                    => $currency,
 				'merchantInvoiceId'           => $order_id,
 				'paymentType'                 => 'DB',
 				'customer.merchantCustomerId' => $customer->id,
 				'customer.email'              => $customer->email,
 				'customer.givenName'          => $customer->firstname,
-				'customer.surname'            => $customer->lastname,
-				'customer.phone'              => $address->phone,
-				'customer.companyName'        => $address->company,
-				'billing.country'             => $address->country,
-				'billing.city'                => $address->city,
-				'billing.postcode'            => $address->postcode,
-				'billing.street1'             => $address->address1,
-				'billing.street2'             => $address->address2
+				'customer.surname'            => $customer->lastname
 			) );
-		$ch     = curl_init();
+		$ch       = curl_init();
 		curl_setopt( $ch, CURLOPT_URL, $url );
 		curl_setopt( $ch, CURLOPT_POST, 1 );
 		curl_setopt( $ch, CURLOPT_POSTFIELDS, http_build_query( $params ) );
@@ -216,7 +198,7 @@ class MoneiPaymentPlatform extends PaymentModule {
 		}
 		curl_close( $ch );
 
-		return json_decode( $responseData , true);
+		return json_decode( $responseData, true );
 	}
 
 	public function install() {
@@ -234,6 +216,7 @@ class MoneiPaymentPlatform extends PaymentModule {
 		$tab_controller_main->add();
 		$tab_controller_main->move( Tab::getNewLastPosition( 0 ) );
 
+		$this->setConfig( $this->defaultConfig );
 
 		if ( parent::install() &&
 		     $this->registerHook( 'displayBackOfficeHeader' ) &&
@@ -280,17 +263,7 @@ class MoneiPaymentPlatform extends PaymentModule {
 	}
 
 	public function getPaymentStatus( $resourcePath ) {
-		$userID    = Configuration::get( $this->prefix . 'moneiData_UserID' );
-		$password  = Configuration::get( $this->prefix . 'moneiData_Password' );
-		$channelID = Configuration::get( $this->prefix . 'moneiData_ChannelID' );
-		$testMode  = Configuration::get( $this->prefix . 'operationMode_testMode' );
-		$apiHost   = $this->getApiHost( $testMode );
-
-		$url = "https://" . $apiHost . "$resourcePath";
-		$url .= "?authentication.userId=$userID";
-		$url .= "&authentication.password=$password";
-		$url .= "&authentication.entityId=$channelID";
-
+		$url      = $this->api_base_url . $resourcePath . '?' . http_build_query( $this->auth_params);
 		$ch = curl_init();
 		curl_setopt( $ch, CURLOPT_URL, $url );
 		curl_setopt( $ch, CURLOPT_CUSTOMREQUEST, 'GET' );
@@ -306,14 +279,7 @@ class MoneiPaymentPlatform extends PaymentModule {
 	}
 
 	public function getConfig() {
-		return json_decode( Configuration::get(
-			$this->name,
-			null,
-			null,
-			null,
-			json_encode( $this->defaultConfig )
-		),
-			true );
+		return json_decode( Configuration::get( $this->name ), true );
 	}
 
 	private function setConfig( $config ) {

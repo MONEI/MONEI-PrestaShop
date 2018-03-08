@@ -51,7 +51,7 @@ class MoneiPaymentPlatformValidationModuleFrontController extends ModuleFrontCon
             if (isset($paymentStatusObj->result) && isset($paymentStatusObj->result->description)) {
                 $message = $paymentStatusObj->result->description;
             } else {
-                $message = "An Unkown error occurred while processing your payment.";
+                $message = "An Unknown error occurred while processing your payment.";
             }
 
            $this->context->cookie->monei_redirect_error = $message;
