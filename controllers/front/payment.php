@@ -25,7 +25,7 @@ class MoneiPaymentPlatformPaymentModuleFrontController extends ModuleFrontContro
 			}
 		}
 		if ( ! $authorized ) {
-			die( $this->module->l( 'This payment method is not available.', 'validation' ) );
+			die( $this->module->l( 'This payment method is not available.', 'moneipaymentplatform' ) );
 		}
 
 		$customer = new Customer( $cart->id_customer );
@@ -33,21 +33,41 @@ class MoneiPaymentPlatformPaymentModuleFrontController extends ModuleFrontContro
 			Tools::redirect( 'index.php?controller=order&step=1' );
 		}
 
-		$config   = $this->module->getConfig();
-		$checkout = $this->module->prepareCheckout( $cart );
-		if ( ! isset( $checkout['id'] ) ) {
+		$config  = $this->module->getConfig();
+
+		if ( empty( $config->secretToken ) ) {
+			Tools::redirect( 'index.php?controller=order&step=1' );
+
+		}
+
+		$apiHandler = new ApiHandler($config->secretToken);
+		$currency = Currency::getCurrency($cart->id_currency)['iso_code'];
+		$amount   = (float) $cart->getOrderTotal( true, Cart::BOTH );
+		$orderId = $cart->id;
+		$checkoutParams = array(
+			'amount'                      => $amount,
+			'currency'                    => $currency,
+			'merchantInvoiceId'           => $orderId,
+			'paymentType'                 => 'DB',
+			'customer.merchantCustomerId' => $customer->id,
+			'customer.email'              => $customer->email,
+			'customer.givenName'          => $customer->firstname,
+			'customer.surname'            => $customer->lastname
+		);
+		$checkout = $apiHandler->prepareCheckout( $checkoutParams );
+		if ( ! isset( $checkout->id ) ) {
 			Tools::redirect( 'index.php?controller=order&step=1' );
 		}
-		$brands        = implode( ' ', $config['brands'] );
-		$return_url    = $this->context->link->getModuleLink( $this->module->name, 'validation', array(), true );
-		$paymentConfig = array(
-			'checkoutId'  => $checkout['id'],
-			'brands'      => $brands,
-			'redirectUrl' => $return_url,
-			'test'        => $this->module->test_mode
+		$brands        = implode( ' ', $config->brands );
+		$returnUrl    = $this->context->link->getModuleLink( $this->module->name, 'validation', array(), true );
+		$paymentParams = array(
+			'checkoutId'  => $checkout->id,
+			'redirectUrl' => $returnUrl,
+			'brands'      => $brands
 		);
 
-		Tools::redirect( $this->module->paymentUrl . '?' . http_build_query( $paymentConfig ) );
+		$paymentUrl = $apiHandler->getPaymentUrl($paymentParams);
+		Tools::redirect( $paymentUrl );
 	}
 }
 

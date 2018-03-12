@@ -22,8 +22,8 @@
                             Secret Token
                         </label>
                         <div class="col-lg-9">
-                            <input type="text" name="secret_token" id="secret_token" required="required"
-                                   value="{{$values['secret_token']}}">
+                            <input type="text" name="secretToken" id="secretToken" required="required"
+                                   value="{{$values['secretToken']}}">
                             <p class="help-block">
                                 Secret token generated for your sub account in
                                 <a href="https://monei.net/" target="_blank">MONEI Dashboard</a>

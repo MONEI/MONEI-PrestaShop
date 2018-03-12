@@ -9,26 +9,40 @@ class MoneiPaymentPlatformValidationModuleFrontController extends ModuleFrontCon
     public function postProcess()
     {
         $cart = $this->context->cart;
-        if ($cart->id_customer == 0 || $cart->id_address_delivery == 0 || $cart->id_address_invoice == 0 || !$this->module->active)
+        if ($cart->id_customer == 0 ||
+            $cart->id_address_delivery == 0 ||
+            $cart->id_address_invoice == 0 ||
+            !$this->module->active) {
             Tools::redirect('index.php?controller=order&step=1');
+        }
 
 
         $authorized = false;
-        foreach (Module::getPaymentModules() as $module)
+        foreach (Module::getPaymentModules() as $module) {
             if ($module['name'] == 'moneipaymentplatform') {
                 $authorized = true;
                 break;
             }
-        if (!$authorized)
-            die($this->module->l('This payment method is not available.', 'validation'));
+        }
+        if (!$authorized) {
+            die($this->module->l('This payment method is not available.', 'moneipaymentplatform'));
+        }
 
         $customer = new Customer($cart->id_customer);
-        if (!Validate::isLoadedObject($customer))
+        if (!Validate::isLoadedObject($customer)) {
             Tools::redirect('index.php?controller=order&step=1');
+        }
 
         $currency = $this->context->currency;
         $total = (float)$cart->getOrderTotal(true, Cart::BOTH);
 
+        $config = $this->module->getConfig();
+
+        if (empty($config->secretToken)) {
+            Tools::redirect('index.php?controller=order&step=1');
+        }
+
+        $apiHandler = new ApiHandler($config->secretToken);
 
         //validate order
         $resourcePath = Tools::getValue('resourcePath');
@@ -36,30 +50,39 @@ class MoneiPaymentPlatformValidationModuleFrontController extends ModuleFrontCon
             Tools::redirect('index.php?controller=order&step=1');
         }
 
-        $paymentStatus = $this->module->getPaymentStatus($resourcePath);
-        $paymentStatusObj = json_decode($paymentStatus);
+        $transaction = $apiHandler->getTransactionStatus($resourcePath);
 
-        $paymentStatus = Configuration::get('PS_OS_PAYMENT');
-        $message = "Thanks for your order!";
 
-       if (!isset($paymentStatusObj->id) || !isset($paymentStatusObj->paymentType) || !isset($paymentStatusObj->paymentBrand)
-            || !isset($paymentStatusObj->amount) || !isset($paymentStatusObj->currency) || floatval($cart->getOrderTotal(true)) != floatval($paymentStatusObj->amount)
-        ) {
-            //there is an error
+        if ($apiHandler->isTransactionSuccessful($transaction)) {
+            $paymentStatus = Configuration::get('PS_OS_PAYMENT');
+            $message = "Successful payment!";
+        } else {
             $paymentStatus = Configuration::get('PS_OS_ERROR');
 
-            if (isset($paymentStatusObj->result) && isset($paymentStatusObj->result->description)) {
-                $message = $paymentStatusObj->result->description;
+            if (isset($transaction->result) && isset($transaction->result->description)) {
+                $message = $transaction->result->description;
             } else {
-                $message = "An Unknown error occurred while processing your payment.";
+                $message = "An unknown error occurred while processing payment.";
             }
-
-           $this->context->cookie->monei_redirect_error = $message;
-           Tools::redirect($this->context->link->getModuleLink('moneipaymentplatform', 'payment', array('error' => 'paymentfailed')));
-
         }
 
-        $this->module->validateOrder($cart->id, $paymentStatus, $total, $this->module->displayName, $message, array(), (int)$currency->id, false, $customer->secure_key);
-        Tools::redirect('index.php?controller=order-confirmation&id_cart=' . $cart->id . '&id_module=' . $this->module->id . '&id_order=' . $this->module->currentOrder . '&key=' . $customer->secure_key);
+        $this->module->validateOrder($cart->id,
+            $paymentStatus,
+            $total,
+            $this->module->displayName,
+            $message,
+            array(),
+            (int)$currency->id,
+            false,
+            $customer->secure_key);
+
+
+        Tools::redirect('index.php' . '?' . http_build_query(array(
+                'controller' => 'order-confirmation',
+                'id_cart' => $cart->id,
+                'id_module' => $module->id,
+                'id_order' => $this->module->currentOrder,
+                'key' => $customer->secure_key
+            )));
     }
 }

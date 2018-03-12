@@ -15,12 +15,9 @@ if ( ! defined( '_PS_VERSION_' ) ) {
 }
 
 include_once dirname( __FILE__ ) . '/lib/utils.php';
+include_once dirname( __FILE__ ) . '/lib/ApiHandler.php';
 
 class MoneiPaymentPlatform extends PaymentModule {
-	public $test_mode;
-	public $api_base_url;
-	public $auth_params;
-
 	public function __construct() {
 		$this->name                   = 'moneipaymentplatform';
 		$this->tab                    = 'payments_gateways';
@@ -28,11 +25,10 @@ class MoneiPaymentPlatform extends PaymentModule {
 		$this->ps_versions_compliancy = array( 'min' => '1.7', 'max' => _PS_VERSION_ );
 		$this->author                 = 'MONEI';
 		$this->need_instance          = 1;
-		$this->author_uri             = 'https://moneip.net/';
+		$this->author_uri             = 'https://monei.net/';
 		$this->currencies             = true;
 		$this->currencies_mode        = 'checkbox';
 		$this->bootstrap              = true;
-		$this->paymentUrl             = 'https://payments.monei.net/';
 		$this->supportedBrands        = array(
 			'AMEX'             => "American Express",
 			'JCB'              => "JCB",
@@ -53,19 +49,6 @@ class MoneiPaymentPlatform extends PaymentModule {
 			'description' => 'Pay via MONEI Payment Gateway.'
 		);
 
-		$config = $this->getConfig();
-
-		if ( ! empty( $config['secret_token'] ) ) {
-			$credentials        = json_decode( decode_token( $config['secret_token'] ) );
-			$this->test_mode    = $credentials->t;
-			$this->api_base_url = $this->test_mode ? "https://test.monei-api.net" : "https://monei-api.net";
-			$this->auth_params  = array(
-				'authentication.userId'   => $credentials->l,
-				'authentication.password' => $credentials->p,
-				'authentication.entityId' => $credentials->c,
-			);
-		}
-
 		parent::__construct();
 
 		$this->displayName      = $this->l( 'MONEI Payment Gateway' );
@@ -78,13 +61,13 @@ class MoneiPaymentPlatform extends PaymentModule {
 		$hasErrors = false;
 		if ( Tools::isSubmit( 'btnSubmit' ) ) {
 			$config = $this->verifyAndGetValues( array(
-				'secret_token',
+				'secretToken',
 				'brands',
 				'title',
 				'description'
 			) );
 
-			if ( $config['secret_token'] == null ) {
+			if ( $config['secretToken'] == null ) {
 				$hasErrors = true;
 				$output    .= $this->displayError( $this->l( 'Secret Token is required' ) );
 			}
@@ -105,7 +88,7 @@ class MoneiPaymentPlatform extends PaymentModule {
 		$this->context->smarty->assign(
 			array(
 				'token'           => Tools::getAdminTokenLite( 'AdminModules' ),
-				'values'          => $this->getConfig(),
+				'values'          => $this->getConfig( true ),
 				'supportedBrands' => $this->supportedBrands
 			)
 		);
@@ -120,9 +103,9 @@ class MoneiPaymentPlatform extends PaymentModule {
 		}
 		$config    = $this->getConfig();
 		$newOption = new PaymentOption();
-		$newOption->setCallToActionText( $config['title'] )
+		$newOption->setCallToActionText( $config->title )
 		          ->setAction( $this->context->link->getModuleLink( $this->name, 'payment', array(), true ) )
-		          ->setAdditionalInformation( $config['description'] );
+		          ->setAdditionalInformation( $config->description );
 		$payment_options = [ $newOption ];
 
 		return $payment_options;
@@ -166,39 +149,6 @@ class MoneiPaymentPlatform extends PaymentModule {
 			$this->context->controller->addJS( $this->_path . 'js/admin-js.js' );
 
 		}
-	}
-
-	public function prepareCheckout() {
-		$cart     = $this->context->cart;
-		$currency = $this->context->currency->iso_code;
-		$customer = $this->context->customer;
-		$amount   = (float) $cart->getOrderTotal( true, Cart::BOTH );
-		$order_id = $cart->id;
-		$url      = $this->api_base_url . "/v1/checkouts";
-		$params   = array_merge( $this->auth_params,
-			array(
-				'amount'                      => $amount,
-				'currency'                    => $currency,
-				'merchantInvoiceId'           => $order_id,
-				'paymentType'                 => 'DB',
-				'customer.merchantCustomerId' => $customer->id,
-				'customer.email'              => $customer->email,
-				'customer.givenName'          => $customer->firstname,
-				'customer.surname'            => $customer->lastname
-			) );
-		$ch       = curl_init();
-		curl_setopt( $ch, CURLOPT_URL, $url );
-		curl_setopt( $ch, CURLOPT_POST, 1 );
-		curl_setopt( $ch, CURLOPT_POSTFIELDS, http_build_query( $params ) );
-		curl_setopt( $ch, CURLOPT_SSL_VERIFYPEER, false );
-		curl_setopt( $ch, CURLOPT_RETURNTRANSFER, true );
-		$responseData = curl_exec( $ch );
-		if ( curl_errno( $ch ) ) {
-			return curl_error( $ch );
-		}
-		curl_close( $ch );
-
-		return json_decode( $responseData, true );
 	}
 
 	public function install() {
@@ -262,24 +212,8 @@ class MoneiPaymentPlatform extends PaymentModule {
 		return $validValues;
 	}
 
-	public function getPaymentStatus( $resourcePath ) {
-		$url      = $this->api_base_url . $resourcePath . '?' . http_build_query( $this->auth_params);
-		$ch = curl_init();
-		curl_setopt( $ch, CURLOPT_URL, $url );
-		curl_setopt( $ch, CURLOPT_CUSTOMREQUEST, 'GET' );
-		curl_setopt( $ch, CURLOPT_SSL_VERIFYPEER, false );
-		curl_setopt( $ch, CURLOPT_RETURNTRANSFER, true );
-		$responseData = curl_exec( $ch );
-		if ( curl_errno( $ch ) ) {
-			return curl_error( $ch );
-		}
-		curl_close( $ch );
-
-		return $responseData;
-	}
-
-	public function getConfig() {
-		return json_decode( Configuration::get( $this->name ), true );
+	public function getConfig( $assoc = false ) {
+		return json_decode( Configuration::get( $this->name ), $assoc );
 	}
 
 	private function setConfig( $config ) {
