@@ -52,7 +52,6 @@ class MoneiPaymentPlatformValidationModuleFrontController extends ModuleFrontCon
 
         $transaction = $apiHandler->getTransactionStatus($resourcePath);
 
-
         if ($apiHandler->isTransactionSuccessful($transaction)) {
             $paymentStatus = Configuration::get('PS_OS_PAYMENT');
             $message = "Successful payment!";
@@ -62,7 +61,7 @@ class MoneiPaymentPlatformValidationModuleFrontController extends ModuleFrontCon
             if (isset($transaction->result) && isset($transaction->result->description)) {
                 $message = $transaction->result->description;
             } else {
-                $message = "An unknown error occurred while processing payment.";
+                $message = $this->module->l("An unknown error occurred while processing payment.", 'moneipaymentplatform');
             }
         }
 
@@ -77,12 +76,14 @@ class MoneiPaymentPlatformValidationModuleFrontController extends ModuleFrontCon
             $customer->secure_key);
 
 
-        Tools::redirect('index.php' . '?' . http_build_query(array(
-                'controller' => 'order-confirmation',
-                'id_cart' => $cart->id,
-                'id_module' => $module->id,
-                'id_order' => $this->module->currentOrder,
-                'key' => $customer->secure_key
-            )));
+        $redirectParams = array(
+            'controller' => 'order-confirmation',
+            'id_cart' => $cart->id,
+            'id_module' => $this->module->id,
+            'id_order' => $transaction->merchantInvoiceId,
+            'key' => $customer->secure_key
+        );
+
+        Tools::redirect('index.php' . '?' . http_build_query($redirectParams));
     }
 }

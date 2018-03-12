@@ -61,7 +61,7 @@
                     </label>
                     <div class="col-lg-9">
                         <input type="text" name="title" id="title" value="{{$values['title']}}"
-                               placeholder="Pay with Credit Card">
+                               placeholder="Pay via MONEI Payment Gateway">
                         <p class="help-block">
                             Title of payment method which the user sees during checkout.
                         </p>
@@ -72,8 +72,7 @@
                         Description
                     </label>
                     <div class="col-lg-9">
-                        <input type="text" name="description" id="description" value="{{$values['description']}}"
-                               placeholder="Pay via MONEI Payment Gateway.">
+                        <input type="text" name="description" id="description" value="{{$values['description']}}">
                         <p class="help-block">
                             Description of payment method which the user sees during checkout.
                         </p>
