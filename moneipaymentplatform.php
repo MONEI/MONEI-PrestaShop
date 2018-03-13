@@ -148,11 +148,11 @@ class MoneiPaymentPlatform extends PaymentModule
     {
         if (Tools::getValue('controller') == 'AdminModules' &&
             Tools::getValue('configure') == $this->name) {
-            $this->context->controller->addCSS($this->_path . 'css/admin-style.css', 'all');
-            $this->context->controller->addCSS($this->_path . 'assets/chosen.min.css');
+            $this->context->controller->addCSS($this->_path . 'assets/admin-style.css', 'all');
+            $this->context->controller->addCSS($this->_path . 'assets/chosen.min.css', 'all');
             $this->context->controller->addJquery();
             $this->context->controller->addJS($this->_path . 'assets/chosen.jquery.min.js');
-            $this->context->controller->addJS($this->_path . 'js/admin-js.js');
+            $this->context->controller->addJS($this->_path . 'assets/admin-js.js');
 
         }
     }
