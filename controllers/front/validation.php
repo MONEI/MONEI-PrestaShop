@@ -1,7 +1,7 @@
 <?php
 
 
-class MoneiPaymentPlatformValidationModuleFrontController extends ModuleFrontController
+class MoneiPaymentsValidationModuleFrontController extends ModuleFrontController
 {
     /**
      * @see FrontController::postProcess()
@@ -19,13 +19,13 @@ class MoneiPaymentPlatformValidationModuleFrontController extends ModuleFrontCon
 
         $authorized = false;
         foreach (Module::getPaymentModules() as $module) {
-            if ($module['name'] == 'moneipaymentplatform') {
+            if ($module['name'] == 'moneipayments') {
                 $authorized = true;
                 break;
             }
         }
         if (!$authorized) {
-            die($this->module->l('This payment method is not available.', 'moneipaymentplatform'));
+            die($this->module->l('This payment method is not available.', 'moneipayments'));
         }
 
         $customer = new Customer($cart->id_customer);
@@ -61,7 +61,7 @@ class MoneiPaymentPlatformValidationModuleFrontController extends ModuleFrontCon
             if (isset($transaction->result) && isset($transaction->result->description)) {
                 $message = $transaction->result->description;
             } else {
-                $message = $this->module->l("An unknown error occurred while processing payment.", 'moneipaymentplatform');
+                $message = $this->module->l("An unknown error occurred while processing payment.", 'moneipayments');
             }
         }
 

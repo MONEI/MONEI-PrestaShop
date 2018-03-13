@@ -1,6 +1,6 @@
 <?php
 /**
- * moneipaymentplatform module main file.
+ * moneipayments module main file.
  *
  * @author MONEI
  * @link https://monei.net/
@@ -17,7 +17,7 @@ if (!defined('_PS_VERSION_')) {
 include_once dirname(__FILE__) . '/lib/utils.php';
 include_once dirname(__FILE__) . '/lib/ApiHandler.php';
 
-class MoneiPaymentPlatform extends PaymentModule
+class MoneiPayments extends PaymentModule
 {
     private $supportedBrands = array(
         'AMEX' => "American Express",
@@ -40,10 +40,12 @@ class MoneiPaymentPlatform extends PaymentModule
 
     public function __construct()
     {
-        $this->name = 'moneipaymentplatform';
+        $this->name = 'moneipayments';
         $this->tab = 'payments_gateways';
         $this->version = '1.0.0';
         $this->ps_versions_compliancy = array('min' => '1.7', 'max' => _PS_VERSION_);
+        $this->controllers = array('payment', 'validation');
+        $this->is_eu_compatible = 1;
         $this->author = 'MONEI';
         $this->need_instance = 1;
         $this->author_uri = 'https://monei.net/';
@@ -53,9 +55,9 @@ class MoneiPaymentPlatform extends PaymentModule
 
         parent::__construct();
 
-        $this->displayName = $this->l('MONEI Payment Gateway', 'moneipaymentplatform');
-        $this->description = $this->l('The easiest way to accept payments from your customers.', 'moneipaymentplatform');
-        $this->confirmUninstall = $this->l('Are you sure you want to uninstall?', 'moneipaymentplatform');
+        $this->displayName = $this->l('MONEI Payment Gateway', 'moneipayments');
+        $this->description = $this->l('The easiest way to accept payments from your customers.', 'moneipayments');
+        $this->confirmUninstall = $this->l('Are you sure you want to uninstall?', 'moneipayments');
     }
 
     public function getContent()
@@ -72,15 +74,15 @@ class MoneiPaymentPlatform extends PaymentModule
 
             if ($config['secretToken'] == null) {
                 $hasErrors = true;
-                $output .= $this->displayError($this->l('Secret Token is required', 'moneipaymentplatform'));
+                $output .= $this->displayError($this->l('Secret Token is required', 'moneipayments'));
             }
             if ($config['brands'] == null) {
                 $hasErrors = true;
-                $output .= $this->displayError($this->l('At least one payment method is required', 'moneipaymentplatform'));
+                $output .= $this->displayError($this->l('At least one payment method is required', 'moneipayments'));
             }
             if (!$hasErrors) {
                 $this->setConfig($config);
-                $output .= $this->displayConfirmation($this->l('Settings have been updated', 'moneipaymentplatform'));
+                $output .= $this->displayConfirmation($this->l('Settings have been updated', 'moneipayments'));
             }
         }
 

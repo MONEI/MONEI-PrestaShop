@@ -1,6 +1,6 @@
 <?php
 
-class MoneiPaymentPlatformPaymentModuleFrontController extends ModuleFrontController
+class MoneiPaymentsPaymentModuleFrontController extends ModuleFrontController
 {
     public $ssl = true;
 
@@ -21,13 +21,13 @@ class MoneiPaymentPlatformPaymentModuleFrontController extends ModuleFrontContro
 
         $authorized = false;
         foreach (Module::getPaymentModules() as $module) {
-            if ($module['name'] == 'moneipaymentplatform') {
+            if ($module['name'] == 'moneipayments') {
                 $authorized = true;
                 break;
             }
         }
         if (!$authorized) {
-            die($this->module->l('This payment method is not available.', 'moneipaymentplatform'));
+            die($this->module->l('This payment method is not available.', 'moneipayments'));
         }
 
         $customer = new Customer($cart->id_customer);
@@ -46,7 +46,9 @@ class MoneiPaymentPlatformPaymentModuleFrontController extends ModuleFrontContro
         $currency = Currency::getCurrency($cart->id_currency)['iso_code'];
         $amount = (float)$cart->getOrderTotal(true, Cart::BOTH);
         $billing = new Address($cart->id_address_invoice);
+        $billingCountry = new Country($billing->id_country);
         $shipping = new Address($cart->id_address_delivery);
+        $shippingCountry = new Country($shipping->id_country);
         $orderId = $cart->id;
         $checkoutParams = array(
             'amount' => $amount,
@@ -59,12 +61,12 @@ class MoneiPaymentPlatformPaymentModuleFrontController extends ModuleFrontContro
             'customer.surname' => $customer->lastname,
             'customer.phone' => $billing->phone,
             'customer.companyName' => $billing->company,
-            'billing.country' => $billing->country,
+            'billing.country' => $billingCountry->iso_code,
             'billing.city' => $billing->city,
             'billing.postcode' => $billing->postcode,
             'billing.street1' => $billing->address1,
             'billing.street2' => $billing->address2,
-            'shipping.country' => $shipping->country,
+            'shipping.country' => $shippingCountry->iso_code,
             'shipping.city' => $shipping->city,
             'shipping.postcode' => $shipping->postcode,
             'shipping.street1' => $shipping->address1,
