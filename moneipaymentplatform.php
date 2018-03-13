@@ -136,7 +136,7 @@ class MoneiPaymentPlatform extends PaymentModule
             $this->smarty->assign('status', 'failed');
         }
 
-        return $this->fetch('module:moneipaymentplatform/views/templates/hook/payment_return.tpl');
+        return $this->fetch('module' . $this->name . '/views/templates/hook/payment_return.tpl');
     }
 
 
@@ -155,22 +155,7 @@ class MoneiPaymentPlatform extends PaymentModule
 
     public function install()
     {
-        $parentId = Tab::getIdFromClassName('AdminParentModules');
-
-        $tab_controller_main = new Tab();
-        $tab_controller_main->active = true;
-        $tab_controller_main->class_name = "MoneiPaymentPlatformSettings";
-        foreach (Language::getLanguages() as $lang) {
-            $tab_controller_main->name[$lang['id_lang']] = "MONEI Payment Gateway";
-        }
-
-        $tab_controller_main->id_parent = $parentId;
-        $tab_controller_main->module = $this->name;
-        $tab_controller_main->add();
-        $tab_controller_main->move(Tab::getNewLastPosition(0));
-
         $this->setConfig($this->defaultConfig);
-
         if (parent::install() &&
             $this->registerHook('displayBackOfficeHeader') &&
             $this->registerHook('paymentOptions') &&
@@ -183,18 +168,9 @@ class MoneiPaymentPlatform extends PaymentModule
 
     public function uninstall()
     {
-
-        $id_tab = Tab::getIdFromClassName('MoneiPaymentPlatformSettings');
-        if ($id_tab) {
-            $tab = new Tab($id_tab);
-            $tab->delete();
-        }
-
         if (!parent::uninstall() || !Configuration::deleteByName($this->name)) {
             return false;
         }
-
-
         return true;
     }
 
