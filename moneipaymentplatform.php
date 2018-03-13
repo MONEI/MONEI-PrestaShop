@@ -107,6 +107,10 @@ class MoneiPaymentPlatform extends PaymentModule
             return;
         }
         $config = $this->getConfig();
+        if (!isset($config->secretToken)) {
+            return;
+        }
+
         $newOption = new PaymentOption();
         $newOption->setCallToActionText($config->title)
             ->setAction($this->context->link->getModuleLink($this->name, 'payment', array(), true))
