@@ -135,16 +135,12 @@ class MoneiPayments extends PaymentModule
                 Configuration::get('PS_OS_OUTOFSTOCK'),
                 Configuration::get('PS_OS_OUTOFSTOCK_UNPAID')
             ))) {
-            $this->smarty->assign(array(
-                'status' => 'ok'
-            ));
+            return;
         } else {
-            $this->smarty->assign('status', 'failed');
+            $this->smarty->assign('message', $this->context->cookie->monei_redirect_message);
+            return $this->fetch('module:' . $this->name . '/views/templates/hook/payment_return.tpl');
         }
-
-        return $this->fetch('module' . $this->name . '/views/templates/hook/payment_return.tpl');
     }
-
 
     public function hookDisplayBackOfficeHeader()
     {
