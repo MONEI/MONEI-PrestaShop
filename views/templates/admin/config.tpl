@@ -8,9 +8,9 @@
             </p>
         </div>
         <form id="configuration_form" class="form-horizontal moneiConfigForm"
-              action="index.php?controller=AdminModules&amp;configure=moneipaymentplatform&amp;token={{$token}}"
+              action="index.php?controller=AdminModules&amp;configure=moneipayments&amp;token={{$token}}"
               method="post" enctype="multipart/form-data" novalidate="">
-            <input type="hidden" name="submitmoneipaymentplatform" value="1">
+            <input type="hidden" name="submitmoneipayments" value="1">
 
             <div class="panel">
                 <div class="panel-heading">

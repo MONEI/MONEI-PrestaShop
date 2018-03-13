@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <module>
-    <name>moneipaymentplatform</name>
+    <name>moneipayments</name>
     <displayName><![CDATA[MONEI Payment Gateway]]></displayName>
     <version><![CDATA[1.0.0]]></version>
     <description><![CDATA[The easiest way to accept payments from your customers.]]></description>

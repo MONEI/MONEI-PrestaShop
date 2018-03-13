@@ -1,9 +1,9 @@
 <?php
 
-class MoneiPaymentPlatformSettingsController extends AdminController
+class MoneiPaymentsSettingsController extends AdminController
 {
     function __construct()
     {
-        Tools::redirectAdmin('index.php?controller=AdminModules&configure=moneipaymentplatform&token='.Tools::getAdminTokenLite('AdminModules'));
+        Tools::redirectAdmin('index.php?controller=AdminModules&configure=moneipayments&token='.Tools::getAdminTokenLite('AdminModules'));
     }
 }
