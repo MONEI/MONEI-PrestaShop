@@ -45,6 +45,8 @@ class MoneiPaymentPlatformPaymentModuleFrontController extends ModuleFrontContro
         $apiHandler = new ApiHandler($config->secretToken);
         $currency = Currency::getCurrency($cart->id_currency)['iso_code'];
         $amount = (float)$cart->getOrderTotal(true, Cart::BOTH);
+        $billing = new Address($cart->id_address_invoice);
+        $shipping = new Address($cart->id_address_delivery);
         $orderId = $cart->id;
         $checkoutParams = array(
             'amount' => $amount,
@@ -55,6 +57,18 @@ class MoneiPaymentPlatformPaymentModuleFrontController extends ModuleFrontContro
             'customer.email' => $customer->email,
             'customer.givenName' => $customer->firstname,
             'customer.surname' => $customer->lastname,
+            'customer.phone' => $billing->phone,
+            'customer.companyName' => $billing->company,
+            'billing.country' => $billing->country,
+            'billing.city' => $billing->city,
+            'billing.postcode' => $billing->postcode,
+            'billing.street1' => $billing->address1,
+            'billing.street2' => $billing->address2,
+            'shipping.country' => $shipping->country,
+            'shipping.city' => $shipping->city,
+            'shipping.postcode' => $shipping->postcode,
+            'shipping.street1' => $shipping->address1,
+            'shipping.street2' => $shipping->address2,
         );
         $checkout = $apiHandler->prepareCheckout($checkoutParams);
         if (!isset($checkout->id)) {
@@ -62,16 +76,16 @@ class MoneiPaymentPlatformPaymentModuleFrontController extends ModuleFrontContro
         }
         $brands = implode(' ', $config->brands);
         $locale = $this->context->language->locale;
-		$returnUrl = $this->context->link->getModuleLink($this->module->name, 'validation', array(), true);
-		$paymentParams = array(
+        $returnUrl = $this->context->link->getModuleLink($this->module->name, 'validation', array(), true);
+        $paymentParams = array(
             'checkoutId' => $checkout->id,
             'redirectUrl' => $returnUrl,
             'locale' => $locale,
             'brands' => $brands
         );
 
-		$paymentUrl = $apiHandler->getPaymentUrl($paymentParams);
-		Tools::redirect($paymentUrl);
-	}
+        $paymentUrl = $apiHandler->getPaymentUrl($paymentParams);
+        Tools::redirect($paymentUrl);
+    }
 }
 
