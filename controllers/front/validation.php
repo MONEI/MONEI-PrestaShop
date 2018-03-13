@@ -65,6 +65,7 @@ class MoneiPaymentsValidationModuleFrontController extends ModuleFrontController
             }
         }
 
+        $this->context->cookie->monei_redirect_message = $message;
         $this->module->validateOrder($cart->id,
             $paymentStatus,
             $total,
