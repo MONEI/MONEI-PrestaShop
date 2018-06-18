@@ -19,7 +19,11 @@ class ApiHandler {
 
 	public function __construct( $token ) {
 		$credentials      = json_decode( decode_token( $token ) );
-		$this->testMode   = $credentials->t;
+        if (isset($credentials->t)) {
+            $this->testMode = $credentials->t;
+        } else {
+            $this->testMode = false;
+        }
 		$this->apiBaseUrl = $this->testMode ? "https://test.monei-api.net" : "https://monei-api.net";
 		$this->paymentUrl = 'https://payments.monei.net/';
 		$this->authParams = array(
