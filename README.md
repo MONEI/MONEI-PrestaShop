@@ -1,6 +1,6 @@
 # MONEI PrestaShop
 
-[MONEI](https://monei.net/) is the way to go to accept payments in your PrestaShop store.
+[MONEI](https://monei.com/) is the way to go to accept payments in your PrestaShop store.
 
 ## Features
 * accept credit and debit cards `American Express, JCB, Maestro, MasterCard, Visa`
