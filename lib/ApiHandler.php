@@ -21,7 +21,7 @@ class ApiHandler {
 		$credentials      = json_decode( decode_token( $token ) );
 		$this->testMode   = $credentials->t;
 		$this->apiBaseUrl = $this->testMode ? "https://test.monei-api.net" : "https://monei-api.net";
-		$this->paymentUrl = 'https://payments.monei.net/';
+		$this->paymentUrl = 'https://payments.monei.com/';
 		$this->authParams = array(
 			'authentication.userId'   => $credentials->l,
 			'authentication.password' => $credentials->p,
