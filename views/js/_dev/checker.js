@@ -1,5 +1,3 @@
-
-
 const time_retry_seconds = 3;
 const number_of_retries = 20;
 

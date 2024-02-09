@@ -6,29 +6,29 @@ namespace Composer\Autoload;
 
 class ComposerStaticInitd6b8e4e965d254d8e8b39e5f330f9978
 {
-    public static $prefixLengthsPsr4 = array (
-        'P' => 
-        array (
-            'PsCurl\\' => 7,
-        ),
-        'M' => 
-        array (
-            'Monei\\' => 6,
-        ),
+    public static $prefixLengthsPsr4 = array(
+        'P' =>
+            array(
+                'PsCurl\\' => 7,
+            ),
+        'M' =>
+            array(
+                'Monei\\' => 6,
+            ),
     );
 
-    public static $prefixDirsPsr4 = array (
-        'PsCurl\\' => 
-        array (
-            0 => __DIR__ . '/../..' . '/src/PsCurl',
-        ),
-        'Monei\\' => 
-        array (
-            0 => __DIR__ . '/../..' . '/src/Monei',
-        ),
+    public static $prefixDirsPsr4 = array(
+        'PsCurl\\' =>
+            array(
+                0 => __DIR__ . '/../..' . '/src/PsCurl',
+            ),
+        'Monei\\' =>
+            array(
+                0 => __DIR__ . '/../..' . '/src/Monei',
+            ),
     );
 
-    public static $classMap = array (
+    public static $classMap = array(
         'Composer\\InstalledVersions' => __DIR__ . '/..' . '/composer/InstalledVersions.php',
         'foroco\\BrowserDetection' => __DIR__ . '/..' . '/foroco/php-browser-detection/src/BrowserDetection.php',
     );

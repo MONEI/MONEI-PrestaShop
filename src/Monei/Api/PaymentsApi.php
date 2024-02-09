@@ -3,11 +3,11 @@
 
 namespace Monei\Api;
 
-use PsCurl\PsCurl as CurlCustom;
 use Monei\ApiException;
 use Monei\Configuration;
 use Monei\Model\MoneiPayment;
 use Monei\Model\MoneiRefundPayment;
+use PsCurl\PsCurl as CurlCustom;
 
 class PaymentsApi
 {

@@ -1,5 +1,3 @@
-
-
 {if $errors}
     <div>
         <h3>{l s='An error occurred' mod='monei'}:</h3>

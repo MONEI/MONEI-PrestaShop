@@ -5,8 +5,7 @@ namespace Monei\CoreClasses;
 
 use Db;
 use ObjectModel;
-use function Monei\CoreClasses\pSQL;
-use const Monei\CoreClasses\_DB_PREFIX_;
+
 
 if (!defined('_PS_VERSION_')) {
     exit;

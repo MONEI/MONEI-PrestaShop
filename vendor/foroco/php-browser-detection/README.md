@@ -4,8 +4,10 @@ A PHP library to detect browser, OS, platform and device type by User-Agent pars
 This library focused on high performance and low memory usage HTTP client parsing.\
 Uses a simple and fast algorithm to accurately detect more than 165 browser types and over 60 OS types.\
 For most commonly browsers parsing process took less than 0.0005 second even on low-level shared hosting.\
-In the case of rare User-Agents recognized time is less than 0.0008 second for the same conditioned hosting environment.\
-The library supports only really actual Browsers and OS without support for outdated environments that are actually not used now.\
+In the case of rare User-Agents recognized time is less than 0.0008 second for the same conditioned hosting
+environment.\
+The library supports only really actual Browsers and OS without support for outdated environments that are actually not
+used now.\
 Newest MacOS Monterey and Windows 11 User-Agents detection included.\
 Works by use only one library file and without any third-party libraries dependency.
 
@@ -55,7 +57,8 @@ require ('vendor/autoload.php');
 ## Usage
 
 The library will try to get environment data from the `HTTP_USER_AGENT` header sent by the HTTP client.
-Library PHP Class `BrowserDetection` contains four public methods which return Array or JSON string of recognized data from `HTTP_USER_AGENT`:
+Library PHP Class `BrowserDetection` contains four public methods which return Array or JSON string of recognized data
+from `HTTP_USER_AGENT`:
 
 * `getAll();`
 * `getOS();`
@@ -98,7 +101,8 @@ print_r($result);
 ?>
 ```
 
-The library class `BrowserDetection` also contains special method `setTouchSupport()` (optional, available from version 1.1).\
+The library class `BrowserDetection` also contains special method `setTouchSupport()` (optional, available from version
+1.1).\
 This method is necessary to detect mobile browsers in `Desktop Mode` condition (Android and iOS).\
 For `Desktop Mode` detection `setTouchSupport()` method should call if browser supports Touch events.\
 Touch events detection is performed by client-side JavaScript code in the target browser. Example:
@@ -114,6 +118,7 @@ if (('ontouchstart' in window) || window.DocumentTouch && document instanceof Do
 **OS Type** (`os_type`)\
 Returns type of operating system (OS).\
 All possible values:
+
 * desktop
 * mobile
 * mixed
@@ -130,8 +135,10 @@ Example: `Windows`, `Android`, `macOS`, `iOS` etc.
 **OS Version** (`os_version`)\
 Returns operating system (OS) version or `0` in cases of unable OS version recognition.\
 May contains numeric, string or mixed types OS versions.\
-In case of numeric OS version (e.g. `Android`) contains major and minor version parts values, e.g. `4.4`, `8.1`, `10` etc.\
-In case of string OS version (e.g. `macOS`) contains string version name values, e.g. `Mavericks`, `Mojave`, `Catalina` etc.\
+In case of numeric OS version (e.g. `Android`) contains major and minor version parts values, e.g. `4.4`, `8.1`, `10`
+etc.\
+In case of string OS version (e.g. `macOS`) contains string version name values, e.g. `Mavericks`, `Mojave`, `Catalina`
+etc.\
 For `Windows` may contains mixed version types values: `10`, `Vista`, `XP` etc.
 
 **OS Title** (`os_title`)\
@@ -141,6 +148,7 @@ Also returns `unknown` if OS name is not recognized.
 **Device Type** (`device_type`)\
 Returns device type based on some User-Agent data.\
 All possible values:
+
 * desktop
 * mobile
 * tv
@@ -157,8 +165,10 @@ Example: `Chrome`, `Firefox`, `UC Browser`, `Huawei Browser`, `Vivaldi` etc.
 **Browser Version** (`browser_version`)\
 Returns browser version number or `0` in cases of unable browser version recognition.\
 Always contains numeric values (integer or float numbers).\
-Returns float number (e.g. `3.5`, `10.5`, `13.1`) for some browsers which should contains both major and minor browser version parts (`Safari`, `Vivaldi`, `PaleMoon` etc).\
-Returns only major decimal browser version (e.g. `15`, `37`, `81`) for other browsers which has a lot of major versions (`Chrome`, `Firefox`, `Opera` etc).
+Returns float number (e.g. `3.5`, `10.5`, `13.1`) for some browsers which should contains both major and minor browser
+version parts (`Safari`, `Vivaldi`, `PaleMoon` etc).\
+Returns only major decimal browser version (e.g. `15`, `37`, `81`) for other browsers which has a lot of major
+versions (`Chrome`, `Firefox`, `Opera` etc).
 
 **Browser Title** (`browser_title`)\
 Returns browser title which contains browser name and browser version together.\
@@ -194,7 +204,8 @@ Returns `1` number if mobile browser works in `Desktop Mode` or returns `0` if i
 `setTouchSupport()` method should call for `Desktop Mode` detection if browser supports Touch events.
 
 **64 Bits Mode** (`64bits_mode`)\
-Returns `1` number if operating system (OS) and browser work together in 64-bit mode or returns `0` if 64-bit mode not detected.\
+Returns `1` number if operating system (OS) and browser work together in 64-bit mode or returns `0` if 64-bit mode not
+detected.\
 Available only for `getAll();` and `getOS();` methods.
 
 ## Usage Examples

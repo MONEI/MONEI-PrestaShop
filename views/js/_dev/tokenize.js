@@ -1,5 +1,3 @@
-
-
 document.getElementById('tokenize_card').addEventListener('change', function (event) {
     var forms = document.querySelectorAll('#payment-form');
     var check_status = this.checked;

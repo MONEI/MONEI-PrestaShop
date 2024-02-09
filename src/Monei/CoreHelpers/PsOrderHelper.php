@@ -5,13 +5,11 @@ namespace Monei\CoreHelpers;
 
 use Context;
 use Db;
-use Order;
 use Monei\ApiException;
 use Monei\CoreClasses\Monei;
 use Monei\Model\MoneiPayment;
 use Monei\Model\MoneiPaymentStatus;
-use function Monei\CoreHelpers\pSQL;
-use const Monei\CoreHelpers\_DB_PREFIX_;
+use Order;
 
 class PsOrderHelper
 {

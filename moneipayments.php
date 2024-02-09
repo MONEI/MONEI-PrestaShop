@@ -89,6 +89,30 @@ class MoneiPayments extends PaymentModule
         return $output . $this->displayForm();
     }
 
+    public function verifyAndGetValues(
+        array $values
+    )
+    {
+        $validValues = [];
+        foreach ($values as $value) {
+            $userInput = Tools::getValue($value);
+
+            if ($userInput && !empty($userInput)) {
+                $validValues[$value] = $userInput;
+            } else {
+                $validValues[$value] = null;
+            }
+
+        }
+
+        return $validValues;
+    }
+
+    private function setConfig($config)
+    {
+        Configuration::updateValue($this->name, json_encode($config));
+    }
+
     public function displayForm()
     {
         $this->context->smarty->assign(
@@ -102,6 +126,10 @@ class MoneiPayments extends PaymentModule
         return $this->display(__FILE__, 'views/templates/admin/config.tpl');
     }
 
+    public function getConfig($assoc = false)
+    {
+        return json_decode(Configuration::get($this->name), $assoc);
+    }
 
     public function hookPaymentOptions($params)
     {
@@ -174,34 +202,5 @@ class MoneiPayments extends PaymentModule
             return false;
         }
         return true;
-    }
-
-    public function verifyAndGetValues(
-        array $values
-    )
-    {
-        $validValues = [];
-        foreach ($values as $value) {
-            $userInput = Tools::getValue($value);
-
-            if ($userInput && !empty($userInput)) {
-                $validValues[$value] = $userInput;
-            } else {
-                $validValues[$value] = null;
-            }
-
-        }
-
-        return $validValues;
-    }
-
-    public function getConfig($assoc = false)
-    {
-        return json_decode(Configuration::get($this->name), $assoc);
-    }
-
-    private function setConfig($config)
-    {
-        Configuration::updateValue($this->name, json_encode($config));
     }
 }

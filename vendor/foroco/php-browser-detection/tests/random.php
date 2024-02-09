@@ -11,17 +11,15 @@ $useragents_random_count = 30;
 $db = new SQLite3('useragents.db');
 $db->exec("PRAGMA journal_mode=WAL;");
 $db->exec("PRAGMA synchronous=NORMAL;");
-$results = $db->query('SELECT ua FROM useragents LIMIT '.$useragents_random_count.' OFFSET ABS(RANDOM()) % MAX((SELECT COUNT(*) FROM useragents), 1);');
+$results = $db->query('SELECT ua FROM useragents LIMIT ' . $useragents_random_count . ' OFFSET ABS(RANDOM()) % MAX((SELECT COUNT(*) FROM useragents), 1);');
 
-while ($row = $results->fetchArray())
-{
-    $useragent[] = ($row['ua']);
+while ($row = $results->fetchArray()) {
+	$useragent[] = ($row['ua']);
 }
 
 $time_start = microtime(true);
 
-foreach ($useragent as $u)
-{
+foreach ($useragent as $u) {
 
 	$result = $Browser->getAll($u);
 
@@ -42,6 +40,6 @@ foreach ($useragent as $u)
 $time_end = microtime(true);
 $time_result = $time_end - $time_start;
 
-echo '<p style="font-size:21px">Total execution time: '.substr($time_result,0,7).' sec.</p>';
+echo '<p style="font-size:21px">Total execution time: ' . substr($time_result, 0, 7) . ' sec.</p>';
 
 ?>

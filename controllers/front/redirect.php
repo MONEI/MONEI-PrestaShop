@@ -1,8 +1,6 @@
 <?php
 
 
-use PrestaShop\PrestaShop\Adapter\ServiceLocator;
-use PrestaShop\PrestaShop\Core\Localization\Exception\LocalizationException;
 use Monei\ApiException;
 use Monei\CoreClasses\Monei;
 use Monei\CoreClasses\MoneiCard;
@@ -14,6 +12,8 @@ use Monei\Model\MoneiPayment;
 use Monei\Model\MoneiPaymentMethods;
 use Monei\Model\MoneiShippingDetails;
 use Monei\MoneiClient;
+use PrestaShop\PrestaShop\Adapter\ServiceLocator;
+use PrestaShop\PrestaShop\Core\Localization\Exception\LocalizationException;
 
 // Load libraries
 require_once dirname(__FILE__) . '/../../vendor/autoload.php';

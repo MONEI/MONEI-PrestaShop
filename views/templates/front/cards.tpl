@@ -1,5 +1,3 @@
-
-
 {extends file='customer/page.tpl'}
 
 {block name='page_header_container'}
