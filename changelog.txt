@@ -1,0 +1,13 @@
+MONEI 1.1.0:
+=========================
+- NEW:
+ * Added Multibanco as new payment method
+
+-IMPROVED:
+ * Refactored Code
+ * Virtual context for callback
+
+- FIX:
+ * Bugfixes
+ * Discounts fix
+ * use Monei fix
