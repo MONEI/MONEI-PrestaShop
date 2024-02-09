@@ -34,7 +34,7 @@ class Monei extends PaymentModule
         ];
 
         $this->ps_versions_compliancy = ['min' => '1.7', 'max' => _PS_VERSION_];
-//        $this->module_key = '***REMOVED***';
+        $this->module_key = '***REMOVED***';
 
         /**
          * Set $this->bootstrap to true if your module is compliant with bootstrap (PrestaShop 1.6)
