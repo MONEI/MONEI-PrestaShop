@@ -1,10 +1,10 @@
 <div class="row">
     <div class="col-lg-12">
         <div class="alert alert-info">
-            <p><b>MONEI Payment Gateway</b> is the easiest way to accept payments from your customers.</p>
+            <p><b>MONEI Payment Gateway</b> is Grow your business faster with the advanced payment platform</p>
             <p>
                 To use this payment method you need to be registered in
-                <a href="https://monei.net/" target="_blank">MONEI Dashboard</a>
+                <a href="https://monei.com/" target="_blank">MONEI Dashboard</a>
             </p>
         </div>
         <form id="configuration_form" class="form-horizontal moneiConfigForm"
@@ -26,7 +26,7 @@
                                    value="{{$values['secretToken']}}">
                             <p class="help-block">
                                 Secret token generated for your sub account in
-                                <a href="https://monei.net/" target="_blank">MONEI Dashboard</a>
+                                <a href="https://monei.com/" target="_blank">MONEI Dashboard</a>
                             </p>
                         </div>
                     </div>

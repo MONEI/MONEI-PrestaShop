@@ -3,8 +3,8 @@
  * moneipayments module main file.
  *
  * @author MONEI
- * @link https://monei.net/
- * @copyright Copyright &copy; 2018 https://monei.net/
+ * @link https://monei.com/
+ * @copyright Copyright &copy; 2018 https://monei.com/
  * @version 1.0.0
  */
 
@@ -48,7 +48,7 @@ class MoneiPayments extends PaymentModule
         $this->is_eu_compatible = 1;
         $this->author = 'MONEI';
         $this->need_instance = 1;
-        $this->author_uri = 'https://monei.net/';
+        $this->author_uri = 'https://monei.com/';
         $this->currencies = true;
         $this->currencies_mode = 'checkbox';
         $this->bootstrap = true;
@@ -56,7 +56,7 @@ class MoneiPayments extends PaymentModule
         parent::__construct();
 
         $this->displayName = $this->l('MONEI Payment Gateway', 'moneipayments');
-        $this->description = $this->l('The easiest way to accept payments from your customers.', 'moneipayments');
+        $this->description = $this->l('Grow your business faster with the advanced payment platform', 'moneipayments');
         $this->confirmUninstall = $this->l('Are you sure you want to uninstall?', 'moneipayments');
     }
 
