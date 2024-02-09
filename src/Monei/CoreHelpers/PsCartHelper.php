@@ -6,8 +6,6 @@ namespace Monei\CoreHelpers;
 use Cart;
 use Configuration;
 use Context;
-use Monei\CoreHelpers\LocalizationException;
-use Monei\CoreHelpers\PrestaShopException;
 use Order;
 
 class PsCartHelper
