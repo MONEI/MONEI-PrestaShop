@@ -1,6 +1,5 @@
 <?php
 
-
 use Monei\ApiException;
 use Monei\CoreClasses\Monei;
 use Monei\CoreClasses\MoneiCard;
@@ -87,11 +86,11 @@ class MoneiRedirectModuleFrontController extends ModuleFrontController
                     $response = $client->payments->createPayment($payment);
                     PsOrderHelper::saveTransaction($response);
                     // Save the Payment ID
-                    $id_monei = Monei::getIdByInternalOrder($response->getOrderId());
-                    $monei = new Monei($id_monei);
-                    $monei->id_cart = (int)$cart->id;
-                    $monei->id_order_monei = pSQL($response->getId());
-                    $monei->save();
+                    $id_lbl_monei = Monei::getIdByInternalOrder($response->getOrderId());
+                    $lbl_monei = new Monei($id_lbl_monei);
+                    $lbl_monei->id_cart = (int)$cart->id;
+                    $lbl_monei->id_order_monei = pSQL($response->getId());
+                    $lbl_monei->save();
 
                     // Convert the cart to order
                     $order_state_obj = new OrderState(Configuration::get('MONEI_STATUS_PENDING'));
@@ -128,8 +127,8 @@ class MoneiRedirectModuleFrontController extends ModuleFrontController
                             // We must update the order_id
                             $id_order = (int)Order::getIdByCartId($cart->id);
                             if ($id_order > 0) {
-                                $monei->id_order = $id_order;
-                                $monei->save();
+                                $lbl_monei->id_order = $id_order;
+                                $lbl_monei->save();
                             }
                         }
                     }
