@@ -1,5 +1,3 @@
-
-
 <div class="container-fluid">
     <!-- Normal UI -->
     <div class="row">

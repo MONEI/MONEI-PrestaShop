@@ -1,5 +1,3 @@
-
-
 <script>
     var monei_title_refund = "{l s='Refund' mod='monei'}";
     var monei_text_refund = "{l s='Are you sure you want to refund this order?' mod='monei'}";

@@ -27,6 +27,6 @@ echo '</pre></div>';
 $time_end = microtime(true);
 $time_result = $time_end - $time_start;
 
-echo '<p style="font-size:21px">Total execution time: '.substr($time_result,0,7).' sec.</p>';
+echo '<p style="font-size:21px">Total execution time: ' . substr($time_result, 0, 7) . ' sec.</p>';
 
 ?>

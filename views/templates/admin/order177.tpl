@@ -1,5 +1,3 @@
-
-
 {include file="./scripts/admin_scripts.tpl"}
 
 <div class="row">

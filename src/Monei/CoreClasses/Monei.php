@@ -6,13 +6,9 @@ namespace Monei\CoreClasses;
 use Configuration;
 use Currency;
 use Db;
-use Monei\CoreClasses\stdClass;
 use ObjectModel;
 use Order;
 use Tools;
-use function Monei\CoreClasses\pSQL;
-use const Monei\CoreClasses\_DB_PREFIX_;
-use const Monei\CoreClasses\_PS_USE_SQL_SLAVE_;
 
 if (!defined('_PS_VERSION_')) {
     exit;

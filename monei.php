@@ -3,11 +3,11 @@
 // Load libraries
 require_once dirname(__FILE__) . '/vendor/autoload.php';
 
-use PrestaShop\PrestaShop\Adapter\ServiceLocator;
 use Monei\CoreClasses\Monei as MoneiClass;
 use Monei\CoreClasses\MoneiCard;
 use Monei\CoreHelpers\PsTools;
 use Monei\Traits\ValidationHelpers;
+use PrestaShop\PrestaShop\Adapter\ServiceLocator;
 use Symfony\Polyfill\Mbstring\Mbstring;
 
 if (!defined('_PS_VERSION_')) {

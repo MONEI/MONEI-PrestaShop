@@ -1,5 +1,3 @@
-
-
 {if $monei_success === true}
     <div class="box">
         {hook h='displayOrderConfirmation' order=$order objOrder=$order}
