@@ -1,6 +1,6 @@
 <?php
 
-include_once dirname( __FILE__ ) . './utils.php';
+include_once dirname( __FILE__ ) . '/utils.php';
 
 class ApiHandler {
 	private $testMode;
