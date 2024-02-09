@@ -50,8 +50,7 @@ $useragent[] = 'Mozilla/4.0 (compatible; MSIE 4.01; AOL 4.0; Mac_68K)';
 
 $time_start = microtime(true);
 
-foreach ($useragent as $u)
-{
+foreach ($useragent as $u) {
 
 	// Detect OS data from User-Agents
 	$result = $Browser->getOS($u);
@@ -73,6 +72,6 @@ foreach ($useragent as $u)
 $time_end = microtime(true);
 $time_result = $time_end - $time_start;
 
-echo '<p style="font-size:21px">Total execution time: '.substr($time_result,0,7).' sec.</p>';
+echo '<p style="font-size:21px">Total execution time: ' . substr($time_result, 0, 7) . ' sec.</p>';
 
 ?>

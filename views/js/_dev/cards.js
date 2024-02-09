@@ -1,5 +1,3 @@
-
-
 document.addEventListener("DOMContentLoaded", function (event) {
     var cards_links = document.querySelectorAll('a[data-monei-card]');
     cards_links.forEach(function (link) {

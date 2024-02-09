@@ -27,11 +27,10 @@ $useragent[] = 'Mozilla/5.0 (compatible; MSIE 9.0; Windows NT 6.1; Trident/5.0; 
 
 $time_start = microtime(true);
 
-foreach ($useragent as $u)
-{
+foreach ($useragent as $u) {
 
 	//$Browser->setTouchSupport();
-	
+
 	// Detect all possible environment data from User-Agents
 	$result = $Browser->getAll($u);
 
@@ -52,6 +51,6 @@ foreach ($useragent as $u)
 $time_end = microtime(true);
 $time_result = $time_end - $time_start;
 
-echo '<p style="font-size:21px">Total execution time: '.substr($time_result,0,7).' sec.</p>';
+echo '<p style="font-size:21px">Total execution time: ' . substr($time_result, 0, 7) . ' sec.</p>';
 
 ?>

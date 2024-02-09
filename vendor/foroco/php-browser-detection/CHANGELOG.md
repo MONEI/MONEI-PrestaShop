@@ -17,7 +17,8 @@ All notable changes to this `PHP Browser Detection` project documented in this f
 
 - Chrome OS now detectable as desktop type OS;
 - Chrome OS devices now detectable as desktop types;
-- Fixed previously not identified PHP Warning Notices like 'Trying to access array offset ...' which appears since PHP version 7.4.
+- Fixed previously not identified PHP Warning Notices like 'Trying to access array offset ...' which appears since PHP
+  version 7.4.
 
 ## [2.2] - 2021-07-05
 

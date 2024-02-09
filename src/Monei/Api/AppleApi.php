@@ -3,9 +3,9 @@
 
 namespace Monei\Api;
 
-use PsCurl\PsCurl as CurlCustom;
 use Monei\ApiException;
 use Monei\Configuration;
+use PsCurl\PsCurl as CurlCustom;
 
 class AppleApi
 {
