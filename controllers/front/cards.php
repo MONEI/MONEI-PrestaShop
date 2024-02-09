@@ -1,6 +1,5 @@
 <?php
 
-
 use Monei\CoreClasses\MoneiCard;
 
 // Load libraries
@@ -43,7 +42,7 @@ class MoneiCardsModuleFrontController extends ModuleFrontController
         $id_monei_tokens = (int)Tools::getValue('id_monei_card');
 
         $res = Db::getInstance()->delete(
-            'monei_tokens',
+            'lbl_monei_tokens',
             'id_customer = ' . (int)$id_customer . ' AND id_monei_tokens = ' . (int)$id_monei_tokens
         );
 

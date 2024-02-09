@@ -1,6 +1,5 @@
 <?php
 
-
 use Monei\ApiException;
 use Monei\CoreClasses\Monei as MoneiClass;
 use Monei\CoreHelpers\PsOrderHelper;
