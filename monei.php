@@ -1,5 +1,7 @@
 <?php
 
+// Load libraries
+require_once dirname(__FILE__) . '/vendor/autoload.php';
 
 use PrestaShop\PrestaShop\Adapter\ServiceLocator;
 use Monei\CoreClasses\Monei as MoneiClass;
@@ -11,9 +13,6 @@ use Symfony\Polyfill\Mbstring\Mbstring;
 if (!defined('_PS_VERSION_')) {
     exit;
 }
-
-// Load libraries
-require_once dirname(__FILE__) . '/vendor/autoload.php';
 
 class Monei extends PaymentModule
 {

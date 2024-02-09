@@ -37,10 +37,10 @@
                                 <div class="col-md-6">
                                     <p>
                                     <p style="align:center;">
-                                        <img style="width:120px" src="{$module_dir|escape:'htmlall':'UTF-8'}logo.png"
+                                        <img style="width:120px" src="https://assets.monei.com/images/logo.svg"
                                              alt="{$display_name|escape:'html':'UTF-8'}">
                                     </p>
-                                    <strong>{l s='Thank you for your purchase!' mod='monei'}</strong><br/>
+                                    <strong>{l s='Grow your business faster with the advanced payment platform' mod='monei'}</strong><br/>
                                     </p>
                                 </div>
                                 <div class="col-md-6">
@@ -90,15 +90,9 @@
                             <h3>{l s='Documentation' mod='monei'}</h3>
                             <p>
                             <p>
-                                {l s='Read the documentation of this module (English):' mod='monei'} <a
-                                        href="{$module_dir|escape:'html':'UTF-8'}readme_en.pdf"
+                                {l s='Read the documentation of this module:' mod='monei'} <a
+                                        href="https://docs.monei.com/docs/e-commerce/prestashop/"
                                         target="_blank">{l s='HERE' mod='monei'}</a><br/>
-                            </p>
-                            <p>
-                                {l s='Read the documentation of this module (Spanish):' mod='monei'} <a
-                                        href="{$module_dir|escape:'html':'UTF-8'}readme_es.pdf"
-                                        target="_blank">{l s='HERE' mod='monei'}</a><br/>
-                            </p>
                             </p>
                         </div>
                     </div>
