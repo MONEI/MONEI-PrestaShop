@@ -1,6 +1,5 @@
 <?php
 
-
 use Monei\CoreClasses\Monei as MoneiClass;
 use Monei\CoreHelpers\PsCartHelper;
 use Monei\CoreHelpers\PsOrderHelper;
@@ -67,14 +66,14 @@ class MoneiCheckModuleFrontController extends ModuleFrontController
             die();
         }
 
-        $monei = MoneiClass::getMoneiByMoneiOrder($id_order_monei);
-        if ((int)$monei->id_cart !== $id_cart) {
+        $lbl_monei = MoneiClass::getMoneiByMoneiOrder($id_order_monei);
+        if ((int)$lbl_monei->id_cart !== $id_cart) {
             // Simulate 404
             header('HTTP/1.1 404 Not Found');
             die();
         }
 
-        $id_monei = $monei->id;
+        $id_lbl_monei = $lbl_monei->id;
 
         $error = [];
         if (Tools::isSubmit('error')) {
@@ -105,29 +104,29 @@ class MoneiCheckModuleFrontController extends ModuleFrontController
                 // Validate order with error
                 $error[] = $this->l('Expected payment amount doesnt match response amount');
                 $payment_status = (int)Configuration::get('MONEI_STATUS_FAILED');
-                $monei->status = 'FAILED';
+                $lbl_monei->status = 'FAILED';
             }
 
             // Check Currencies
-            if ($monei->currency !== $payment_from_api->getCurrency()) {
+            if ($lbl_monei->currency !== $payment_from_api->getCurrency()) {
                 $error[] = $this->l('Currency from response and internal registry doesnt match');
                 $payment_status = (int)Configuration::get('MONEI_STATUS_FAILED');
-                $monei->status = 'FAILED';
+                $lbl_monei->status = 'FAILED';
             }
 
             // Check payment (FROM API call, not callback)
             if ($payment_from_api->getStatusCode() === 'E000') {
                 $payment_status = (int)Configuration::get('MONEI_STATUS_SUCCEEDED');
-                $monei->status = pSQL($payment_from_api->getStatus());
+                $lbl_monei->status = pSQL($payment_from_api->getStatus());
             } else {
                 // Payment KO, TODO ERRORS ($message)
                 $error[] = $payment_from_api->getStatusMessage();
                 $payment_status = (int)Configuration::get('MONEI_STATUS_FAILED');
-                $monei->status = 'FAILED';
+                $lbl_monei->status = 'FAILED';
                 $failed = true;
             }
 
-            $monei->save();
+            $lbl_monei->save();
 
             $should_create_order = true;
             $order_state_obj = new OrderState(Configuration::get('MONEI_STATUS_PENDING'));
@@ -157,16 +156,16 @@ class MoneiCheckModuleFrontController extends ModuleFrontController
 
             if ($should_create_order && !PsOrderHelper::orderExists($id_cart)) {
                 // Set a LOCK for slow servers
-                $is_locked_info = MoneiClass::getLockInformation($monei->id);
+                $is_locked_info = MoneiClass::getLockInformation($lbl_monei->id);
 
                 if ($is_locked_info['locked'] == 0) {
                     Db::getInstance()->update(
-                        'monei',
+                        'lbl_monei',
                         [
                             'locked' => 1,
                             'locked_at' => time(),
                         ],
-                        'id_monei = ' . (int)$id_monei
+                        'id_lbl_monei = ' . (int)$id_lbl_monei
                     );
                 } elseif ($is_locked_info['locked'] == 1 && $is_locked_info['locked_at'] < (time() - 60)) {
                     $should_create_order = false;
@@ -176,11 +175,11 @@ class MoneiCheckModuleFrontController extends ModuleFrontController
                     $message = $this->l('Slow server detected, previous order creation process timed out');
                     PrestaShopLogger::addLog('MONEI: ' . $message, 2);
                     Db::getInstance()->update(
-                        'monei',
+                        'lbl_monei',
                         [
                             'locked_at' => time(),
                         ],
-                        'id_monei = ' . (int)$id_monei
+                        'id_lbl_monei = ' . (int)$id_lbl_monei
                     );
                 }
 
@@ -202,8 +201,8 @@ class MoneiCheckModuleFrontController extends ModuleFrontController
 
             // Check id_order
             if ($order->id > 0) {
-                $monei->id_order = (int)$order->id;
-                $monei->save();
+                $lbl_monei->id_order = (int)$order->id;
+                $lbl_monei->save();
             }
 
             // Save log (required from API for tokenization)

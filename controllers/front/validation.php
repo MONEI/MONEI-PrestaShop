@@ -1,90 +1,217 @@
 <?php
 
+use Monei\ApiException;
+use Monei\CoreClasses\Monei;
+use Monei\CoreHelpers\PsCartHelper;
+use Monei\CoreHelpers\PsOrderHelper;
+use Monei\Model\MoneiPayment;
+use Monei\MoneiClient;
+use Monei\Traits\ValidationHelpers;
 
-class MoneiPaymentsValidationModuleFrontController extends ModuleFrontController
+// Load libraries
+require_once dirname(__FILE__) . '/../../vendor/autoload.php';
+
+class MoneiValidationModuleFrontController extends ModuleFrontController
 {
+    use ValidationHelpers;
+
+    public function initContent()
+    {
+        $this->setTemplate('module:' . $this->module->name . '/views/templates/front/redirect.tpl');
+        parent::initContent();
+    }
+
     /**
-     * @see FrontController::postProcess()
+     * This class should be use by your Instant Payment
+     * Notification system to validate the order remotely
      */
     public function postProcess()
     {
-        $cart = $this->context->cart;
-        if ($cart->id_customer == 0 ||
-            $cart->id_address_delivery == 0 ||
-            $cart->id_address_invoice == 0 ||
-            !$this->module->active) {
-            Tools::redirect('index.php?controller=order&step=1');
+        /*
+         * If the module is not active anymore, no need to process anything.
+         */
+        if ($this->module->active == false) {
+            die();
         }
 
+        $data = Tools::file_get_contents('php://input');
 
-        $authorized = false;
-        foreach (Module::getPaymentModules() as $module) {
-            if ($module['name'] == 'moneipayments') {
-                $authorized = true;
-                break;
+        try {
+            $payment_status = (int)Configuration::get('MONEI_STATUS_PENDING');
+
+            // Try to convert the response into a valid JSON object
+            $json_array = $this->vJSON($data);
+            $payment_callback = new MoneiPayment($json_array);
+
+            // Check which cart we need to convert into an order
+            $order_id = $payment_callback->getOrderId();
+            $id_lbl_monei = Monei::getIdByInternalOrder($order_id);
+
+            if (!$id_lbl_monei) {
+                $message = $this->l('Uknown ID for orderId') . ': ' . pSQL($order_id);
+                PrestaShopLogger::addLog('MONEI: ' . $message, 3);
+                throw new ApiException($message, 3);
+                die();
             }
-        }
-        if (!$authorized) {
-            die($this->module->l('This payment method is not available.', 'moneipayments'));
-        }
 
-        $customer = new Customer($cart->id_customer);
-        if (!Validate::isLoadedObject($customer)) {
-            Tools::redirect('index.php?controller=order&step=1');
-        }
+            $lbl_monei = new Monei((int)$id_lbl_monei);
+            $authorization_code = $payment_callback->getAuthorizationCode();
+            $lbl_monei->authorization_code = pSQL($authorization_code);
+            $lbl_monei->save();
 
-        $currency = $this->context->currency;
-        $total = (float)$cart->getOrderTotal(true, Cart::BOTH);
+            $client = new MoneiClient(Configuration::get('MONEI_API_KEY'));
+            $payment_from_api = $client->payments->getPayment($lbl_monei->id_order_monei);
 
-        $config = $this->module->getConfig();
+            $id_cart = (int)$lbl_monei->id_cart;
+            $id_order_internal = $lbl_monei->id_order_internal;
+            $id_cart_response = is_array(explode('m', $order_id)) ? (int)explode('m', $order_id)[0] : false;
 
-        if (empty($config->secretToken)) {
-            Tools::redirect('index.php?controller=order&step=1');
-        }
+            $amount_response = $payment_callback->getAmount();
 
-        $apiHandler = new ApiHandler($config->secretToken);
+            // Check orderId
+            if ($id_order_internal !== $order_id) {
+                $message = $this->l('orderId from response and internal registry doesnt match');
+                PrestaShopLogger::addLog('MONEI: ' . $message, 3);
+                throw new ApiException($message, 4);
+                die();
+            }
 
-        //validate order
-        $resourcePath = Tools::getValue('resourcePath');
-        if (!isset($resourcePath) || $resourcePath == null || empty($resourcePath)) {
-            Tools::redirect('index.php?controller=order&step=1');
-        }
+            // Check Cart
+            if ($id_cart !== $id_cart_response) {
+                $message = $this->l('cartId from response and internal registry doesnt match');
+                PrestaShopLogger::addLog('MONEI: ' . $message, 3);
+                throw new ApiException($message, 5);
+                die();
+            }
 
-        $transaction = $apiHandler->getTransactionStatus($resourcePath);
+            $cart = new Cart($id_cart);
 
-        if ($apiHandler->isTransactionSuccessful($transaction)) {
-            $paymentStatus = Configuration::get('PS_OS_PAYMENT');
-            $message = "Successful payment!";
-        } else {
-            $paymentStatus = Configuration::get('PS_OS_ERROR');
+            // Check customer
+            $id_customer_cart = (int)$cart->id_customer;
+            $customer = new Customer($id_customer_cart);
 
-            if (isset($transaction->result) && isset($transaction->result->description)) {
-                $message = $transaction->result->description;
+            $amount_cart = (int)PsCartHelper::getTotalFromCart($id_cart);
+            $failed = false;
+
+            // Triple check for amount
+            if ($amount_response !== (int)$lbl_monei->amount || $amount_response !== $amount_cart) {
+                // Validate order with error
+                $message = $this->l('Expected payment amount doesnt match response amount');
+                $payment_status = (int)Configuration::get('MONEI_STATUS_FAILED');
+                $lbl_monei->status = 'FAILED';
+            }
+
+            if ($amount_response !== (int)$payment_from_api->getAmount()) {
+                // Validate order with error
+                $message = $this->l('Expected payment amount doesnt match response amount');
+                $payment_status = (int)Configuration::get('MONEI_STATUS_FAILED');
+                $lbl_monei->status = 'FAILED';
+            }
+
+            // Check Currencies
+            if ($lbl_monei->currency !== $payment_from_api->getCurrency()) {
+                throw new ApiException($this->l('Currency from response and internal registry doesnt match'), 5);
+            }
+
+            // Check payment (FROM API call, not callback)
+            if ($payment_from_api->getStatusCode() === 'E000') {
+                $payment_status = (int)Configuration::get('MONEI_STATUS_SUCCEEDED');
+                $lbl_monei->status = pSQL($payment_callback->getStatus());
             } else {
-                $message = $this->module->l("An unknown error occurred while processing payment.", 'moneipayments');
+                // Payment KO, TODO ERRORS ($message)
+                $payment_status = (int)Configuration::get('MONEI_STATUS_FAILED');
+                $lbl_monei->status = 'FAILED';
+                $failed = true;
             }
+
+            $lbl_monei->save();
+
+            $should_create_order = true;
+            $order = Order::getByCartId($id_cart);
+            if ($order->id > 0) {
+                $should_create_order = false;
+            } elseif ((int)$order->id === 0 && $failed === true && !Configuration::get('MONEI_CART_TO_ORDER')) {
+                $should_create_order = false;
+            } elseif ((int)$order->id === 0 && $failed === false) {
+                $should_create_order = true;
+            }
+
+            $order_state_obj = new OrderState(Configuration::get('MONEI_STATUS_PENDING'));
+            if (Configuration::get('MONEI_CART_TO_ORDER')) {
+                if (
+                    Configuration::get('MONEI_STATUS_PENDING') &&
+                    Validate::isLoadedObject($order_state_obj)
+                ) {
+                    $should_create_order = false;
+                    // Change order status to paid/failed
+                    $order = Order::getByCartId($id_cart);
+                    $order->setCurrentState($payment_status);
+                }
+            }
+
+            if ($should_create_order && !PsOrderHelper::orderExists($id_cart)) {
+                // Set a LOCK for slow servers
+                $is_locked_info = Monei::getLockInformation($id_lbl_monei);
+
+                if ($is_locked_info['locked'] == 0) {
+                    Db::getInstance()->update(
+                        'lbl_monei',
+                        [
+                            'locked' => 1,
+                            'locked_at' => time(),
+                        ],
+                        'id_lbl_monei = ' . (int)$id_lbl_monei
+                    );
+                } elseif ($is_locked_info['locked'] == 1 && $is_locked_info['locked_at'] < (time() - 60)) {
+                    $should_create_order = false;
+                    $message = $this->l('Slow server detected, order in creation process');
+                    PrestaShopLogger::addLog('MONEI: ' . $message, 3);
+                } elseif ($is_locked_info['locked'] == 1 && $is_locked_info['locked_at'] > (time() - 60)) {
+                    $message = $this->l('Slow server detected, previous order creation process timed out');
+                    PrestaShopLogger::addLog('MONEI: ' . $message, 2);
+                    Db::getInstance()->update(
+                        'lbl_monei',
+                        [
+                            'locked_at' => time(),
+                        ],
+                        'id_lbl_monei = ' . (int)$id_lbl_monei
+                    );
+                }
+
+                if ($should_create_order) {
+                    $this->module->validateOrder(
+                        $id_cart,
+                        $payment_status,
+                        $amount_response / 100,
+                        $this->module->displayName,
+                        $message,
+                        [],
+                        $cart->id_currency,
+                        false,
+                        $customer->secure_key
+                    );
+                }
+                $order = Order::getByCartId($id_cart);
+            }
+
+            // Check id_order
+            if ($order->id > 0) {
+                $lbl_monei->id_order = (int)$order->id;
+                $lbl_monei->save();
+            }
+
+            // Save log (required from API for tokenization)
+            if (!PsOrderHelper::saveTransaction($payment_from_api, false, false, true, $failed)) {
+                $message = $this->l('Unable to save transaction information');
+                PrestaShopLogger::addLog('MONEI: ' . $message);
+                throw new ApiException($message, 2);
+            }
+
+            // Check the Payment ID
+        } catch (ApiException $ex) {
+            PrestaShopLogger::addLog('MONEI: ' . $ex->getMessage(), 4);
+        } catch (Exception $ex) {
+            PrestaShopLogger::addLog($ex->getMessage());
         }
-
-        $this->context->cookie->monei_redirect_message = $message;
-        $this->module->validateOrder($cart->id,
-            $paymentStatus,
-            $total,
-            $this->module->displayName,
-            $message,
-            array(),
-            (int)$currency->id,
-            false,
-            $customer->secure_key);
-
-
-        $redirectParams = array(
-            'controller' => 'order-confirmation',
-            'id_cart' => $cart->id,
-            'id_module' => $this->module->id,
-            'id_order' => $transaction->merchantInvoiceId,
-            'key' => $customer->secure_key
-        );
-
-        Tools::redirect('index.php' . '?' . http_build_query($redirectParams));
     }
 }
