@@ -1,0 +1,41 @@
+{
+  "name": "monei-prestashop",
+  "version": "1.3.0",
+  "main": "index.js",
+  "repository": "git@github.com:MONEI/MONEI-PrestaShop.git",
+  "author": "MONEI <support@monei.com>",
+  "license": "MIT",
+  "private": true,
+  "scripts": {
+    "release": "release-it"
+  },
+  "release-it": {
+    "git": {
+      "tagName": "${version}",
+      "commitMessage": "chore: release v${version}"
+    },
+    "github": {
+      "release": true
+    },
+    "npm": {
+      "publish": false
+    },
+    "plugins": {
+      "@release-it/bumper": {
+        "out": [
+          "../config_es.xml",
+          "../config_gb.xml",
+          "../monei.php"
+        ]
+      }
+    },
+    "hooks": {
+      "after:bump": "git add -A"
+    }
+  },
+  "devDependencies": {
+    "@release-it/bumper": "^3.0.1",
+    "release-it": "^14.12.4"
+  },
+  "packageManager": "yarn@4.1.0"
+}
