@@ -10,14 +10,14 @@ jobs:
     steps:
     - uses: actions/checkout@master
     - name: Archive Release
-      uses: thedoctor0/zip-release@0.7.5
+      uses: thedoctor0/zip-release@0.7.6
       with:
-        type: 'zip'
+        type: '7z'
         filename: 'monei.zip'
         exclusions: '*.git* /build/*'
         
     - name: Upload Release
-      uses: ncipollo/release-action@v1.12.0
+      uses: ncipollo/release-action@v1.14.0
       with:
         allowUpdates: true
         artifacts: 'monei.zip'
