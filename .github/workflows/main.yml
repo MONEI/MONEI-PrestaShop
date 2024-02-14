@@ -9,18 +9,22 @@ jobs:
 
     steps:
     - uses: actions/checkout@master
+
+    - name: Prepare Archive Directory
+      run: |
+        mkdir ../monei
+        cp -r * ../monei/
+        cd ../
+
     - name: Archive Release
-      uses: thedoctor0/zip-release@0.7.6
-      with:
-        type: '7z'
-        filename: 'monei.zip'
-        exclusions: '*.git* /build/*'
+      run: |
+        zip -r monei.zip monei -x '*.git*' -x 'build/*'
         
     - name: Upload Release
       uses: ncipollo/release-action@v1.14.0
       with:
         allowUpdates: true
-        artifacts: 'monei.zip'
+        artifacts: '../monei.zip'
         artifactContentType: 'application/zip'
         replacesArtifacts: true
         token: ${{ secrets.GITHUB_TOKEN }}
