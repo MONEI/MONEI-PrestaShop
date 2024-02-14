@@ -18,7 +18,7 @@ jobs:
     - name: Archive Release
       run: |
         cd ..
-        zip -r monei.zip monei -x '*.git*' -x 'build/*'
+        zip -r monei.zip monei -x '*.git*' -x '/build/*'
         
     - name: Upload Release
       uses: ncipollo/release-action@v1.14.0
@@ -26,5 +26,4 @@ jobs:
         allowUpdates: true
         artifacts: '../monei.zip'
         artifactContentType: 'application/zip'
-        removeArtifacts: true
         token: ${{ secrets.GITHUB_TOKEN }}
