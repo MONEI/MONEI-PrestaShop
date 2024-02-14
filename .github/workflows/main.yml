@@ -13,18 +13,18 @@ jobs:
     - name: Prepare Archive Directory
       run: |
         mkdir ../monei
-        cp -r * ../monei/
-        cd ../
+        cp -r . ../monei/
 
     - name: Archive Release
       run: |
-        zip -r monei.zip ../monei -x '*.git*' -x 'build/*'
+        cd ..
+        zip -r monei.zip monei -x '*.git*' -x 'build/*'
         
     - name: Upload Release
       uses: ncipollo/release-action@v1.14.0
       with:
         allowUpdates: true
-        artifacts: 'monei.zip'
+        artifacts: '../monei.zip'
         artifactContentType: 'application/zip'
-        replacesArtifacts: true
+        removeArtifacts: true
         token: ${{ secrets.GITHUB_TOKEN }}
