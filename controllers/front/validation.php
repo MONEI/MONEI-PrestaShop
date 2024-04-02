@@ -185,7 +185,7 @@ class MoneiValidationModuleFrontController extends ModuleFrontController
                         $amount_response / 100,
                         $this->module->displayName,
                         $message,
-                        [],
+                        ['transaction_id' => $payment_from_api->getId()],
                         $cart->id_currency,
                         false,
                         $customer->secure_key

@@ -39,20 +39,20 @@
                             {foreach from=$history_logs item=hl}
                                 <tr>
                                     <td>{$hl.date_add|escape:'html':'UTF-8'}</td>
-                                    <td>{if $hl.status_code}{$hl.status_code|escape:'html':'UTF-8'}{else}-{/if}</td>
+                                    <td>{if isset($hl.status_code) and $hl.status_code}{$hl.status_code|escape:'html':'UTF-8'}{else}-{/if}</td>
                                     <td><span
-                                                class="badge rounded badge-print-light bg-{$hl.badge|escape:'html':'UTF-8'} text-white font-bold">{if $hl.status}{$hl.status|escape:'html':'UTF-8'}{else}-{/if}</span>
+                                                class="badge rounded badge-print-light bg-{$hl.badge|escape:'html':'UTF-8'} text-white font-bold">{if isset($hl.status) and $hl.status}{$hl.status|escape:'html':'UTF-8'}{else}-{/if}</span>
                                     </td>
-                                    <td>{if $hl.status_message}{$hl.status_message|escape:'html':'UTF-8'}{else}-{/if}
+                                    <td>{if isset($hl.status_message) and $hl.status_message}{$hl.status_message|escape:'html':'UTF-8'}{else}-{/if}
                                     </td>
                                     <td>{if $hl.is_callback}
                                             <span class="badge bg-success">&nbsp;</span>
                                         {else}
                                             <span class="badge bg-danger">&nbsp;</span>
                                         {/if}</td>
-                                    <td>{if $hl.session_details.ip}{$hl.session_details.ip|escape:'html':'UTF-8'}{else}-{/if}
+                                    <td>{if isset($hl.session_details) and $hl.session_details.ip}{$hl.session_details.ip|escape:'html':'UTF-8'}{else}-{/if}
                                     </td>
-                                    <td>{if $hl.livemode}
+                                    <td>{if isset($rf.livemode) and $hl.livemode}
                                             <span class="badge bg-success">&nbsp;</span>
                                         {else}
                                             <span class="badge bg-danger">&nbsp;</span>
@@ -146,12 +146,12 @@
                                     <td>{$rf.date_add|escape:'html':'UTF-8'}</td>
                                     <td>{$rf.amount|escape:'html':'UTF-8'}</td>
                                     <td><span
-                                                class="badge rounded badge-print-light bg-{$rf.badge|escape:'html':'UTF-8'} text-dark">{if $rf.status}{$rf.status|escape:'html':'UTF-8'}{else}-{/if}</span>
+                                                class="badge rounded badge-print-light bg-{$rf.badge|escape:'html':'UTF-8'} text-dark">{if isset($rf.status) and $rf.status}{$rf.status|escape:'html':'UTF-8'}{else}-{/if}</span>
                                     </td>
-                                    <td>{if $rf.status_message}{$rf.status_message|escape:'html':'UTF-8'}{else}-{/if}
+                                    <td>{if isset($rf.status_message) and $rf.status_message}{$rf.status_message|escape:'html':'UTF-8'}{else}-{/if}
                                     </td>
                                     <td>{$rf.employee|escape:'html':'UTF-8'}</td>
-                                    <td>{if $rf.livemode}
+                                    <td>{if isset($rf.livemode) and $rf.livemode}
                                             <span class="badge bg-success">&nbsp;</span>
                                         {else}
                                             <span class="badge bg-danger">&nbsp;</span>
