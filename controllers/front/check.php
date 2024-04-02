@@ -28,22 +28,46 @@ class MoneiCheckModuleFrontController extends ModuleFrontController
 
         // Check if the cart belongs to the logged in customer
         $cart = new Cart($id_cart);
+        if (!Validate::isLoadedObject($cart)) {
+            PrestaShopLogger::addLog(
+                'MONEI: Cart not found - Cart ID: ' . $id_cart,
+                PrestaShopLogger::LOG_SEVERITY_LEVEL_MAJOR,
+                null,
+                'MoneiCheckModuleFrontController',
+            );
+
+            header('HTTP/1.0 403 Forbidden');
+            echo '<h1>Operation failed.</h1>';
+            echo '<h2>The operation could not be completed, please contact the administrator.</h2>';
+            exit;
+        }
         $id_customer_cart = $cart->id_customer;
 
         if ((int)Context::getContext()->customer->id !== (int)$id_customer_cart) {
-            // Simulate 404
-            header('HTTP/1.1 404 Not Found');
-            die();
+            PrestaShopLogger::addLog(
+                'MONEI: Customer not correspond to cart customer - Context customer ID: ' . Context::getContext()->customer->id . ' - Cart customer ID: ' . $id_customer_cart,
+                PrestaShopLogger::LOG_SEVERITY_LEVEL_MAJOR,
+                null,
+                'MoneiCheckModuleFrontController',
+            );
+
+            header('HTTP/1.0 403 Forbidden');
+            echo '<h1>Operation failed.</h1>';
+            echo '<h2>The operation could not be completed, please contact the administrator.</h2>';
+            exit;
         }
 
-        $id_order_created = (Order::getByCartId($id_cart))->id;
-        if ((int)$id_order_created > 0) {
-            $order_exists = true;
+        $orderExists = false;
+        $orderIdCreated = null;
+        $orderByCart = Order::getByCartId($id_cart);
+        if (Validate::isLoadedObject($orderByCart)) {
+            $orderExists = true;
+            $orderIdCreated = $orderByCart->id;
         }
 
         die(json_encode([
-            'order_exists' => $order_exists,
-            'id_order' => $id_order_created,
+            'order_exists' => $orderExists,
+            'id_order' => $orderIdCreated,
             'counter' => $counter,
         ]));
     }
@@ -153,19 +177,18 @@ class MoneiCheckModuleFrontController extends ModuleFrontController
                     $should_create_order = true;
                 }
             }
-
             if ($should_create_order && !PsOrderHelper::orderExists($id_cart)) {
                 // Set a LOCK for slow servers
                 $is_locked_info = MoneiClass::getLockInformation($lbl_monei->id);
 
                 if ($is_locked_info['locked'] == 0) {
                     Db::getInstance()->update(
-                        'lbl_monei',
+                        'monei',
                         [
                             'locked' => 1,
                             'locked_at' => time(),
                         ],
-                        'id_lbl_monei = ' . (int)$id_lbl_monei
+                        'id_monei = ' . (int)$id_lbl_monei
                     );
                 } elseif ($is_locked_info['locked'] == 1 && $is_locked_info['locked_at'] < (time() - 60)) {
                     $should_create_order = false;
@@ -175,11 +198,11 @@ class MoneiCheckModuleFrontController extends ModuleFrontController
                     $message = $this->l('Slow server detected, previous order creation process timed out');
                     PrestaShopLogger::addLog('MONEI: ' . $message, 2);
                     Db::getInstance()->update(
-                        'lbl_monei',
+                        'monei',
                         [
                             'locked_at' => time(),
                         ],
-                        'id_lbl_monei = ' . (int)$id_lbl_monei
+                        'id_monei = ' . (int)$id_lbl_monei
                     );
                 }
 
@@ -190,13 +213,28 @@ class MoneiCheckModuleFrontController extends ModuleFrontController
                         $payment_from_api->getAmount() / 100,
                         $this->module->displayName,
                         $message,
-                        [],
+                        ['transaction_id' => $payment_from_api->getId()],
                         $cart->id_currency,
                         false,
                         $customer->secure_key
                     );
+
+                    $order = Order::getByCartId($id_cart);
                 }
-                $order = Order::getByCartId($id_cart);
+            }
+
+            if (!Validate::isLoadedObject($order)) {
+                PrestaShopLogger::addLog(
+                    'MONEI: Not is possible to get order.',
+                    PrestaShopLogger::LOG_SEVERITY_LEVEL_MAJOR,
+                    null,
+                    'MoneiCheckModuleFrontController',
+                );
+
+                header('HTTP/1.0 403 Forbidden');
+                echo '<h1>Operation failed.</h1>';
+                echo '<h2>The operation could not be completed, please contact the administrator.</h2>';
+                exit;
             }
 
             // Check id_order
@@ -214,9 +252,9 @@ class MoneiCheckModuleFrontController extends ModuleFrontController
                 }
             }
         } catch (Exception $ex) {
+            $failed = true;
             $error[] = $ex->getMessage();
         }
-
         $this->context->smarty->assign([
             'errors' => $error,
             'monei_success' => !$failed,

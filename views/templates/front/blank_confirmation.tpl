@@ -1,16 +1,18 @@
 {extends file='page.tpl'}
 
 {block name='page_header_container'}
-    <script>
-        const monei_cart_id = '{$monei_cart_id|escape:'htmlall':'UTF-8'}';
-        const monei_order_id = '{$monei_order_id|escape:'htmlall':'UTF-8'}';
-        const monei_id = '{$monei_id|escape:'htmlall':'UTF-8'}';
-    </script>
+    {if $monei_success === true}
+        <script>
+            const monei_cart_id = '{$monei_cart_id|escape:'htmlall':'UTF-8'}';
+            const monei_order_id = '{$monei_order_id|escape:'htmlall':'UTF-8'}';
+            const monei_id = '{$monei_id|escape:'htmlall':'UTF-8'}';
+        </script>
+    {/if}
     <header class="page-header">
         <h1 class="h1 page-title">
             {if $monei_success === true}
                 <span>{l s='Order' mod='monei'} #<span
-                            id="order_id_span">{$order_id|escape:'html':'UTF-8'}</span></span>
+                            id="order_id_span">{$monei_order_id|escape:'html':'UTF-8'}</span></span>
             {else}
                 <span>{l s='Payment error' mod='monei'}</span>
             {/if}
