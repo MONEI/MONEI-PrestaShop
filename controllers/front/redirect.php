@@ -96,7 +96,7 @@ class MoneiRedirectModuleFrontController extends ModuleFrontController
 
                     // Convert the cart to order
                     $order_state_obj = new OrderState(Configuration::get('MONEI_STATUS_PENDING'));
-                    if (Configuration::get('MONEI_CART_TO_ORDER')) {
+                    if (Configuration::get('MONEI_CART_TO_ORDER') || $payment->isPaymentMethodAllowed(MoneiPaymentMethods::MULTIBANCO)) {
                         if (
                             Configuration::get('MONEI_STATUS_PENDING') &&
                             Validate::isLoadedObject($order_state_obj)

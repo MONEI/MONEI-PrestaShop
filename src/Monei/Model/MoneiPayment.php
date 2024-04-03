@@ -408,6 +408,20 @@ class MoneiPayment implements ModelInterface
         return $this;
     }
 
+    public function getAllowedPaymentMethods(): array
+    {
+        return $this->getContainerValue('allowed_payment_methods') ?? [];
+    }
+
+    public function isPaymentMethodAllowed(string $paymentMethod): bool
+    {
+        if (is_array($this->getContainerValue('allowed_payment_methods'))) {
+            return in_array($paymentMethod, $this->getContainerValue('allowed_payment_methods'));
+        }
+
+        return false;
+    }
+
     /**
      * Gets the next action to take for the payment
      * @return MoneiNextAction
