@@ -991,6 +991,9 @@ class Monei extends PaymentModule
             $option
                 ->setCallToActionText($this->l('Credit Card'))
                 ->setAdditionalInformation($template . $template_tokenize)
+                ->setLogo(
+                    Media::getMediaPath(_PS_MODULE_DIR_ . $this->name . '/views/img/monei_cards.png')
+                )
                 ->setAction($link_create_payment);
             $payment_methods[] = $option;
         }
@@ -1033,6 +1036,10 @@ class Monei extends PaymentModule
             $option
                 ->setCallToActionText($this->l('Bizum'))
                 ->setAdditionalInformation($template)
+                ->setLogo(
+                    Media::getMediaPath(_PS_MODULE_DIR_ . $this->name . '/views/img/payments/bizum.svg')
+                )
+                ->setModuleName('monei-' . 'bizum')
                 ->setAction($link_create_payment);
             $payment_methods[] = $option;
         }
@@ -1048,6 +1055,9 @@ class Monei extends PaymentModule
             $option
                 ->setCallToActionText($this->l('Apple Pay'))
                 ->setAdditionalInformation($template)
+                ->setLogo(
+                    Media::getMediaPath(_PS_MODULE_DIR_ . $this->name . '/views/img/payments/apple-pay.svg')
+                )
                 ->setAction($link_create_payment);
             $payment_methods[] = $option;
         }
@@ -1063,6 +1073,9 @@ class Monei extends PaymentModule
             $option
                 ->setCallToActionText($this->l('Google Pay'))
                 ->setAdditionalInformation($template)
+                ->setLogo(
+                    Media::getMediaPath(_PS_MODULE_DIR_ . $this->name . '/views/img/payments/google-pay.svg')
+                )
                 ->setAction($link_create_payment);
             $payment_methods[] = $option;
         }
@@ -1078,6 +1091,9 @@ class Monei extends PaymentModule
             $option
                 ->setCallToActionText($this->l('ClickToPay'))
                 ->setAdditionalInformation($template)
+                ->setLogo(
+                    Media::getMediaPath(_PS_MODULE_DIR_ . $this->name . '/views/img/payments/click-to-pay.svg')
+                )
                 ->setAction($link_create_payment);
             $payment_methods[] = $option;
         }
@@ -1093,6 +1109,9 @@ class Monei extends PaymentModule
             $option
                 ->setCallToActionText($this->l('PayPal'))
                 ->setAdditionalInformation($template)
+                ->setLogo(
+                    Media::getMediaPath(_PS_MODULE_DIR_ . $this->name . '/views/img/payments/paypal.svg')
+                )
                 ->setAction($link_create_payment);
             $payment_methods[] = $option;
         }
@@ -1108,6 +1127,9 @@ class Monei extends PaymentModule
             $option
                 ->setCallToActionText($this->l('COFIDIS'))
                 ->setAdditionalInformation($template)
+                ->setLogo(
+                    Media::getMediaPath(_PS_MODULE_DIR_ . $this->name . '/views/img/payments/cofidis.svg')
+                )
                 ->setAction($link_create_payment);
             $payment_methods[] = $option;
         }
@@ -1123,6 +1145,9 @@ class Monei extends PaymentModule
             $option
                 ->setCallToActionText($this->l('Klarna'))
                 ->setAdditionalInformation($template)
+                ->setLogo(
+                    Media::getMediaPath(_PS_MODULE_DIR_ . $this->name . '/views/img/payments/klarna-logo.svg')
+                )
                 ->setAction($link_create_payment);
             $payment_methods[] = $option;
         }
@@ -1138,6 +1163,9 @@ class Monei extends PaymentModule
             $option
                 ->setCallToActionText($this->l('Multibanco'))
                 ->setAdditionalInformation($template)
+                ->setLogo(
+                    Media::getMediaPath(_PS_MODULE_DIR_ . $this->name . '/views/img/payments/multibanco.svg')
+                )
                 ->setAction($link_create_payment);
             $payment_methods[] = $option;
         }
@@ -1350,6 +1378,16 @@ class Monei extends PaymentModule
                 [
                     'priority' => 300,
                     'attribute' => 'async',
+                    'position' => 'bottom',
+                ]
+            );
+
+            $this->context->controller->registerStylesheet(
+                'module-' . $this->name . '-checkout-page',
+                'modules/' . $this->name . '/views/css/checkout_page.css',
+                [
+                    'priority' => 200,
+                    'media' => 'all',
                     'position' => 'bottom',
                 ]
             );

@@ -40,4 +40,9 @@ class MoneiPaymentMethod implements ModelInterface
     {
         return $this->container['card'];
     }
+
+    public function getMethod(): string
+    {
+        return $this->container['method'];
+    }
 }
