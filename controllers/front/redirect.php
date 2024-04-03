@@ -138,7 +138,7 @@ class MoneiRedirectModuleFrontController extends ModuleFrontController
 
                 if ($response->getNextAction()->getMustRedirect()) {
                     $redirectURL = $response->getNextAction()->getRedirectUrl();
-                    if ($response->getStatusCode() === MoneiPaymentStatus::FAILED) {
+                    if ($response->getStatus() === MoneiPaymentStatus::FAILED) {
                         $redirectURL .= '&message=' . $response->getStatusMessage();
                     }
 
