@@ -1,12 +1,10 @@
 <?php
-
-// Load libraries
 require_once dirname(__FILE__) . '/vendor/autoload.php';
 
 use Monei\CoreClasses\Monei as MoneiClass;
 use Monei\CoreClasses\MoneiCard;
 use Monei\CoreHelpers\PsTools;
-use Monei\Model\MoneiPaymentMethods;
+use Monei\MoneiClient;
 use Monei\Traits\ValidationHelpers;
 use PrestaShop\PrestaShop\Adapter\ServiceLocator;
 use Symfony\Polyfill\Mbstring\Mbstring;
@@ -27,7 +25,7 @@ class Monei extends PaymentModule
         $this->description = $this->l('Accept Card, Bizum, PayPal and many more payment methods in your store.');
         $this->name = 'monei';
         $this->tab = 'payments_gateways';
-        $this->version = '1.0.1';
+        $this->version = '1.0.2';
         $this->author = 'MONEI';
         $this->need_instance = 0;
         $this->controllers = [
@@ -60,6 +58,7 @@ class Monei extends PaymentModule
         Configuration::updateValue('MONEI_PRODUCTION_MODE', false);
         Configuration::updateValue('MONEI_SHOW_LOGO', true);
         Configuration::updateValue('MONEI_API_KEY', '');
+        Configuration::updateValue('MONEI_ACCOUNT_ID', '');
         Configuration::updateValue('MONEI_CART_TO_ORDER', false);
         Configuration::updateValue('MONEI_EXPIRE_TIME', 600);
         Configuration::updateValue('MONEI_SHOW_ALL', true);
@@ -194,6 +193,7 @@ class Monei extends PaymentModule
         Configuration::deleteByName('MONEI_PRODUCTION_MODE');
         Configuration::deleteByName('MONEI_SHOW_LOGO');
         Configuration::deleteByName('MONEI_API_KEY');
+        Configuration::deleteByName('MONEI_ACCOUNT_ID');
         Configuration::deleteByName('MONEI_CART_TO_ORDER');
         Configuration::deleteByName('MONEI_EXPIRE_TIME');
         Configuration::deleteByName('MONEI_SHOW_ALL');
@@ -301,6 +301,7 @@ class Monei extends PaymentModule
             'MONEI_PRODUCTION_MODE' => Configuration::get('MONEI_PRODUCTION_MODE', false),
             'MONEI_SHOW_LOGO' => Configuration::get('MONEI_SHOW_LOGO', true),
             'MONEI_API_KEY' => Configuration::get('MONEI_API_KEY', ''),
+            'MONEI_ACCOUNT_ID' => Configuration::get('MONEI_ACCOUNT_ID', ''),
             'MONEI_CART_TO_ORDER' => Configuration::get('MONEI_CART_TO_ORDER', true),
             'MONEI_SHOW_ALL' => Configuration::get('MONEI_SHOW_ALL', true),
         );
@@ -391,6 +392,14 @@ class Monei extends PaymentModule
                         'desc' => $this->l('Your MONEI API Key. Available at your MONEI dashboard.'),
                         'name' => 'MONEI_API_KEY',
                         'label' => $this->l('API Key'),
+                    ),
+                    array(
+                        'col' => 3,
+                        'type' => 'text',
+                        'prefix' => '<i class="icon icon-key"></i>',
+                        'desc' => $this->l('Your MONEI Account ID. Available at your MONEI dashboard.'),
+                        'name' => 'MONEI_ACCOUNT_ID',
+                        'label' => $this->l('Account ID'),
                     ),
                     array(
                         'type' => 'switch',
@@ -925,7 +934,7 @@ class Monei extends PaymentModule
         if (!$this->checkCurrency($params['cart'])) {
             return [];
         }
-        if (!Configuration::get('MONEI_API_KEY')) {
+        if (!Configuration::get('MONEI_API_KEY') || !Configuration::get('MONEI_ACCOUNT_ID')) {
             return [];
         }
         return $this->getPaymentMethods(
@@ -972,6 +981,13 @@ class Monei extends PaymentModule
         $payment_methods = [];
         $template = '';
 
+        $moneiClient = new MoneiClient(
+            Configuration::get('MONEI_API_KEY'),
+            Configuration::get('MONEI_ACCOUNT_ID')
+        );
+        $moneiAccount = $moneiClient->getMoneiAccount();
+        $moneiPaymentMethod = $moneiAccount->getAccountInformation()->getPaymentMethodsAllowed();
+
         if (Configuration::get('MONEI_SHOW_LOGO')) {
             $this->context->smarty->assign([
                 'module_dir' => $this->_path
@@ -980,7 +996,7 @@ class Monei extends PaymentModule
         }
 
         // Credit Card
-        if (Configuration::get('MONEI_ALLOW_CARD')) {
+        if (Configuration::get('MONEI_ALLOW_CARD') && $moneiPaymentMethod->isCardAvailable()) {
             $link_create_payment = $this->context->link->getModuleLink($this->name, 'redirect', [
                 'method' => 'card',
                 'transaction_id' => $transaction_id,
@@ -992,10 +1008,18 @@ class Monei extends PaymentModule
                 $template_tokenize = $this->fetch('module:monei/views/templates/front/tokenize.tpl');
             }
 
+            $paymentName = $this->l('Credit Card');
+            if (!$moneiAccount->getAccountInformation()->isLiveMode()) {
+                $paymentName .= ' (' . $this->l('Test Mode') . ')';
+            }
+
             $option = new \PrestaShop\PrestaShop\Core\Payment\PaymentOption();
             $option
-                ->setCallToActionText($this->l('Credit Card'))
+                ->setCallToActionText($paymentName)
                 ->setAdditionalInformation($template . $template_tokenize)
+                ->setLogo(
+                    Media::getMediaPath(_PS_MODULE_DIR_ . $this->name . '/views/img/unknown.png')
+                )
                 ->setAction($link_create_payment);
             $payment_methods[] = $option;
         }
@@ -1027,18 +1051,23 @@ class Monei extends PaymentModule
         }
 
         // Bizum
-        if (Configuration::get('MONEI_ALLOW_BIZUM') && MoneiPaymentMethods::isBizumAvailable($countryIsoCode)) {
+        if (Configuration::get('MONEI_ALLOW_BIZUM') && $moneiPaymentMethod->isBizumAvailable($countryIsoCode)) {
             $link_create_payment = $this->context->link->getModuleLink($this->name, 'redirect', [
                 'method' => 'bizum',
                 'transaction_id' => $transaction_id
             ]);
 
+            $paymentName = $this->l('Bizum');
+            if (!$moneiAccount->getAccountInformation()->isLiveMode()) {
+                $paymentName .= ' (' . $this->l('Test Mode') . ')';
+            }
+
             $option = new \PrestaShop\PrestaShop\Core\Payment\PaymentOption();
             $option
-                ->setCallToActionText($this->l('Bizum'))
+                ->setCallToActionText($paymentName)
                 ->setAdditionalInformation($template)
                 ->setLogo(
-                    Media::getMediaPath(_PS_MODULE_DIR_ . $this->name . '/views/img/payments/bizum.svg')
+                    Media::getMediaPath(_PS_MODULE_DIR_ . $this->name . '/views/img/payments/bizum.png')
                 )
                 ->setModuleName('monei-' . 'bizum')
                 ->setAction($link_create_payment);
@@ -1046,126 +1075,161 @@ class Monei extends PaymentModule
         }
 
         // Apple
-        if (Configuration::get('MONEI_ALLOW_APPLE') && PsTools::isSafariBrowser()) {
+        if (Configuration::get('MONEI_ALLOW_APPLE') && PsTools::isSafariBrowser() && $moneiPaymentMethod->isApplePayAvailable()) {
             $link_create_payment = $this->context->link->getModuleLink($this->name, 'redirect', [
                 'method' => 'applePay',
                 'transaction_id' => $transaction_id
             ]);
 
+            $paymentName = $this->l('Apple Pay');
+            if (!$moneiAccount->getAccountInformation()->isLiveMode()) {
+                $paymentName .= ' (' . $this->l('Test Mode') . ')';
+            }
+
             $option = new \PrestaShop\PrestaShop\Core\Payment\PaymentOption();
             $option
-                ->setCallToActionText($this->l('Apple Pay'))
+                ->setCallToActionText($paymentName)
                 ->setAdditionalInformation($template)
                 ->setLogo(
-                    Media::getMediaPath(_PS_MODULE_DIR_ . $this->name . '/views/img/payments/apple-pay.svg')
+                    Media::getMediaPath(_PS_MODULE_DIR_ . $this->name . '/views/img/payments/apple-pay.png')
                 )
                 ->setAction($link_create_payment);
             $payment_methods[] = $option;
         }
 
         // Google
-        if (Configuration::get('MONEI_ALLOW_GOOGLE')) {
+        if (Configuration::get('MONEI_ALLOW_GOOGLE') && $moneiPaymentMethod->isGooglePayAvailable()) {
             $link_create_payment = $this->context->link->getModuleLink($this->name, 'redirect', [
                 'method' => 'googlePay',
                 'transaction_id' => $transaction_id
             ]);
 
+            $paymentName = $this->l('Google Pay');
+            if (!$moneiAccount->getAccountInformation()->isLiveMode()) {
+                $paymentName .= ' (' . $this->l('Test Mode') . ')';
+            }
+
             $option = new \PrestaShop\PrestaShop\Core\Payment\PaymentOption();
             $option
-                ->setCallToActionText($this->l('Google Pay'))
+                ->setCallToActionText($paymentName)
                 ->setAdditionalInformation($template)
                 ->setLogo(
-                    Media::getMediaPath(_PS_MODULE_DIR_ . $this->name . '/views/img/payments/google-pay.svg')
+                    Media::getMediaPath(_PS_MODULE_DIR_ . $this->name . '/views/img/payments/google-pay.png')
                 )
                 ->setAction($link_create_payment);
             $payment_methods[] = $option;
         }
 
         // ClickToPay
-        if (Configuration::get('MONEI_ALLOW_CLICKTOPAY')) {
+        if (Configuration::get('MONEI_ALLOW_CLICKTOPAY') && $moneiPaymentMethod->isClickToPayAvailable()) {
             $link_create_payment = $this->context->link->getModuleLink($this->name, 'redirect', [
                 'method' => 'clickToPay',
                 'transaction_id' => $transaction_id
             ]);
 
+            $paymentName = $this->l('ClickToPay');
+            if (!$moneiAccount->getAccountInformation()->isLiveMode()) {
+                $paymentName .= ' (' . $this->l('Test Mode') . ')';
+            }
+
             $option = new \PrestaShop\PrestaShop\Core\Payment\PaymentOption();
             $option
-                ->setCallToActionText($this->l('ClickToPay'))
+                ->setCallToActionText($paymentName)
                 ->setAdditionalInformation($template)
                 ->setLogo(
-                    Media::getMediaPath(_PS_MODULE_DIR_ . $this->name . '/views/img/payments/click-to-pay.svg')
+                    Media::getMediaPath(_PS_MODULE_DIR_ . $this->name . '/views/img/payments/click-to-pay.png')
                 )
                 ->setAction($link_create_payment);
             $payment_methods[] = $option;
         }
 
         // PayPal
-        if (Configuration::get('MONEI_ALLOW_PAYPAL')) {
+        if (Configuration::get('MONEI_ALLOW_PAYPAL')&& $moneiPaymentMethod->isPaypalAvailable()) {
             $link_create_payment = $this->context->link->getModuleLink($this->name, 'redirect', [
                 'method' => 'paypal',
                 'transaction_id' => $transaction_id
             ]);
 
+            $paymentName = $this->l('Paypal');
+            if (!$moneiAccount->getAccountInformation()->isLiveMode()) {
+                $paymentName .= ' (' . $this->l('Test Mode') . ')';
+            }
+
             $option = new \PrestaShop\PrestaShop\Core\Payment\PaymentOption();
             $option
-                ->setCallToActionText($this->l('PayPal'))
+                ->setCallToActionText($paymentName)
                 ->setAdditionalInformation($template)
                 ->setLogo(
-                    Media::getMediaPath(_PS_MODULE_DIR_ . $this->name . '/views/img/payments/paypal.svg')
+                    Media::getMediaPath(_PS_MODULE_DIR_ . $this->name . '/views/img/payments/paypal.png')
                 )
                 ->setAction($link_create_payment);
             $payment_methods[] = $option;
         }
 
         // COFIDIS
-        if (Configuration::get('MONEI_ALLOW_COFIDIS') && MoneiPaymentMethods::isCofidisAvailable($countryIsoCode)) {
+        if (Configuration::get('MONEI_ALLOW_COFIDIS') && $moneiPaymentMethod->isCofidisAvailable($countryIsoCode)) {
             $link_create_payment = $this->context->link->getModuleLink($this->name, 'redirect', [
                 'method' => 'cofidis',
                 'transaction_id' => $transaction_id
             ]);
 
+            $paymentName = $this->l('COFIDIS');
+            if (!$moneiAccount->getAccountInformation()->isLiveMode()) {
+                $paymentName .= ' (' . $this->l('Test Mode') . ')';
+            }
+
             $option = new \PrestaShop\PrestaShop\Core\Payment\PaymentOption();
             $option
-                ->setCallToActionText($this->l('COFIDIS'))
+                ->setCallToActionText($paymentName)
                 ->setAdditionalInformation($template)
                 ->setLogo(
-                    Media::getMediaPath(_PS_MODULE_DIR_ . $this->name . '/views/img/payments/cofidis.svg')
+                    Media::getMediaPath(_PS_MODULE_DIR_ . $this->name . '/views/img/payments/cofidis.png')
                 )
                 ->setAction($link_create_payment);
             $payment_methods[] = $option;
         }
 
         // Klarna
-        if (Configuration::get('MONEI_ALLOW_KLARNA') && MoneiPaymentMethods::isKlarnaAvailable($countryIsoCode)) {
+        if (Configuration::get('MONEI_ALLOW_KLARNA') && $moneiPaymentMethod->isKlarnaAvailable($countryIsoCode)) {
             $link_create_payment = $this->context->link->getModuleLink($this->name, 'redirect', [
                 'method' => 'klarna',
                 'transaction_id' => $transaction_id
             ]);
 
+            $paymentName = $this->l('Klarna');
+            if (!$moneiAccount->getAccountInformation()->isLiveMode()) {
+                $paymentName .= ' (' . $this->l('Test Mode') . ')';
+            }
+
             $option = new \PrestaShop\PrestaShop\Core\Payment\PaymentOption();
             $option
-                ->setCallToActionText($this->l('Klarna'))
+                ->setCallToActionText($paymentName)
                 ->setAdditionalInformation($template)
                 ->setLogo(
-                    Media::getMediaPath(_PS_MODULE_DIR_ . $this->name . '/views/img/payments/klarna-logo.svg')
+                    Media::getMediaPath(_PS_MODULE_DIR_ . $this->name . '/views/img/payments/klarna-logo.png')
                 )
                 ->setAction($link_create_payment);
             $payment_methods[] = $option;
         }
 
         // Multibanco
-        if (Configuration::get('MONEI_ALLOW_MULTIBANCO') && MoneiPaymentMethods::isMultibancoAvailable($countryIsoCode)) {
+        if (Configuration::get('MONEI_ALLOW_MULTIBANCO') && $moneiPaymentMethod->isMultibancoAvailable($countryIsoCode)) {
             $link_create_payment = $this->context->link->getModuleLink($this->name, 'redirect', [
                 'method' => 'multibanco',
                 'transaction_id' => $transaction_id
             ]);
 
+            $paymentName = $this->l('Multibanco');
+            if (!$moneiAccount->getAccountInformation()->isLiveMode()) {
+                $paymentName .= ' (' . $this->l('Test Mode') . ')';
+            }
+
             $option = new \PrestaShop\PrestaShop\Core\Payment\PaymentOption();
             $option
-                ->setCallToActionText($this->l('Multibanco'))
+                ->setCallToActionText($paymentName)
                 ->setAdditionalInformation($template)
                 ->setLogo(
-                    Media::getMediaPath(_PS_MODULE_DIR_ . $this->name . '/views/img/payments/multibanco.svg')
+                    Media::getMediaPath(_PS_MODULE_DIR_ . $this->name . '/views/img/payments/multibanco.png')
                 )
                 ->setAction($link_create_payment);
             $payment_methods[] = $option;
