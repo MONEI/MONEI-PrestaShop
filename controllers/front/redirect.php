@@ -11,6 +11,7 @@ use Monei\Model\MoneiPayment;
 use Monei\Model\MoneiPaymentMethods;
 use Monei\Model\MoneiShippingDetails;
 use Monei\MoneiClient;
+use Monei\Model\MoneiPaymentStatus;
 use PrestaShop\PrestaShop\Adapter\ServiceLocator;
 use PrestaShop\PrestaShop\Core\Localization\Exception\LocalizationException;
 
@@ -79,12 +80,13 @@ class MoneiRedirectModuleFrontController extends ModuleFrontController
                     }
                 }
 
+                $response = $client->payments->createPayment($payment);
+                PsOrderHelper::saveTransaction($response);
+
                 // Save the information before sending it to the API
                 $transaction = PsOrderHelper::saveTransaction($payment, true);
 
-                if ($transaction) {
-                    $response = $client->payments->createPayment($payment);
-                    PsOrderHelper::saveTransaction($response);
+                if ($transaction && $response) {
                     // Save the Payment ID
                     $id_lbl_monei = Monei::getIdByInternalOrder($response->getOrderId());
                     $lbl_monei = new Monei($id_lbl_monei);
@@ -135,7 +137,12 @@ class MoneiRedirectModuleFrontController extends ModuleFrontController
                 }
 
                 if ($response->getNextAction()->getMustRedirect()) {
-                    Tools::redirect($response->getNextAction()->getRedirectUrl());
+                    $redirectURL = $response->getNextAction()->getRedirectUrl();
+                    if ($response->getStatusCode() === MoneiPaymentStatus::FAILED) {
+                        $redirectURL .= '&message=' . $response->getStatusMessage();
+                    }
+
+                    Tools::redirect($redirectURL);
                 }
             } catch (ApiException $ex) {
                 $this->context->cookie->monei_error = 'API: ' . $ex->getMessage();
