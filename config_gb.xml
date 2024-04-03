@@ -2,7 +2,7 @@
 <module>
     <name>monei</name>
     <displayName><![CDATA[MONEI Official]]></displayName>
-    <version><![CDATA[1.0.1]]></version>
+    <version><![CDATA[1.1.0]]></version>
     <description>
         <![CDATA[Accept credit card, Bizum, PayPal and many more payment methods in your store.]]></description>
     <author><![CDATA[MONEI]]></author>
