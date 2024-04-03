@@ -6,6 +6,7 @@ require_once dirname(__FILE__) . '/vendor/autoload.php';
 use Monei\CoreClasses\Monei as MoneiClass;
 use Monei\CoreClasses\MoneiCard;
 use Monei\CoreHelpers\PsTools;
+use Monei\Model\MoneiPaymentMethods;
 use Monei\Traits\ValidationHelpers;
 use PrestaShop\PrestaShop\Adapter\ServiceLocator;
 use Symfony\Polyfill\Mbstring\Mbstring;
@@ -960,6 +961,10 @@ class Monei extends PaymentModule
      */
     private function getPaymentMethods($id_cart, $id_customer)
     {
+        $addressInvoice = new Address($this->context->cart->id_address_invoice);
+        $countryInvoice = new Country($addressInvoice->id_country);
+        $countryIsoCode = $countryInvoice->iso_code;
+
         $crypto = ServiceLocator::get('\\PrestaShop\\PrestaShop\\Core\\Crypto\\Hashing');
         $transaction_id = $crypto->hash($id_cart . $id_customer, _COOKIE_KEY_);
 
@@ -991,13 +996,9 @@ class Monei extends PaymentModule
             $option
                 ->setCallToActionText($this->l('Credit Card'))
                 ->setAdditionalInformation($template . $template_tokenize)
-                ->setLogo(
-                    Media::getMediaPath(_PS_MODULE_DIR_ . $this->name . '/views/img/monei_cards.png')
-                )
                 ->setAction($link_create_payment);
             $payment_methods[] = $option;
         }
-
 
         // Get current customer cards (not expired ones)
         $customer_cards = MoneiCard::getStaticCustomerCards($id_customer, false);
@@ -1026,7 +1027,7 @@ class Monei extends PaymentModule
         }
 
         // Bizum
-        if (Configuration::get('MONEI_ALLOW_BIZUM')) {
+        if (Configuration::get('MONEI_ALLOW_BIZUM') && MoneiPaymentMethods::isBizumAvailable($countryIsoCode)) {
             $link_create_payment = $this->context->link->getModuleLink($this->name, 'redirect', [
                 'method' => 'bizum',
                 'transaction_id' => $transaction_id
@@ -1117,7 +1118,7 @@ class Monei extends PaymentModule
         }
 
         // COFIDIS
-        if (Configuration::get('MONEI_ALLOW_COFIDIS')) {
+        if (Configuration::get('MONEI_ALLOW_COFIDIS') && MoneiPaymentMethods::isCofidisAvailable($countryIsoCode)) {
             $link_create_payment = $this->context->link->getModuleLink($this->name, 'redirect', [
                 'method' => 'cofidis',
                 'transaction_id' => $transaction_id
@@ -1135,7 +1136,7 @@ class Monei extends PaymentModule
         }
 
         // Klarna
-        if (Configuration::get('MONEI_ALLOW_KLARNA')) {
+        if (Configuration::get('MONEI_ALLOW_KLARNA') && MoneiPaymentMethods::isKlarnaAvailable($countryIsoCode)) {
             $link_create_payment = $this->context->link->getModuleLink($this->name, 'redirect', [
                 'method' => 'klarna',
                 'transaction_id' => $transaction_id
@@ -1153,7 +1154,7 @@ class Monei extends PaymentModule
         }
 
         // Multibanco
-        if (Configuration::get('MONEI_ALLOW_MULTIBANCO')) {
+        if (Configuration::get('MONEI_ALLOW_MULTIBANCO') && MoneiPaymentMethods::isMultibancoAvailable($countryIsoCode)) {
             $link_create_payment = $this->context->link->getModuleLink($this->name, 'redirect', [
                 'method' => 'multibanco',
                 'transaction_id' => $transaction_id
