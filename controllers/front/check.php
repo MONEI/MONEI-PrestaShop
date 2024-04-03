@@ -3,6 +3,7 @@
 use Monei\CoreClasses\Monei as MoneiClass;
 use Monei\CoreHelpers\PsCartHelper;
 use Monei\CoreHelpers\PsOrderHelper;
+use Monei\Model\MoneiPaymentMethods;
 use Monei\MoneiClient;
 
 // Load libraries
@@ -154,7 +155,9 @@ class MoneiCheckModuleFrontController extends ModuleFrontController
 
             $should_create_order = true;
             $order_state_obj = new OrderState(Configuration::get('MONEI_STATUS_PENDING'));
-            if (Configuration::get('MONEI_CART_TO_ORDER')) {
+            $paymentMethodUsed = $payment_from_api->getPaymentMethod()->getMethod();
+
+            if (Configuration::get('MONEI_CART_TO_ORDER') || $paymentMethodUsed === MoneiPaymentMethods::MULTIBANCO) {
                 $should_create_order = false;
                 if (
                     Configuration::get('MONEI_STATUS_PENDING') &&
