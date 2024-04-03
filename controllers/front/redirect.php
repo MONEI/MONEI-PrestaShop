@@ -57,7 +57,7 @@ class MoneiRedirectModuleFrontController extends ModuleFrontController
 
         if ($check_encrypt) {
             try {
-                $client = new MoneiClient(Configuration::get('MONEI_API_KEY'));
+                $client = new MoneiClient(Configuration::get('MONEI_API_KEY'), Configuration::get('MONEI_ACCOUNT_ID'));
                 $payment = $this->createPaymentObject();
                 if (
                     $tokenize && (bool)Configuration::get('MONEI_TOKENIZE') === true

@@ -117,7 +117,7 @@ class MoneiCheckModuleFrontController extends ModuleFrontController
             $cart = new Cart($id_cart);
             $failed = false;
 
-            $client = new MoneiClient(Configuration::get('MONEI_API_KEY'));
+            $client = new MoneiClient(Configuration::get('MONEI_API_KEY'), Configuration::get('MONEI_ACCOUNT_ID'));
             $payment_from_api = $client->payments->getPayment($id_order_monei);
 
             // Check customer

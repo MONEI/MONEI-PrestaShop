@@ -59,7 +59,7 @@ class MoneiValidationModuleFrontController extends ModuleFrontController
             $lbl_monei->authorization_code = pSQL($authorization_code);
             $lbl_monei->save();
 
-            $client = new MoneiClient(Configuration::get('MONEI_API_KEY'));
+            $client = new MoneiClient(Configuration::get('MONEI_API_KEY'), Configuration::get('MONEI_ACCOUNT_ID'));
             $payment_from_api = $client->payments->getPayment($lbl_monei->id_order_monei);
 
             $id_cart = (int)$lbl_monei->id_cart;
