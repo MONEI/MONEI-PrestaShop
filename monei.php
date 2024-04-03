@@ -88,10 +88,9 @@ class Monei extends PaymentModule
             $this->registerHook('paymentReturn') &&
             $this->registerHook('actionFrontControllerSetMedia') &&
             $this->registerHook('displayCustomerAccount') &&
-            $this->registerHook('registerGDPRConsent') &&
             $this->registerHook('actionDeleteGDPRCustomer') &&
             $this->registerHook('actionExportGDPRData') &&
-            $this->registerHook('backOfficeHeader') &&
+            $this->registerHook('displayBackOfficeHeader') &&
             $this->registerHook('displayAdminOrder') &&
             $this->registerHook('paymentOptions');
     }
@@ -859,7 +858,7 @@ class Monei extends PaymentModule
     /**
      * Hook for JSON Viewer
      */
-    public function hookBackOfficeHeader()
+    public function hookDisplayBackOfficeHeader()
     {
         if (Tools::getValue('configure') === $this->name) {
             $this->context->controller->addCSS($this->_path . 'views/css/moneiback.css');
@@ -928,7 +927,6 @@ class Monei extends PaymentModule
         if (!Configuration::get('MONEI_API_KEY')) {
             return [];
         }
-
         return $this->getPaymentMethods(
             (int)$params['cart']->id,
             (int)$params['cart']->id_customer
@@ -1182,7 +1180,7 @@ class Monei extends PaymentModule
                 'id_order_monei' => $monei->id_order_monei,
                 'id_order_internal' => $monei->id_order_internal,
                 'authorization_code' => $monei->authorization_code,
-                'status' => $monei->status,
+                //'status' => $monei->status,
                 'max_amount' => ($monei->amount - $amount_refunded) / 100,
                 'amount_paid' => $total_order,
                 'amount_refunded' => $amount_refunded,
@@ -1195,7 +1193,6 @@ class Monei extends PaymentModule
                 'currency_iso' => $currency->iso_code
             ]
         );
-
         $template = 'order177';
         if (version_compare(_PS_VERSION_, '1.7.7', '<')) {
             $template = 'order17';
@@ -1223,21 +1220,21 @@ class Monei extends PaymentModule
             $json_array = $this->vJSON($json_clean);
 
             if ($json_array) {
-                switch ($json_array['status']) {
-                    case 'FAILED':
-                        $badge = 'danger';
-                        break;
-                    case 'PENDING':
-                        $badge = 'warning';
-                        break;
-                    case 'REFUNDED':
-                    case 'PARTIALLY_REFUNDED':
-                    case 'SUCCESS':
-                        $badge = 'success';
-                        break;
-                    default:
-                        $badge = 'info';
-                        break;
+                $badge = 'info';
+                if (isset($json_array['status'])) {
+                    switch ($json_array['status']) {
+                        case 'FAILED':
+                            $badge = 'danger';
+                            break;
+                        case 'PENDING':
+                            $badge = 'warning';
+                            break;
+                        case 'REFUNDED':
+                        case 'PARTIALLY_REFUNDED':
+                        case 'SUCCESS':
+                            $badge = 'success';
+                            break;
+                    }
                 }
 
                 if ($are_refunds) {
@@ -1257,6 +1254,7 @@ class Monei extends PaymentModule
                 $logs[] = $json_array;
             }
         }
+        //dump($logs);die;
         return $logs;
     }
 

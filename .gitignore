@@ -7,3 +7,6 @@
 !/build/.yarn/releases
 !/build/.yarn/sdks
 !/build/.yarn/versions
+config.xml
+config_es.xml
+config_en.xml
