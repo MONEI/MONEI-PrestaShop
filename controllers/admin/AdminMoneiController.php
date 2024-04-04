@@ -30,7 +30,7 @@ class AdminMoneiController extends ModuleAdminController
                 throw new ApiException($this->l('Order not found or invalid refund reason'));
             }
 
-            $client = new MoneiClient(Configuration::get('MONEI_API_KEY'));
+            $client = new MoneiClient(Configuration::get('MONEI_API_KEY'), Configuration::get('MONEI_ACCOUNT_ID'));
             $response = $client->payments->refundPayment($monei_refund);
             PsOrderHelper::saveTransaction($response, false, true);
             $this->changeOrderState($id_order);
