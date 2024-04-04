@@ -64,5 +64,4 @@ jobs:
           comment-style: list
 
           # Whitespace-separated list of files to upload
-          artifacts: |
-            monei.zip
+          artifacts: '../monei.zip'
