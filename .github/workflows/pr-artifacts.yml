@@ -61,7 +61,6 @@ jobs:
 
           # Optional, uncomment to use non-default title and style.
           comment-title: "Plugin artifacts"
-          comment-message: "Here are the artifacts for this PR:"
           comment-style: list
 
           # Whitespace-separated list of files to upload
