@@ -1,8 +1,8 @@
-.payment-options > div {
-  margin-bottom: 1.5rem;
+section.checkout-step .payment-options > div {
+  margin-bottom: 1.25rem;
 }
 
-.payment-option img {
+section.checkout-step .payment-option img {
   height: 1.25rem;
   margin-left: 0.5rem;
 }
