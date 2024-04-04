@@ -23,8 +23,6 @@
     "plugins": {
       "@release-it/bumper": {
         "out": [
-          "../config_es.xml",
-          "../config_gb.xml",
           "../monei.php"
         ]
       }
