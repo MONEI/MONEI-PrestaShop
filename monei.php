@@ -72,6 +72,7 @@ class Monei extends PaymentModule
         Configuration::updateValue('MONEI_ALLOW_COFIDIS', false);
         Configuration::updateValue('MONEI_ALLOW_KLARNA', false);
         Configuration::updateValue('MONEI_ALLOW_MULTIBANCO', false);
+        Configuration::updateValue('MONEI_ALLOW_MBWAY', false);
         // Status
         Configuration::updateValue('MONEI_STATUS_SUCCEEDED', Configuration::get('PS_OS_PAYMENT'));
         Configuration::updateValue('MONEI_STATUS_FAILED', Configuration::get('PS_OS_ERROR'));
@@ -207,6 +208,7 @@ class Monei extends PaymentModule
         Configuration::deleteByName('MONEI_ALLOW_COFIDIS');
         Configuration::deleteByName('MONEI_ALLOW_KLARNA');
         Configuration::deleteByName('MONEI_ALLOW_MULTIBANCO');
+        Configuration::deleteByName('MONEI_ALLOW_MBWAY');
         // Status
         Configuration::deleteByName('MONEI_STATUS_SUCCEEDED');
         Configuration::deleteByName('MONEI_STATUS_FAILED');
@@ -322,6 +324,7 @@ class Monei extends PaymentModule
             'MONEI_ALLOW_COFIDIS' => Configuration::get('MONEI_ALLOW_COFIDIS', false),
             'MONEI_ALLOW_KLARNA' => Configuration::get('MONEI_ALLOW_KLARNA', false),
             'MONEI_ALLOW_MULTIBANCO' => Configuration::get('MONEI_ALLOW_MULTIBANCO', false),
+            'MONEI_ALLOW_MBWAY' => Configuration::get('MONEI_ALLOW_MBWAY', false),
         );
     }
 
@@ -724,6 +727,26 @@ class Monei extends PaymentModule
                             )
                         ),
                     ),
+                    array(
+                        'type' => 'switch',
+                        'label' => $this->l('Allow MBWay'),
+                        'name' => 'MONEI_ALLOW_MBWAY',
+                        'is_bool' => true,
+                        'desc' => $this->l('Allow payments with MBWay.'),
+                        'hint' => $this->l('The payment must be active and configured on your MONEI Dashboard.'),
+                        'values' => array(
+                            array(
+                                'id' => 'active_on',
+                                'value' => true,
+                                'label' => $this->l('Enabled')
+                            ),
+                            array(
+                                'id' => 'active_off',
+                                'value' => false,
+                                'label' => $this->l('Disabled')
+                            )
+                        ),
+                    ),
                 ),
                 'submit' => array(
                     'title' => $this->l('Save'),
@@ -970,9 +993,12 @@ class Monei extends PaymentModule
      */
     private function getPaymentMethods($id_cart, $id_customer)
     {
+        $countryIsoCode = $this->context->country->iso_code;
         $addressInvoice = new Address($this->context->cart->id_address_invoice);
-        $countryInvoice = new Country($addressInvoice->id_country);
-        $countryIsoCode = $countryInvoice->iso_code;
+        if (Validate::isLoadedObject($addressInvoice)) {
+            $countryInvoice = new Country($addressInvoice->id_country);
+            $countryIsoCode = $countryInvoice->iso_code;
+        }
 
         $crypto = ServiceLocator::get('\\PrestaShop\\PrestaShop\\Core\\Crypto\\Hashing');
         $transaction_id = $crypto->hash($id_cart . $id_customer, _COOKIE_KEY_);
@@ -1230,6 +1256,29 @@ class Monei extends PaymentModule
                 ->setAdditionalInformation($template)
                 ->setLogo(
                     Media::getMediaPath(_PS_MODULE_DIR_ . $this->name . '/views/img/payments/multibanco.svg')
+                )
+                ->setAction($link_create_payment);
+            $payment_methods[] = $option;
+        }
+
+        // MBWay
+        if (Configuration::get('MONEI_ALLOW_MBWAY') && $moneiPaymentMethod->isMBWayAvailable($countryIsoCode)) {
+            $link_create_payment = $this->context->link->getModuleLink($this->name, 'redirect', [
+                'method' => 'mbway',
+                'transaction_id' => $transaction_id
+            ]);
+
+            $paymentName = 'MB Way';
+            if (!$moneiAccount->getAccountInformation()->isLiveMode()) {
+                $paymentName .= ' (' . $this->l('Test Mode') . ')';
+            }
+
+            $option = new \PrestaShop\PrestaShop\Core\Payment\PaymentOption();
+            $option
+                ->setCallToActionText($paymentName)
+                ->setAdditionalInformation($template)
+                ->setLogo(
+                    Media::getMediaPath(_PS_MODULE_DIR_ . $this->name . '/views/img/payments/mbway.svg')
                 )
                 ->setAction($link_create_payment);
             $payment_methods[] = $option;

@@ -15,6 +15,7 @@ class MoneiPaymentMethods
     public const COFIDIS = 'cofidis';
     public const KLARNA = 'klarna';
     public const MULTIBANCO = 'multibanco';
+    public const MBWAY = 'mbway';
 
     /**
      * Gets allowable values of the enum
@@ -32,6 +33,7 @@ class MoneiPaymentMethods
             self::COFIDIS,
             self::KLARNA,
             self::MULTIBANCO,
+            self::MBWAY,
         ];
     }
 }

@@ -7,6 +7,10 @@ section.checkout-step .payment-option img {
     margin-left: 0.5rem;
 }
 
+#opc_step_payment .payment-option img {
+    width: 89px;
+}
+
 .monei-powered-by {
     margin-bottom: 1rem;
 }
