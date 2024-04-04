@@ -4,6 +4,7 @@
 namespace Monei;
 
 use Monei\Api\AppleApi;
+use Monei\Api\PaymentMethodsApi;
 use Monei\Api\PaymentsApi;
 
 class MoneiClient
@@ -17,6 +18,11 @@ class MoneiClient
      * @var AppleApi
      */
     public $apple;
+    /**
+     * @var MoneiAccount
+     */
+    public $account;
+
     protected $config;
 
     /**
@@ -25,7 +31,8 @@ class MoneiClient
      * @return void
      */
     public function __construct(
-        string        $api_key,
+        string $api_key,
+        string $account_id,
         Configuration $config = null
     )
     {
@@ -35,7 +42,10 @@ class MoneiClient
             $this->config = $config->setUserAgent('MONEI/PrestaShop/' . self::VERSION);
             $this->config = $config->setHost('https://api.monei.com/v1');
         }
-        $this->config = $config->setApiKey($api_key);
+        $config->setApiKey($api_key);
+        $config->setAccountId($account_id);
+
+        $this->config = $config;
         $this->payments = new PaymentsApi($this->config);
         $this->apple = new AppleApi($this->config);
     }
@@ -47,5 +57,10 @@ class MoneiClient
     public function getConfig(): Configuration
     {
         return $this->config;
+    }
+
+    public function getMoneiAccount()
+    {
+        return new PaymentMethodsApi($this->config);
     }
 }

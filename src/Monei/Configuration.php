@@ -10,6 +10,7 @@ namespace Monei;
 class Configuration
 {
     protected $api_key = null;
+    protected $account_id = null;
     protected $host = null;
     protected $user_agent = null;
     protected $debug = false;
@@ -31,6 +32,26 @@ class Configuration
     public function setApiKey(string $key): self
     {
         $this->api_key = $key;
+        return $this;
+    }
+
+    /**
+     * Get the account ID
+     * @return null|string
+     */
+    public function getAccountId(): ?string
+    {
+        return $this->account_id;
+    }
+
+    /**
+     * Set an account ID
+     * @param string $account_id
+     * @return configuration
+     */
+    public function setAccountId(string $account_id): self
+    {
+        $this->account_id = $account_id;
         return $this;
     }
 
