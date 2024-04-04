@@ -1018,7 +1018,7 @@ class Monei extends PaymentModule
                 ->setCallToActionText($paymentName)
                 ->setAdditionalInformation($template . $template_tokenize)
                 ->setLogo(
-                    Media::getMediaPath(_PS_MODULE_DIR_ . $this->name . '/views/img/payments/unknown.svg')
+                    Media::getMediaPath(_PS_MODULE_DIR_ . $this->name . '/views/img/payments/cards.svg')
                 )
                 ->setAction($link_create_payment);
             $payment_methods[] = $option;
