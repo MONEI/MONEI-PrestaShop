@@ -1,5 +1,5 @@
-.payment-option, .additional-information {
-  margin-bottom: 1.2rem;
+.payment-options > div {
+  margin-bottom: 1.5rem;
 }
 
 .payment-option img {
