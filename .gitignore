@@ -1,4 +1,5 @@
 .idea
+.DS_Store
 /build/.yarn/*
 !/build/.yarn/patches
 !/build/.yarn/plugins
@@ -6,6 +7,4 @@
 !/build/.yarn/sdks
 !/build/.yarn/versions
 config.xml
-config_es.xml
-config_en.xml
 vendor
