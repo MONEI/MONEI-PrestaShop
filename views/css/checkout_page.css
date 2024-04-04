@@ -1,8 +1,12 @@
 section.checkout-step .payment-options > div {
-  margin-bottom: 1.25rem;
+    margin-bottom: 1.25rem;
 }
 
 section.checkout-step .payment-option img {
-  height: 1.25rem;
-  margin-left: 0.5rem;
+    height: 1.25rem;
+    margin-left: 0.5rem;
+}
+
+.monei-powered-by {
+    margin-bottom: 0.75rem;
 }
