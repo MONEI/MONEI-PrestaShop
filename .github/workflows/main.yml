@@ -9,6 +9,7 @@ jobs:
 
     steps:
     - uses: actions/checkout@master
+    - uses: php-actions/composer@v6
 
     - name: Archive Release
       run: |
