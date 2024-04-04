@@ -25,7 +25,7 @@ class Monei extends PaymentModule
         $this->description = $this->l('Accept Card, Bizum, PayPal and many more payment methods in your store.');
         $this->name = 'monei';
         $this->tab = 'payments_gateways';
-        $this->version = '1.1.5';
+        $this->version = '1.1.6';
         $this->author = 'MONEI';
         $this->need_instance = 0;
         $this->controllers = [
