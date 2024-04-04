@@ -9,4 +9,3 @@ config.xml
 config_es.xml
 config_en.xml
 vendor
-composer.lock
