@@ -25,7 +25,7 @@ class Monei extends PaymentModule
         $this->description = $this->l('Accept Card, Bizum, PayPal and many more payment methods in your store.');
         $this->name = 'monei';
         $this->tab = 'payments_gateways';
-        $this->version = '1.1.4';
+        $this->version = '1.1.7';
         $this->author = 'MONEI';
         $this->need_instance = 0;
         $this->controllers = [
@@ -1044,7 +1044,7 @@ class Monei extends PaymentModule
                 ->setCallToActionText($paymentName)
                 ->setAdditionalInformation($template . $template_tokenize)
                 ->setLogo(
-                    Media::getMediaPath(_PS_MODULE_DIR_ . $this->name . '/views/img/payments/unknown.svg')
+                    Media::getMediaPath(_PS_MODULE_DIR_ . $this->name . '/views/img/payments/cards.svg')
                 )
                 ->setAction($link_create_payment);
             $payment_methods[] = $option;
