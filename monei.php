@@ -21,25 +21,22 @@ class Monei extends PaymentModule
 
     public function __construct()
     {
-        $this->displayName = $this->l('MONEI Payments');
-        $this->description = $this->l('Accept Card, Apple Pay, Google Pay, Bizum, PayPal and many more payment methods in your store.');
+        $this->displayName = 'MONEI Payments';
         $this->name = 'monei';
         $this->tab = 'payments_gateways';
         $this->version = '1.2.0';
         $this->author = 'MONEI';
         $this->need_instance = 0;
+        $this->ps_versions_compliancy = ['min' => '1.7', 'max' => _PS_VERSION_];
+        $this->bootstrap = true;
+
         $this->controllers = [
             'validation', 'confirmation', 'redirect', 'cards', 'errors', 'check'
         ];
 
-        $this->ps_versions_compliancy = ['min' => '1.7', 'max' => _PS_VERSION_];
-
-        /**
-         * Set $this->bootstrap to true if your module is compliant with bootstrap (PrestaShop 1.6)
-         */
-        $this->bootstrap = true;
-
         parent::__construct();
+
+        $this->description = $this->l('Accept Card, Apple Pay, Google Pay, Bizum, PayPal and many more payment methods in your store.');
     }
 
     /**
