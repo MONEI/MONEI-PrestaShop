@@ -23,7 +23,8 @@ class MoneiPaymentMethod implements ModelInterface
         'paypal' => 'paypal',
         'cofidis' => 'cofidis',
         'klarna' => 'klarna',
-        'multibanco' => 'multibanco'
+        'multibanco' => 'multibanco',
+        'mbway' => 'mbway',
     ];
 
     private $attribute_type = [
@@ -57,6 +58,7 @@ class MoneiPaymentMethod implements ModelInterface
             case MoneiPaymentMethods::COFIDIS:
                 return $isoCode === 'ES';
             case MoneiPaymentMethods::MULTIBANCO:
+            case MoneiPaymentMethods::MBWAY:
                 return $isoCode === 'PT';
             case MoneiPaymentMethods::KLARNA:
                 return in_array($isoCode, ['AT', 'BE', 'CH', 'DE', 'DK', 'ES', 'FI', 'FR', 'GB', 'IT', 'NL', 'NO', 'SE']);
@@ -69,6 +71,15 @@ class MoneiPaymentMethod implements ModelInterface
     {
         if (in_array(MoneiPaymentMethods::MULTIBANCO, $this->container)) {
             return $this->isPaymentMethodAllowedByIsoCode(MoneiPaymentMethods::MULTIBANCO, $isoCode);
+        }
+
+        return false;
+    }
+
+    public function isMBWayAvailable(string $isoCode): bool
+    {
+        if (in_array(MoneiPaymentMethods::MBWAY, $this->container)) {
+            return $this->isPaymentMethodAllowedByIsoCode(MoneiPaymentMethods::MBWAY, $isoCode);
         }
 
         return false;
