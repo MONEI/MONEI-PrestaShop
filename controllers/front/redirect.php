@@ -48,7 +48,7 @@ class MoneiRedirectModuleFrontController extends ModuleFrontController
         }
 
         $transaction_id = Tools::getValue('transaction_id');
-        $tokenize = (bool)Tools::getValue('monei_tokenize_card');
+        $tokenize = (bool)Tools::getValue('tokenize_card');
         $id_monei_card = (int)Tools::getValue('id_monei_card', 0);
 
         $crypto = ServiceLocator::get('\\PrestaShop\\PrestaShop\\Core\\Crypto\\Hashing');
