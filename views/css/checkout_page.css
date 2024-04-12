@@ -11,6 +11,7 @@ section.checkout-step .payment-option img {
     width: 89px;
 }
 
-.monei-powered-by {
-    margin-bottom: 1rem;
+#monei-payment-form .form-control-label{
+    display: inline-block !important;
+    margin-left: 10px;
 }

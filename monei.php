@@ -1020,17 +1020,6 @@ class Monei extends PaymentModule
 
         // Credit Card
         if (Configuration::get('MONEI_ALLOW_CARD') && $moneiPaymentMethod->isCardAvailable()) {
-            $link_create_payment = $this->context->link->getModuleLink($this->name, 'redirect', [
-                'method' => 'card',
-                'transaction_id' => $transaction_id,
-                'monei_tokenize_card' => 0
-            ]);
-
-            $template_tokenize = '';
-            if (Configuration::get('MONEI_TOKENIZE')) {
-                $template_tokenize = $this->fetch('module:monei/views/templates/front/tokenize.tpl');
-            }
-
             $paymentName = $this->l('Credit Card');
             if (!$moneiAccount->getAccountInformation()->isLiveMode()) {
                 $paymentName .= ' (' . $this->l('Test Mode') . ')';
@@ -1039,11 +1028,27 @@ class Monei extends PaymentModule
             $option = new \PrestaShop\PrestaShop\Core\Payment\PaymentOption();
             $option
                 ->setCallToActionText($paymentName)
-                ->setAdditionalInformation($template . $template_tokenize)
+                ->setAdditionalInformation($template)
                 ->setLogo(
                     Media::getMediaPath(_PS_MODULE_DIR_ . $this->name . '/views/img/payments/cards.svg')
-                )
-                ->setAction($link_create_payment);
+                );
+
+            $link_create_payment = $this->context->link->getModuleLink($this->name, 'redirect', [
+                'method' => 'card',
+                'transaction_id' => $transaction_id,
+                'tokenize_card' => 0
+            ]);
+
+            if (Configuration::get('MONEI_TOKENIZE')) {
+                $this->context->smarty->assign('link_create_payment', $link_create_payment);
+
+                $option->setForm(
+                    $this->fetch('module:monei/views/templates/hook/paymentOptions.tpl')
+                );
+            } else {
+                $option->setAction($link_create_payment);
+            }
+
             $payment_methods[] = $option;
         }
 
@@ -1060,7 +1065,7 @@ class Monei extends PaymentModule
                     'method' => 'card',
                     'transaction_id' => $transaction_id,
                     'id_monei_card' => $credit_card->id,
-                    'monei_tokenize_card' => 0
+                    'tokenize_card' => 0
                 ]);
 
                 $option = new \PrestaShop\PrestaShop\Core\Payment\PaymentOption();
@@ -1068,6 +1073,9 @@ class Monei extends PaymentModule
                     ->setCallToActionText($this->l('Saved Card') . ': ' . $card_brand . ' ' . $card_number . ' ('
                         . $card_expiration . ')')
                     ->setAdditionalInformation($template)
+                    ->setLogo(
+                        Media::getMediaPath(_PS_MODULE_DIR_ . $this->name . '/views/img/payments/' . strtolower($card_brand) . '.svg')
+                    )
                     ->setAction($link_create_payment);
                 $payment_methods[] = $option;
             }
