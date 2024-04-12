@@ -37,6 +37,8 @@ class MoneiValidationModuleFrontController extends ModuleFrontController
         $data = Tools::file_get_contents('php://input');
 
         try {
+            $message = '';
+
             $payment_status = (int)Configuration::get('MONEI_STATUS_PENDING');
 
             // Try to convert the response into a valid JSON object
@@ -46,7 +48,6 @@ class MoneiValidationModuleFrontController extends ModuleFrontController
             // Check which cart we need to convert into an order
             $order_id = $payment_callback->getOrderId();
             $id_lbl_monei = Monei::getIdByInternalOrder($order_id);
-
             if (!$id_lbl_monei) {
                 $message = $this->l('Uknown ID for orderId') . ': ' . pSQL($order_id);
                 PrestaShopLogger::addLog('MONEI: ' . $message, 3);
@@ -75,7 +76,6 @@ class MoneiValidationModuleFrontController extends ModuleFrontController
                 throw new ApiException($message, 4);
                 die();
             }
-
             // Check Cart
             if ($id_cart !== $id_cart_response) {
                 $message = $this->l('cartId from response and internal registry doesnt match');
@@ -127,13 +127,15 @@ class MoneiValidationModuleFrontController extends ModuleFrontController
             $lbl_monei->save();
 
             $should_create_order = true;
-            $order = Order::getByCartId($id_cart);
-            if ($order->id > 0) {
-                $should_create_order = false;
-            } elseif ((int)$order->id === 0 && $failed === true && !Configuration::get('MONEI_CART_TO_ORDER')) {
-                $should_create_order = false;
-            } elseif ((int)$order->id === 0 && $failed === false) {
-                $should_create_order = true;
+            $orderByCart = Order::getByCartId($id_cart);
+            if (Validate::isLoadedObject($orderByCart)) {
+                if ($orderByCart->id > 0) {
+                    $should_create_order = false;
+                } elseif ((int)$orderByCart->id === 0 && $failed === true && !Configuration::get('MONEI_CART_TO_ORDER')) {
+                    $should_create_order = false;
+                } elseif ((int)$orderByCart->id === 0 && $failed === false) {
+                    $should_create_order = true;
+                }
             }
 
             $order_state_obj = new OrderState(Configuration::get('MONEI_STATUS_PENDING'));
@@ -144,23 +146,24 @@ class MoneiValidationModuleFrontController extends ModuleFrontController
                 ) {
                     $should_create_order = false;
                     // Change order status to paid/failed
-                    $order = Order::getByCartId($id_cart);
-                    $order->setCurrentState($payment_status);
+                    $orderByCart = Order::getByCartId($id_cart);
+                    if (Validate::isLoadedObject($orderByCart)) {
+                        $orderByCart->setCurrentState($payment_status);
+                    }
                 }
             }
-
             if ($should_create_order && !PsOrderHelper::orderExists($id_cart)) {
                 // Set a LOCK for slow servers
                 $is_locked_info = Monei::getLockInformation($id_lbl_monei);
 
                 if ($is_locked_info['locked'] == 0) {
                     Db::getInstance()->update(
-                        'lbl_monei',
+                        'monei',
                         [
                             'locked' => 1,
                             'locked_at' => time(),
                         ],
-                        'id_lbl_monei = ' . (int)$id_lbl_monei
+                        'id_monei = ' . (int)$id_lbl_monei
                     );
                 } elseif ($is_locked_info['locked'] == 1 && $is_locked_info['locked_at'] < (time() - 60)) {
                     $should_create_order = false;
@@ -170,11 +173,11 @@ class MoneiValidationModuleFrontController extends ModuleFrontController
                     $message = $this->l('Slow server detected, previous order creation process timed out');
                     PrestaShopLogger::addLog('MONEI: ' . $message, 2);
                     Db::getInstance()->update(
-                        'lbl_monei',
+                        'monei',
                         [
                             'locked_at' => time(),
                         ],
-                        'id_lbl_monei = ' . (int)$id_lbl_monei
+                        'id_monei = ' . (int)$id_lbl_monei
                     );
                 }
 
@@ -191,12 +194,13 @@ class MoneiValidationModuleFrontController extends ModuleFrontController
                         $customer->secure_key
                     );
                 }
-                $order = Order::getByCartId($id_cart);
+
+                $orderByCart = Order::getByCartId($id_cart);
             }
 
             // Check id_order
-            if ($order->id > 0) {
-                $lbl_monei->id_order = (int)$order->id;
+            if (Validate::isLoadedObject($orderByCart) && $orderByCart->id > 0) {
+                $lbl_monei->id_order = (int)$orderByCart->id;
                 $lbl_monei->save();
             }
 
