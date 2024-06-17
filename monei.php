@@ -1413,7 +1413,7 @@ class Monei extends PaymentModule
      */
     private function formatPrice($price, $iso_currency)
     {
-        if (version_compare(_PS_VERSION_, '1.7.6', '>=')) {
+        if (version_compare(_PS_VERSION_, '1.7.7', '>=')) {
             $context = Context::getContext();
             $locale = Tools::getContextLocale($context);
             return $locale->formatPrice($price, $iso_currency);
