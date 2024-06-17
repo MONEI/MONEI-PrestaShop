@@ -34,7 +34,7 @@ class MoneiCheckModuleFrontController extends ModuleFrontController
                 'MONEI: Cart not found - Cart ID: ' . $id_cart,
                 PrestaShopLogger::LOG_SEVERITY_LEVEL_MAJOR,
                 null,
-                'MoneiCheckModuleFrontController',
+                'MoneiCheckModuleFrontController'
             );
 
             header('HTTP/1.0 403 Forbidden');
@@ -49,7 +49,7 @@ class MoneiCheckModuleFrontController extends ModuleFrontController
                 'MONEI: Customer not correspond to cart customer - Context customer ID: ' . Context::getContext()->customer->id . ' - Cart customer ID: ' . $id_customer_cart,
                 PrestaShopLogger::LOG_SEVERITY_LEVEL_MAJOR,
                 null,
-                'MoneiCheckModuleFrontController',
+                'MoneiCheckModuleFrontController'
             );
 
             header('HTTP/1.0 403 Forbidden');
@@ -140,7 +140,7 @@ class MoneiCheckModuleFrontController extends ModuleFrontController
             }
 
             // Check payment (FROM API call, not callback)
-            if ($payment_from_api->getStatusCode() === 'E000') {
+            if ($payment_from_api->getStatus() === $this->module::MONEI_STATUS_SUCCEEDED) {
                 $payment_status = (int)Configuration::get('MONEI_STATUS_SUCCEEDED');
                 $monei->status = pSQL($payment_from_api->getStatus());
             } else {
@@ -231,7 +231,7 @@ class MoneiCheckModuleFrontController extends ModuleFrontController
                     'MONEI: Not is possible to get order.',
                     PrestaShopLogger::LOG_SEVERITY_LEVEL_MAJOR,
                     null,
-                    'MoneiCheckModuleFrontController',
+                    'MoneiCheckModuleFrontController'
                 );
 
                 header('HTTP/1.0 403 Forbidden');
