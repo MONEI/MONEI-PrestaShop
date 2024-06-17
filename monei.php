@@ -19,6 +19,11 @@ class Monei extends PaymentModule
 
     protected $config_form = false;
 
+    const MONEI_STATUS_SUCCEEDED = 'SUCCEEDED';
+    const MONEI_STATUS_AUTHORIZED = 'AUTHORIZED';
+    const MONEI_STATUS_PENDING = 'PENDING';
+    const MONEI_STATUS_PENDING_PROCESSING = 'PENDING_PROCESSING';
+
     public function __construct()
     {
         $this->displayName = 'MONEI Payments';
@@ -1413,7 +1418,7 @@ class Monei extends PaymentModule
      */
     private function formatPrice($price, $iso_currency)
     {
-        if (version_compare(_PS_VERSION_, '1.7.6', '>=')) {
+        if (version_compare(_PS_VERSION_, '1.7.7', '>=')) {
             $context = Context::getContext();
             $locale = Tools::getContextLocale($context);
             return $locale->formatPrice($price, $iso_currency);
