@@ -19,6 +19,11 @@ class Monei extends PaymentModule
 
     protected $config_form = false;
 
+    const MONEI_STATUS_SUCCEEDED = 'SUCCEEDED';
+    const MONEI_STATUS_AUTHORIZED = 'AUTHORIZED';
+    const MONEI_STATUS_PENDING = 'PENDING';
+    const MONEI_STATUS_PENDING_PROCESSING = 'PENDING_PROCESSING';
+
     public function __construct()
     {
         $this->displayName = 'MONEI Payments';

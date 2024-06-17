@@ -140,7 +140,7 @@ class MoneiCheckModuleFrontController extends ModuleFrontController
             }
 
             // Check payment (FROM API call, not callback)
-            if ($payment_from_api->getStatusCode() === 'E000') {
+            if ($payment_from_api->getStatus() === $this->module::MONEI_STATUS_SUCCEEDED) {
                 $payment_status = (int)Configuration::get('MONEI_STATUS_SUCCEEDED');
                 $lbl_monei->status = pSQL($payment_from_api->getStatus());
             } else {
