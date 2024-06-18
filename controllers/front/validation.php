@@ -49,7 +49,7 @@ class MoneiValidationModuleFrontController extends ModuleFrontController
             $order_id = $payment_callback->getOrderId();
             $id_monei = Monei::getIdByInternalOrder($order_id);
             if (!$id_monei) {
-                $message = $this->l('Uknown ID for orderId') . ': ' . pSQL($order_id);
+                $message = $this->l('Unknown ID for orderId') . ': ' . pSQL($order_id);
                 PrestaShopLogger::addLog('MONEI: ' . $message, 3);
                 throw new ApiException($message, 3);
                 die();

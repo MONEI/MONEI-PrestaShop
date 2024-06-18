@@ -7,8 +7,8 @@ class MoneiConfirmationModuleFrontController extends ModuleFrontController
     public function initContent()
     {
         // For errors
-        $sucess = (int)Tools::getValue('success');
-        if ($sucess === 0) {
+        $success = (int)Tools::getValue('success');
+        if ($success === 0) {
             $message = Tools::getValue('message');
             $errors[] = $message;
             $this->context->smarty->assign([
