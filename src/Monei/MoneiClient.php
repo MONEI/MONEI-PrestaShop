@@ -9,7 +9,7 @@ use Monei\Api\PaymentsApi;
 
 class MoneiClient
 {
-    public const VERSION = '1.2.4';
+    public const VERSION = '1.2.5';
     /**
      * @var PaymentsApi
      */
