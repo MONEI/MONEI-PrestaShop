@@ -23,7 +23,8 @@
     "plugins": {
       "@release-it/bumper": {
         "out": [
-          "../monei.php"
+          "../monei.php",
+          "../src/Monei/MoneiClient.php"
         ]
       }
     },
