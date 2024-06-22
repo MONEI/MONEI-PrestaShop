@@ -7,7 +7,8 @@
   "license": "MIT",
   "private": true,
   "scripts": {
-    "release": "release-it"
+    "release": "release-it",
+    "build": "uglifyjs-folder ../views/js/_dev/ -eo ../views/js/"
   },
   "release-it": {
     "git": {
@@ -34,7 +35,8 @@
   },
   "devDependencies": {
     "@release-it/bumper": "^3.0.1",
-    "release-it": "^14.12.4"
+    "release-it": "^14.12.4",
+    "uglifyjs-folder": "^3.3.0"
   },
-  "packageManager": "yarn@4.1.0"
+  "packageManager": "yarn@4.3.1"
 }

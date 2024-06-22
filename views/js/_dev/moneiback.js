@@ -11,7 +11,7 @@
                 showEarly: false
             },
             beforeShow: function () {
-                var json_info_coded = atob($(this.element).data("moneijson"));
+                const json_info_coded = atob($(this.element).data("moneijson"));
                 $('#json_log').jsonViewer(JSON.parse(json_info_coded), {
                     collapsed: true,
                     rootCollapsable: false
@@ -27,8 +27,8 @@
         });
 
         $('body').on('change', '#monei_refund_amount', function () {
-            var max_to_refund = $(this).data('maxrefund');
-            var desired_refund = $(this).val();
+            const max_to_refund = $(this).data('maxrefund');
+            const desired_refund = $(this).val();
             if (desired_refund > max_to_refund) {
                 $('#moneiAlert').removeClass('collapse');
             } else {

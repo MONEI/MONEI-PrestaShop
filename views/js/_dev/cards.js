@@ -1,5 +1,5 @@
 document.addEventListener("DOMContentLoaded", function (event) {
-    var cards_links = document.querySelectorAll('a[data-monei-card]');
+    const cards_links = document.querySelectorAll('a[data-monei-card]');
     cards_links.forEach(function (link) {
         link.addEventListener('click', function (event) {
             event.preventDefault();
@@ -21,8 +21,8 @@ document.addEventListener("DOMContentLoaded", function (event) {
 });
 
 function ajaxDeleteTokenizedCard(id_monei_card) {
-    var url_delete_monei_card = new URL(monei_index_url);
-    var params = {
+    const url_delete_monei_card = new URL(monei_index_url);
+    const params = {
         fc: 'module',
         module: 'monei',
         controller: 'cards',
