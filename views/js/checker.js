@@ -14,8 +14,18 @@ function executeEveryNsecondsNtimes(func, interval, times) {
     }, interval);
 }
 
+function moneiDisplayError(messageError)
+{
+    document.querySelector(".custom__modal").style.display = 'none';
+    document.querySelector(".page-header").style.display = 'none';
+    clearInterval(intervalId);
+
+    document.querySelector(".page-content").innerHTML = '<div class="alert alert-danger" role="alert">' + messageError + '</div>';
+}
+
 function checkMoneiStatus() {
     setCountDown();
+
     let params = {
         fc: 'module',
         module: 'monei',
@@ -35,24 +45,27 @@ function checkMoneiStatus() {
             'Accept': 'application/json'
         }
     })
-        .then((response) => response.json())
-        .then((data) => {
-            // Get the JSON from the response
-            if (typeof data.order_exists !== 'undefined' && data.order_exists) {
-                clearInterval(intervalId);
-                validateMoneiCart(monei_cart_id);
-            }
-            // If is the last try, then validate the cart
-            if (monei_counter == number_of_retries) {
-                validateMoneiCart(monei_cart_id);
-            }
+    .then((response) => response.json())
+    .then((data) => {
+        if (data.error) {
+            moneiDisplayError(data.message);
 
-        }).catch(function (error) {
-            document.querySelector(".custom__modal").style.display = 'none';
+            return;
+        }
+
+        // Get the JSON from the response
+        if (typeof data.order_exists !== 'undefined' && data.order_exists) {
             clearInterval(intervalId);
-            swal(conf_msg_mon1_ko, conf_msg_mon2_ko, conf_mon_icon_ko);
-            console.log('Error MONEI: ' + error);
-        });
+            validateMoneiCart(monei_cart_id);
+        }
+        // If is the last try, then validate the cart
+        if (monei_counter == number_of_retries) {
+            validateMoneiCart(monei_cart_id);
+        }
+    })
+    .catch(function (error) {
+        moneiDisplayError(error);
+    });
 }
 
 function validateMoneiCart(id_cart) {
@@ -76,33 +89,36 @@ function validateMoneiCart(id_cart) {
             'Accept': 'application/json'
         }
     })
-        .then((response) => response.json())
-        .then((data) => {
-            // Replace the Order ID
-            let order_ref = document.getElementById('order_id_span');
-            let new_order_ref = document.createElement('span');
-            new_order_ref.id = 'order_id_span';
-            new_order_ref.innerHTML = data.order_reference;
-            order_ref.replaceWith(new_order_ref);
+    .then((response) => response.json())
+    .then((data) => {
+        if (data.error) {
+            moneiDisplayError(data.message);
 
-            // Replace HTML content
-            let currentDiv = document.getElementById('content');
-            let newDiv = document.createElement('div');
-            newDiv.classList.add('page-content', 'card', 'card-block');
-            newDiv.id = 'content';
-            newDiv.innerHTML = data.content;
-            currentDiv.replaceWith(newDiv);
+            return;
+        }
 
-            // Time left to show
+        // Replace the Order ID
+        let order_ref = document.getElementById('order_id_span');
+        let new_order_ref = document.createElement('span');
+        new_order_ref.id = 'order_id_span';
+        new_order_ref.innerHTML = data.order_reference;
+        order_ref.replaceWith(new_order_ref);
 
-            swal(conf_msg_mon1_ok, conf_msg_mon2_ok, conf_mon_icon_ok);
+        // Replace HTML content
+        let currentDiv = document.getElementById('content');
+        let newDiv = document.createElement('div');
+        newDiv.classList.add('page-content', 'card', 'card-block');
+        newDiv.id = 'content';
+        newDiv.innerHTML = data.content;
+        currentDiv.replaceWith(newDiv);
 
-        }).catch(function (error) {
-            document.querySelector(".custom__modal").style.display = 'none';
-            clearInterval(intervalId);
-            swal(conf_msg_mon1_ko, conf_msg_mon2_ko, conf_mon_icon_ko);
-            console.log('Error MONEI: ' + error);
-        });
+        // Time left to show
+
+        swal(conf_msg_mon1_ok, conf_msg_mon2_ok, conf_mon_icon_ok);
+
+    }).catch(function (error) {
+        moneiDisplayError(error);
+    });
 }
 
 function setCountDown() {
