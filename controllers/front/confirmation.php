@@ -1,11 +1,14 @@
 <?php
-
-require_once dirname(__FILE__) . '/../../vendor/autoload.php';
+if (!defined('_PS_VERSION_')) {
+    exit;
+}
 
 class MoneiConfirmationModuleFrontController extends ModuleFrontController
 {
     public function initContent()
     {
+        parent::initContent();
+
         // For errors
         $sucess = (int)Tools::getValue('success');
         if ($sucess === 0) {
@@ -30,6 +33,5 @@ class MoneiConfirmationModuleFrontController extends ModuleFrontController
         }
 
         $this->setTemplate('module:' . $this->module->name . '/views/templates/front/blank_confirmation.tpl');
-        parent::initContent();
     }
 }
