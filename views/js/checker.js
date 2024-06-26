@@ -122,15 +122,15 @@ function validateMoneiCart(id_cart) {
 }
 
 function setCountDown() {
-    let timeleft = time_retry_seconds * (number_of_retries - monei_counter);
+    let timeLeft = time_retry_seconds * (number_of_retries - monei_counter);
     let countdown = document.getElementById("countdown");
     let newCountdown = document.createElement('span');
     newCountdown.id = 'countdown';
-    let minutes = Math.floor(timeleft / 60);
+    let minutes = Math.floor(timeLeft / 60);
     // Format minutes with two digits
     minutes = minutes < 10 ? '0' + minutes : minutes;
     // Same with seconds
-    let seconds = timeleft - minutes * 60;
+    let seconds = timeLeft - minutes * 60;
     seconds = seconds < 10 ? '0' + seconds : seconds;
     newCountdown.innerHTML = minutes + ':' + seconds + ' s.';
     countdown.replaceWith(newCountdown);

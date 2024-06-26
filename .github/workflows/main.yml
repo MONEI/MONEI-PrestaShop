@@ -29,6 +29,7 @@ jobs:
       uses: ncipollo/release-action@v1.14.0
       with:
         allowUpdates: true
+        omitBodyDuringUpdate: true
         artifacts: '../monei.zip'
         artifactContentType: 'application/zip'
         token: ${{ secrets.GITHUB_TOKEN }}
