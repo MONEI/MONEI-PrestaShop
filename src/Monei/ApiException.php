@@ -1,6 +1,4 @@
 <?php
-
-
 namespace Monei;
 
 use Exception;
@@ -32,7 +30,6 @@ class ApiException extends Exception
         echo(json_encode([
             'code' => $code,
             'message' => $message,
-            'error' => $message
         ]));
     }
 
