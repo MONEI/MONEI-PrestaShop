@@ -1,6 +1,4 @@
 <?php
-
-
 namespace Monei\CoreHelpers;
 
 use Context;
@@ -85,6 +83,7 @@ class PsOrderHelper
                     self::savePaymentToken($monei, $payment);
                 }
             }
+
             return true;
         } catch (\Exception $ex) {
             throw new ApiException(
@@ -92,6 +91,8 @@ class PsOrderHelper
                 $ex->getCode()
             );
         }
+
+        return false;
     }
 
     /**
@@ -187,12 +188,17 @@ class PsOrderHelper
         MoneiPayment $refund
     ): bool
     {
+        $employeeId = 0;
+        if (defined('_PS_ADMIN_DIR_')) {
+            $employeeId = Context::getContext()->employee->id;
+        }
+
         return Db::getInstance()->insert('monei_refund', [
             'id_monei' => (int)$monei->id,
             'id_monei_history' => (int)$id_monei_history,
             'amount' => (int)$refund->getLastRefundAmount(),
             'reason' => $refund->getLastRefundReason(),
-            'id_employee' => (int)Context::getContext()->employee->id,
+            'id_employee' => $employeeId,
             'date_add' => date('Y-m-d H:i:s')
         ]);
     }

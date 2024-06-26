@@ -4,8 +4,13 @@ require_once dirname(__FILE__) . '/vendor/autoload.php';
 use Monei\CoreClasses\Monei as MoneiClass;
 use Monei\CoreClasses\MoneiCard;
 use Monei\CoreHelpers\PsTools;
+use Monei\ApiException;
+use Monei\CoreHelpers\PsCartHelper;
+use Monei\CoreHelpers\PsOrderHelper;
+use Monei\Model\MoneiPaymentStatus;
 use Monei\MoneiClient;
 use Monei\Traits\ValidationHelpers;
+
 use PrestaShop\PrestaShop\Adapter\ServiceLocator;
 use Symfony\Polyfill\Mbstring\Mbstring;
 
@@ -18,11 +23,6 @@ class Monei extends PaymentModule
     use ValidationHelpers;
 
     protected $config_form = false;
-
-    const MONEI_STATUS_SUCCEEDED = 'SUCCEEDED';
-    const MONEI_STATUS_AUTHORIZED = 'AUTHORIZED';
-    const MONEI_STATUS_PENDING = 'PENDING';
-    const MONEI_STATUS_PENDING_PROCESSING = 'PENDING_PROCESSING';
 
     public function __construct()
     {
@@ -44,10 +44,6 @@ class Monei extends PaymentModule
         $this->description = $this->l('Accept Card, Apple Pay, Google Pay, Bizum, PayPal and many more payment methods in your store.');
     }
 
-    /**
-     * Don't forget to create update methods if needed:
-     * http://doc.prestashop.com/display/PS16/Enabling+the+Auto-Update
-     */
     public function install()
     {
         if (extension_loaded('curl') == false) {
@@ -78,10 +74,10 @@ class Monei extends PaymentModule
         // Status
         Configuration::updateValue('MONEI_STATUS_SUCCEEDED', Configuration::get('PS_OS_PAYMENT'));
         Configuration::updateValue('MONEI_STATUS_FAILED', Configuration::get('PS_OS_ERROR'));
-        Configuration::updateValue('MONEI_SWITCH_REFUNDS', false);
         Configuration::updateValue('MONEI_STATUS_REFUNDED', Configuration::get('PS_OS_REFUND'));
         Configuration::updateValue('MONEI_STATUS_PARTIALLY_REFUNDED', Configuration::get('PS_OS_REFUND'));
         Configuration::updateValue('MONEI_STATUS_PENDING', Configuration::get('PS_OS_PREPARATION'));
+        Configuration::updateValue('MONEI_SWITCH_REFUNDS', false);
 
         include(dirname(__FILE__) . '/sql/install.php');
 
@@ -886,9 +882,160 @@ class Monei extends PaymentModule
         );
     }
 
-    /**
-     * Everything from now is related to HelperForms
-     */
+    public function createOrUpdateOrder($moneiPaymentId)
+    {
+        // Get the payment from the API
+        $moneiClient = new MoneiClient(
+            Configuration::get('MONEI_API_KEY'),
+            Configuration::get('MONEI_ACCOUNT_ID')
+        );
+
+        $moneiPayment = $moneiClient->payments->getPayment($moneiPaymentId);
+        $moneiOrderId = $moneiPayment->getOrderId();
+
+        $moneiId = (int) MoneiClass::getIdByInternalOrder($moneiOrderId);
+
+        // Check Monei
+        $monei = new MoneiClass($moneiId);
+        if (!Validate::isLoadedObject($monei)) {
+            throw new ApiException('Monei identifier not found');
+        }
+
+        // Check Cart
+        $cartId = (int) $monei->id_cart;
+        $cartIdResponse = is_array(explode('m', $moneiOrderId)) ? (int)explode('m', $moneiOrderId)[0] : false;
+        if ($cartId !== $cartIdResponse) {
+            throw new ApiException('cartId from response and internal registry doesnt match: CartId: ' . $cartId . ' - CartIdResponse: ' . $cartIdResponse);
+        }
+
+        // Check Currencies
+        if ($monei->currency !== $moneiPayment->getCurrency()) {
+            throw new ApiException('Currency from response and internal registry doesnt match: Currency: ' . $monei->currency . ' - CurrencyResponse: ' . $moneiPayment->getCurrency());
+        }
+
+        // Save the authorization code
+        $monei->authorization_code = $moneiPayment->getAuthorizationCode();
+        $monei->save();
+
+        $cart = new Cart($cartId);
+        $cartAmount = (int) PsCartHelper::getTotalFromCart($cartId);
+        $cartAmountResponse = $moneiPayment->getAmount();
+
+        $orderStateId = (int) Configuration::get('MONEI_STATUS_FAILED');
+        $message = '';
+        $failed = false;
+        $is_refund = false;
+
+        if ($cartAmountResponse !== (int) $monei->amount || $cartAmountResponse !== $cartAmount) {
+            $message = $this->l('Expected payment amount doesnt match response amount');
+            $failed = true;
+        } elseif ($cartAmountResponse !== (int) $moneiPayment->getAmount()) {
+            $message = $this->l('Expected payment amount doesnt match response amount');
+            $failed = true;
+        } elseif (in_array($moneiPayment->getStatus(), [MoneiPaymentStatus::REFUNDED, MoneiPaymentStatus::PARTIALLY_REFUNDED])) {
+            $orderStateId = (int) Configuration::get('MONEI_STATUS_REFUNDED');
+            $is_refund = true;
+        } elseif ($moneiPayment->getStatus() === MoneiPaymentStatus::PENDING) {
+            $orderStateId = (int) Configuration::get('MONEI_STATUS_PENDING');
+        } elseif ($moneiPayment->getStatus() === MoneiPaymentStatus::SUCCEEDED) {
+            $orderStateId = (int) Configuration::get('MONEI_STATUS_SUCCEEDED');
+        }
+
+        $monei->status = $moneiPayment->getStatus();
+        $monei->save();
+
+        // Check if the order already exists
+        $orderByCart = Order::getByCartId($cartId);
+
+        // Check if the order should be created
+        $should_create_order = true;
+        if (Validate::isLoadedObject($orderByCart)) {
+            $should_create_order = false;
+
+            $orderState = new OrderState($orderStateId);
+            if (Validate::isLoadedObject($orderState)) {
+                $orderByCart->setCurrentState($orderStateId); // Change order status to paid/failed
+            }
+
+            // Update transaction_id in order_payment
+            $orderPayment = $orderByCart->getOrderPaymentCollection();
+            if (count($orderPayment) > 0) {
+                $orderPayment[0]->transaction_id = $moneiPayment->getId();
+                $orderPayment[0]->save();
+            }
+        }
+
+        // Create the order
+        if ($should_create_order) {
+            // Set a LOCK for slow servers
+            $is_locked_info = MoneiClass::getLockInformation($moneiId);
+
+            if ($is_locked_info['locked'] == 0) {
+                Db::getInstance()->update(
+                    'monei',
+                    [
+                        'locked' => 1,
+                        'locked_at' => time(),
+                    ],
+                    'id_monei = ' . (int)$moneiId
+                );
+            } elseif ($is_locked_info['locked'] == 1 && $is_locked_info['locked_at'] < (time() - 60)) {
+                $should_create_order = false;
+                $message = 'Slow server detected, order in creation process';
+
+                PrestaShopLogger::addLog(
+                    'MONEI - validation:postProcess - ' . $message,
+                    PrestaShopLogger::LOG_SEVERITY_LEVEL_WARNING
+                );
+            } elseif ($is_locked_info['locked'] == 1 && $is_locked_info['locked_at'] > (time() - 60)) {
+                $message = 'Slow server detected, previous order creation process timed out';
+
+                Db::getInstance()->update(
+                    'monei',
+                    [
+                        'locked_at' => time(),
+                    ],
+                    'id_monei = ' . (int)$moneiId
+                );
+
+                PrestaShopLogger::addLog(
+                    'MONEI - validation:postProcess - ' . $message,
+                    PrestaShopLogger::LOG_SEVERITY_LEVEL_WARNING
+                );
+            }
+
+            if ($should_create_order) {
+                $customer = new Customer((int) $cart->id_customer);
+                if (!Validate::isLoadedObject($customer)) {
+                    throw new ApiException('Customer #' . $cart->id_customer . ' not valid');
+                }
+
+                $this->validateOrder(
+                    $cartId,
+                    $orderStateId,
+                    $cartAmountResponse / 100,
+                    'MONEI ' . $moneiPayment->getPaymentMethod()->getMethod(),
+                    $message,
+                    ['transaction_id' => $moneiPayment->getId()],
+                    $cart->id_currency,
+                    false,
+                    $customer->secure_key
+                );
+
+                // Check id_order and save it
+                $orderId = (int) Order::getIdByCartId($cartId);
+                if ($orderId) {
+                    $monei->id_order = $orderId;
+                    $monei->save();
+                }
+            }
+        }
+
+        // Save log (required from API for tokenization)
+        if (!PsOrderHelper::saveTransaction($moneiPayment, false, $is_refund, true, $failed)) {
+            throw new ApiException('Unable to save transaction information');
+        }
+    }
 
     /**
      * Hook for JSON Viewer
@@ -915,7 +1062,7 @@ class Monei extends PaymentModule
         $this->context->controller->addCSS($this->_path . 'views/css/jquery.json-viewer.css');
         // JS
         $this->context->controller->addJS($this->_path . 'views/js/sweetalert.min.js');
-        $this->context->controller->addJS($this->_path . 'views/js/moneiback.min.js');
+        $this->context->controller->addJS($this->_path . 'views/js/moneiback.js');
         $this->context->controller->addJS($this->_path . 'views/js/jquery.json-viewer.js');
     }
 
@@ -1471,7 +1618,7 @@ class Monei extends PaymentModule
             // MONEI Front JS
             $this->context->controller->registerJavascript(
                 'module-' . $this->name . '-checker',
-                'modules/' . $this->name . '/views/js/checker.min.js',
+                'modules/' . $this->name . '/views/js/checker.js',
                 [
                     'priority' => 300,
                     'attribute' => 'async',
@@ -1498,7 +1645,7 @@ class Monei extends PaymentModule
         ) {
             $this->context->controller->registerJavascript(
                 'module-' . $this->name . '-tokenize',
-                'modules/' . $this->name . '/views/js/tokenize.min.js',
+                'modules/' . $this->name . '/views/js/tokenize.js',
                 [
                     'priority' => 300,
                     'attribute' => 'async',
@@ -1549,7 +1696,7 @@ class Monei extends PaymentModule
 
             $this->context->controller->registerJavascript(
                 'module-' . $this->name . '-cards',
-                'modules/' . $this->name . '/views/js/cards.min.js',
+                'modules/' . $this->name . '/views/js/cards.js',
                 [
                     'priority' => 300,
                     'attribute' => 'async',

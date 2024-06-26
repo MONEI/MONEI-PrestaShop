@@ -48,11 +48,11 @@ function checkMoneiStatus() {
             }
 
         }).catch(function (error) {
-        document.querySelector(".custom__modal").style.display = 'none';
-        clearInterval(intervalId);
-        swal(conf_msg_mon1_ko, conf_msg_mon2_ko, conf_mon_icon_ko);
-        console.log('Error MONEI: ' + error);
-    });
+            document.querySelector(".custom__modal").style.display = 'none';
+            clearInterval(intervalId);
+            swal(conf_msg_mon1_ko, conf_msg_mon2_ko, conf_mon_icon_ko);
+            console.log('Error MONEI: ' + error);
+        });
 }
 
 function validateMoneiCart(id_cart) {
@@ -98,11 +98,11 @@ function validateMoneiCart(id_cart) {
             swal(conf_msg_mon1_ok, conf_msg_mon2_ok, conf_mon_icon_ok);
 
         }).catch(function (error) {
-        document.querySelector(".custom__modal").style.display = 'none';
-        clearInterval(intervalId);
-        swal(conf_msg_mon1_ko, conf_msg_mon2_ko, conf_mon_icon_ko);
-        console.log('Error MONEI: ' + error);
-    });
+            document.querySelector(".custom__modal").style.display = 'none';
+            clearInterval(intervalId);
+            swal(conf_msg_mon1_ko, conf_msg_mon2_ko, conf_mon_icon_ko);
+            console.log('Error MONEI: ' + error);
+        });
 }
 
 function setCountDown() {
