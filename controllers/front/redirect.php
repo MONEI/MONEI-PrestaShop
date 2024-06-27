@@ -53,7 +53,7 @@ class MoneiRedirectModuleFrontController extends ModuleFrontController
                 Configuration::get('MONEI_API_KEY'),
                 Configuration::get('MONEI_ACCOUNT_ID')
             );
-            $moneiPayment = $this->createPaymentObject();
+            $moneiPayment = $this->module->createPaymentObject();
 
             if (
                 $tokenize && (bool) Configuration::get('MONEI_TOKENIZE') === true
@@ -78,7 +78,7 @@ class MoneiRedirectModuleFrontController extends ModuleFrontController
             }
 
             // Save the information before sending it to the API
-            $transaction = PsOrderHelper::saveTransaction($moneiPayment, true);
+            PsOrderHelper::saveTransaction($moneiPayment, true);
 
             $response = $moneiClient->payments->createPayment($moneiPayment);
             if (!$response) {
@@ -160,164 +160,5 @@ class MoneiRedirectModuleFrontController extends ModuleFrontController
     protected function displayError()
     {
         return $this->setTemplate('error.tpl');
-    }
-
-    /**
-     * Creates the Payment object.
-     * @return MoneiPayment
-     * @throws PrestaShopException
-     * @throws LocalizationException
-     * @throws PrestaShopDatabaseException
-     */
-    private function createPaymentObject(): MoneiPayment
-    {
-        $currency = new Currency($this->context->cart->id_currency);
-        $currency_iso = $currency->iso_code;
-        $currency_decimals = is_array($currency) ? (int)$currency['decimals'] : (int)$currency->decimals;
-        $cart_details = $this->context->cart->getSummaryDetails(null, true);
-        $decimals = $currency_decimals * _PS_PRICE_DISPLAY_PRECISION_; // _PS_PRICE_DISPLAY_PRECISION_ deprec 1.7.7 TODO
-        $shipping = $cart_details['total_shipping_tax_exc'];
-        $subtotal = $cart_details['total_price_without_tax'] - $cart_details['total_shipping_tax_exc'];
-        $total_tax = $cart_details['total_tax'];
-        $total_price = Tools::ps_round($shipping + $subtotal + $total_tax, $decimals);
-        $amount = (int)number_format($total_price, 2, '', '');
-        $order_id = str_pad($this->context->cart->id . 'm' . time() % 1000, 12, '0', STR_PAD_LEFT); // Redsys/Bizum Style
-
-        // URLs
-        $url_ok = $this->context->link->getModuleLink($this->module->name, 'confirmation', [
-            'success' => 1,
-            'cart_id' => $this->context->cart->id,
-            'order_id' => $order_id
-        ]);
-        $url_ko = $this->context->link->getModuleLink($this->module->name, 'confirmation', [
-            'success' => 0,
-            'cart_id' => $this->context->cart->id,
-            'order_id' => $order_id
-        ]);
-
-        $url_cancel = $this->context->link->getPageLink('order', null, null, 'step=3');
-        $url_callback = $this->context->link->getModuleLink($this->module->name, 'validation');
-
-        // Models
-        $monei_payment = new MoneiPayment();
-        $monei_customer = new MoneiCustomer();
-
-        $monei_address_billing = new MoneiAddress();
-        $monei_billing_details = new MoneiBillingDetails();
-
-        $monei_address_shipping = new MoneiAddress();
-        $monei_shipping_details = new MoneiShippingDetails();
-
-        $id_address_invoice = (int)$this->context->cart->id_address_invoice;
-        $id_address_delivery = (int)$this->context->cart->id_address_delivery;
-
-        $ps_address_invoice = new Address($id_address_invoice);
-        $ps_address_delivery = new Address($id_address_delivery);
-
-        $id_lang = (int)$this->context->language->id;
-
-        $state_invoice = (int)$ps_address_invoice->id_state > 0 ?
-            new State($ps_address_invoice->id_state, $id_lang) : new State();
-        $state_delivery = (int)$ps_address_delivery->id_state > 0 ?
-            new State($ps_address_invoice->id_state, $id_lang) : new State();
-        $state_invoice_name = $state_invoice->name ?: '';
-        $state_delivery_name = $state_delivery->name ?: '';
-
-        $country_invoice = (int)$ps_address_invoice->id_country > 0 ?
-            new Country($ps_address_invoice->id_country, $id_lang) : new Country();
-        $country_delivery = (int)$ps_address_delivery->id_country > 0 ?
-            new Country($ps_address_invoice->id_country, $id_lang) : new Country();
-        $country_invoice_iso = $country_invoice->iso_code ?: '';
-        $country_delivery_iso = $country_delivery->iso_code ?: '';
-
-        $monei_customer
-            ->setName($this->context->customer->lastname . ', ' . $this->context->customer->firstname)
-            ->setEmail($this->context->customer->email)
-            ->setPhone($ps_address_invoice->phone);
-
-        $monei_address_billing
-            ->setLine1($ps_address_invoice->address1)
-            ->setLine2($ps_address_invoice->address2)
-            ->setZip($ps_address_invoice->postcode)
-            ->setCity($ps_address_invoice->city)
-            ->setState($state_invoice_name)
-            ->setCountry($country_invoice_iso);
-
-        $monei_address_shipping
-            ->setLine1($ps_address_delivery->address1)
-            ->setLine2($ps_address_delivery->address2)
-            ->setZip($ps_address_delivery->postcode)
-            ->setCity($ps_address_delivery->city)
-            ->setState($state_delivery_name)
-            ->setCountry($country_delivery_iso);
-
-        $monei_billing_details
-            ->setName($monei_customer->getName())
-            ->setEmail($monei_customer->getEmail())
-            ->setPhone($monei_customer->getPhone())
-            ->setAddress($monei_address_billing);
-
-        $monei_shipping_details
-            ->setName($monei_customer->getName())
-            ->setEmail($monei_customer->getEmail())
-            ->setPhone($monei_customer->getPhone())
-            ->setAddress($monei_address_shipping);
-
-        $monei_payment
-            ->setAmount($amount)
-            ->setCurrency($currency_iso)
-            ->setOrderId($order_id)
-            ->setCompleteUrl($url_ok)
-            ->setFailUrl($url_ko)
-            ->setCallbackUrl($url_callback)
-            ->setCancelUrl($url_cancel)
-            ->setBillingDetails($monei_billing_details)
-            ->setShippingDetails($monei_shipping_details);
-
-        // Check for available payment methods
-        $payment_methods = [];
-
-        if (!Configuration::get('MONEI_ALLOW_ALL')) {
-            if (Tools::isSubmit('method')) {
-                $param_method = Tools::getValue('method', 'card');
-                $payment_methods[] = in_array($param_method, MoneiPaymentMethods::getAllowableEnumValues()) ?
-                    $param_method : 'card'; // Fallback card
-            } else {
-                if (Configuration::get('MONEI_ALLOW_CARD')) {
-                    $payment_methods[] = 'card';
-                }
-                if (Configuration::get('MONEI_ALLOW_BIZUM')) {
-                    $payment_methods[] = 'bizum';
-                }
-                if (Configuration::get('MONEI_ALLOW_APPLE')) {
-                    $payment_methods[] = 'applePay';
-                }
-                if (Configuration::get('MONEI_ALLOW_GOOGLE')) {
-                    $payment_methods[] = 'googlePay';
-                }
-                if (Configuration::get('MONEI_ALLOW_CLICKTOPAY')) {
-                    $payment_methods[] = 'clickToPay';
-                }
-                if (Configuration::get('MONEI_ALLOW_PAYPAL')) {
-                    $payment_methods[] = 'paypal';
-                }
-                if (Configuration::get('MONEI_ALLOW_COFIDIS')) {
-                    $payment_methods[] = 'cofidis';
-                }
-                if (Configuration::get('MONEI_ALLOW_KLARNA')) {
-                    $payment_methods[] = 'klarna';
-                }
-                if (Configuration::get('MONEI_ALLOW_MULTIBANCO')) {
-                    $payment_methods[] = 'multibanco';
-                }
-                if (Configuration::get('MONEI_ALLOW_MBWAY')) {
-                    $payment_methods[] = 'mbway';
-                }
-            }
-        }
-
-        $monei_payment->setAllowedPaymentMethods($payment_methods);
-
-        return $monei_payment;
     }
 }
