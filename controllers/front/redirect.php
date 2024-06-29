@@ -49,10 +49,6 @@ class MoneiRedirectModuleFrontController extends ModuleFrontController
                 throw new ApiException('Invalid crypto hash');
             }
 
-            $moneiClient = new MoneiClient(
-                Configuration::get('MONEI_API_KEY'),
-                Configuration::get('MONEI_ACCOUNT_ID')
-            );
             $moneiPayment = $this->module->createPaymentObject();
 
             if (
@@ -77,23 +73,14 @@ class MoneiRedirectModuleFrontController extends ModuleFrontController
                 }
             }
 
-            // Save the information before sending it to the API
-            PsOrderHelper::saveTransaction($moneiPayment, true);
-
-            $response = $moneiClient->payments->createPayment($moneiPayment);
-            if (!$response) {
-                throw new ApiException('Invalid response from MONEI');
-            }
-
-            // Save the information after sending it to the API
-            PsOrderHelper::saveTransaction($response);
+            $moneiPaymentResponse = $this->module->createPaymentInMonei($moneiPayment);
+            $moneiOrderId = $moneiPaymentResponse->getOrderId();
+            $moneiId = Monei::getIdByInternalOrder($moneiOrderId);
 
             // Save the Payment ID
-            $moneiOrderInternalId = Monei::getIdByInternalOrder($response->getOrderId());
-
-            $monei = new Monei($moneiOrderInternalId);
+            $monei = new Monei($moneiId);
             $monei->id_cart = (int) $cart->id;
-            $monei->id_order_monei = pSQL($response->getId());
+            $monei->id_order_monei = pSQL($moneiPaymentResponse->getId());
             $monei->save();
 
             // Convert the cart to order
@@ -134,10 +121,10 @@ class MoneiRedirectModuleFrontController extends ModuleFrontController
                 }
             }
 
-            if ($response->getNextAction()->getMustRedirect()) {
-                $redirectURL = $response->getNextAction()->getRedirectUrl();
-                if ($response->getStatus() === MoneiPaymentStatus::FAILED) {
-                    $redirectURL .= '&message=' . $response->getStatusMessage();
+            if ($moneiPaymentResponse->getNextAction()->getMustRedirect()) {
+                $redirectURL = $moneiPaymentResponse->getNextAction()->getRedirectUrl();
+                if ($moneiPaymentResponse->getStatus() === MoneiPaymentStatus::FAILED) {
+                    $redirectURL .= '&message=' . $moneiPaymentResponse->getStatusMessage();
                 }
 
                 Tools::redirect($redirectURL);
