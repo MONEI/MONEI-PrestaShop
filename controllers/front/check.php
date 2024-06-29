@@ -104,14 +104,7 @@ class MoneiCheckModuleFrontController extends ModuleFrontController
                 ]));
             }
 
-            try {
-                $this->module->createOrUpdateOrder($moneiPaymentId);
-            } catch (Exception $ex) {
-                die(json_encode([
-                    'error' => true,
-                    'message' => $ex->getMessage(),
-                ]));
-            }
+            $this->module->createOrUpdateOrder($moneiPaymentId);
 
             $smartyParameters = [
                 'error' => false,
@@ -136,10 +129,10 @@ class MoneiCheckModuleFrontController extends ModuleFrontController
             ]));
 
         } catch (Exception $ex) {
-            die(json_encode([
-                'error' => true,
-                'message' => $ex->getMessage(),
-            ]));
+            // die(json_encode([
+            //     'error' => true,
+            //     'message' => $ex->getMessage(),
+            // ]));
         }
     }
 }

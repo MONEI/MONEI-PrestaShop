@@ -68,7 +68,9 @@ class Monei extends PaymentModule
         Configuration::updateValue('MONEI_SHOW_ALL', true);
         // Gateways
         Configuration::updateValue('MONEI_ALLOW_CARD', true);
+        Configuration::updateValue('MONEI_CARD_WITH_REDIRECT', false);
         Configuration::updateValue('MONEI_ALLOW_BIZUM', false);
+        Configuration::updateValue('MONEI_BIZUM_WITH_REDIRECT', false);
         Configuration::updateValue('MONEI_ALLOW_APPLE', false);
         Configuration::updateValue('MONEI_ALLOW_GOOGLE', false);
         Configuration::updateValue('MONEI_ALLOW_CLICKTOPAY', false);
@@ -204,7 +206,9 @@ class Monei extends PaymentModule
         Configuration::deleteByName('MONEI_SHOW_ALL');
         // Gateways
         Configuration::deleteByName('MONEI_ALLOW_CARD');
+        Configuration::deleteByName('MONEI_CARD_WITH_REDIRECT');
         Configuration::deleteByName('MONEI_ALLOW_BIZUM');
+        Configuration::deleteByName('MONEI_BIZUM_WITH_REDIRECT');
         Configuration::deleteByName('MONEI_ALLOW_APPLE');
         Configuration::deleteByName('MONEI_ALLOW_GOOGLE');
         Configuration::deleteByName('MONEI_ALLOW_CLICKTOPAY');
@@ -320,7 +324,9 @@ class Monei extends PaymentModule
     {
         return array(
             'MONEI_ALLOW_CARD' => Configuration::get('MONEI_ALLOW_CARD', true),
+            'MONEI_CARD_WITH_REDIRECT' => Configuration::get('MONEI_CARD_WITH_REDIRECT', false),
             'MONEI_ALLOW_BIZUM' => Configuration::get('MONEI_ALLOW_BIZUM', false),
+            'MONEI_BIZUM_WITH_REDIRECT' => Configuration::get('MONEI_BIZUM_WITH_REDIRECT', false),
             'MONEI_ALLOW_APPLE' => Configuration::get('MONEI_ALLOW_APPLE', false),
             'MONEI_ALLOW_GOOGLE' => Configuration::get('MONEI_ALLOW_GOOGLE', false),
             'MONEI_ALLOW_CLICKTOPAY' => Configuration::get('MONEI_ALLOW_CLICKTOPAY', false),
@@ -556,8 +562,27 @@ class Monei extends PaymentModule
                         'label' => $this->l('Allow Credit Card'),
                         'name' => 'MONEI_ALLOW_CARD',
                         'is_bool' => true,
-                        'desc' => $this->l('Allow payments with Credit Card.'),
+                        // 'desc' => $this->l('Allow payments with Credit Card.'),
                         'hint' => $this->l('The payment must be active and configured on your MONEI Dashboard.'),
+                        'values' => array(
+                            array(
+                                'id' => 'active_on',
+                                'value' => true,
+                                'label' => $this->l('Enabled')
+                            ),
+                            array(
+                                'id' => 'active_off',
+                                'value' => false,
+                                'label' => $this->l('Disabled')
+                            )
+                        ),
+                    ),
+                    array(
+                        'type' => 'switch',
+                        'label' => $this->l('Activate Credit Card with Redirect'),
+                        'name' => 'MONEI_CARD_WITH_REDIRECT',
+                        'is_bool' => true,
+                        'hint' => $this->l('It is recommended to enable redirection in cases where card payments do not function correctly.'),
                         'values' => array(
                             array(
                                 'id' => 'active_on',
@@ -576,8 +601,27 @@ class Monei extends PaymentModule
                         'label' => $this->l('Allow Bizum'),
                         'name' => 'MONEI_ALLOW_BIZUM',
                         'is_bool' => true,
-                        'desc' => $this->l('Allow payments with Bizum.'),
+                        // 'desc' => $this->l('Allow payments with Bizum.'),
                         'hint' => $this->l('The payment must be active and configured on your MONEI Dashboard.'),
+                        'values' => array(
+                            array(
+                                'id' => 'active_on',
+                                'value' => true,
+                                'label' => $this->l('Enabled')
+                            ),
+                            array(
+                                'id' => 'active_off',
+                                'value' => false,
+                                'label' => $this->l('Disabled')
+                            )
+                        ),
+                    ),
+                    array(
+                        'type' => 'switch',
+                        'label' => $this->l('Activate Bizum with Redirect'),
+                        'name' => 'MONEI_BIZUM_WITH_REDIRECT',
+                        'is_bool' => true,
+                        'hint' => $this->l('It is recommended to enable redirection in cases where bizum payment do not function correctly.'),
                         'values' => array(
                             array(
                                 'id' => 'active_on',
@@ -616,7 +660,7 @@ class Monei extends PaymentModule
                         'label' => $this->l('Allow Google Pay'),
                         'name' => 'MONEI_ALLOW_GOOGLE',
                         'is_bool' => true,
-                        'desc' => $this->l('Allow payments with Google Pay.'),
+                        // 'desc' => $this->l('Allow payments with Google Pay.'),
                         'hint' => $this->l('The payment must be active and configured on your MONEI Dashboard.'),
                         'values' => array(
                             array(
@@ -636,7 +680,7 @@ class Monei extends PaymentModule
                         'label' => $this->l('Allow ClickToPay'),
                         'name' => 'MONEI_ALLOW_CLICKTOPAY',
                         'is_bool' => true,
-                        'desc' => $this->l('Allow payments with ClickToPay.'),
+                        // 'desc' => $this->l('Allow payments with ClickToPay.'),
                         'hint' => $this->l('The payment must be active and configured on your MONEI Dashboard.'),
                         'values' => array(
                             array(
@@ -656,7 +700,7 @@ class Monei extends PaymentModule
                         'label' => $this->l('Allow PayPal'),
                         'name' => 'MONEI_ALLOW_PAYPAL',
                         'is_bool' => true,
-                        'desc' => $this->l('Allow payments with PayPal.'),
+                        // 'desc' => $this->l('Allow payments with PayPal.'),
                         'hint' => $this->l('The payment must be active and configured on your MONEI Dashboard.'),
                         'values' => array(
                             array(
@@ -676,7 +720,7 @@ class Monei extends PaymentModule
                         'label' => $this->l('Allow COFIDIS'),
                         'name' => 'MONEI_ALLOW_COFIDIS',
                         'is_bool' => true,
-                        'desc' => $this->l('Allow payments with COFIDIS.'),
+                        // 'desc' => $this->l('Allow payments with COFIDIS.'),
                         'hint' => $this->l('The payment must be active and configured on your MONEI Dashboard.'),
                         'values' => array(
                             array(
@@ -696,7 +740,7 @@ class Monei extends PaymentModule
                         'label' => $this->l('Allow Klarna'),
                         'name' => 'MONEI_ALLOW_KLARNA',
                         'is_bool' => true,
-                        'desc' => $this->l('Allow payments with Klarna.'),
+                        // 'desc' => $this->l('Allow payments with Klarna.'),
                         'hint' => $this->l('The payment must be active and configured on your MONEI Dashboard.'),
                         'values' => array(
                             array(
@@ -716,7 +760,7 @@ class Monei extends PaymentModule
                         'label' => $this->l('Allow Multibanco'),
                         'name' => 'MONEI_ALLOW_MULTIBANCO',
                         'is_bool' => true,
-                        'desc' => $this->l('Allow payments with Multibanco.'),
+                        // 'desc' => $this->l('Allow payments with Multibanco.'),
                         'hint' => $this->l('The payment must be active and configured on your MONEI Dashboard.'),
                         'values' => array(
                             array(
@@ -736,7 +780,7 @@ class Monei extends PaymentModule
                         'label' => $this->l('Allow MBWay'),
                         'name' => 'MONEI_ALLOW_MBWAY',
                         'is_bool' => true,
-                        'desc' => $this->l('Allow payments with MBWay.'),
+                        // 'desc' => $this->l('Allow payments with MBWay.'),
                         'hint' => $this->l('The payment must be active and configured on your MONEI Dashboard.'),
                         'values' => array(
                             array(
@@ -1028,7 +1072,28 @@ class Monei extends PaymentModule
 
         $moneiPayment->setAllowedPaymentMethods($payment_methods);
 
+        // Save the information before sending it to the API
+        PsOrderHelper::saveTransaction($moneiPayment, true);
+
         return $moneiPayment;
+    }
+
+    public function createPaymentInMonei($moneiPayment)
+    {
+        $moneiClient = new MoneiClient(
+            Configuration::get('MONEI_API_KEY'),
+            Configuration::get('MONEI_ACCOUNT_ID')
+        );
+
+        $moneiPaymentResponse = $moneiClient->payments->createPayment($moneiPayment);
+        if (!$moneiPaymentResponse) {
+            throw new ApiException('Invalid response from MONEI');
+        }
+
+        // Save the information after sending it to the API
+        PsOrderHelper::saveTransaction($moneiPaymentResponse);
+
+        return $moneiPaymentResponse;
     }
 
     public function createOrUpdateOrder($moneiPaymentId)
@@ -1309,32 +1374,30 @@ class Monei extends PaymentModule
                 'logo' => Media::getMediaPath(_PS_MODULE_DIR_ . $this->name . '/views/img/payments/cards.svg'),
             ];
 
-            if (1 === 1) {
-                $moneiPayment = $this->createPaymentObject();
-                $response = $moneiClient->payments->createPayment($moneiPayment);
-                if (!$response) {
-                    throw new ApiException('Invalid response from MONEI');
+            if (Configuration::get('MONEI_CARD_WITH_REDIRECT')) {
+                $redirectUrl = $this->context->link->getModuleLink($this->name, 'redirect', [
+                    'method' => 'card',
+                    'transaction_id' => $transactionId,
+                    'tokenize_card' => 0
+                ]);
+
+                if (Configuration::get('MONEI_TOKENIZE')) {
+                    $this->context->smarty->assign('link_create_payment', $redirectUrl);
+
+                    $paymentOptionList['card']['form'] = $this->fetch('module:monei/views/templates/hook/paymentOptions.tpl');
+                } else {
+                    $paymentOptionList['card']['action'] = $redirectUrl;
                 }
+            } else {
+                $moneiPayment = $this->createPaymentObject();
+                $moneiPaymentResponse = $this->createPaymentInMonei($moneiPayment);
 
                 $this->context->smarty->assign([
-                    'paymentId' => $response->getId(),
+                    'paymentId' => $moneiPaymentResponse->getId(),
                 ]);
 
                 $paymentOptionList['card']['additionalInformation'] = $this->fetch('module:monei/views/templates/front/onsite_card.tpl');
-            }
-
-            $redirectUrl = $this->context->link->getModuleLink($this->name, 'redirect', [
-                'method' => 'card',
-                'transaction_id' => $transactionId,
-                'tokenize_card' => 0
-            ]);
-
-            if (Configuration::get('MONEI_TOKENIZE')) {
-                $this->context->smarty->assign('link_create_payment', $redirectUrl);
-
-                $paymentOptionList['card']['form'] = $this->fetch('module:monei/views/templates/hook/paymentOptions.tpl');
-            } else {
-                $paymentOptionList['card']['action'] = $redirectUrl;
+                $paymentOptionList['card']['binary'] = true;
             }
         }
 
@@ -1371,7 +1434,7 @@ class Monei extends PaymentModule
                 'callToActionText' => $this->l('Bizum'),
                 'additionalInformation' => $template,
                 'logo' => Media::getMediaPath(_PS_MODULE_DIR_ . $this->name . '/views/img/payments/bizum.svg'),
-                'binary' => true,
+                'binary' => Configuration::get('MONEI_BIZUM_WITH_REDIRECT') ? false : true,
             ];
         }
 
@@ -1527,19 +1590,11 @@ class Monei extends PaymentModule
 
         if ($paymentOptions) {
             $moneiPayment = $this->createPaymentObject();
-
-            $moneiClient = new MoneiClient(
-                Configuration::get('MONEI_API_KEY'),
-                Configuration::get('MONEI_ACCOUNT_ID')
-            );
-            $response = $moneiClient->payments->createPayment($moneiPayment);
-            if (!$response) {
-                throw new ApiException('Invalid response from MONEI');
-            }
+            $moneiPaymentResponse = $this->createPaymentInMonei($moneiPayment);
 
             $this->context->smarty->assign([
                 'paymentMethodsToDisplay' => $paymentMethodsToDisplay,
-                'paymentId' => $response->getId(),
+                'paymentId' => $moneiPaymentResponse->getId(),
             ]);
 
             return $this->fetch('module:monei/views/templates/hook/displayPaymentByBinaries.tpl');
