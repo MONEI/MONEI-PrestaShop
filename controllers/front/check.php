@@ -12,7 +12,7 @@ class MoneiCheckModuleFrontController extends ModuleFrontController
         parent::initContent();
 
         try {
-            $cartId = (int) Tools::getValue('cart_id');
+            $cartId = (int) Tools::getValue('cart_id', $this->context->cart->id);
 
             // Check if the cart belongs to the logged in customer
             $cart = new Cart($cartId);
