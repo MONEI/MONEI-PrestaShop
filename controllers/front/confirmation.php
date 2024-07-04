@@ -18,6 +18,11 @@ class MoneiConfirmationModuleFrontController extends ModuleFrontController
                 'errors' => $errors,
                 'monei_success' => false,
             ]);
+
+            $moneiPaymentId = Tools::getValue('id');
+            if (!empty($moneiPaymentId)) {
+                $this->module->createOrUpdateOrder($moneiPaymentId);
+            }
         } else {
             $id_cart = (int)Tools::getValue('cart_id');
             $id_order = Tools::getValue('order_id');
