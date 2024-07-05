@@ -119,13 +119,6 @@
         })
         .render(moneiBizumRenderContainer);
       }
-
-      document.addEventListener('DOMContentLoaded', initMoneiBizum);
-
-      // support module: onepagecheckoutps - v5 - PresTeamShop
-      prestashop.on('opc-payment-getPaymentList-complete', initMoneiBizum);
-      // support module: onepagecheckoutps - v4 - PresTeamShop
-      $(document).on('opc-load-payment:completed', initMoneiBizum);
     </script>
   {elseif $paymentOptionName eq 'monei-card'}
     {literal}
@@ -146,13 +139,18 @@
             return;
           }
 
+          var moneiCardRenderContainer = document.getElementById('monei-card_container');
+          if (moneiCardRenderContainer === null) {
+            return;
+          }
+
           var moneiCardInput = monei.CardInput({
             paymentId: window.moneiPaymentId,
             onEnter: () => {
               moneiPaymentFormButton.click();
             },
           });
-          moneiCardInput.render('#monei-card_container');
+          moneiCardInput.render(moneiCardRenderContainer);
 
           moneiPaymentForm.addEventListener("submit", async (e) => {
             e.preventDefault();
@@ -185,13 +183,6 @@
             }
           });
         }
-
-        document.addEventListener('DOMContentLoaded', initMoneiCard);
-
-        // support module: onepagecheckoutps - v5 - PresTeamShop
-        prestashop.on('opc-payment-getPaymentList-complete', initMoneiCard);
-        // support module: onepagecheckoutps - v4 - PresTeamShop
-        $(document).on('opc-load-payment:completed', initMoneiCard);
       </script>
     {/literal}
   {/if}
