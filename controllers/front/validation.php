@@ -35,11 +35,14 @@ class MoneiValidationModuleFrontController extends ModuleFrontController
             echo 'OK';
         } catch (ApiException $ex) {
             PrestaShopLogger::addLog(
-                'MONEI - validation:postProcess - ' . $ex->getMessage(),
+                'MONEI - ApiException - validation.php - postProcess: ' . $ex->getMessage() . ' - ' . $ex->getFile(),
                 PrestaShopLogger::LOG_SEVERITY_LEVEL_ERROR
             );
         } catch (Exception $ex) {
-            PrestaShopLogger::addLog($ex->getMessage());
+            PrestaShopLogger::addLog(
+                'MONEI - Exception - validation.php - postProcess: ' . $ex->getMessage() . ' - ' . $ex->getFile(),
+                PrestaShopLogger::LOG_SEVERITY_LEVEL_ERROR
+            );
         }
 
         exit;

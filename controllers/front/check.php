@@ -43,6 +43,11 @@ class MoneiCheckModuleFrontController extends ModuleFrontController
                 ]));
             }
         } catch (Exception $ex) {
+            PrestaShopLogger::addLog(
+                'MONEI - check.php - initContent: ' . $ex->getMessage() . ' - ' . $ex->getFile(),
+                PrestaShopLogger::LOG_SEVERITY_LEVEL_ERROR
+            );
+
             die(json_encode([
                 'error' => true,
                 'message' => $ex->getMessage(),
@@ -73,6 +78,11 @@ class MoneiCheckModuleFrontController extends ModuleFrontController
                 'counter' => $counter,
             ]));
         } catch (Exception $ex) {
+            PrestaShopLogger::addLog(
+                'MONEI - check.php - displayAjaxPayment: ' . $ex->getMessage() . ' - ' . $ex->getFile(),
+                PrestaShopLogger::LOG_SEVERITY_LEVEL_ERROR
+            );
+
             die(json_encode([
                 'error' => true,
                 'message' => $ex->getMessage(),
@@ -127,12 +137,16 @@ class MoneiCheckModuleFrontController extends ModuleFrontController
                 'content' => $content_tpl,
                 'order_reference' => $order->reference,
             ]));
-
         } catch (Exception $ex) {
-            // die(json_encode([
-            //     'error' => true,
-            //     'message' => $ex->getMessage(),
-            // ]));
+            PrestaShopLogger::addLog(
+                'MONEI - check.php - displayAjaxConvert: ' . $ex->getMessage() . ' - ' . $ex->getFile(),
+                PrestaShopLogger::LOG_SEVERITY_LEVEL_ERROR
+            );
+
+            die(json_encode([
+                'error' => true,
+                'message' => $ex->getMessage(),
+            ]));
         }
     }
 }

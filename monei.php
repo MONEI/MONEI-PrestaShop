@@ -1135,7 +1135,6 @@ class Monei extends PaymentModule
         }
 
         $cart = new Cart($cartId);
-        $cartAmount = (int) PsCartHelper::getTotalFromCart($cartId);
         $cartAmountResponse = $moneiPayment->getAmount();
 
         $orderStateId = (int) Configuration::get('MONEI_STATUS_FAILED');
@@ -1143,11 +1142,7 @@ class Monei extends PaymentModule
         $failed = true;
         $is_refund = false;
 
-        if ($cartAmountResponse !== (int) $monei->amount || $cartAmountResponse !== $cartAmount) {
-            $message = $this->l('Expected payment amount doesnt match response amount');
-        } elseif ($cartAmountResponse !== (int) $moneiPayment->getAmount()) {
-            $message = $this->l('Expected payment amount doesnt match response amount');
-        } elseif (in_array($moneiPayment->getStatus(), [MoneiPaymentStatus::REFUNDED, MoneiPaymentStatus::PARTIALLY_REFUNDED])) {
+        if (in_array($moneiPayment->getStatus(), [MoneiPaymentStatus::REFUNDED, MoneiPaymentStatus::PARTIALLY_REFUNDED])) {
             $orderStateId = (int) Configuration::get('MONEI_STATUS_REFUNDED');
             $failed = false;
             $is_refund = true;
@@ -1770,8 +1765,8 @@ class Monei extends PaymentModule
             );
 
             $this->context->controller->registerJavascript(
-                'module-' . $this->name . '-tokenize',
-                'modules/' . $this->name . '/views/js/tokenize.js',
+                'module-' . $this->name . '-front',
+                'modules/' . $this->name . '/views/js/front.js',
                 [
                     'priority' => 300,
                     'attribute' => 'async',
