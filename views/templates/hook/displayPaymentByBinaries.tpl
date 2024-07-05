@@ -120,7 +120,12 @@
         .render(moneiBizumRenderContainer);
       }
 
-      initMoneiBizum();
+      document.addEventListener('DOMContentLoaded', initMoneiBizum);
+
+      // support module: onepagecheckoutps - v5 - PresTeamShop
+      prestashop.on('opc-payment-getPaymentList-complete', initMoneiBizum);
+      // support module: onepagecheckoutps - v4 - PresTeamShop
+      $(document).on('opc-load-payment:completed', initMoneiBizum);
     </script>
   {elseif $paymentOptionName eq 'monei-card'}
     {literal}
@@ -181,7 +186,12 @@
           });
         }
 
-        initMoneiCard();
+        document.addEventListener('DOMContentLoaded', initMoneiCard);
+
+        // support module: onepagecheckoutps - v5 - PresTeamShop
+        prestashop.on('opc-payment-getPaymentList-complete', initMoneiCard);
+        // support module: onepagecheckoutps - v4 - PresTeamShop
+        $(document).on('opc-load-payment:completed', initMoneiCard);
       </script>
     {/literal}
   {/if}
