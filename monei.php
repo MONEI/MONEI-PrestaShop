@@ -5,7 +5,6 @@ use Monei\CoreClasses\Monei as MoneiClass;
 use Monei\CoreClasses\MoneiCard;
 use Monei\CoreHelpers\PsTools;
 use Monei\ApiException;
-use Monei\CoreHelpers\PsCartHelper;
 use Monei\CoreHelpers\PsOrderHelper;
 use Monei\Model\MoneiAddress;
 use Monei\Model\MoneiBillingDetails;
@@ -1584,13 +1583,22 @@ class Monei extends PaymentModule
     public function hookDisplayPaymentByBinaries($params)
     {
         if (!$this->active) {
-            return [];
+            return;
         }
         if (!$this->checkCurrency($params['cart'])) {
-            return [];
+            return;
         }
         if (!Configuration::get('MONEI_API_KEY') || !Configuration::get('MONEI_ACCOUNT_ID')) {
-            return [];
+            return;
+        }
+        if (!$this->context->customer->isLogged() || !$this->context->customer->isGuest()) {
+            return;
+        }
+        // onepagecheckoutps - PresTeamShop
+        if ($onepagecheckoutps = Module::getInstanceByName('onepagecheckoutps')) {
+            if ($onepagecheckoutps->core->isModuleActive('onepagecheckoutps') && $this->context->customer->id == Configuration::get('OPC_ID_CUSTOMER')) {
+                return;
+            }
         }
 
         $paymentMethodsToDisplay = [];
