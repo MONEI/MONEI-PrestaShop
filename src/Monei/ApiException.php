@@ -26,11 +26,11 @@ class ApiException extends Exception
             $this->previous = $previous;
         }
 
-        header('HTTP/1.1 ' . $code . ' Bad Request');
-        echo(json_encode([
-            'code' => $code,
-            'message' => $message,
-        ]));
+        // header('HTTP/1.1 ' . $code . ' Bad Request');
+        // echo(json_encode([
+        //     'code' => $code,
+        //     'message' => $message,
+        // ]));
     }
 
     /**

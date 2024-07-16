@@ -9,34 +9,11 @@ class MoneiConfirmationModuleFrontController extends ModuleFrontController
     {
         parent::initContent();
 
-        // For errors
-        $success = (int)Tools::getValue('success');
-        if ($success === 0) {
-            $message = Tools::getValue('message');
-            $errors[] = $message;
-            $this->context->smarty->assign([
-                'errors' => $errors,
-                'monei_success' => false,
-            ]);
-
-            $moneiPaymentId = Tools::getValue('id');
-            if (!empty($moneiPaymentId)) {
-                $this->module->createOrUpdateOrder($moneiPaymentId);
-            }
+        $moneiPaymentId = Tools::getValue('id');
+        if (!empty($moneiPaymentId)) {
+            $this->module->createOrUpdateOrder($moneiPaymentId, true);
         } else {
-            $id_cart = (int)Tools::getValue('cart_id');
-            $id_order = Tools::getValue('order_id');
-            $monei_id_order = Tools::getValue('id');
-
-            $this->context->smarty->assign([
-                'module_dir' => $this->module->getPathUri(),
-                'monei_success' => true,
-                'monei_cart_id' => $id_cart,
-                'monei_order_id' => $id_order,
-                'monei_id' => $monei_id_order,
-            ]);
+            Tools::redirect('index.php?controller=order');
         }
-
-        $this->setTemplate('module:' . $this->module->name . '/views/templates/front/blank_confirmation.tpl');
     }
 }
