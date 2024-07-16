@@ -2,17 +2,8 @@
 use Monei\ApiException;
 use Monei\CoreClasses\Monei;
 use Monei\CoreClasses\MoneiCard;
-use Monei\CoreHelpers\PsOrderHelper;
-use Monei\Model\MoneiAddress;
-use Monei\Model\MoneiBillingDetails;
-use Monei\Model\MoneiCustomer;
-use Monei\Model\MoneiPayment;
-use Monei\Model\MoneiPaymentMethods;
-use Monei\Model\MoneiShippingDetails;
-use Monei\MoneiClient;
 use Monei\Model\MoneiPaymentStatus;
 use PrestaShop\PrestaShop\Adapter\ServiceLocator;
-use PrestaShop\PrestaShop\Core\Localization\Exception\LocalizationException;
 
 if (!defined('_PS_VERSION_')) {
     exit;
@@ -74,6 +65,7 @@ class MoneiRedirectModuleFrontController extends ModuleFrontController
             }
 
             $moneiPaymentResponse = $this->module->createPaymentInMonei($moneiPayment);
+
             $moneiOrderId = $moneiPaymentResponse->getOrderId();
             $moneiId = Monei::getIdByInternalOrder($moneiOrderId);
 

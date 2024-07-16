@@ -40,14 +40,16 @@
                 title: result.status,
                 text: result.statusMessage,
                 icon,
-                didClose: () => {
-                  if (result.status === 'SUCCEEDED') {
-                    window.location.assign(result.nextAction.redirectUrl);
-                  } else {
-                    window.location.reload();
-                  }
-                }
+                allowOutsideClick: result.status === 'SUCCEEDED' ? false : true,
+                allowEscapeKey: result.status === 'SUCCEEDED' ? false : true,
+                showConfirmButton: false,
               });
+
+              if (result.status === 'SUCCEEDED') {
+                window.location.assign(result.nextAction.redirectUrl);
+              } else {
+                window.location.reload();
+              }
             }
           } catch (error) {
             paymentButton.disabled = false;
