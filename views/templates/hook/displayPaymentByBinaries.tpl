@@ -17,7 +17,6 @@
       }
 
       Swal.fire({
-        //title: window.moneiProcessing,
         allowOutsideClick: false,
         allowEscapeKey: false,
         background: 'none',
@@ -40,8 +39,8 @@
                 title: result.status,
                 text: result.statusMessage,
                 icon,
-                allowOutsideClick: result.status === 'SUCCEEDED' ? false : true,
-                allowEscapeKey: result.status === 'SUCCEEDED' ? false : true,
+                allowOutsideClick: false,
+                allowEscapeKey: false,
                 showConfirmButton: false,
               });
 
@@ -52,12 +51,16 @@
               }
             }
           } catch (error) {
-            paymentButton.disabled = false;
             Swal.fire({
               title: error.status + '(' + error.statusCode + ')',
               text: error.message,
               icon: 'error',
+              allowOutsideClick: false,
+              allowEscapeKey: false,
+              showConfirmButton: false,
             });
+
+            window.location.reload();
 
             console.log('moneiTokenHandler - error', params, error);
           }
@@ -101,6 +104,18 @@
           paymentId: window.moneiPaymentId,
           style: {
             height: 42
+          },
+          onBeforeOpen: () => {
+            const conditionsToApprove = document.getElementById('conditions-to-approve');
+            if (conditionsToApprove) {
+              const requiredCheckboxes = conditionsToApprove.querySelectorAll('input[type="checkbox"][required]');
+              for (let i = 0; i < requiredCheckboxes.length; i++) {
+                if (!requiredCheckboxes[i].checked) {
+                  return false;
+                }
+              }
+              return true;
+            }
           },
           onSubmit(result) {
             if (result.token) {
@@ -146,6 +161,27 @@
             return;
           }
 
+          var moneiCardHolderName = document.getElementById('monei-card-holder-name');
+          var moneiCardErrors = document.getElementById('monei-card-errors');
+
+          var validateMoneiCardHolderName = (moneiCardHolderName) => {
+            const patternCardHolderName = /^[A-Za-zÀ-ú- ]{5,50}$/;
+
+            if (patternCardHolderName.test(moneiCardHolderName) === false) {
+              moneiCardErrors.innerHTML = '<div class="alert alert-warning">' + window.moneiCardHolderNameNotValid + '</div>';
+              moneiCardButton.classList.add('disabled');
+              moneiCardButton.disabled = true;
+
+              return false;
+            } else {
+              moneiCardErrors.innerHTML = '';
+              moneiCardButton.classList.remove('disabled');
+              moneiCardButton.disabled = false;
+
+              return true;
+            }
+          }
+
           var moneiCardInput = monei.CardInput({
             paymentId: window.moneiPaymentId,
             onEnter: () => {
@@ -153,6 +189,10 @@
             },
           });
           moneiCardInput.render(moneiCardRenderContainer);
+
+          moneiCardHolderName.addEventListener('input', (event) => {
+            validateMoneiCardHolderName(event.currentTarget.value);
+          });
 
           moneiPaymentForm.addEventListener("submit", async (e) => {
             e.preventDefault();
@@ -163,18 +203,7 @@
               return;
             }
 
-            const moneiCardHolderName = document.getElementById('monei-card-holder-name').value;
-            const patternCardHolderName = /^[A-Za-zÀ-ú- ]{5,50}$/;
-            if (patternCardHolderName.test(moneiCardHolderName) === false) {
-              Swal.fire({
-                title: window.moneiCardHolderNameNotValid,
-                icon: 'error',
-                willClose: () => {
-                  moneiCardButton.classList.remove('disabled');
-                  moneiCardButton.disabled = false;
-                },
-              });
-
+            if (validateMoneiCardHolderName(moneiCardHolderName.value) === false) {
               return;
             }
 
@@ -183,30 +212,20 @@
             try {
               const {token, error} = await monei.createToken(moneiCardInput);
               if (!token) {
-                Swal.fire({
-                  title: error,
-                  icon: 'error',
-                  willClose: () => {
-                    moneiCardButton.classList.remove('disabled');
-                    moneiCardButton.disabled = false;
-                  },
-                });
+                moneiCardErrors.innerHTML = '<div class="alert alert-warning">' + error + '</div>';
+                moneiCardButton.classList.remove('disabled');
+                moneiCardButton.disabled = false;
 
                 return;
               }
 
-              await moneiTokenHandler(token, moneiCardHolderName, moneiCardButton);
+              moneiCardErrors.innerHTML = '';
+
+              await moneiTokenHandler(token, moneiCardHolderName.value, moneiCardButton);
             } catch (error) {
+              moneiCardErrors.innerHTML = '<div class="alert alert-warning">' + error.message + '</div>';
+              moneiCardButton.classList.remove('disabled');
               moneiCardButton.disabled = false;
-              Swal.fire({
-                title: error.status + '(' + error.statusCode + ')',
-                text: error.message,
-                icon: 'error',
-                willClose: () => {
-                  moneiCardButton.classList.remove('disabled');
-                  moneiCardButton.disabled = false;
-                },
-              });
 
               console.log('createToken - Card Input - error', error);
             }
