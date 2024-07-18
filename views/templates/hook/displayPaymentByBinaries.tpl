@@ -1,6 +1,5 @@
 <script>
   window.moneiPaymentId = '{$moneiPaymentId|escape:'htmlall':'UTF-8'}';
-  window.moneiCardHolderName = '{$moneiCardHolderName|escape:'htmlall':'UTF-8'}';
 
   {literal}
     var moneiTokenHandler = async (paymentToken, cardholderName, paymentButton) => {
@@ -18,9 +17,10 @@
       }
 
       Swal.fire({
-        title: window.moneiProcessing,
+        //title: window.moneiProcessing,
         allowOutsideClick: false,
         allowEscapeKey: false,
+        background: 'none',
         didOpen: async () => {
           Swal.showLoading();
 
@@ -162,23 +162,50 @@
             if (!isValid) {
               return;
             }
+
+            const moneiCardHolderName = document.getElementById('monei-card-holder-name').value;
+            const patternCardHolderName = /^[A-Za-zÀ-ú- ]{5,50}$/;
+            if (patternCardHolderName.test(moneiCardHolderName) === false) {
+              Swal.fire({
+                title: window.moneiCardHolderNameNotValid,
+                icon: 'error',
+                willClose: () => {
+                  moneiCardButton.classList.remove('disabled');
+                  moneiCardButton.disabled = false;
+                },
+              });
+
+              return;
+            }
+
             moneiCardButton.disabled = true;
 
             try {
-              const {token} = await monei.createToken(moneiCardInput);
+              const {token, error} = await monei.createToken(moneiCardInput);
               if (!token) {
-                moneiCardButton.disabled = false;
+                Swal.fire({
+                  title: error,
+                  icon: 'error',
+                  willClose: () => {
+                    moneiCardButton.classList.remove('disabled');
+                    moneiCardButton.disabled = false;
+                  },
+                });
 
                 return;
               }
 
-              await moneiTokenHandler(token, window.moneiCardHolderName, moneiCardButton);
+              await moneiTokenHandler(token, moneiCardHolderName, moneiCardButton);
             } catch (error) {
               moneiCardButton.disabled = false;
               Swal.fire({
                 title: error.status + '(' + error.statusCode + ')',
                 text: error.message,
                 icon: 'error',
+                willClose: () => {
+                  moneiCardButton.classList.remove('disabled');
+                  moneiCardButton.disabled = false;
+                },
               });
 
               console.log('createToken - Card Input - error', error);

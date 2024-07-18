@@ -1419,6 +1419,10 @@ class Monei extends PaymentModule
                     $paymentOptionList['card']['action'] = $redirectUrl;
                 }
             } else {
+                $this->context->smarty->assign([
+                    'moneiCardHolderName' => $moneiPayment->getBillingDetails()->getName(),
+                ]);
+
                 $paymentOptionList['card']['additionalInformation'] = $this->fetch('module:monei/views/templates/front/onsite_card.tpl');
                 $paymentOptionList['card']['binary'] = true;
             }
@@ -1609,7 +1613,6 @@ class Monei extends PaymentModule
 
         return [
             'moneiPaymentId' => $moneiPaymentId,
-            'billingName' => $moneiPayment->getBillingDetails()->getName(),
             'paymentOptions' => $paymentMethods,
         ];
     }
@@ -1633,7 +1636,6 @@ class Monei extends PaymentModule
             $this->context->smarty->assign([
                 'paymentMethodsToDisplay' => $paymentMethodsToDisplay,
                 'moneiPaymentId' => $paymentMethods['moneiPaymentId'],
-                'moneiCardHolderName' => $paymentMethods['billingName'],
                 'moneiAmount' => Tools::displayPrice($this->context->cart->getOrderTotal()),
             ]);
 
@@ -1751,6 +1753,7 @@ class Monei extends PaymentModule
 
             Media::addJsDef([
                 'moneiProcessing' => $this->l('Processing payment...'),
+                'moneiCardHolderNameNotValid' => $this->l('Card holder name is not valid'),
             ]);
         }
 
