@@ -178,3 +178,5 @@ $_MODULE['<{monei}prestashop>admin_scripts_c3904b9e7f6a2d9a816f93fd8fe0af80'] = 
 $_MODULE['<{monei}prestashop>admin_scripts_ea4788705e6873b424c65e91c2846b19'] = 'Cancelar';
 $_MODULE['<{monei}prestashop>adminmoneicontroller_bef58db8b6f392c4db20313d196af92b'] = 'Pedido no encontrado o motivo de devolución no válido';
 $_MODULE['<{monei}prestashop>adminmoneicontroller_5a1bf32fb6db7e94296ada8657cc038a'] = 'Devolución completada';
+
+$_MODULE['<{monei}prestashop>monei_e4f34dabe629c2477cd3b70141ffe895']='El nombre del titular de la tarjeta no es válido';

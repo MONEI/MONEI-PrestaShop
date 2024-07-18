@@ -15,3 +15,9 @@ section.checkout-step .payment-option img {
     display: inline-block !important;
     margin-left: 10px;
 }
+
+#monei-card_container {
+    background: initial;
+    padding: initial;
+    font-size: initial;
+}
