@@ -1,6 +1,4 @@
 <?php
-
-
 namespace Monei\Model;
 
 class MoneiPaymentStatus
@@ -16,6 +14,9 @@ class MoneiPaymentStatus
     public const PARTIALLY_REFUNDED = 'PARTIALLY_REFUNDED';
     public const AUTHORIZED = 'AUTHORIZED';
     public const EXPIRED = 'EXPIRED';
+    public const UPDATED = 'UPDATED';
+    public const PAID_OUT = 'PAID_OUT';
+    public const PENDING_PROCESSING = 'PENDING_PROCESSING';
 
     /**
      * Gets allowable values of the enum
@@ -31,7 +32,10 @@ class MoneiPaymentStatus
             self::REFUNDED,
             self::PARTIALLY_REFUNDED,
             self::AUTHORIZED,
-            self::EXPIRED
+            self::EXPIRED,
+            self::UPDATED,
+            self::PAID_OUT,
+            self::PENDING_PROCESSING,
         ];
     }
 }
