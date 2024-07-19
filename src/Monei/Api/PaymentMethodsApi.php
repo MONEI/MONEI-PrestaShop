@@ -58,4 +58,35 @@ class PaymentMethodsApi
             );
         }
     }
+
+    /**
+     * Get payment information
+     * @param string $paymentId
+     * @return array
+     * @throws ApiException
+     */
+    public function getPaymentInformation(string $paymentId): MoneiAccount
+    {
+        try {
+            $this->client->get(
+                $this->config->getHost() . self::ENDPOINT . '?paymentId=' . $paymentId
+            );
+        } catch (\Exception $ex) {
+            throw new ApiException(
+                $ex->getMessage(),
+                $ex->getCode()
+            );
+        }
+
+        if ((int)$this->client->getHttpStatusCode() === 200) {
+            $response = $this->client->getResponse();
+            return new MoneiAccount((array)$response);
+        } else {
+            throw new ApiException(
+                property_exists($this->client->getResponse(), 'message') ?
+                    $this->client->getResponse()->message : $this->client->getErrorMessage(),
+                (int)$this->client->getHttpStatusCode()
+            );
+        }
+    }
 }

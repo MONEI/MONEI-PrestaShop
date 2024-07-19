@@ -50,90 +50,28 @@ class MoneiPaymentMethod implements ModelInterface
         return $this->container['method'];
     }
 
-    private function isPaymentMethodAllowedByIsoCode(string $paymentMethod, string $isoCode): bool
+    public function isPaymentMethodAllowed(string $paymentMethod, string $currencyIsoCode, string $countryIsoCode = null): bool
     {
+        if (!in_array($paymentMethod, $this->container)) {
+            return false;
+        }
+
+        if ($currencyIsoCode !== 'EUR') {
+            return false;
+        }
+
         switch ($paymentMethod) {
             case MoneiPaymentMethods::BIZUM:
-                return $isoCode === 'ES';
+                return $countryIsoCode === 'ES';
             case MoneiPaymentMethods::COFIDIS:
-                return $isoCode === 'ES';
+                return $countryIsoCode === 'ES';
             case MoneiPaymentMethods::MULTIBANCO:
             case MoneiPaymentMethods::MBWAY:
-                return $isoCode === 'PT';
+                return $countryIsoCode === 'PT';
             case MoneiPaymentMethods::KLARNA:
-                return in_array($isoCode, ['AT', 'BE', 'CH', 'DE', 'DK', 'ES', 'FI', 'FR', 'GB', 'IT', 'NL', 'NO', 'SE']);
+                return in_array($countryIsoCode, ['AT', 'BE', 'CH', 'DE', 'DK', 'ES', 'FI', 'FR', 'GB', 'IT', 'NL', 'NO', 'SE']);
             default:
                 return true;
         }
-    }
-
-    public function isMultibancoAvailable(string $isoCode): bool
-    {
-        if (in_array(MoneiPaymentMethods::MULTIBANCO, $this->container)) {
-            return $this->isPaymentMethodAllowedByIsoCode(MoneiPaymentMethods::MULTIBANCO, $isoCode);
-        }
-
-        return false;
-    }
-
-    public function isMBWayAvailable(string $isoCode): bool
-    {
-        if (in_array(MoneiPaymentMethods::MBWAY, $this->container)) {
-            return $this->isPaymentMethodAllowedByIsoCode(MoneiPaymentMethods::MBWAY, $isoCode);
-        }
-
-        return false;
-    }
-
-    public function isBizumAvailable(string $isoCode): bool
-    {
-        if (in_array(MoneiPaymentMethods::BIZUM, $this->container)) {
-            return $this->isPaymentMethodAllowedByIsoCode(MoneiPaymentMethods::BIZUM, $isoCode);
-        }
-
-        return false;
-    }
-
-    public function isCofidisAvailable(string $isoCode): bool
-    {
-        if (in_array(MoneiPaymentMethods::COFIDIS, $this->container)) {
-            return $this->isPaymentMethodAllowedByIsoCode(MoneiPaymentMethods::COFIDIS, $isoCode);
-        }
-
-        return false;
-    }
-
-    public function isKlarnaAvailable(string $isoCode): bool
-    {
-        if (in_array(MoneiPaymentMethods::KLARNA, $this->container)) {
-            return $this->isPaymentMethodAllowedByIsoCode(MoneiPaymentMethods::KLARNA, $isoCode);
-        }
-
-        return false;
-    }
-
-    public function isApplePayAvailable(): bool
-    {
-        return in_array(MoneiPaymentMethods::APPLE, $this->container);
-    }
-
-    public function isGooglePayAvailable(): bool
-    {
-        return in_array(MoneiPaymentMethods::GOOGLE, $this->container);
-    }
-
-    public function isClickToPayAvailable(): bool
-    {
-        return in_array(MoneiPaymentMethods::CLICKTOPAY, $this->container);
-    }
-
-    public function isPaypalAvailable(): bool
-    {
-        return in_array(MoneiPaymentMethods::PAYPAL, $this->container);
-    }
-
-    public function isCardAvailable(): bool
-    {
-        return in_array(MoneiPaymentMethods::CARD, $this->container);
     }
 }
