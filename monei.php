@@ -1142,7 +1142,7 @@ class Monei extends PaymentModule
         }
 
         // Save the authorization code
-        if ($moneiPayment->getStatus() !== MoneiPaymentStatus::FAILED) {
+        if ($moneiPayment->getStatus() === MoneiPaymentStatus::SUCCEEDED) {
             $monei->authorization_code = $moneiPayment->getAuthorizationCode();
             $monei->save();
         }
@@ -1772,6 +1772,7 @@ class Monei extends PaymentModule
             Media::addJsDef([
                 'moneiProcessing' => $this->l('Processing payment...'),
                 'moneiCardHolderNameNotValid' => $this->l('Card holder name is not valid'),
+                'moneiMsgRetry' => $this->l('Retry'),
             ]);
         }
 
