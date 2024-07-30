@@ -16,9 +16,15 @@
         };
       }
 
+      const saveCard = document.getElementById('monei-tokenize-card');
+      if (saveCard && saveCard.checked) {
+        params.generatePaymentToken = true;
+      }
+
       Swal.fire({
         allowOutsideClick: false,
         allowEscapeKey: false,
+        showConfirmButton: false,
         background: 'none',
         didOpen: async () => {
           Swal.showLoading();
@@ -57,10 +63,11 @@
               icon: 'error',
               allowOutsideClick: false,
               allowEscapeKey: false,
-              showConfirmButton: false,
+              confirmButtonText: window.moneiMsgRetry,
+              willClose: () => {
+                window.location.reload();
+              },
             });
-
-            window.location.reload();
 
             console.log('moneiTokenHandler - error', params, error);
           }
