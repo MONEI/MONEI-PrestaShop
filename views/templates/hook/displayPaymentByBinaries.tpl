@@ -41,19 +41,29 @@
             } else {
               const icon = result.status === 'SUCCEEDED' ? 'success' : 'error';
 
-              Swal.fire({
-                title: result.status,
-                text: result.statusMessage,
-                icon,
-                allowOutsideClick: false,
-                allowEscapeKey: false,
-                showConfirmButton: false,
-              });
-
               if (result.status === 'SUCCEEDED') {
+                Swal.fire({
+                  title: result.status,
+                  text: result.statusMessage,
+                  icon,
+                  allowOutsideClick: false,
+                  allowEscapeKey: false,
+                  showConfirmButton: false,
+                });
+
                 window.location.assign(result.nextAction.redirectUrl);
               } else {
-                window.location.reload();
+                Swal.fire({
+                  title: result.status,
+                  text: result.statusMessage,
+                  icon,
+                  allowOutsideClick: false,
+                  allowEscapeKey: false,
+                  confirmButtonText: window.moneiMsgRetry,
+                  willClose: () => {
+                    window.location.reload();
+                  },
+                });
               }
             }
           } catch (error) {
