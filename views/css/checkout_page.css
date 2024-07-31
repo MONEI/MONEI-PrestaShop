@@ -21,3 +21,7 @@ section.checkout-step .payment-option img {
     padding: initial;
     font-size: initial;
 }
+
+.monei-tokenize-card {
+    display: inline-block !important
+}

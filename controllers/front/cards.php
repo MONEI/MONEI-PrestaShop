@@ -42,7 +42,7 @@ class MoneiCardsModuleFrontController extends ModuleFrontController
         $id_monei_tokens = (int)Tools::getValue('id_monei_card');
 
         $res = Db::getInstance()->delete(
-            'lbl_monei_tokens',
+            'monei_tokens',
             'id_customer = ' . (int)$id_customer . ' AND id_monei_tokens = ' . (int)$id_monei_tokens
         );
 

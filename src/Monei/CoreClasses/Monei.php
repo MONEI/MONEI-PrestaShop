@@ -115,7 +115,7 @@ class Monei extends ObjectModel
     public static function getIdByIdOrder($id_order)
     {
         return Db::getInstance(_PS_USE_SQL_SLAVE_)->getValue(
-            'SELECT id_monei FROM ' . _DB_PREFIX_ . 'monei WHERE id_order = "' . pSQL($id_order) . '"'
+            'SELECT id_monei FROM ' . _DB_PREFIX_ . 'monei WHERE id_order = "' . pSQL($id_order) . '" ORDER BY authorization_code DESC'
         );
     }
 
