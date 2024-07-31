@@ -16,9 +16,15 @@
         };
       }
 
+      const saveCard = document.getElementById('monei-tokenize-card');
+      if (saveCard && saveCard.checked) {
+        params.generatePaymentToken = true;
+      }
+
       Swal.fire({
         allowOutsideClick: false,
         allowEscapeKey: false,
+        showConfirmButton: false,
         background: 'none',
         didOpen: async () => {
           Swal.showLoading();
@@ -35,19 +41,29 @@
             } else {
               const icon = result.status === 'SUCCEEDED' ? 'success' : 'error';
 
-              Swal.fire({
-                title: result.status,
-                text: result.statusMessage,
-                icon,
-                allowOutsideClick: false,
-                allowEscapeKey: false,
-                showConfirmButton: false,
-              });
-
               if (result.status === 'SUCCEEDED') {
+                Swal.fire({
+                  title: result.status,
+                  text: result.statusMessage,
+                  icon,
+                  allowOutsideClick: false,
+                  allowEscapeKey: false,
+                  showConfirmButton: false,
+                });
+
                 window.location.assign(result.nextAction.redirectUrl);
               } else {
-                window.location.reload();
+                Swal.fire({
+                  title: result.status,
+                  text: result.statusMessage,
+                  icon,
+                  allowOutsideClick: false,
+                  allowEscapeKey: false,
+                  confirmButtonText: window.moneiMsgRetry,
+                  willClose: () => {
+                    window.location.reload();
+                  },
+                });
               }
             }
           } catch (error) {
@@ -57,10 +73,11 @@
               icon: 'error',
               allowOutsideClick: false,
               allowEscapeKey: false,
-              showConfirmButton: false,
+              confirmButtonText: window.moneiMsgRetry,
+              willClose: () => {
+                window.location.reload();
+              },
             });
-
-            window.location.reload();
 
             console.log('moneiTokenHandler - error', params, error);
           }

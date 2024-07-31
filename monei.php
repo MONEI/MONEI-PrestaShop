@@ -1142,7 +1142,7 @@ class Monei extends PaymentModule
         }
 
         // Save the authorization code
-        if ($moneiPayment->getStatus() !== MoneiPaymentStatus::FAILED) {
+        if ($moneiPayment->getStatus() === MoneiPaymentStatus::SUCCEEDED) {
             $monei->authorization_code = $moneiPayment->getAuthorizationCode();
             $monei->save();
         }
@@ -1177,16 +1177,34 @@ class Monei extends PaymentModule
         if (Validate::isLoadedObject($orderByCart)) {
             $should_create_order = false;
 
-            $orderState = new OrderState($orderStateId);
-            if (Validate::isLoadedObject($orderState)) {
-                $orderByCart->setCurrentState($orderStateId); // Change order status to paid/failed
+            // Check if the order is from the same payment method
+            if ($orderByCart->module !== $this->name) {
+                $message = 'Order (' . $orderByCart->id . ') already exists with a different payment method.';
+                PrestaShopLogger::addLog(
+                    'MONEI - monei:createOrUpdateOrder - ' . $message,
+                    PrestaShopLogger::LOG_SEVERITY_LEVEL_WARNING
+                );
+
+                return;
             }
 
-            // Update transaction_id in order_payment
-            $orderPayment = $orderByCart->getOrderPaymentCollection();
-            if (count($orderPayment) > 0) {
-                $orderPayment[0]->transaction_id = $moneiPayment->getId();
-                $orderPayment[0]->save();
+            $orderState = new OrderState($orderStateId);
+            if (Validate::isLoadedObject($orderState)) {
+                $orderStateIdsPending = [
+                    Configuration::get('MONEI_STATUS_PENDING'),
+                ];
+
+                // Only if the order is in a pending state, the status can be updated.
+                if (in_array((int) $orderByCart->current_state, $orderStateIdsPending)) {
+                    $orderByCart->setCurrentState($orderStateId); // Change order status to paid/failed
+
+                    // Update transaction_id in order_payment
+                    $orderPayment = $orderByCart->getOrderPaymentCollection();
+                    if (count($orderPayment) > 0) {
+                        $orderPayment[0]->transaction_id = $moneiPayment->getId();
+                        $orderPayment[0]->save();
+                    }
+                }
             }
         } elseif (true === $failed && !Configuration::get('MONEI_CART_TO_ORDER')) {
             $should_create_order = false;
@@ -1211,7 +1229,7 @@ class Monei extends PaymentModule
                 $message = 'Slow server detected, order in creation process';
 
                 PrestaShopLogger::addLog(
-                    'MONEI - validation:postProcess - ' . $message,
+                    'MONEI - monei:createOrUpdateOrder - ' . $message,
                     PrestaShopLogger::LOG_SEVERITY_LEVEL_WARNING
                 );
             } elseif ($is_locked_info['locked'] == 1 && $is_locked_info['locked_at'] > (time() - 60)) {
@@ -1226,7 +1244,7 @@ class Monei extends PaymentModule
                 );
 
                 PrestaShopLogger::addLog(
-                    'MONEI - validation:postProcess - ' . $message,
+                    'MONEI - monei:createOrUpdateOrder - ' . $message,
                     PrestaShopLogger::LOG_SEVERITY_LEVEL_WARNING
                 );
             }
@@ -1648,7 +1666,7 @@ class Monei extends PaymentModule
      */
     public function hookDisplayAdminOrder($params)
     {
-        $id_order = (int)$params['id_order'];
+        $id_order = (int) $params['id_order'];
         $history_logs = [];
 
         $id_monei = MoneiClass::getIdByIdOrder($id_order);
@@ -1754,6 +1772,7 @@ class Monei extends PaymentModule
             Media::addJsDef([
                 'moneiProcessing' => $this->l('Processing payment...'),
                 'moneiCardHolderNameNotValid' => $this->l('Card holder name is not valid'),
+                'moneiMsgRetry' => $this->l('Retry'),
             ]);
         }
 
