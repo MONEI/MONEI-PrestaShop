@@ -1896,6 +1896,7 @@ class Monei extends PaymentModule
         foreach ($history_logs as $history) {
             // Instanciamos MoneiPayment
             $json_clean = trim(str_replace('\"', '"', $history['response']), '"');
+            $json_clean = trim(str_replace('\\"', '"', $json_clean), '"');
             $json_array = $this->vJSON($json_clean);
 
             if ($json_array) {
@@ -1933,7 +1934,7 @@ class Monei extends PaymentModule
                 $logs[] = $json_array;
             }
         }
-        //dump($logs);die;
+
         return $logs;
     }
 
