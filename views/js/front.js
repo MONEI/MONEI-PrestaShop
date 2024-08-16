@@ -8,6 +8,9 @@ document.addEventListener('DOMContentLoaded', () => {
             if (typeof initMoneiBizum !== typeof undefined) {
                 initMoneiBizum();
             }
+            if (typeof initMoneiPaymentRequest !== typeof undefined) {
+                initMoneiPaymentRequest();
+            }
         });
     // support module: onepagecheckoutps - v4 - PresTeamShop
     } else if (typeof AppOPC !== typeof undefined) {
@@ -18,6 +21,9 @@ document.addEventListener('DOMContentLoaded', () => {
             if (typeof initMoneiBizum !== typeof undefined) {
                 initMoneiBizum();
             }
+            if (typeof initMoneiPaymentRequest !== typeof undefined) {
+                initMoneiPaymentRequest();
+            }
         });
     } else {
         if (typeof initMoneiCard !== typeof undefined) {
@@ -25,6 +31,9 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         if (typeof initMoneiBizum !== typeof undefined) {
             initMoneiBizum();
+        }
+        if (typeof initMoneiPaymentRequest !== typeof undefined) {
+            initMoneiPaymentRequest();
         }
     }
 });
