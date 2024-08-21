@@ -8,8 +8,11 @@ document.addEventListener('DOMContentLoaded', () => {
             if (typeof initMoneiBizum !== typeof undefined) {
                 initMoneiBizum();
             }
-            if (typeof initMoneiPaymentRequest !== typeof undefined) {
-                initMoneiPaymentRequest();
+            if (typeof initMoneiGooglePay !== typeof undefined) {
+                initMoneiGooglePay();
+            }
+            if (typeof initMoneiApplePay !== typeof undefined) {
+                initMoneiApplePay();
             }
         });
     // support module: onepagecheckoutps - v4 - PresTeamShop
@@ -21,8 +24,11 @@ document.addEventListener('DOMContentLoaded', () => {
             if (typeof initMoneiBizum !== typeof undefined) {
                 initMoneiBizum();
             }
-            if (typeof initMoneiPaymentRequest !== typeof undefined) {
-                initMoneiPaymentRequest();
+            if (typeof initMoneiGooglePay !== typeof undefined) {
+                initMoneiGooglePay();
+            }
+            if (typeof initMoneiApplePay !== typeof undefined) {
+                initMoneiApplePay();
             }
         });
     } else {
@@ -32,8 +38,11 @@ document.addEventListener('DOMContentLoaded', () => {
         if (typeof initMoneiBizum !== typeof undefined) {
             initMoneiBizum();
         }
-        if (typeof initMoneiPaymentRequest !== typeof undefined) {
-            initMoneiPaymentRequest();
+        if (typeof initMoneiGooglePay !== typeof undefined) {
+            initMoneiGooglePay();
+        }
+        if (typeof initMoneiApplePay !== typeof undefined) {
+            initMoneiApplePay();
         }
     }
 });
