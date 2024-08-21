@@ -252,15 +252,15 @@
         }
       </script>
     {/literal}
-  {elseif $paymentOptionName eq 'monei-googlePay' or $paymentOptionName eq 'monei-applePay'}
+  {elseif $paymentOptionName eq 'monei-googlePay'}
     <script>
-      function initMoneiPaymentRequest() {
-        var moneiPaymentRequestButtonsContainer = document.getElementById('{$paymentOptionName}-buttons-container');
+      function initMoneiGooglePay() {
+        var moneiPaymentRequestButtonsContainer = document.getElementById('monei-googlePay-buttons-container');
         if (moneiPaymentRequestButtonsContainer === null) {
           return;
         }
 
-        var moneiPaymentRequestRenderContainer = moneiPaymentRequestButtonsContainer.querySelector('.{$paymentOptionName}_render');
+        var moneiPaymentRequestRenderContainer = moneiPaymentRequestButtonsContainer.querySelector('.monei-googlePay_render');
         if (moneiPaymentRequestRenderContainer === null) {
           return;
         }
@@ -276,7 +276,7 @@
               moneiTokenHandler(result.token);
             }
 
-            console.log('onSubmit - Payment Request', result);
+            console.log('onSubmit - Google Pay', result);
           },
           onError(error) {
             Swal.fire({
@@ -285,7 +285,46 @@
               icon: 'error',
             });
 
-            console.log('onError - Payment Request', error);
+            console.log('onError - Google Pay', error);
+          }
+        })
+        .render(moneiPaymentRequestRenderContainer);
+      }
+    </script>
+  {elseif $paymentOptionName eq 'monei-applePay'}
+    <script>
+      function initMoneiApplePay() {
+        var moneiPaymentRequestButtonsContainer = document.getElementById('monei-applePay-buttons-container');
+        if (moneiPaymentRequestButtonsContainer === null) {
+          return;
+        }
+
+        var moneiPaymentRequestRenderContainer = moneiPaymentRequestButtonsContainer.querySelector('.monei-applePay_render');
+        if (moneiPaymentRequestRenderContainer === null) {
+          return;
+        }
+
+        monei.PaymentRequest({
+          paymentId: window.moneiPaymentId,
+          style: {
+            height: 42
+          },
+          onBeforeOpen: moneiValidConditions,
+          onSubmit(result) {
+            if (result.token) {
+              moneiTokenHandler(result.token);
+            }
+
+            console.log('onSubmit - Apple Pay', result);
+          },
+          onError(error) {
+            Swal.fire({
+              title: error.status + '(' + error.statusCode + ')',
+              text: error.message,
+              icon: 'error',
+            });
+
+            console.log('onError - Apple Pay', error);
           }
         })
         .render(moneiPaymentRequestRenderContainer);
