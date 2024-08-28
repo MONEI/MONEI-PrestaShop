@@ -1016,7 +1016,7 @@ class Monei extends PaymentModule
         return $billingData;
     }
 
-    public function createPayment(bool $tokenizeCard = false, int $moneiCardId = 0): MoneiPayment
+    public function createPayment(bool $tokenizeCard = false, int $moneiCardId = 0)
     {
         $moneiClient = new MoneiClient(
             Configuration::get('MONEI_API_KEY'),
@@ -1542,6 +1542,7 @@ class Monei extends PaymentModule
 
         // Google
         if (Configuration::get('MONEI_ALLOW_GOOGLE') &&
+            !PsTools::isSafariBrowser() &&
             $moneiPaymentMethod->isPaymentMethodAllowed(MoneiPaymentMethods::GOOGLE, $currencyIsoCode)
         ) {
             $paymentOptionList['googlePay'] = [
