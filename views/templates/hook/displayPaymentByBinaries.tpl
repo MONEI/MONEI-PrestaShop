@@ -203,6 +203,11 @@
 
           var moneiCardInput = monei.CardInput({
             paymentId: window.moneiPaymentId,
+            onChange: function (event) {
+              moneiCardErrors.innerHTML = '';
+              moneiCardButton.classList.remove('disabled');
+              moneiCardButton.disabled = false;
+            },
             onEnter: () => {
               moneiPaymentFormButton.click();
             },
