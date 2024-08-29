@@ -1,7 +1,6 @@
 <?php
 use Monei\ApiException;
 use Monei\CoreClasses\Monei;
-use Monei\CoreClasses\MoneiCard;
 use Monei\Model\MoneiPaymentStatus;
 use PrestaShop\PrestaShop\Adapter\ServiceLocator;
 
@@ -19,13 +18,13 @@ class MoneiRedirectModuleFrontController extends ModuleFrontController
             return $this->displayError();
         }
 
-        $transaction_id = Tools::getValue('transaction_id');
-        $tokenize = (bool) Tools::getValue('tokenize_card');
-        $id_monei_card = (int) Tools::getValue('id_monei_card', 0);
+        $transactionId = Tools::getValue('transaction_id');
+        $tokenizeCard = (bool) Tools::getValue('tokenize_card', false);
+        $moneiCardId = (int) Tools::getValue('id_monei_card', 0);
 
         $crypto = ServiceLocator::get('\\PrestaShop\\PrestaShop\\Core\\Crypto\\Hashing');
         $cart = $this->context->cart;
-        $check_encrypt = $crypto->checkHash((int)$cart->id . (int)$cart->id_customer, $transaction_id);
+        $check_encrypt = $crypto->checkHash((int) $cart->id . (int) $cart->id_customer, $transactionId);
 
         if ($cart->id_customer == 0 ||
             $cart->id_address_delivery == 0 ||
@@ -40,39 +39,15 @@ class MoneiRedirectModuleFrontController extends ModuleFrontController
                 throw new ApiException('Invalid crypto hash');
             }
 
-            $moneiPayment = $this->module->createPaymentObject();
+            $moneiPayment = $this->module->createPayment($tokenizeCard, $moneiCardId);
 
-            if (
-                $tokenize && (bool) Configuration::get('MONEI_TOKENIZE') === true
-                && $id_monei_card === 0
-            ) {
-                $moneiPayment->setGeneratePaymentToken($tokenize);
-            }
-
-            // If we need to set a token
-            if ($id_monei_card > 0) {
-                // Check if this card belongs to the customer
-                $belongs_to_customer = MoneiCard::belongsToCustomer(
-                    $id_monei_card,
-                    $this->context->customer->id
-                );
-
-                if ($belongs_to_customer) {
-                    $tokenized_card = new MoneiCard($id_monei_card);
-                    $moneiPayment->setPaymentToken($tokenized_card->tokenized);
-                    $moneiPayment->setGeneratePaymentToken(false); // Safe
-                }
-            }
-
-            $moneiPaymentResponse = $this->module->createPaymentInMonei($moneiPayment);
-
-            $moneiOrderId = $moneiPaymentResponse->getOrderId();
+            $moneiOrderId = $moneiPayment->getOrderId();
             $moneiId = Monei::getIdByInternalOrder($moneiOrderId);
 
             // Save the Payment ID
             $monei = new Monei($moneiId);
             $monei->id_cart = (int) $cart->id;
-            $monei->id_order_monei = pSQL($moneiPaymentResponse->getId());
+            $monei->id_order_monei = pSQL($moneiPayment->getId());
             $monei->save();
 
             // Convert the cart to order
@@ -113,10 +88,10 @@ class MoneiRedirectModuleFrontController extends ModuleFrontController
                 }
             }
 
-            if ($moneiPaymentResponse->getNextAction()->getMustRedirect()) {
-                $redirectURL = $moneiPaymentResponse->getNextAction()->getRedirectUrl();
-                if ($moneiPaymentResponse->getStatus() === MoneiPaymentStatus::FAILED) {
-                    $redirectURL .= '&message=' . $moneiPaymentResponse->getStatusMessage();
+            if ($moneiPayment->getNextAction()->getMustRedirect()) {
+                $redirectURL = $moneiPayment->getNextAction()->getRedirectUrl();
+                if ($moneiPayment->getStatus() === MoneiPaymentStatus::FAILED) {
+                    $redirectURL .= '&message=' . $moneiPayment->getStatusMessage();
                 }
 
                 Tools::redirect($redirectURL);
