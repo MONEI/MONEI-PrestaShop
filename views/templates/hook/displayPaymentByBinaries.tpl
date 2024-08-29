@@ -1,5 +1,8 @@
 <script>
   window.moneiPaymentId = '{$moneiPaymentId|escape:'htmlall':'UTF-8'}';
+  window.moneiCustomerData = {$customerData|json_encode nofilter};
+  window.moneiBillingData = {$billingData|json_encode nofilter};
+  window.moneiShippingData = {$shippingData|json_encode nofilter};
 
   {literal}
     var moneiTokenHandler = async (paymentToken, cardholderName, paymentButton) => {
@@ -11,7 +14,8 @@
       if (cardholderName) {
         params.paymentMethod = {
           card: {
-            cardholderName
+            cardholderName,
+            'cardholderEmail': window.moneiCustomerData.email,
           }
         };
       }
@@ -20,6 +24,10 @@
       if (saveCard && saveCard.checked) {
         params.generatePaymentToken = true;
       }
+
+      params.customer = window.moneiCustomerData;
+      params.billingDetails = window.moneiBillingData;
+      params.shippingDetails = window.moneiShippingData;
 
       Swal.fire({
         allowOutsideClick: false,
@@ -34,23 +42,12 @@
 
             console.log('moneiTokenHandler - confirmPayment', params, result);
 
-            Swal.hideLoading();
-
             if (result.nextAction && result.nextAction.mustRedirect) {
               window.location.assign(result.nextAction.redirectUrl);
             } else {
               const icon = result.status === 'SUCCEEDED' ? 'success' : 'error';
 
               if (result.status === 'SUCCEEDED') {
-                Swal.fire({
-                  title: result.status,
-                  text: result.statusMessage,
-                  icon,
-                  allowOutsideClick: false,
-                  allowEscapeKey: false,
-                  showConfirmButton: false,
-                });
-
                 window.location.assign(result.nextAction.redirectUrl);
               } else {
                 Swal.fire({
@@ -83,6 +80,20 @@
           }
         },
       });
+    };
+
+    var moneiValidConditions = () => {
+      const conditionsToApprove = document.getElementById('conditions-to-approve');
+      if (conditionsToApprove) {
+        const requiredCheckboxes = conditionsToApprove.querySelectorAll('input[type="checkbox"][required]');
+        for (let i = 0; i < requiredCheckboxes.length; i++) {
+          if (!requiredCheckboxes[i].checked) {
+            return false;
+          }
+        }
+
+        return true;
+      }
     };
   {/literal}
 </script>
@@ -123,16 +134,7 @@
             height: 42
           },
           onBeforeOpen: () => {
-            const conditionsToApprove = document.getElementById('conditions-to-approve');
-            if (conditionsToApprove) {
-              const requiredCheckboxes = conditionsToApprove.querySelectorAll('input[type="checkbox"][required]');
-              for (let i = 0; i < requiredCheckboxes.length; i++) {
-                if (!requiredCheckboxes[i].checked) {
-                  return false;
-                }
-              }
-              return true;
-            }
+            return moneiValidConditions();
           },
           onSubmit(result) {
             if (result.token) {
@@ -201,6 +203,11 @@
 
           var moneiCardInput = monei.CardInput({
             paymentId: window.moneiPaymentId,
+            onChange: function (event) {
+              moneiCardErrors.innerHTML = '';
+              moneiCardButton.classList.remove('disabled');
+              moneiCardButton.disabled = false;
+            },
             onEnter: () => {
               moneiPaymentFormButton.click();
             },
@@ -250,5 +257,83 @@
         }
       </script>
     {/literal}
+  {elseif $paymentOptionName eq 'monei-googlePay'}
+    <script>
+      function initMoneiGooglePay() {
+        var moneiPaymentRequestButtonsContainer = document.getElementById('monei-googlePay-buttons-container');
+        if (moneiPaymentRequestButtonsContainer === null) {
+          return;
+        }
+
+        var moneiPaymentRequestRenderContainer = moneiPaymentRequestButtonsContainer.querySelector('.monei-googlePay_render');
+        if (moneiPaymentRequestRenderContainer === null) {
+          return;
+        }
+
+        monei.PaymentRequest({
+          paymentId: window.moneiPaymentId,
+          style: {
+            height: 42
+          },
+          onBeforeOpen: moneiValidConditions,
+          onSubmit(result) {
+            if (result.token) {
+              moneiTokenHandler(result.token);
+            }
+
+            console.log('onSubmit - Google Pay', result);
+          },
+          onError(error) {
+            Swal.fire({
+              title: error.status + '(' + error.statusCode + ')',
+              text: error.message,
+              icon: 'error',
+            });
+
+            console.log('onError - Google Pay', error);
+          }
+        })
+        .render(moneiPaymentRequestRenderContainer);
+      }
+    </script>
+  {elseif $paymentOptionName eq 'monei-applePay'}
+    <script>
+      function initMoneiApplePay() {
+        var moneiPaymentRequestButtonsContainer = document.getElementById('monei-applePay-buttons-container');
+        if (moneiPaymentRequestButtonsContainer === null) {
+          return;
+        }
+
+        var moneiPaymentRequestRenderContainer = moneiPaymentRequestButtonsContainer.querySelector('.monei-applePay_render');
+        if (moneiPaymentRequestRenderContainer === null) {
+          return;
+        }
+
+        monei.PaymentRequest({
+          paymentId: window.moneiPaymentId,
+          style: {
+            height: 42
+          },
+          onBeforeOpen: moneiValidConditions,
+          onSubmit(result) {
+            if (result.token) {
+              moneiTokenHandler(result.token);
+            }
+
+            console.log('onSubmit - Apple Pay', result);
+          },
+          onError(error) {
+            Swal.fire({
+              title: error.status + '(' + error.statusCode + ')',
+              text: error.message,
+              icon: 'error',
+            });
+
+            console.log('onError - Apple Pay', error);
+          }
+        })
+        .render(moneiPaymentRequestRenderContainer);
+      }
+    </script>
   {/if}
 {/foreach}

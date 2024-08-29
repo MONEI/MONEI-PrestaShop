@@ -12,7 +12,6 @@ use Monei\Model\MoneiCustomer;
 use Monei\Model\MoneiPayment;
 use Monei\Model\MoneiPaymentMethods;
 use Monei\Model\MoneiPaymentStatus;
-use Monei\Model\MoneiShippingDetails;
 use Monei\MoneiClient;
 use Monei\Traits\ValidationHelpers;
 
@@ -931,81 +930,126 @@ class Monei extends PaymentModule
         );
     }
 
-    public function createPaymentObject(): MoneiPayment
+    public function getCartAmount()
     {
         $cart = $this->context->cart;
-        $link = $this->context->link;
-        $customer = $this->context->customer;
-        $currency = new Currency($cart->id_currency);
-
-        $langId = (int) $this->context->language->id;
-
-        $currencyDecimals = is_array($currency) ? (int) $currency['decimals'] : (int) $currency->decimals;
-        $decimals = $currencyDecimals * _PS_PRICE_DISPLAY_PRECISION_; // _PS_PRICE_DISPLAY_PRECISION_ deprec 1.7.7 TODO
 
         $cartSummaryDetails = $cart->getSummaryDetails(null, true);
         $totalShippingTaxExc = $cartSummaryDetails['total_shipping_tax_exc'];
         $subTotal = $cartSummaryDetails['total_price_without_tax'] - $cartSummaryDetails['total_shipping_tax_exc'];
         $totalTax = $cartSummaryDetails['total_tax'];
 
+        $currency = new Currency($cart->id_currency);
+        $currencyDecimals = is_array($currency) ? (int) $currency['decimals'] : (int) $currency->decimals;
+        $decimals = $currencyDecimals * _PS_PRICE_DISPLAY_PRECISION_; // _PS_PRICE_DISPLAY_PRECISION_ deprec 1.7.7 TODO
+
         $total_price = Tools::ps_round($totalShippingTaxExc + $subTotal + $totalTax, $decimals);
-        $amount = (int) number_format($total_price, 2, '', '');
-        $orderId = str_pad($cart->id . 'm' . time() % 1000, 12, '0', STR_PAD_LEFT); // Redsys/Bizum Style
 
-        $addressInvoice = new Address((int) $cart->id_address_invoice);
-        $addressDelivery = new Address((int) $cart->id_address_delivery);
+        return (int) number_format($total_price, 2, '', '');
+    }
 
-        $stateInvoice = (int) $addressInvoice->id_state > 0 ?
-            new State($addressInvoice->id_state, $langId) : new State();
-        $stateInvoiceName = $stateInvoice->name ?: '';
-
-        $stateDelivery = (int) $addressDelivery->id_state > 0 ?
-            new State($addressDelivery->id_state, $langId) : new State();
-        $stateDeliveryName = $stateDelivery->name ?: '';
-
-        $countryInvoice = new Country($addressInvoice->id_country, $langId);
-        $countryDelivery = new Country($addressInvoice->id_country, $langId);
-
+    public function getCustomerData($returnMoneiCustomerObject = false)
+    {
+        $customer = $this->context->customer;
         $customer->email = str_replace(':', '', $customer->email);
 
-        $moneiCustomer = (new MoneiCustomer())
-            ->setName($customer->firstname . ' ' . $customer->lastname)
-            ->setEmail($customer->email)
-            ->setPhone($addressInvoice->phone);
+        $addressInvoice = new Address((int) $this->context->cart->id_address_invoice);
 
-        $moneiAddressBilling = (new MoneiAddress())
-            ->setLine1($addressInvoice->address1)
-            ->setLine2($addressInvoice->address2)
-            ->setZip($addressInvoice->postcode)
-            ->setCity($addressInvoice->city)
-            ->setState($stateInvoiceName)
-            ->setCountry($countryInvoice->iso_code);
+        $customerData = [
+            'name' => $customer->firstname . ' ' . $customer->lastname,
+            'email' => $customer->email,
+            'phone' => (empty($addressInvoice->phone_mobile) ? $addressInvoice->phone : $addressInvoice->phone_mobile)
+        ];
 
-        $moneiAddressShipping = (new MoneiAddress())
-            ->setLine1($addressDelivery->address1)
-            ->setLine2($addressDelivery->address2)
-            ->setZip($addressDelivery->postcode)
-            ->setCity($addressDelivery->city)
-            ->setState($stateDeliveryName)
-            ->setCountry($countryDelivery->iso_code);
+        if ($returnMoneiCustomerObject) {
+            return (new MoneiCustomer())
+                ->setName($customerData['name'])
+                ->setEmail($customerData['email'])
+                ->setPhone($customerData['phone']);
+        }
 
-        $moneiBillingDetails = (new MoneiBillingDetails())
-            ->setName($moneiCustomer->getName())
-            ->setEmail($moneiCustomer->getEmail())
-            ->setPhone($moneiCustomer->getPhone())
-            ->setAddress($moneiAddressBilling);
+        return $customerData;
+    }
 
-        $moneiShippingDetails = (new MoneiShippingDetails())
-            ->setName($moneiCustomer->getName())
-            ->setEmail($moneiCustomer->getEmail())
-            ->setPhone($moneiCustomer->getPhone())
-            ->setAddress($moneiAddressShipping);
+    public function getAddressData($addressId, $returnMoneiBillingObject = false)
+    {
+        $address = new Address((int) $addressId);
+
+        $state = (int) $address->id_state > 0 ?
+            new State($address->id_state, (int) $this->context->language->id) : new State();
+        $stateName = $state->name ?: '';
+
+        $country = new Country($address->id_country, (int) $this->context->language->id);
+
+        $billingData = [
+            'name' => $address->firstname . ' ' . $address->lastname,
+            'email' => $this->context->customer->email,
+            'phone' => (empty($address->phone_mobile) ? $address->phone : $address->phone_mobile),
+            'company' => $address->company,
+            'address' => [
+                'line1' => $address->address1,
+                'line2' => $address->address2,
+                'zip' => $address->postcode,
+                'city' => $address->city,
+                'state' => $stateName,
+                'country' => $country->iso_code
+            ]
+        ];
+
+        if ($returnMoneiBillingObject) {
+            return (new MoneiBillingDetails())
+                ->setName($billingData['name'])
+                ->setEmail($billingData['email'])
+                ->setPhone($billingData['phone'])
+                ->setCompany($billingData['company'])
+                ->setAddress(
+                    (new MoneiAddress())
+                        ->setLine1($billingData['address']['line1'])
+                        ->setLine2($billingData['address']['line2'])
+                        ->setZip($billingData['address']['zip'])
+                        ->setCity($billingData['address']['city'])
+                        ->setState($billingData['address']['state'])
+                        ->setCountry($billingData['address']['country'])
+                );
+        }
+
+        return $billingData;
+    }
+
+    public function createPayment(bool $tokenizeCard = false, int $moneiCardId = 0)
+    {
+        $moneiClient = new MoneiClient(
+            Configuration::get('MONEI_API_KEY'),
+            Configuration::get('MONEI_ACCOUNT_ID')
+        );
+
+        // check if the cart amount changed, if so, we need to create a new payment.
+        $moneiPaymentId = $this->context->cookie->monei_payment_id;
+        if (!$tokenizeCard && !$moneiCardId && !empty($moneiPaymentId)) {
+            $moneiPayment = $moneiClient->payments->getPayment($moneiPaymentId);
+
+            if (!empty($moneiPayment->getPaymentMethod()) || (int) $moneiPayment->getAmount() !== $this->getCartAmount()) {
+                $moneiPaymentId = null;
+                unset($this->context->cookie->monei_payment_id);
+            } else {
+                return $moneiPayment;
+            }
+        }
+
+        $cart = $this->context->cart;
+        $link = $this->context->link;
+        $currency = new Currency($cart->id_currency);
+
+        $orderId = str_pad($cart->id . 'm' . time() % 1000, 12, '0', STR_PAD_LEFT); // Redsys/Bizum Style
 
         $moneiPayment = new MoneiPayment();
         $moneiPayment
-            ->setAmount($amount)
-            ->setCurrency($currency->iso_code)
             ->setOrderId($orderId)
+            ->setAmount($this->getCartAmount())
+            ->setCurrency($currency->iso_code)
+            ->setCustomer($this->getCustomerData(true))
+            ->setBillingDetails($this->getAddressData((int) $cart->id_address_invoice, true))
+            ->setShippingDetails($this->getAddressData((int) $cart->id_address_delivery, true))
             ->setCompleteUrl(
                 $link->getModuleLink($this->name, 'confirmation', [
                     'success' => 1,
@@ -1025,13 +1069,11 @@ class Monei extends PaymentModule
             )
             ->setCancelUrl(
                 $link->getPageLink('order', null, null, 'step=3')
-            )
-            ->setBillingDetails($moneiBillingDetails)
-            ->setShippingDetails($moneiShippingDetails);
+            );
 
-        // Check for available payment methods
         $payment_methods = [];
 
+        // Check for available payment methods
         if (!Configuration::get('MONEI_ALLOW_ALL')) {
             if (Tools::isSubmit('method')) {
                 $param_method = Tools::getValue('method', 'card');
@@ -1072,35 +1114,42 @@ class Monei extends PaymentModule
         }
 
         $moneiPayment->setAllowedPaymentMethods($payment_methods);
+        if ($tokenizeCard) {
+            $moneiPayment->setGeneratePaymentToken(true);
+        } else if ($moneiCardId) {
+            $belongsToCustomer = MoneiCard::belongsToCustomer(
+                $moneiCardId,
+                $this->context->customer->id
+            );
 
-        // Save the information before sending it to the API
-        PsOrderHelper::saveTransaction($moneiPayment, true);
+            if ($belongsToCustomer) {
+                $tokenizedCard = new MoneiCard($moneiCardId);
 
-        return $moneiPayment;
-    }
-
-    public function createPaymentInMonei($moneiPayment)
-    {
-        $moneiClient = new MoneiClient(
-            Configuration::get('MONEI_API_KEY'),
-            Configuration::get('MONEI_ACCOUNT_ID')
-        );
+                $moneiPayment->setPaymentToken($tokenizedCard->tokenized);
+                $moneiPayment->setGeneratePaymentToken(false);
+            }
+        }
 
         try {
+            // Save the information before sending it to the API
+            PsOrderHelper::saveTransaction($moneiPayment, true);
+
             $moneiPaymentResponse = $moneiClient->payments->createPayment($moneiPayment);
+
+            // Only save the payment id if dont tokenize the card or the card id is not set
+            if (!$tokenizeCard && !$moneiCardId) {
+                $this->context->cookie->monei_payment_id = $moneiPaymentResponse->getId();
+            }
+
+            return $moneiPaymentResponse;
         } catch (Exception $ex) {
             PrestaShopLogger::addLog(
-                'MONEI - Exception - monei.php - getPaymentMethods: ' . $ex->getMessage() . ' - ' . $ex->getFile(),
+                'MONEI - Exception - monei.php - createPayment: ' . $ex->getMessage() . ' - ' . $ex->getFile(),
                 PrestaShopLogger::LOG_SEVERITY_LEVEL_ERROR
             );
 
             return false;
         }
-
-        // Save the information after sending it to the API
-        PsOrderHelper::saveTransaction($moneiPaymentResponse);
-
-        return $moneiPaymentResponse;
     }
 
     public function createOrUpdateOrder($moneiPaymentId, $redirectToConfirmationPage = false)
@@ -1271,6 +1320,9 @@ class Monei extends PaymentModule
             }
         }
 
+        // remove monei payment id from cookie
+        unset($this->context->cookie->monei_payment_id);
+
         // Save log (required from API for tokenization)
         if (!PsOrderHelper::saveTransaction($moneiPayment, false, $is_refund, true, $failed)) {
             throw new ApiException('Unable to save transaction information');
@@ -1364,40 +1416,18 @@ class Monei extends PaymentModule
      */
     private function getPaymentMethods()
     {
-        $countryIsoCode = $this->context->country->iso_code;
-        $currencyIsoCode = $this->context->currency->iso_code;
-        $addressInvoice = new Address($this->context->cart->id_address_invoice);
-        if (Validate::isLoadedObject($addressInvoice)) {
-            $countryInvoice = new Country($addressInvoice->id_country);
-            $countryIsoCode = $countryInvoice->iso_code;
+        $cart = $this->context->cart;
+
+        $moneiPayment = $this->createPayment();
+        if (!$moneiPayment) {
+            return;
         }
 
-        $crypto = ServiceLocator::get('\\PrestaShop\\PrestaShop\\Core\\Crypto\\Hashing');
-        $transactionId = $crypto->hash(
-            $this->context->cart->id . $this->context->cart->id_customer, _COOKIE_KEY_
-        );
-
-        $moneiPayment = $this->createPaymentObject();
+        $moneiPaymentId = $moneiPayment->getId();
         $moneiClient = new MoneiClient(
             Configuration::get('MONEI_API_KEY'),
             Configuration::get('MONEI_ACCOUNT_ID')
         );
-
-        try {
-            $moneiPaymentResponse = $moneiClient->payments->createPayment($moneiPayment);
-        } catch (Exception $ex) {
-            PrestaShopLogger::addLog(
-                'MONEI - Exception - monei.php - getPaymentMethods: ' . $ex->getMessage() . ' - ' . $ex->getFile(),
-                PrestaShopLogger::LOG_SEVERITY_LEVEL_ERROR
-            );
-
-            return false;
-        }
-
-        // Save the information after sending it to the API
-        PsOrderHelper::saveTransaction($moneiPaymentResponse);
-
-        $moneiPaymentId = $moneiPaymentResponse->getId();
 
         $moneiAccount = $moneiClient->getMoneiAccount();
         $moneiPaymentMethod = $moneiAccount->getPaymentInformation($moneiPaymentId)->getPaymentMethodsAllowed();
@@ -1413,6 +1443,19 @@ class Monei extends PaymentModule
         $paymentMethods = [];
         $paymentOptionList = [];
 
+        $countryIsoCode = $this->context->country->iso_code;
+        $currencyIsoCode = $this->context->currency->iso_code;
+        $addressInvoice = new Address($cart->id_address_invoice);
+        if (Validate::isLoadedObject($addressInvoice)) {
+            $countryInvoice = new Country($addressInvoice->id_country);
+            $countryIsoCode = $countryInvoice->iso_code;
+        }
+
+        $crypto = ServiceLocator::get('\\PrestaShop\\PrestaShop\\Core\\Crypto\\Hashing');
+        $transactionId = $crypto->hash(
+            $cart->id . $cart->id_customer, _COOKIE_KEY_
+        );
+
         // Credit Card
         if (Configuration::get('MONEI_ALLOW_CARD') && $moneiPaymentMethod->isPaymentMethodAllowed(MoneiPaymentMethods::CARD, $currencyIsoCode)) {
             $paymentOptionList['card'] = [
@@ -1426,7 +1469,6 @@ class Monei extends PaymentModule
                 $redirectUrl = $this->context->link->getModuleLink($this->name, 'redirect', [
                     'method' => 'card',
                     'transaction_id' => $transactionId,
-                    'tokenize_card' => 0
                 ]);
 
                 if (Configuration::get('MONEI_TOKENIZE')) {
@@ -1458,7 +1500,6 @@ class Monei extends PaymentModule
                         'method' => 'card',
                         'transaction_id' => $transactionId,
                         'id_monei_card' => $credit_card->id,
-                        'tokenize_card' => 0,
                     ]);
 
                     $paymentOptionList['card-' . (int) $card['id_monei_tokens']] = [
@@ -1493,20 +1534,23 @@ class Monei extends PaymentModule
             $paymentOptionList['applePay'] = [
                 'method' => 'applePay',
                 'callToActionText' => $this->l('Apple Pay'),
-                'additionalInformation' => $template,
+                'additionalInformation' => '',
                 'logo' => Media::getMediaPath(_PS_MODULE_DIR_ . $this->name . '/views/img/payments/apple-pay.svg'),
+                'binary' => true,
             ];
         }
 
         // Google
         if (Configuration::get('MONEI_ALLOW_GOOGLE') &&
+            !PsTools::isSafariBrowser() &&
             $moneiPaymentMethod->isPaymentMethodAllowed(MoneiPaymentMethods::GOOGLE, $currencyIsoCode)
         ) {
             $paymentOptionList['googlePay'] = [
                 'method' => 'googlePay',
                 'callToActionText' => $this->l('Google Pay'),
-                'additionalInformation' => $template,
+                'additionalInformation' => '',
                 'logo' => Media::getMediaPath(_PS_MODULE_DIR_ . $this->name . '/views/img/payments/google-pay.svg'),
+                'binary' => true,
             ];
         }
 
@@ -1644,20 +1688,25 @@ class Monei extends PaymentModule
         $paymentMethodsToDisplay = [];
 
         $paymentMethods = $this->getPaymentMethods();
-        foreach ($paymentMethods['paymentOptions'] as $paymentOption) {
-            if ($paymentOption->isBinary()) {
-                $paymentMethodsToDisplay[] = $paymentOption->getModuleName();
-            }
-        }
-
         if ($paymentMethods) {
-            $this->context->smarty->assign([
-                'paymentMethodsToDisplay' => $paymentMethodsToDisplay,
-                'moneiPaymentId' => $paymentMethods['moneiPaymentId'],
-                'moneiAmount' => Tools::displayPrice($this->context->cart->getOrderTotal()),
-            ]);
+            foreach ($paymentMethods['paymentOptions'] as $paymentOption) {
+                if ($paymentOption->isBinary()) {
+                    $paymentMethodsToDisplay[] = $paymentOption->getModuleName();
+                }
+            }
 
-            return $this->fetch('module:monei/views/templates/hook/displayPaymentByBinaries.tpl');
+            if ($paymentMethodsToDisplay) {
+                $this->context->smarty->assign([
+                    'paymentMethodsToDisplay' => $paymentMethodsToDisplay,
+                    'moneiPaymentId' => $paymentMethods['moneiPaymentId'],
+                    'moneiAmount' => Tools::displayPrice($this->context->cart->getOrderTotal()),
+                    'customerData' => $this->getCustomerData(),
+                    'billingData' => $this->getAddressData((int) $this->context->cart->id_address_invoice),
+                    'shippingData' => $this->getAddressData((int) $this->context->cart->id_address_delivery),
+                ]);
+
+                return $this->fetch('module:monei/views/templates/hook/displayPaymentByBinaries.tpl');
+            }
         }
     }
 

@@ -8,6 +8,12 @@ document.addEventListener('DOMContentLoaded', () => {
             if (typeof initMoneiBizum !== typeof undefined) {
                 initMoneiBizum();
             }
+            if (typeof initMoneiGooglePay !== typeof undefined) {
+                initMoneiGooglePay();
+            }
+            if (typeof initMoneiApplePay !== typeof undefined) {
+                initMoneiApplePay();
+            }
         });
     // support module: onepagecheckoutps - v4 - PresTeamShop
     } else if (typeof AppOPC !== typeof undefined) {
@@ -18,6 +24,12 @@ document.addEventListener('DOMContentLoaded', () => {
             if (typeof initMoneiBizum !== typeof undefined) {
                 initMoneiBizum();
             }
+            if (typeof initMoneiGooglePay !== typeof undefined) {
+                initMoneiGooglePay();
+            }
+            if (typeof initMoneiApplePay !== typeof undefined) {
+                initMoneiApplePay();
+            }
         });
     } else {
         if (typeof initMoneiCard !== typeof undefined) {
@@ -25,6 +37,12 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         if (typeof initMoneiBizum !== typeof undefined) {
             initMoneiBizum();
+        }
+        if (typeof initMoneiGooglePay !== typeof undefined) {
+            initMoneiGooglePay();
+        }
+        if (typeof initMoneiApplePay !== typeof undefined) {
+            initMoneiApplePay();
         }
     }
 });
