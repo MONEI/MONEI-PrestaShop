@@ -7,6 +7,10 @@ section.checkout-step .payment-option img {
     margin-left: 0.5rem;
 }
 
+section.checkout-step .payment-option label {
+    text-align: left;
+}
+
 #opc_step_payment .payment-option img {
     width: 89px;
 }
