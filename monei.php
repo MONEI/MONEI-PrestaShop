@@ -27,6 +27,9 @@ class Monei extends PaymentModule
     use ValidationHelpers;
 
     protected $config_form = false;
+    protected $moneiClient;
+    protected $moneiPaymentId;
+    protected $paymentMethods;
 
     public function __construct()
     {
@@ -46,6 +49,17 @@ class Monei extends PaymentModule
         parent::__construct();
 
         $this->description = $this->l('Accept Card, Apple Pay, Google Pay, Bizum, PayPal and many more payment methods in your store.');
+
+        $apiKey = Configuration::get('MONEI_API_KEY');
+        $accountId = Configuration::get('MONEI_ACCOUNT_ID');
+        if (!$apiKey || !$accountId) {
+            $this->warning = $this->l('MONEI_API_KEY or MONEI_ACCOUNT_ID is not set.');
+        } else {
+            $this->moneiClient = new MoneiClient(
+                $apiKey,
+                $accountId
+            );
+        }
     }
 
     public function install()
@@ -1018,15 +1032,10 @@ class Monei extends PaymentModule
 
     public function createPayment(bool $tokenizeCard = false, int $moneiCardId = 0)
     {
-        $moneiClient = new MoneiClient(
-            Configuration::get('MONEI_API_KEY'),
-            Configuration::get('MONEI_ACCOUNT_ID')
-        );
-
         // check if the cart amount changed, if so, we need to create a new payment.
         $moneiPaymentId = $this->context->cookie->monei_payment_id;
         if (!$tokenizeCard && !$moneiCardId && !empty($moneiPaymentId)) {
-            $moneiPayment = $moneiClient->payments->getPayment($moneiPaymentId);
+            $moneiPayment = $this->moneiClient->payments->getPayment($moneiPaymentId);
 
             if (!empty($moneiPayment->getPaymentMethod()) || (int) $moneiPayment->getAmount() !== $this->getCartAmount()) {
                 $moneiPaymentId = null;
@@ -1134,7 +1143,7 @@ class Monei extends PaymentModule
             // Save the information before sending it to the API
             PsOrderHelper::saveTransaction($moneiPayment, true);
 
-            $moneiPaymentResponse = $moneiClient->payments->createPayment($moneiPayment);
+            $moneiPaymentResponse = $this->moneiClient->payments->createPayment($moneiPayment);
 
             // Only save the payment id if dont tokenize the card or the card id is not set
             if (!$tokenizeCard && !$moneiCardId) {
@@ -1154,13 +1163,7 @@ class Monei extends PaymentModule
 
     public function createOrUpdateOrder($moneiPaymentId, $redirectToConfirmationPage = false)
     {
-        // Get the payment from the API
-        $moneiClient = new MoneiClient(
-            Configuration::get('MONEI_API_KEY'),
-            Configuration::get('MONEI_ACCOUNT_ID')
-        );
-
-        $moneiPayment = $moneiClient->payments->getPayment($moneiPaymentId);
+        $moneiPayment = $this->moneiClient->payments->getPayment($moneiPaymentId);
         $moneiOrderId = $moneiPayment->getOrderId();
 
         $moneiId = (int) MoneiClass::getIdByInternalOrder($moneiOrderId);
@@ -1347,7 +1350,7 @@ class Monei extends PaymentModule
         if (!$this->checkCurrency($cart)) {
             return false;
         }
-        if (!Configuration::get('MONEI_API_KEY') || !Configuration::get('MONEI_ACCOUNT_ID')) {
+        if (!$this->moneiClient) {
             return false;
         }
         if (!$this->context->customer->isLogged() && !$this->context->customer->isGuest()) {
@@ -1402,12 +1405,12 @@ class Monei extends PaymentModule
             return;
         }
 
-        $paymentMethods = $this->getPaymentMethods();
-        if (!$paymentMethods) {
+        $this->getPaymentMethods();
+        if (!$this->paymentMethods || !$this->moneiPaymentId) {
             return;
         }
 
-        return $paymentMethods['paymentOptions'];
+        return $this->paymentMethods;
     }
 
     /**
@@ -1416,6 +1419,10 @@ class Monei extends PaymentModule
      */
     private function getPaymentMethods()
     {
+        if ($this->paymentMethods && $this->moneiPaymentId) {
+            return;
+        }
+
         $cart = $this->context->cart;
 
         $moneiPayment = $this->createPayment();
@@ -1424,12 +1431,9 @@ class Monei extends PaymentModule
         }
 
         $moneiPaymentId = $moneiPayment->getId();
-        $moneiClient = new MoneiClient(
-            Configuration::get('MONEI_API_KEY'),
-            Configuration::get('MONEI_ACCOUNT_ID')
-        );
 
-        $moneiAccount = $moneiClient->getMoneiAccount();
+        $moneiAccount = $this->moneiClient->getMoneiAccount();
+
         $moneiPaymentMethod = $moneiAccount->getPaymentInformation($moneiPaymentId)->getPaymentMethodsAllowed();
 
         $template = '';
@@ -1673,10 +1677,8 @@ class Monei extends PaymentModule
             $paymentMethods[] = $option;
         }
 
-        return [
-            'moneiPaymentId' => $moneiPaymentId,
-            'paymentOptions' => $paymentMethods,
-        ];
+        $this->moneiPaymentId = $moneiPaymentId;
+        $this->paymentMethods = $paymentMethods;
     }
 
     public function hookDisplayPaymentByBinaries($params)
@@ -1687,26 +1689,28 @@ class Monei extends PaymentModule
 
         $paymentMethodsToDisplay = [];
 
-        $paymentMethods = $this->getPaymentMethods();
-        if ($paymentMethods) {
-            foreach ($paymentMethods['paymentOptions'] as $paymentOption) {
-                if ($paymentOption->isBinary()) {
-                    $paymentMethodsToDisplay[] = $paymentOption->getModuleName();
-                }
-            }
+        $this->getPaymentMethods();
+        if (!$this->paymentMethods || !$this->moneiPaymentId) {
+            return;
+        }
 
-            if ($paymentMethodsToDisplay) {
-                $this->context->smarty->assign([
-                    'paymentMethodsToDisplay' => $paymentMethodsToDisplay,
-                    'moneiPaymentId' => $paymentMethods['moneiPaymentId'],
-                    'moneiAmount' => Tools::displayPrice($this->context->cart->getOrderTotal()),
-                    'customerData' => $this->getCustomerData(),
-                    'billingData' => $this->getAddressData((int) $this->context->cart->id_address_invoice),
-                    'shippingData' => $this->getAddressData((int) $this->context->cart->id_address_delivery),
-                ]);
-
-                return $this->fetch('module:monei/views/templates/hook/displayPaymentByBinaries.tpl');
+        foreach ($this->paymentMethods as $paymentOption) {
+            if ($paymentOption->isBinary()) {
+                $paymentMethodsToDisplay[] = $paymentOption->getModuleName();
             }
+        }
+
+        if ($paymentMethodsToDisplay) {
+            $this->context->smarty->assign([
+                'paymentMethodsToDisplay' => $paymentMethodsToDisplay,
+                'moneiPaymentId' => $this->moneiPaymentId,
+                'moneiAmount' => Tools::displayPrice($this->context->cart->getOrderTotal()),
+                'customerData' => $this->getCustomerData(),
+                'billingData' => $this->getAddressData((int) $this->context->cart->id_address_invoice),
+                'shippingData' => $this->getAddressData((int) $this->context->cart->id_address_delivery),
+            ]);
+
+            return $this->fetch('module:monei/views/templates/hook/displayPaymentByBinaries.tpl');
         }
     }
 
