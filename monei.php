@@ -53,7 +53,7 @@ class Monei extends PaymentModule
         $apiKey = Configuration::get('MONEI_API_KEY');
         $accountId = Configuration::get('MONEI_ACCOUNT_ID');
         if (!$apiKey || !$accountId) {
-            $this->warning = $this->l('MONEI_API_KEY or MONEI_ACCOUNT_ID is not set.');
+            $this->warning = $this->l('Api Key or Account ID is not set.');
         } else {
             $this->moneiClient = new MoneiClient(
                 $apiKey,
@@ -689,10 +689,9 @@ class Monei extends PaymentModule
                     ),
                     array(
                         'type' => 'switch',
-                        'label' => $this->l('Allow ClickToPay'),
+                        'label' => $this->l('Allow Click To Pay'),
                         'name' => 'MONEI_ALLOW_CLICKTOPAY',
                         'is_bool' => true,
-                        // 'desc' => $this->l('Allow payments with ClickToPay.'),
                         'hint' => $this->l('The payment must be active and configured on your MONEI Dashboard.'),
                         'values' => array(
                             array(
@@ -712,7 +711,6 @@ class Monei extends PaymentModule
                         'label' => $this->l('Allow PayPal'),
                         'name' => 'MONEI_ALLOW_PAYPAL',
                         'is_bool' => true,
-                        // 'desc' => $this->l('Allow payments with PayPal.'),
                         'hint' => $this->l('The payment must be active and configured on your MONEI Dashboard.'),
                         'values' => array(
                             array(
@@ -732,7 +730,6 @@ class Monei extends PaymentModule
                         'label' => $this->l('Allow COFIDIS'),
                         'name' => 'MONEI_ALLOW_COFIDIS',
                         'is_bool' => true,
-                        // 'desc' => $this->l('Allow payments with COFIDIS.'),
                         'hint' => $this->l('The payment must be active and configured on your MONEI Dashboard.'),
                         'values' => array(
                             array(
@@ -752,7 +749,6 @@ class Monei extends PaymentModule
                         'label' => $this->l('Allow Klarna'),
                         'name' => 'MONEI_ALLOW_KLARNA',
                         'is_bool' => true,
-                        // 'desc' => $this->l('Allow payments with Klarna.'),
                         'hint' => $this->l('The payment must be active and configured on your MONEI Dashboard.'),
                         'values' => array(
                             array(
@@ -772,7 +768,6 @@ class Monei extends PaymentModule
                         'label' => $this->l('Allow Multibanco'),
                         'name' => 'MONEI_ALLOW_MULTIBANCO',
                         'is_bool' => true,
-                        // 'desc' => $this->l('Allow payments with Multibanco.'),
                         'hint' => $this->l('The payment must be active and configured on your MONEI Dashboard.'),
                         'values' => array(
                             array(
@@ -792,7 +787,6 @@ class Monei extends PaymentModule
                         'label' => $this->l('Allow MBWay'),
                         'name' => 'MONEI_ALLOW_MBWAY',
                         'is_bool' => true,
-                        // 'desc' => $this->l('Allow payments with MBWay.'),
                         'hint' => $this->l('The payment must be active and configured on your MONEI Dashboard.'),
                         'values' => array(
                             array(
@@ -1564,7 +1558,7 @@ class Monei extends PaymentModule
         ) {
             $paymentOptionList['clickToPay'] = [
                 'method' => 'clickToPay',
-                'callToActionText' => $this->l('clickToPay'),
+                'callToActionText' => $this->l('Click To Pay'),
                 'additionalInformation' => $template,
                 'logo' => Media::getMediaPath(_PS_MODULE_DIR_ . $this->name . '/views/img/payments/click-to-pay.svg'),
             ];
