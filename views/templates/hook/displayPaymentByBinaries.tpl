@@ -44,17 +44,22 @@
               window.location.assign(result.nextAction.redirectUrl);
             } else {
               const icon = result.status === 'SUCCEEDED' ? 'success' : 'error';
-              Swal.fire({
-                title: result.status,
-                text: result.statusMessage,
-                icon,
-                allowOutsideClick: false,
-                allowEscapeKey: false,
-                confirmButtonText: window.moneiMsgRetry,
-                willClose: () => {
-                  window.location.reload();
-                },
-              });
+
+              if (result.status === 'SUCCEEDED') {
+                window.location.assign(result.nextAction.redirectUrl);
+              } else {
+                Swal.fire({
+                  title: result.status,
+                  text: result.statusMessage,
+                  icon,
+                  allowOutsideClick: false,
+                  allowEscapeKey: false,
+                  confirmButtonText: window.moneiMsgRetry,
+                  willClose: () => {
+                    window.location.reload();
+                  },
+                });
+              }
             }
           } catch (error) {
             Swal.fire({
