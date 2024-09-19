@@ -308,6 +308,16 @@ class Monei extends PaymentModule
             Configuration::updateValue($key, Tools::getValue($key));
         }
 
+        // Register domain for Apple Pay only in production mode
+        if ($this->moneiClient && (bool) Configuration::get('MONEI_PRODUCTION_MODE')) {
+            try {
+                $domain = str_replace(['www.', 'https://', 'http://'], '', Tools::getShopDomainSsl(false, true));
+                $this->moneiClient->apple->register($domain);
+            } catch (\Exception $e) {
+                $this->warning[] = $e->getMessage();
+            }
+        }
+
         return $this->displayConfirmation($section . ' ' . $this->l('options saved sucessfully.'));
     }
 
