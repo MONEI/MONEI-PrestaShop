@@ -97,6 +97,10 @@ class Monei extends PaymentModule
         Configuration::updateValue('MONEI_STATUS_PARTIALLY_REFUNDED', Configuration::get('PS_OS_REFUND'));
         Configuration::updateValue('MONEI_STATUS_PENDING', Configuration::get('PS_OS_PREPARATION'));
         Configuration::updateValue('MONEI_SWITCH_REFUNDS', false);
+        // Styles
+        Configuration::updateValue('MONEI_CARD_INPUT_STYLE', '{"base": {"height": "42px"}}');
+        Configuration::updateValue('MONEI_BIZUM_STYLE', '{"height": "42"}');
+        Configuration::updateValue('MONEI_PAYMENT_REQUEST_STYLE', '{"height": "42"}');
 
         include(dirname(__FILE__) . '/sql/install.php');
 
@@ -267,6 +271,8 @@ class Monei extends PaymentModule
             $message = $this->postProcess(2);
         } elseif (Tools::isSubmit('submitMoneiModuleStatus')) {
             $message = $this->postProcess(3);
+        } elseif (Tools::isSubmit('submitMoneiModuleComponentStyle')) {
+            $message = $this->postProcess(4);
         }
 
         // Assign values
@@ -277,7 +283,8 @@ class Monei extends PaymentModule
             'display_name' => $this->displayName,
             'helper_form_1' => $this->renderForm(),
             'helper_form_2' => $this->renderFormGateways(),
-            'helper_form_3' => $this->renderFormStatus()
+            'helper_form_3' => $this->renderFormStatus(),
+            'helper_form_4' => $this->renderFormComponentStyle(),
         ));
 
         return $message . $this->context->smarty->fetch($this->local_path . 'views/templates/admin/configure.tpl');
@@ -301,6 +308,22 @@ class Monei extends PaymentModule
             case 3:
                 $section = $this->l('Status');
                 $form_values = $this->getConfigFormStatusValues();
+                break;
+            case 4:
+                $section = $this->l('Component Style');
+                $form_values = $this->getConfigFormComponentStyleValues();
+
+                // Validate JSON styles
+                foreach ($form_values as $key => $value) {
+                    $value = Tools::getValue($key);
+
+                    if (!json_decode($value)) {
+                        $formattedKey = ucwords(str_replace('_', ' ', str_replace('_STYLE', '', $key)));
+
+                        return $this->displayWarning($this->l('The style of ') . $formattedKey . $this->l(' is not a valid JSON.'));
+                    }
+                }
+
                 break;
         }
 
@@ -374,6 +397,18 @@ class Monei extends PaymentModule
                 Configuration::get('MONEI_STATUS_REFUNDED', Configuration::get('PS_OS_REFUND')),
             'MONEI_STATUS_PARTIALLY_REFUNDED' =>
                 Configuration::get('MONEI_STATUS_PARTIALLY_REFUNDED', Configuration::get('PS_OS_REFUND'))
+        );
+    }
+
+    /**
+     * Default styles values for HelperForm
+     */
+    protected function getConfigFormComponentStyleValues()
+    {
+        return array(
+            'MONEI_CARD_INPUT_STYLE' => Configuration::get('MONEI_CARD_INPUT_STYLE', '{"base": {"height": "42px"}}'),
+            'MONEI_BIZUM_STYLE' => Configuration::get('MONEI_BIZUM_STYLE', '{"height": "42"}'),
+            'MONEI_PAYMENT_REQUEST_STYLE' => Configuration::get('MONEI_PAYMENT_REQUEST_STYLE', '{"height": "42"}'),
         );
     }
 
@@ -918,6 +953,74 @@ class Monei extends PaymentModule
                             'name' => 'name',
                         ),
                     )
+                ),
+                'submit' => array(
+                    'title' => $this->l('Save'),
+                ),
+            ),
+        );
+    }
+
+    protected function renderFormComponentStyle()
+    {
+        $helper = new HelperForm();
+
+        $helper->show_toolbar = false;
+        $helper->table = $this->table;
+        $helper->module = $this;
+        $helper->default_form_language = $this->context->language->id;
+
+        $helper->identifier = $this->identifier;
+        $helper->submit_action = 'submitMoneiModuleComponentStyle';
+        $helper->currentIndex = $this->context->link->getAdminLink('AdminModules', false)
+            . '&configure=' . $this->name . '&tab_module=' . $this->tab . '&module_name=' . $this->name;
+        $helper->token = Tools::getAdminTokenLite('AdminModules');
+
+        $helper->tpl_vars = array(
+            'fields_value' => $this->getConfigFormComponentStyleValues(),
+            'languages' => $this->context->controller->getLanguages(),
+            'id_language' => $this->context->language->id,
+        );
+
+        return $helper->generateForm(array($this->getConfigFormComponentStyle()));
+    }
+
+    protected function getConfigFormComponentStyle()
+    {
+        return array(
+            'form' => array(
+                'legend' => array(
+                    'title' => $this->l('Component Style'),
+                    'icon' => 'icon-paint-brush',
+                ),
+                'input' => array(
+                    array(
+                        'type' => 'textarea',
+                        'label' => $this->l('Card input style'),
+                        'name' => 'MONEI_CARD_INPUT_STYLE',
+                        'desc' => $this->l('Configure in JSON format the style of the Card Input component. Documentation: ') .
+                            '<a href="https://docs.monei.com/docs/monei-js/reference/#cardinput-style-object" target="_blank">MONEI Card Input Style</a>',
+                        'cols' => 60,
+                        'rows' => 10,
+                    ),
+                    array(
+                        'type' => 'textarea',
+                        'label' => $this->l('Bizum style'),
+                        'name' => 'MONEI_BIZUM_STYLE',
+                        'desc' => $this->l('Configure in JSON format the style of the Bizum component. Documentation: ') .
+                            '<a href="https://docs.monei.com/docs/monei-js/reference/#bizum-options" target="_blank">MONEI Bizum Style</a>',
+                        'cols' => 60,
+                        'rows' => 10,
+                    ),
+                    array(
+                        'type' => 'textarea',
+                        'label' => $this->l('Payment Request style'),
+                        'name' => 'MONEI_PAYMENT_REQUEST_STYLE',
+                        'desc' => $this->l('Configure in JSON format the style of the Payment Request component. Documentation: ') .
+                            '<a href="https://docs.monei.com/docs/monei-js/reference/#paymentrequest-options" target="_blank">MONEI Payment Request Style</a>',
+                        'cols' => 60,
+                        'rows' => 10,
+                    ),
                 ),
                 'submit' => array(
                     'title' => $this->l('Save'),
@@ -1809,6 +1912,9 @@ class Monei extends PaymentModule
                 'moneiProcessing' => $this->l('Processing payment...'),
                 'moneiCardHolderNameNotValid' => $this->l('Card holder name is not valid'),
                 'moneiMsgRetry' => $this->l('Retry'),
+                'moneiCardInputStyle' => json_decode(Configuration::get('MONEI_CARD_INPUT_STYLE')),
+                'moneiBizumStyle' => json_decode(Configuration::get('MONEI_BIZUM_STYLE')),
+                'moneiPaymentRequestStyle' => json_decode(Configuration::get('MONEI_PAYMENT_REQUEST_STYLE')),
             ]);
         }
 

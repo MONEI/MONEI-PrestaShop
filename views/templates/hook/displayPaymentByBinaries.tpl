@@ -124,7 +124,7 @@
 
           monei.Bizum({
             paymentId: window.moneiPaymentId,
-            style: { height: 42 },
+            style: window.moneiBizumStyle || {},
             onBeforeOpen: moneiValidConditions,
             onSubmit(result) {
               if (result.token) moneiTokenHandler(result.token);
@@ -175,6 +175,7 @@
             onChange: () => { moneiCardErrors.innerHTML = ''; },
             onEnter: () => { moneiCardButton.click(); },
             language: prestashop.language.iso_code,
+            style: window.moneiCardInputStyle || {},
           });
           moneiCardInput.render(moneiCardRenderContainer);
 
@@ -224,7 +225,7 @@
 
           monei.PaymentRequest({
             paymentId: window.moneiPaymentId,
-            style: { height: 42 },
+            style: window.moneiPaymentRequestStyle || {},
             onBeforeOpen: moneiValidConditions,
             onSubmit(result) {
               if (result.token) moneiTokenHandler(result.token);
@@ -255,7 +256,7 @@
 
           monei.PaymentRequest({
             paymentId: window.moneiPaymentId,
-            style: { height: 42 },
+            style: window.moneiPaymentRequestStyle || {},
             onBeforeOpen: moneiValidConditions,
             onSubmit(result) {
               if (result.token) moneiTokenHandler(result.token);
