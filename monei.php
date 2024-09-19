@@ -77,7 +77,6 @@ class Monei extends PaymentModule
         Configuration::updateValue('MONEI_ACCOUNT_ID', '');
         Configuration::updateValue('MONEI_CART_TO_ORDER', false);
         Configuration::updateValue('MONEI_EXPIRE_TIME', 600);
-        Configuration::updateValue('MONEI_SHOW_ALL', true);
         // Gateways
         Configuration::updateValue('MONEI_ALLOW_CARD', true);
         Configuration::updateValue('MONEI_CARD_WITH_REDIRECT', false);
@@ -215,7 +214,6 @@ class Monei extends PaymentModule
         Configuration::deleteByName('MONEI_ACCOUNT_ID');
         Configuration::deleteByName('MONEI_CART_TO_ORDER');
         Configuration::deleteByName('MONEI_EXPIRE_TIME');
-        Configuration::deleteByName('MONEI_SHOW_ALL');
         // Gateways
         Configuration::deleteByName('MONEI_ALLOW_CARD');
         Configuration::deleteByName('MONEI_CARD_WITH_REDIRECT');
@@ -325,7 +323,6 @@ class Monei extends PaymentModule
             'MONEI_API_KEY' => Configuration::get('MONEI_API_KEY', ''),
             'MONEI_ACCOUNT_ID' => Configuration::get('MONEI_ACCOUNT_ID', ''),
             'MONEI_CART_TO_ORDER' => Configuration::get('MONEI_CART_TO_ORDER', true),
-            'MONEI_SHOW_ALL' => Configuration::get('MONEI_SHOW_ALL', true),
         );
     }
 
@@ -489,25 +486,6 @@ class Monei extends PaymentModule
                         'name' => 'MONEI_SHOW_LOGO',
                         'is_bool' => true,
                         'desc' => $this->l('Shows the MONEI logo on checkout step.'),
-                        'values' => array(
-                            array(
-                                'id' => 'active_on',
-                                'value' => true,
-                                'label' => $this->l('Enabled')
-                            ),
-                            array(
-                                'id' => 'active_off',
-                                'value' => false,
-                                'label' => $this->l('Disabled')
-                            )
-                        )
-                    ),
-                    array(
-                        'type' => 'switch',
-                        'label' => $this->l('Show all payment methods'),
-                        'name' => 'MONEI_SHOW_ALL',
-                        'is_bool' => true,
-                        'desc' => $this->l('Shows all payment methods in MONEI instead of only the selected one.'),
                         'values' => array(
                             array(
                                 'id' => 'active_on',
