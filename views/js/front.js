@@ -17,7 +17,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     // support module: onepagecheckoutps - v4 - PresTeamShop
     } else if (typeof AppOPC !== typeof undefined) {
-        $(document).on('opc-load-payment:completed', () => {
+        $(document).on('opc-load-review:completed', () => {
             if (typeof initMoneiCard !== typeof undefined) {
                 initMoneiCard();
             }

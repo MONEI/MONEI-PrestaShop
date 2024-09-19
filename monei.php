@@ -1347,6 +1347,7 @@ class Monei extends PaymentModule
         if (!$this->moneiClient) {
             return false;
         }
+
         if (!$this->context->customer->isLogged() && !$this->context->customer->isGuest()) {
             return;
         }
@@ -1916,7 +1917,7 @@ class Monei extends PaymentModule
     public function checkCurrency($cart)
     {
         $currency_order = new Currency($cart->id_currency);
-        $currencies_module = $this->getCurrency($cart->id_currency);
+        $currencies_module = $this->getCurrency();
         if (is_array($currencies_module)) {
             foreach ($currencies_module as $currency_module) {
                 if ($currency_order->id == $currency_module['id_currency']) {
