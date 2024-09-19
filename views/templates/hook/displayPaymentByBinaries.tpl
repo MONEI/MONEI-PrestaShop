@@ -6,6 +6,12 @@
 
   {literal}
     var moneiTokenHandler = async (paymentToken, cardholderName, paymentButton) => {
+      // support module onepagecheckoutps - v4 - PresTeamShop
+      const customerEmail = document.getElementById('customer_email');
+      if (customerEmail) {
+        window.moneiCustomerData.email = customerEmail.value;
+      }
+
       const params = {
         paymentId: window.moneiPaymentId,
         paymentToken,
