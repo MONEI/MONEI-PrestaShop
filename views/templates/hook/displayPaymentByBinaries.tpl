@@ -174,6 +174,7 @@
             paymentId: window.moneiPaymentId,
             onChange: () => { moneiCardErrors.innerHTML = ''; },
             onEnter: () => { moneiCardButton.click(); },
+            language: prestashop.language.iso_code,
           });
           moneiCardInput.render(moneiCardRenderContainer);
 
