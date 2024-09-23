@@ -77,7 +77,6 @@ class Monei extends PaymentModule
         Configuration::updateValue('MONEI_ACCOUNT_ID', '');
         Configuration::updateValue('MONEI_CART_TO_ORDER', false);
         Configuration::updateValue('MONEI_EXPIRE_TIME', 600);
-        Configuration::updateValue('MONEI_SHOW_ALL', true);
         // Gateways
         Configuration::updateValue('MONEI_ALLOW_CARD', true);
         Configuration::updateValue('MONEI_CARD_WITH_REDIRECT', false);
@@ -98,6 +97,10 @@ class Monei extends PaymentModule
         Configuration::updateValue('MONEI_STATUS_PARTIALLY_REFUNDED', Configuration::get('PS_OS_REFUND'));
         Configuration::updateValue('MONEI_STATUS_PENDING', Configuration::get('PS_OS_PREPARATION'));
         Configuration::updateValue('MONEI_SWITCH_REFUNDS', false);
+        // Styles
+        Configuration::updateValue('MONEI_CARD_INPUT_STYLE', '{"base": {"height": "42px"}}');
+        Configuration::updateValue('MONEI_BIZUM_STYLE', '{"height": "42"}');
+        Configuration::updateValue('MONEI_PAYMENT_REQUEST_STYLE', '{"height": "42"}');
 
         include(dirname(__FILE__) . '/sql/install.php');
 
@@ -215,7 +218,6 @@ class Monei extends PaymentModule
         Configuration::deleteByName('MONEI_ACCOUNT_ID');
         Configuration::deleteByName('MONEI_CART_TO_ORDER');
         Configuration::deleteByName('MONEI_EXPIRE_TIME');
-        Configuration::deleteByName('MONEI_SHOW_ALL');
         // Gateways
         Configuration::deleteByName('MONEI_ALLOW_CARD');
         Configuration::deleteByName('MONEI_CARD_WITH_REDIRECT');
@@ -269,6 +271,8 @@ class Monei extends PaymentModule
             $message = $this->postProcess(2);
         } elseif (Tools::isSubmit('submitMoneiModuleStatus')) {
             $message = $this->postProcess(3);
+        } elseif (Tools::isSubmit('submitMoneiModuleComponentStyle')) {
+            $message = $this->postProcess(4);
         }
 
         // Assign values
@@ -279,7 +283,8 @@ class Monei extends PaymentModule
             'display_name' => $this->displayName,
             'helper_form_1' => $this->renderForm(),
             'helper_form_2' => $this->renderFormGateways(),
-            'helper_form_3' => $this->renderFormStatus()
+            'helper_form_3' => $this->renderFormStatus(),
+            'helper_form_4' => $this->renderFormComponentStyle(),
         ));
 
         return $message . $this->context->smarty->fetch($this->local_path . 'views/templates/admin/configure.tpl');
@@ -304,10 +309,36 @@ class Monei extends PaymentModule
                 $section = $this->l('Status');
                 $form_values = $this->getConfigFormStatusValues();
                 break;
+            case 4:
+                $section = $this->l('Component Style');
+                $form_values = $this->getConfigFormComponentStyleValues();
+
+                // Validate JSON styles
+                foreach ($form_values as $key => $value) {
+                    $value = Tools::getValue($key);
+
+                    if (!json_decode($value)) {
+                        $formattedKey = ucwords(str_replace('_', ' ', str_replace('_STYLE', '', $key)));
+
+                        return $this->displayWarning($this->l('The style of ') . $formattedKey . $this->l(' is not a valid JSON.'));
+                    }
+                }
+
+                break;
         }
 
         foreach (array_keys($form_values) as $key) {
             Configuration::updateValue($key, Tools::getValue($key));
+        }
+
+        // Register domain for Apple Pay only in production mode
+        if ($this->moneiClient && (bool) Configuration::get('MONEI_PRODUCTION_MODE')) {
+            try {
+                $domain = str_replace(['www.', 'https://', 'http://'], '', Tools::getShopDomainSsl(false, true));
+                $this->moneiClient->apple->register($domain);
+            } catch (\Exception $e) {
+                $this->warning[] = $e->getMessage();
+            }
         }
 
         return $this->displayConfirmation($section . ' ' . $this->l('options saved sucessfully.'));
@@ -325,7 +356,6 @@ class Monei extends PaymentModule
             'MONEI_API_KEY' => Configuration::get('MONEI_API_KEY', ''),
             'MONEI_ACCOUNT_ID' => Configuration::get('MONEI_ACCOUNT_ID', ''),
             'MONEI_CART_TO_ORDER' => Configuration::get('MONEI_CART_TO_ORDER', true),
-            'MONEI_SHOW_ALL' => Configuration::get('MONEI_SHOW_ALL', true),
         );
     }
 
@@ -367,6 +397,18 @@ class Monei extends PaymentModule
                 Configuration::get('MONEI_STATUS_REFUNDED', Configuration::get('PS_OS_REFUND')),
             'MONEI_STATUS_PARTIALLY_REFUNDED' =>
                 Configuration::get('MONEI_STATUS_PARTIALLY_REFUNDED', Configuration::get('PS_OS_REFUND'))
+        );
+    }
+
+    /**
+     * Default styles values for HelperForm
+     */
+    protected function getConfigFormComponentStyleValues()
+    {
+        return array(
+            'MONEI_CARD_INPUT_STYLE' => Configuration::get('MONEI_CARD_INPUT_STYLE', '{"base": {"height": "42px"}}'),
+            'MONEI_BIZUM_STYLE' => Configuration::get('MONEI_BIZUM_STYLE', '{"height": "42"}'),
+            'MONEI_PAYMENT_REQUEST_STYLE' => Configuration::get('MONEI_PAYMENT_REQUEST_STYLE', '{"height": "42"}'),
         );
     }
 
@@ -489,25 +531,6 @@ class Monei extends PaymentModule
                         'name' => 'MONEI_SHOW_LOGO',
                         'is_bool' => true,
                         'desc' => $this->l('Shows the MONEI logo on checkout step.'),
-                        'values' => array(
-                            array(
-                                'id' => 'active_on',
-                                'value' => true,
-                                'label' => $this->l('Enabled')
-                            ),
-                            array(
-                                'id' => 'active_off',
-                                'value' => false,
-                                'label' => $this->l('Disabled')
-                            )
-                        )
-                    ),
-                    array(
-                        'type' => 'switch',
-                        'label' => $this->l('Show all payment methods'),
-                        'name' => 'MONEI_SHOW_ALL',
-                        'is_bool' => true,
-                        'desc' => $this->l('Shows all payment methods in MONEI instead of only the selected one.'),
                         'values' => array(
                             array(
                                 'id' => 'active_on',
@@ -938,6 +961,74 @@ class Monei extends PaymentModule
         );
     }
 
+    protected function renderFormComponentStyle()
+    {
+        $helper = new HelperForm();
+
+        $helper->show_toolbar = false;
+        $helper->table = $this->table;
+        $helper->module = $this;
+        $helper->default_form_language = $this->context->language->id;
+
+        $helper->identifier = $this->identifier;
+        $helper->submit_action = 'submitMoneiModuleComponentStyle';
+        $helper->currentIndex = $this->context->link->getAdminLink('AdminModules', false)
+            . '&configure=' . $this->name . '&tab_module=' . $this->tab . '&module_name=' . $this->name;
+        $helper->token = Tools::getAdminTokenLite('AdminModules');
+
+        $helper->tpl_vars = array(
+            'fields_value' => $this->getConfigFormComponentStyleValues(),
+            'languages' => $this->context->controller->getLanguages(),
+            'id_language' => $this->context->language->id,
+        );
+
+        return $helper->generateForm(array($this->getConfigFormComponentStyle()));
+    }
+
+    protected function getConfigFormComponentStyle()
+    {
+        return array(
+            'form' => array(
+                'legend' => array(
+                    'title' => $this->l('Component Style'),
+                    'icon' => 'icon-paint-brush',
+                ),
+                'input' => array(
+                    array(
+                        'type' => 'textarea',
+                        'label' => $this->l('Card input style'),
+                        'name' => 'MONEI_CARD_INPUT_STYLE',
+                        'desc' => $this->l('Configure in JSON format the style of the Card Input component. Documentation: ') .
+                            '<a href="https://docs.monei.com/docs/monei-js/reference/#cardinput-style-object" target="_blank">MONEI Card Input Style</a>',
+                        'cols' => 60,
+                        'rows' => 10,
+                    ),
+                    array(
+                        'type' => 'textarea',
+                        'label' => $this->l('Bizum style'),
+                        'name' => 'MONEI_BIZUM_STYLE',
+                        'desc' => $this->l('Configure in JSON format the style of the Bizum component. Documentation: ') .
+                            '<a href="https://docs.monei.com/docs/monei-js/reference/#bizum-options" target="_blank">MONEI Bizum Style</a>',
+                        'cols' => 60,
+                        'rows' => 10,
+                    ),
+                    array(
+                        'type' => 'textarea',
+                        'label' => $this->l('Payment Request style'),
+                        'name' => 'MONEI_PAYMENT_REQUEST_STYLE',
+                        'desc' => $this->l('Configure in JSON format the style of the Payment Request component. Documentation: ') .
+                            '<a href="https://docs.monei.com/docs/monei-js/reference/#paymentrequest-options" target="_blank">MONEI Payment Request Style</a>',
+                        'cols' => 60,
+                        'rows' => 10,
+                    ),
+                ),
+                'submit' => array(
+                    'title' => $this->l('Save'),
+                ),
+            ),
+        );
+    }
+
     public function getCartAmount()
     {
         $cart = $this->context->cart;
@@ -1347,6 +1438,7 @@ class Monei extends PaymentModule
         if (!$this->moneiClient) {
             return false;
         }
+
         if (!$this->context->customer->isLogged() && !$this->context->customer->isGuest()) {
             return;
         }
@@ -1820,6 +1912,9 @@ class Monei extends PaymentModule
                 'moneiProcessing' => $this->l('Processing payment...'),
                 'moneiCardHolderNameNotValid' => $this->l('Card holder name is not valid'),
                 'moneiMsgRetry' => $this->l('Retry'),
+                'moneiCardInputStyle' => json_decode(Configuration::get('MONEI_CARD_INPUT_STYLE')),
+                'moneiBizumStyle' => json_decode(Configuration::get('MONEI_BIZUM_STYLE')),
+                'moneiPaymentRequestStyle' => json_decode(Configuration::get('MONEI_PAYMENT_REQUEST_STYLE')),
             ]);
         }
 
@@ -1916,7 +2011,7 @@ class Monei extends PaymentModule
     public function checkCurrency($cart)
     {
         $currency_order = new Currency($cart->id_currency);
-        $currencies_module = $this->getCurrency($cart->id_currency);
+        $currencies_module = $this->getCurrency();
         if (is_array($currencies_module)) {
             foreach ($currencies_module as $currency_module) {
                 if ($currency_order->id == $currency_module['id_currency']) {
