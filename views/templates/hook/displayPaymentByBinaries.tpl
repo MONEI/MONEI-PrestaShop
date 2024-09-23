@@ -6,6 +6,12 @@
 
   {literal}
     var moneiTokenHandler = async (paymentToken, cardholderName, paymentButton) => {
+      // support module onepagecheckoutps - v4 - PresTeamShop
+      const customerEmail = document.getElementById('customer_email');
+      if (customerEmail) {
+        window.moneiCustomerData.email = customerEmail.value;
+      }
+
       const params = {
         paymentId: window.moneiPaymentId,
         paymentToken,
@@ -118,7 +124,7 @@
 
           monei.Bizum({
             paymentId: window.moneiPaymentId,
-            style: { height: 42 },
+            style: window.moneiBizumStyle || {},
             onBeforeOpen: moneiValidConditions,
             onSubmit(result) {
               if (result.token) moneiTokenHandler(result.token);
@@ -168,6 +174,8 @@
             paymentId: window.moneiPaymentId,
             onChange: () => { moneiCardErrors.innerHTML = ''; },
             onEnter: () => { moneiCardButton.click(); },
+            language: prestashop.language.iso_code,
+            style: window.moneiCardInputStyle || {},
           });
           moneiCardInput.render(moneiCardRenderContainer);
 
@@ -217,7 +225,7 @@
 
           monei.PaymentRequest({
             paymentId: window.moneiPaymentId,
-            style: { height: 42 },
+            style: window.moneiPaymentRequestStyle || {},
             onBeforeOpen: moneiValidConditions,
             onSubmit(result) {
               if (result.token) moneiTokenHandler(result.token);
@@ -248,7 +256,7 @@
 
           monei.PaymentRequest({
             paymentId: window.moneiPaymentId,
-            style: { height: 42 },
+            style: window.moneiPaymentRequestStyle || {},
             onBeforeOpen: moneiValidConditions,
             onSubmit(result) {
               if (result.token) moneiTokenHandler(result.token);
