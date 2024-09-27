@@ -31,7 +31,7 @@
                         <td>{$monei_card.id_monei_tokens|escape:'html':'UTF-8'}</td>
                         <td>
                             <img width="48"
-                                 src="{$modules_dir|escape:'html':'UTF-8'}/monei/views/img/{$monei_card.brand|escape:'html':'UTF-8'}.png"
+                                 src="{$modules_dir|escape:'html':'UTF-8'}/monei/views/img/payments/{$monei_card.brand|escape:'html':'UTF-8'}.svg"
                                  class="img img-responsive" alt="{$monei_card.brand|escape:'html':'UTF-8'}">
                         </td>
                         <td class="text-center">
