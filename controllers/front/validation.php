@@ -15,7 +15,7 @@ class MoneiValidationModuleFrontController extends ModuleFrontController
     {
         // If the module is not active anymore, no need to process anything.
         if ($this->module->active == false) {
-            die();
+            die('Module is not active');
         }
 
         $data = Tools::file_get_contents('php://input');
@@ -27,22 +27,33 @@ class MoneiValidationModuleFrontController extends ModuleFrontController
                 throw new ApiException('Invalid JSON');
             }
 
-            // Parse the JSON to a MoneiPayment object
-            $moneiPayment = new MoneiPayment($json_array);
-
-            $this->module->createOrUpdateOrder($moneiPayment->getId());
-
-            echo 'OK';
-        } catch (ApiException $ex) {
+            // Log the JSON array for debugging
             PrestaShopLogger::addLog(
-                'MONEI - ApiException - validation.php - postProcess: ' . $ex->getMessage() . ' - ' . $ex->getFile(),
-                PrestaShopLogger::LOG_SEVERITY_LEVEL_ERROR
+                'MONEI - JSON Data: ' . json_encode($json_array),
+                PrestaShopLogger::LOG_SEVERITY_LEVEL_INFORMATIVE
+            );
+
+            // Parse the JSON to a MoneiPayment object
+            $moneiPayment = new MoneiPayment($json_array['body']);
+
+            // Create or update the order
+            $this->module->createOrUpdateOrder($moneiPayment);
+
+            // Log the order creation/update for debugging
+            PrestaShopLogger::addLog(
+                'MONEI - Order created/updated for Payment ID: ' . $moneiPayment->getId(),
+                PrestaShopLogger::LOG_SEVERITY_LEVEL_INFORMATIVE
             );
         } catch (Exception $ex) {
             PrestaShopLogger::addLog(
                 'MONEI - Exception - validation.php - postProcess: ' . $ex->getMessage() . ' - ' . $ex->getFile(),
                 PrestaShopLogger::LOG_SEVERITY_LEVEL_ERROR
             );
+
+            header('HTTP/1.1 400 Bad Request');
+            echo '<h1>Internal Monei Exception</h1>';
+            echo $ex->getMessage();
+            exit;
         }
 
         exit;

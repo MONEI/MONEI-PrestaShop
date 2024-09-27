@@ -1248,9 +1248,13 @@ class Monei extends PaymentModule
 
     public function createOrUpdateOrder($moneiPaymentId, $redirectToConfirmationPage = false)
     {
-        $moneiPayment = $this->moneiClient->payments->getPayment($moneiPaymentId);
-        $moneiOrderId = $moneiPayment->getOrderId();
+        if (is_object($moneiPaymentId)) {
+            $moneiPayment = $moneiPaymentId;
+        } else {
+            $moneiPayment = $this->moneiClient->payments->getPayment($moneiPaymentId);
+        }
 
+        $moneiOrderId = $moneiPayment->getOrderId();
         $moneiId = (int) MoneiClass::getIdByInternalOrder($moneiOrderId);
 
         // Check Monei
@@ -1303,9 +1307,6 @@ class Monei extends PaymentModule
             $failed = false;
         }
 
-        $monei->status = $moneiPayment->getStatus();
-        $monei->save();
-
         // Check if the order already exists
         $orderByCart = Order::getByCartId($cartId);
 
@@ -1346,6 +1347,8 @@ class Monei extends PaymentModule
         } elseif (true === $failed && !Configuration::get('MONEI_CART_TO_ORDER')) {
             $should_create_order = false;
         }
+
+        $orderId = 0;
 
         // Create the order
         if ($should_create_order) {
@@ -1416,14 +1419,20 @@ class Monei extends PaymentModule
             throw new ApiException('Unable to save transaction information');
         }
 
-        if ($redirectToConfirmationPage) {
-            Tools::redirect(
-                'index.php?controller=order-confirmation' .
-                '&id_cart=' . $cart->id .
-                '&id_module=' . $this->id .
-                '&id_order=' . $this->currentOrder .
-                '&key=' . $customer->secure_key
-            );
+        if ($orderId) {
+            if ($redirectToConfirmationPage) {
+                Tools::redirect(
+                    'index.php?controller=order-confirmation' .
+                    '&id_cart=' . $cart->id .
+                    '&id_module=' . $this->id .
+                    '&id_order=' . $this->currentOrder .
+                    '&key=' . $customer->secure_key
+                );
+            } else {
+                echo 'OK';
+            }
+        } else {
+            throw new ApiException($moneiPayment->getStatusCode() . ' - ' . $moneiPayment->getStatusMessage());
         }
     }
 
