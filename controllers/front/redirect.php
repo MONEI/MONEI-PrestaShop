@@ -44,12 +44,6 @@ class MoneiRedirectModuleFrontController extends ModuleFrontController
             $moneiOrderId = $moneiPayment->getOrderId();
             $moneiId = Monei::getIdByInternalOrder($moneiOrderId);
 
-            // Save the Payment ID
-            $monei = new Monei($moneiId);
-            $monei->id_cart = (int) $cart->id;
-            $monei->id_order_monei = pSQL($moneiPayment->getId());
-            $monei->save();
-
             // Convert the cart to order
             $orderState = new OrderState(Configuration::get('MONEI_STATUS_PENDING'));
             if (Configuration::get('MONEI_CART_TO_ORDER') && Validate::isLoadedObject($orderState)) {
@@ -83,6 +77,7 @@ class MoneiRedirectModuleFrontController extends ModuleFrontController
                 // Check id_order and save it
                 $orderId = (int) Order::getIdByCartId($cart->id);
                 if ($orderId) {
+                    $monei = new Monei($moneiId);
                     $monei->id_order = $orderId;
                     $monei->save();
                 }
@@ -98,14 +93,10 @@ class MoneiRedirectModuleFrontController extends ModuleFrontController
             }
         } catch (ApiException $ex) {
             $this->context->cookie->monei_error = 'API: ' . $ex->getMessage();
-            Tools::redirect($this->context->link->getModuleLink($this->module->name, 'errors', [
-                'cart_id' => (int)$cart->id
-            ]));
+            Tools::redirect($this->context->link->getModuleLink($this->module->name, 'errors'));
         } catch (Exception $ex) {
             $this->context->cookie->monei_error = 'API: ' . $ex->getMessage();
-            Tools::redirect($this->context->link->getModuleLink($this->module->name, 'errors', [
-                'cart_id' => (int)$cart->id
-            ]));
+            Tools::redirect($this->context->link->getModuleLink($this->module->name, 'errors'));
         }
 
         exit;
