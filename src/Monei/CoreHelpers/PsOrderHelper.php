@@ -60,6 +60,7 @@ class PsOrderHelper
             $id_order = \Order::getIdByCartId($id_cart);
             $monei->id_order = (int)$id_order > 0 ? (int)$id_order : null;
             $monei->id_order_internal = pSQL($payment->getOrderId());
+            $monei->id_order_monei = pSQL($payment->getId());
             if ($save_amount) {
                 $monei->amount = (int)$payment->getAmount();
             }
