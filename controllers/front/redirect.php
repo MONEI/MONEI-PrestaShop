@@ -40,6 +40,9 @@ class MoneiRedirectModuleFrontController extends ModuleFrontController
             }
 
             $moneiPayment = $this->module->createPayment($tokenizeCard, $moneiCardId);
+            if (!$moneiPayment) {
+                Tools::redirect($this->context->link->getPageLink('order'));
+            }
 
             $moneiOrderId = $moneiPayment->getOrderId();
             $moneiId = Monei::getIdByInternalOrder($moneiOrderId);
