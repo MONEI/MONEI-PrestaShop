@@ -6,7 +6,6 @@ use Monei\CoreClasses\MoneiCard;
 use Monei\CoreHelpers\PsTools;
 use Monei\ApiException;
 use Monei\CoreHelpers\PsOrderHelper;
-use Monei\Model\MoneiAddress;
 use Monei\Model\MoneiBillingDetails;
 use Monei\Model\MoneiCustomer;
 use Monei\Model\MoneiPayment;
@@ -1050,40 +1049,53 @@ class Monei extends PaymentModule
     public function getCustomerData($returnMoneiCustomerObject = false)
     {
         $customer = $this->context->customer;
-        $customer->email = str_replace(':', '', $customer->email);
 
+        if (!Validate::isLoadedObject($customer)) {
+            return $this->createGuestCustomerData($returnMoneiCustomerObject);
+        }
+
+        $customer->email = str_replace(':', '', $customer->email);
         $addressInvoice = new Address((int) $this->context->cart->id_address_invoice);
 
         $customerData = [
             'name' => $customer->firstname . ' ' . $customer->lastname,
             'email' => $customer->email,
-            'phone' => (empty($addressInvoice->phone_mobile) ? $addressInvoice->phone : $addressInvoice->phone_mobile)
+            'phone' => $addressInvoice->phone_mobile ?: $addressInvoice->phone
         ];
 
-        if ($returnMoneiCustomerObject) {
-            return (new MoneiCustomer())
-                ->setName($customerData['name'])
-                ->setEmail($customerData['email'])
-                ->setPhone($customerData['phone']);
-        }
+        return $returnMoneiCustomerObject ? new MoneiCustomer($customerData) : $customerData;
+    }
 
-        return $customerData;
+    private function createGuestCustomerData($returnMoneiCustomerObject)
+    {
+        $customerData = [
+            'name' => 'Guest',
+            'email' => 'guest@temp.com',
+            'phone' => '000000000'
+        ];
+
+        return $returnMoneiCustomerObject ? new MoneiCustomer($customerData) : $customerData;
     }
 
     public function getAddressData($addressId, $returnMoneiBillingObject = false)
     {
         $address = new Address((int) $addressId);
+        if (!Validate::isLoadedObject($address)) {
+            return $this->createGuestBillingData($returnMoneiBillingObject);
+        }
 
-        $state = (int) $address->id_state > 0 ?
-            new State($address->id_state, (int) $this->context->language->id) : new State();
+        $customer = $this->context->customer;
+        $customerEmail = Validate::isLoadedObject($customer) ? $customer->email : 'guest@temp.com';
+
+        $state = new State((int) $address->id_state, (int) $this->context->language->id);
         $stateName = $state->name ?: '';
 
         $country = new Country($address->id_country, (int) $this->context->language->id);
 
         $billingData = [
-            'name' => $address->firstname . ' ' . $address->lastname,
-            'email' => $this->context->customer->email,
-            'phone' => (empty($address->phone_mobile) ? $address->phone : $address->phone_mobile),
+            'name' => "{$address->firstname} {$address->lastname}",
+            'email' => $customerEmail,
+            'phone' => $address->phone_mobile ?: $address->phone,
             'company' => $address->company,
             'address' => [
                 'line1' => $address->address1,
@@ -1095,37 +1107,53 @@ class Monei extends PaymentModule
             ]
         ];
 
-        if ($returnMoneiBillingObject) {
-            return (new MoneiBillingDetails())
-                ->setName($billingData['name'])
-                ->setEmail($billingData['email'])
-                ->setPhone($billingData['phone'])
-                ->setCompany($billingData['company'])
-                ->setAddress(
-                    (new MoneiAddress())
-                        ->setLine1($billingData['address']['line1'])
-                        ->setLine2($billingData['address']['line2'])
-                        ->setZip($billingData['address']['zip'])
-                        ->setCity($billingData['address']['city'])
-                        ->setState($billingData['address']['state'])
-                        ->setCountry($billingData['address']['country'])
-                );
-        }
+        return $returnMoneiBillingObject ? new MoneiBillingDetails($billingData) : $billingData;
+    }
 
-        return $billingData;
+    private function createGuestBillingData($returnMoneiBillingObject)
+    {
+        $billingData = [
+            'name' => 'Guest',
+            'email' => 'guest@temp.com',
+            'phone' => '000000000',
+            'company' => '',
+            'address' => [
+                'line1' => '.',
+                'line2' => '',
+                'zip' => '00000',
+                'city' => '.',
+                'state' => '.',
+                'country' => 'ES'
+            ],
+        ];
+
+        return $returnMoneiBillingObject ? new MoneiBillingDetails($billingData) : $billingData;
+    }
+
+    /**
+     * Remove the MONEI payment cookie by cart amount
+     */
+    public function removeMoneiPaymentCookie()
+    {
+        foreach ($this->context->cookie->getAll() as $key => $value) {
+            if (strpos($key, 'monei_payment_') === 0) {
+                unset($this->context->cookie->$key);
+            }
+        }
     }
 
     public function createPayment(bool $tokenizeCard = false, int $moneiCardId = 0)
     {
-        // check if the cart amount changed, if so, we need to create a new payment.
-        $moneiPaymentId = $this->context->cookie->monei_payment_id;
+        $cartAmount = $this->getCartAmount();
+        if (empty($cartAmount)) {
+            return false;
+        }
+
+        // Check if the payment already exists in the cookie by cart amount
+        $moneiPaymentId = $this->context->cookie->{'monei_payment_' . $cartAmount};
         if (!$tokenizeCard && !$moneiCardId && !empty($moneiPaymentId)) {
             $moneiPayment = $this->moneiClient->payments->getPayment($moneiPaymentId);
-
-            if (!empty($moneiPayment->getPaymentMethod()) || (int) $moneiPayment->getAmount() !== $this->getCartAmount()) {
-                $moneiPaymentId = null;
-                unset($this->context->cookie->monei_payment_id);
-            } else {
+            if ($moneiPayment) {
                 return $moneiPayment;
             }
         }
@@ -1232,7 +1260,7 @@ class Monei extends PaymentModule
 
             // Only save the payment id if dont tokenize the card or the card id is not set
             if (!$tokenizeCard && !$moneiCardId) {
-                $this->context->cookie->monei_payment_id = $moneiPaymentResponse->getId();
+                $this->context->cookie->{'monei_payment_' . $cartAmount} = $moneiPaymentResponse->getId();
             }
 
             return $moneiPaymentResponse;
@@ -1412,7 +1440,7 @@ class Monei extends PaymentModule
         }
 
         // remove monei payment id from cookie
-        unset($this->context->cookie->monei_payment_id);
+        $this->removeMoneiPaymentCookie();
 
         // Save log (required from API for tokenization)
         if (!PsOrderHelper::saveTransaction($moneiPayment, false, $is_refund, true, $failed)) {
@@ -1446,13 +1474,6 @@ class Monei extends PaymentModule
         }
         if (!$this->moneiClient) {
             return false;
-        }
-
-        if (!$this->context->customer->isLogged() && !$this->context->customer->isGuest()) {
-            return;
-        }
-        if (count($this->context->customer->getSimpleAddresses()) <= 0) {
-            return;
         }
 
         return true;
@@ -1596,13 +1617,13 @@ class Monei extends PaymentModule
                     $card_expiration = $credit_card->unixEpochToExpirationDate();
 
                     $redirectUrl = $this->context->link->getModuleLink($this->name, 'redirect', [
-                        'method' => 'card',
+                        'method' => 'tokenized_card',
                         'transaction_id' => $transactionId,
                         'id_monei_card' => $credit_card->id,
                     ]);
 
                     $paymentOptionList['card-' . (int) $card['id_monei_tokens']] = [
-                        'method' => 'card',
+                        'method' => 'tokenized_card',
                         'callToActionText' => $this->l('Saved Card') . ': ' . $card_brand . ' ' . $card_number . ' (' . $card_expiration . ')',
                         'additionalInformation' => $template,
                         'logo' => Media::getMediaPath(_PS_MODULE_DIR_ . $this->name . '/views/img/payments/' . strtolower($card_brand) . '.svg'),
