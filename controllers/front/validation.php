@@ -34,7 +34,7 @@ class MoneiValidationModuleFrontController extends ModuleFrontController
             );
 
             // Parse the JSON to a MoneiPayment object
-            $moneiPayment = new MoneiPayment($json_array['body']);
+            $moneiPayment = new MoneiPayment($json_array);
 
             // Create or update the order
             $this->module->createOrUpdateOrder($moneiPayment);
