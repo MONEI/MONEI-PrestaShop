@@ -113,7 +113,8 @@ class Monei extends PaymentModule
             $this->registerHook('displayBackOfficeHeader') &&
             $this->registerHook('displayAdminOrder') &&
             $this->registerHook('displayPaymentByBinaries') &&
-            $this->registerHook('paymentOptions');
+            $this->registerHook('paymentOptions') &&
+            $this->registerHook('actionCustomerLogoutAfter');
     }
 
     /**
@@ -1051,7 +1052,7 @@ class Monei extends PaymentModule
         $customer = $this->context->customer;
 
         if (!Validate::isLoadedObject($customer)) {
-            return $this->createGuestCustomerData($returnMoneiCustomerObject);
+            return false;
         }
 
         $customer->email = str_replace(':', '', $customer->email);
@@ -1066,26 +1067,13 @@ class Monei extends PaymentModule
         return $returnMoneiCustomerObject ? new MoneiCustomer($customerData) : $customerData;
     }
 
-    private function createGuestCustomerData($returnMoneiCustomerObject)
-    {
-        $customerData = [
-            'name' => 'Guest',
-            'email' => 'guest@temp.com',
-            'phone' => '000000000'
-        ];
-
-        return $returnMoneiCustomerObject ? new MoneiCustomer($customerData) : $customerData;
-    }
-
     public function getAddressData($addressId, $returnMoneiBillingObject = false)
     {
-        $address = new Address((int) $addressId);
-        if (!Validate::isLoadedObject($address)) {
-            return $this->createGuestBillingData($returnMoneiBillingObject);
-        }
-
         $customer = $this->context->customer;
-        $customerEmail = Validate::isLoadedObject($customer) ? $customer->email : 'guest@temp.com';
+        $address = new Address((int) $addressId);
+        if (!Validate::isLoadedObject($address) || !Validate::isLoadedObject($customer)) {
+            return false;
+        }
 
         $state = new State((int) $address->id_state, (int) $this->context->language->id);
         $stateName = $state->name ?: '';
@@ -1094,7 +1082,7 @@ class Monei extends PaymentModule
 
         $billingData = [
             'name' => "{$address->firstname} {$address->lastname}",
-            'email' => $customerEmail,
+            'email' => $customer->email,
             'phone' => $address->phone_mobile ?: $address->phone,
             'company' => $address->company,
             'address' => [
@@ -1105,26 +1093,6 @@ class Monei extends PaymentModule
                 'state' => $stateName,
                 'country' => $country->iso_code
             ]
-        ];
-
-        return $returnMoneiBillingObject ? new MoneiBillingDetails($billingData) : $billingData;
-    }
-
-    private function createGuestBillingData($returnMoneiBillingObject)
-    {
-        $billingData = [
-            'name' => 'Guest',
-            'email' => 'guest@temp.com',
-            'phone' => '000000000',
-            'company' => '',
-            'address' => [
-                'line1' => '.',
-                'line2' => '',
-                'zip' => '00000',
-                'city' => '.',
-                'state' => '.',
-                'country' => 'ES'
-            ],
         ];
 
         return $returnMoneiBillingObject ? new MoneiBillingDetails($billingData) : $billingData;
@@ -1169,9 +1137,6 @@ class Monei extends PaymentModule
             ->setOrderId($orderId)
             ->setAmount($this->getCartAmount())
             ->setCurrency($currency->iso_code)
-            ->setCustomer($this->getCustomerData(true))
-            ->setBillingDetails($this->getAddressData((int) $cart->id_address_invoice, true))
-            ->setShippingDetails($this->getAddressData((int) $cart->id_address_delivery, true))
             ->setCompleteUrl(
                 $link->getModuleLink($this->name, 'confirmation', [
                     'success' => 1,
@@ -1192,6 +1157,21 @@ class Monei extends PaymentModule
             ->setCancelUrl(
                 $link->getPageLink('order', null, null, 'step=3')
             );
+
+        $customerData = $this->getCustomerData(true);
+        if (!empty($customerData)) {
+            $moneiPayment->setCustomer($customerData);
+        }
+
+        $billingDetails = $this->getAddressData((int) $cart->id_address_invoice, true);
+        if (!empty($billingDetails)) {
+            $moneiPayment->setBillingDetails($billingDetails);
+        }
+
+        $shippingDetails = $this->getAddressData((int) $cart->id_address_delivery, true);
+        if (!empty($shippingDetails)) {
+            $moneiPayment->setShippingDetails($shippingDetails);
+        }
 
         $payment_methods = [];
 
@@ -1599,9 +1579,11 @@ class Monei extends PaymentModule
                     $paymentOptionList['card']['action'] = $redirectUrl;
                 }
             } else {
-                $this->context->smarty->assign([
-                    'moneiCardHolderName' => $moneiPayment->getBillingDetails()->getName(),
-                ]);
+                if ($moneiPayment->existKeyInContainer('billing_details')) {
+                    $this->context->smarty->assign([
+                        'moneiCardHolderName' => $moneiPayment->getBillingDetails()->getName(),
+                    ]);
+                }
 
                 $paymentOptionList['card']['additionalInformation'] = $this->fetch('module:monei/views/templates/front/onsite_card.tpl');
                 $paymentOptionList['card']['binary'] = true;
@@ -2029,6 +2011,13 @@ class Monei extends PaymentModule
             }
             return json_encode($this->l('MONEI Official: Unable to export customer tokenized cards from database'));
         }
+    }
+
+    public function hookActionCustomerLogoutAfter()
+    {
+        unset($this->context->cookie->monei_error);
+
+        $this->removeMoneiPaymentCookie();
     }
 
     /**
