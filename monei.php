@@ -12,6 +12,7 @@ use Monei\Model\MoneiPayment;
 use Monei\Model\MoneiPaymentMethods;
 use Monei\Model\MoneiPaymentStatus;
 use Monei\MoneiClient;
+use Monei\MoneiException;
 use Monei\Traits\ValidationHelpers;
 
 use PrestaShop\PrestaShop\Adapter\ServiceLocator;
@@ -29,6 +30,13 @@ class Monei extends PaymentModule
     protected $moneiClient;
     protected $moneiPaymentId;
     protected $paymentMethods;
+
+    public const LOG_SEVERITY_LEVELS = [
+        'info' => 1,
+        'error' => 2,
+        'warning' => 3,
+        'major' => 4,
+    ];
 
     public function __construct()
     {
@@ -59,6 +67,11 @@ class Monei extends PaymentModule
                 $accountId
             );
         }
+    }
+
+    public function getMoneiClient()
+    {
+        return $this->moneiClient;
     }
 
     public function install()
@@ -1247,7 +1260,7 @@ class Monei extends PaymentModule
         } catch (Exception $ex) {
             PrestaShopLogger::addLog(
                 'MONEI - Exception - monei.php - createPayment: ' . $ex->getMessage() . ' - ' . $ex->getFile(),
-                PrestaShopLogger::LOG_SEVERITY_LEVEL_ERROR
+                self::LOG_SEVERITY_LEVELS['error']
             );
 
             return false;
@@ -1268,26 +1281,26 @@ class Monei extends PaymentModule
         // Check Monei
         $monei = new MoneiClass($moneiId);
         if (!Validate::isLoadedObject($monei)) {
-            throw new ApiException('Monei identifier not found');
+            throw new MoneiException('Monei identifier not found');
         }
 
         // Check Cart
         $cartId = (int) $monei->id_cart;
         $cartIdResponse = is_array(explode('m', $moneiOrderId)) ? (int)explode('m', $moneiOrderId)[0] : false;
         if ($cartId !== $cartIdResponse) {
-            throw new ApiException('cartId from response and internal registry doesnt match: CartId: ' . $cartId . ' - CartIdResponse: ' . $cartIdResponse);
+            throw new MoneiException('cartId from response and internal registry doesnt match: CartId: ' . $cartId . ' - CartIdResponse: ' . $cartIdResponse);
         }
 
         // Check Currencies
         if ($monei->currency !== $moneiPayment->getCurrency()) {
-            throw new ApiException('Currency from response and internal registry doesnt match: Currency: ' . $monei->currency . ' - CurrencyResponse: ' . $moneiPayment->getCurrency());
+            throw new MoneiException('Currency from response and internal registry doesnt match: Currency: ' . $monei->currency . ' - CurrencyResponse: ' . $moneiPayment->getCurrency());
         }
 
         $cart = new Cart($cartId);
 
         $customer = new Customer((int) $cart->id_customer);
         if (!Validate::isLoadedObject($customer)) {
-            throw new ApiException('Customer #' . $cart->id_customer . ' not valid');
+            throw new MoneiException('Customer #' . $cart->id_customer . ' not valid');
         }
 
         // Save the authorization code
@@ -1330,7 +1343,7 @@ class Monei extends PaymentModule
                 $message = 'Order (' . $orderByCart->id . ') already exists with a different payment method.';
                 PrestaShopLogger::addLog(
                     'MONEI - monei:createOrUpdateOrder - ' . $message,
-                    PrestaShopLogger::LOG_SEVERITY_LEVEL_WARNING
+                    self::LOG_SEVERITY_LEVELS['warning']
                 );
 
                 return;
@@ -1380,7 +1393,7 @@ class Monei extends PaymentModule
 
                 PrestaShopLogger::addLog(
                     'MONEI - monei:createOrUpdateOrder - ' . $message,
-                    PrestaShopLogger::LOG_SEVERITY_LEVEL_WARNING
+                    self::LOG_SEVERITY_LEVELS['warning']
                 );
             } elseif ($is_locked_info['locked'] == 1 && $is_locked_info['locked_at'] > (time() - 60)) {
                 $message = 'Slow server detected, previous order creation process timed out';
@@ -1395,7 +1408,7 @@ class Monei extends PaymentModule
 
                 PrestaShopLogger::addLog(
                     'MONEI - monei:createOrUpdateOrder - ' . $message,
-                    PrestaShopLogger::LOG_SEVERITY_LEVEL_WARNING
+                    self::LOG_SEVERITY_LEVELS['warning']
                 );
             }
 
@@ -1426,23 +1439,19 @@ class Monei extends PaymentModule
 
         // Save log (required from API for tokenization)
         if (!PsOrderHelper::saveTransaction($moneiPayment, false, $is_refund, true, $failed)) {
-            throw new ApiException('Unable to save transaction information');
+            throw new MoneiException('Unable to save transaction information');
         }
 
-        if ($orderId) {
-            if ($redirectToConfirmationPage) {
-                Tools::redirect(
-                    'index.php?controller=order-confirmation' .
-                    '&id_cart=' . $cart->id .
-                    '&id_module=' . $this->id .
-                    '&id_order=' . $this->currentOrder .
-                    '&key=' . $customer->secure_key
-                );
-            } else {
-                echo 'OK';
-            }
+        if ($redirectToConfirmationPage) {
+            Tools::redirect(
+                'index.php?controller=order-confirmation' .
+                '&id_cart=' . $cart->id .
+                '&id_module=' . $this->id .
+                '&id_order=' . $this->currentOrder .
+                '&key=' . $customer->secure_key
+            );
         } else {
-            throw new ApiException($moneiPayment->getStatusCode() . ' - ' . $moneiPayment->getStatusMessage());
+            echo 'OK';
         }
     }
 
@@ -1581,12 +1590,6 @@ class Monei extends PaymentModule
                     $paymentOptionList['card']['action'] = $redirectUrl;
                 }
             } else {
-                if ($moneiPayment->existKeyInContainer('billing_details')) {
-                    $this->context->smarty->assign([
-                        'moneiCardHolderName' => $moneiPayment->getBillingDetails()->getName(),
-                    ]);
-                }
-
                 $this->context->smarty->assign([
                     'isCustomerLogged' => Validate::isLoadedObject($this->context->customer) ? true : false,
                 ]);

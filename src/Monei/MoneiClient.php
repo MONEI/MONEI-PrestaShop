@@ -59,6 +59,28 @@ class MoneiClient
         return $this->config;
     }
 
+    /**
+     * @param string    $body
+     * @param string    $signature
+     * @return object
+     */
+    public function verifySignature($body, $signature)
+    {
+        $parts = array_reduce(explode(',', $signature), function ($result, $part) {
+            [$key, $value] = explode('=', $part);
+            $result[$key] = $value;
+            return $result;
+        }, []);
+
+        $hmac = hash_hmac('SHA256', $parts['t'] . '.' . $body, $this->config->getApiKey('Authorization'));
+
+        if ($hmac !== $parts['v1']) {
+            throw new ApiException('[401] Signature verification failed', 401);
+        }
+
+        return json_decode($body);
+    }
+
     public function getMoneiAccount()
     {
         return new PaymentMethodsApi($this->config);
