@@ -1121,7 +1121,7 @@ class Monei extends PaymentModule
         $moneiPaymentId = $this->context->cookie->{'monei_payment_' . $cartAmount};
         if (!$tokenizeCard && !$moneiCardId && !empty($moneiPaymentId)) {
             $moneiPayment = $this->moneiClient->payments->getPayment($moneiPaymentId);
-            if ($moneiPayment) {
+            if ($moneiPayment && $moneiPayment->getStatus() === MoneiPaymentStatus::PENDING) {
                 return $moneiPayment;
             }
         }
@@ -1315,6 +1315,8 @@ class Monei extends PaymentModule
             $failed = false;
         }
 
+        $orderId = 0;
+
         // Check if the order already exists
         $orderByCart = Order::getByCartId($cartId);
 
@@ -1352,11 +1354,11 @@ class Monei extends PaymentModule
                     }
                 }
             }
+
+            $orderId = $orderByCart->id;
         } elseif (true === $failed && !Configuration::get('MONEI_CART_TO_ORDER')) {
             $should_create_order = false;
         }
-
-        $orderId = 0;
 
         // Create the order
         if ($should_create_order) {
