@@ -1587,6 +1587,10 @@ class Monei extends PaymentModule
                     ]);
                 }
 
+                $this->context->smarty->assign([
+                    'isCustomerLogged' => Validate::isLoadedObject($this->context->customer) ? true : false,
+                ]);
+
                 $paymentOptionList['card']['additionalInformation'] = $this->fetch('module:monei/views/templates/front/onsite_card.tpl');
                 $paymentOptionList['card']['binary'] = true;
             }
