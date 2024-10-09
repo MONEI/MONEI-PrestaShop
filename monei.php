@@ -1267,13 +1267,9 @@ class Monei extends PaymentModule
         }
     }
 
-    public function createOrUpdateOrder($moneiPaymentId, $redirectToConfirmationPage = false)
+    public function createOrUpdateOrder($moneiPaymentId, bool $redirectToConfirmationPage = false)
     {
-        if (is_object($moneiPaymentId)) {
-            $moneiPayment = $moneiPaymentId;
-        } else {
-            $moneiPayment = $this->moneiClient->payments->getPayment($moneiPaymentId);
-        }
+        $moneiPayment = $this->moneiClient->payments->getPayment($moneiPaymentId);
 
         $moneiOrderId = $moneiPayment->getOrderId();
         $moneiId = (int) MoneiClass::getIdByInternalOrder($moneiOrderId);

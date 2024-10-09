@@ -57,7 +57,9 @@ class MoneiValidationModuleFrontController extends ModuleFrontController
             $moneiPayment = new MoneiPayment($json_array);
 
             // Create or update the order
-            $this->module->createOrUpdateOrder($moneiPayment);
+            // The ID is sent instead of the object, as if the card token is to be saved, it must be queried via the API and cannot be done from the object.
+            // https://docs.monei.com/docs/guides/save-payment-method/#2-obtain-and-store-payment-token
+            $this->module->createOrUpdateOrder($moneiPayment->getId());
 
             // Log the order creation/update for debugging
             PrestaShopLogger::addLog(
