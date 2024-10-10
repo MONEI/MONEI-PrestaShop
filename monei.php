@@ -1123,7 +1123,15 @@ class Monei extends PaymentModule
         }
     }
 
-    public function createPayment(bool $tokenizeCard = false, int $moneiCardId = 0)
+    /*
+     * Create a payment
+     * @param bool $tokenizeCard
+     * @param int $moneiCardId
+     * @param bool $returnMoneiPaymentObject
+     *
+     * @return MoneiPayment|string|false
+     */
+    public function createPayment(bool $tokenizeCard = false, int $moneiCardId = 0, $returnMoneiPaymentObject = true)
     {
         $cartAmount = $this->getCartAmount();
         if (empty($cartAmount)) {
@@ -1135,9 +1143,13 @@ class Monei extends PaymentModule
         // Check if the payment already exists in the cookie by cart amount
         $moneiPaymentId = $this->context->cookie->{'monei_payment_' . $cartAmount . '_' . $cart->id_address_invoice};
         if (!$tokenizeCard && !$moneiCardId && !empty($moneiPaymentId)) {
-            $moneiPayment = $this->moneiClient->payments->getPayment($moneiPaymentId);
-            if ($moneiPayment && $moneiPayment->getStatus() === MoneiPaymentStatus::PENDING) {
-                return $moneiPayment;
+            if ($returnMoneiPaymentObject) {
+                $moneiPayment = $this->moneiClient->payments->getPayment($moneiPaymentId);
+                if ($moneiPayment) {
+                    return $moneiPayment;
+                }
+            } else {
+                return $moneiPaymentId;
             }
         }
 
@@ -1257,7 +1269,7 @@ class Monei extends PaymentModule
                 $this->context->cookie->{'monei_payment_' . $cartAmount . '_' . $cart->id_address_invoice} = $moneiPaymentResponse->getId();
             }
 
-            return $moneiPaymentResponse;
+            return $returnMoneiPaymentObject ? $moneiPaymentResponse : $moneiPaymentResponse->getId();
         } catch (Exception $ex) {
             PrestaShopLogger::addLog(
                 'MONEI - Exception - monei.php - createPayment: ' . $ex->getMessage() . ' - ' . $ex->getFile(),
@@ -1529,12 +1541,10 @@ class Monei extends PaymentModule
 
         $cart = $this->context->cart;
 
-        $moneiPayment = $this->createPayment();
-        if (!$moneiPayment) {
+        $moneiPaymentId = $this->createPayment(false, 0, false);
+        if (!$moneiPaymentId) {
             return;
         }
-
-        $moneiPaymentId = $moneiPayment->getId();
 
         $moneiAccount = $this->moneiClient->getMoneiAccount();
         $moneiPaymentMethod = $moneiAccount->getPaymentInformation($moneiPaymentId)->getPaymentMethodsAllowed();

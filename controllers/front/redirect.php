@@ -39,7 +39,7 @@ class MoneiRedirectModuleFrontController extends ModuleFrontController
                 throw new ApiException('Invalid crypto hash');
             }
 
-            $moneiPayment = $this->module->createPayment($tokenizeCard, $moneiCardId);
+            $moneiPayment = $this->module->createPayment($tokenizeCard, $moneiCardId, true);
             if (!$moneiPayment) {
                 Tools::redirect($this->context->link->getPageLink('order'));
             }
