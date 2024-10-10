@@ -1144,7 +1144,7 @@ class Monei extends PaymentModule
         $moneiPaymentId = $this->context->cookie->{'monei_payment_' . $cartAmount . '_' . $cart->id_address_invoice};
         if (!$tokenizeCard && !$moneiCardId && !empty($moneiPaymentId)) {
             $moneiPayment = $this->moneiClient->payments->getPayment($moneiPaymentId);
-            if ($moneiPayment && $moneiPayment->getStatus() === MoneiPaymentStatus::PENDING) {
+            if ($moneiPayment && $moneiPayment->getStatus() === MoneiPaymentStatus::PENDING && empty($moneiPayment->getPaymentMethod())) {
                 return $moneiPayment;
             } else {
                 $this->removeMoneiPaymentCookie();
