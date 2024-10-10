@@ -1130,8 +1130,10 @@ class Monei extends PaymentModule
             return false;
         }
 
+        $cart = $this->context->cart;
+
         // Check if the payment already exists in the cookie by cart amount
-        $moneiPaymentId = $this->context->cookie->{'monei_payment_' . $cartAmount};
+        $moneiPaymentId = $this->context->cookie->{'monei_payment_' . $cartAmount . '_' . $cart->id_address_invoice};
         if (!$tokenizeCard && !$moneiCardId && !empty($moneiPaymentId)) {
             $moneiPayment = $this->moneiClient->payments->getPayment($moneiPaymentId);
             if ($moneiPayment && $moneiPayment->getStatus() === MoneiPaymentStatus::PENDING) {
@@ -1139,7 +1141,6 @@ class Monei extends PaymentModule
             }
         }
 
-        $cart = $this->context->cart;
         $link = $this->context->link;
         $currency = new Currency($cart->id_currency);
 
@@ -1253,7 +1254,7 @@ class Monei extends PaymentModule
 
             // Only save the payment id if dont tokenize the card or the card id is not set
             if (!$tokenizeCard && !$moneiCardId) {
-                $this->context->cookie->{'monei_payment_' . $cartAmount} = $moneiPaymentResponse->getId();
+                $this->context->cookie->{'monei_payment_' . $cartAmount . '_' . $cart->id_address_invoice} = $moneiPaymentResponse->getId();
             }
 
             return $moneiPaymentResponse;
@@ -1536,7 +1537,6 @@ class Monei extends PaymentModule
         $moneiPaymentId = $moneiPayment->getId();
 
         $moneiAccount = $this->moneiClient->getMoneiAccount();
-
         $moneiPaymentMethod = $moneiAccount->getPaymentInformation($moneiPaymentId)->getPaymentMethodsAllowed();
 
         $template = '';
