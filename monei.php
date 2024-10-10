@@ -1131,7 +1131,7 @@ class Monei extends PaymentModule
      *
      * @return MoneiPayment|string|false
      */
-    public function createPayment(bool $tokenizeCard = false, int $moneiCardId = 0, $returnMoneiPaymentObject = true)
+    public function createPayment(bool $tokenizeCard = false, int $moneiCardId = 0)
     {
         $cartAmount = $this->getCartAmount();
         if (empty($cartAmount)) {
@@ -1143,13 +1143,11 @@ class Monei extends PaymentModule
         // Check if the payment already exists in the cookie by cart amount
         $moneiPaymentId = $this->context->cookie->{'monei_payment_' . $cartAmount . '_' . $cart->id_address_invoice};
         if (!$tokenizeCard && !$moneiCardId && !empty($moneiPaymentId)) {
-            if ($returnMoneiPaymentObject) {
-                $moneiPayment = $this->moneiClient->payments->getPayment($moneiPaymentId);
-                if ($moneiPayment) {
-                    return $moneiPayment;
-                }
+            $moneiPayment = $this->moneiClient->payments->getPayment($moneiPaymentId);
+            if ($moneiPayment && $moneiPayment->getStatus() === MoneiPaymentStatus::PENDING) {
+                return $moneiPayment;
             } else {
-                return $moneiPaymentId;
+                $this->removeMoneiPaymentCookie();
             }
         }
 
@@ -1269,7 +1267,7 @@ class Monei extends PaymentModule
                 $this->context->cookie->{'monei_payment_' . $cartAmount . '_' . $cart->id_address_invoice} = $moneiPaymentResponse->getId();
             }
 
-            return $returnMoneiPaymentObject ? $moneiPaymentResponse : $moneiPaymentResponse->getId();
+            return $moneiPaymentResponse;
         } catch (Exception $ex) {
             PrestaShopLogger::addLog(
                 'MONEI - Exception - monei.php - createPayment: ' . $ex->getMessage() . ' - ' . $ex->getFile(),
@@ -1541,10 +1539,12 @@ class Monei extends PaymentModule
 
         $cart = $this->context->cart;
 
-        $moneiPaymentId = $this->createPayment(false, 0, false);
-        if (!$moneiPaymentId) {
+        $moneiPayment = $this->createPayment();
+        if (!$moneiPayment) {
             return;
         }
+
+        $moneiPaymentId = $moneiPayment->getId();
 
         $moneiAccount = $this->moneiClient->getMoneiAccount();
         $moneiPaymentMethod = $moneiAccount->getPaymentInformation($moneiPaymentId)->getPaymentMethodsAllowed();

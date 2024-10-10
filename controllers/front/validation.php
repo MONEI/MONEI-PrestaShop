@@ -60,12 +60,6 @@ class MoneiValidationModuleFrontController extends ModuleFrontController
             // The ID is sent instead of the object, as if the card token is to be saved, it must be queried via the API and cannot be done from the object.
             // https://docs.monei.com/docs/guides/save-payment-method/#2-obtain-and-store-payment-token
             $this->module->createOrUpdateOrder($moneiPayment->getId());
-
-            // Log the order creation/update for debugging
-            PrestaShopLogger::addLog(
-                'MONEI - Order created/updated for Payment ID: ' . $moneiPayment->getId(),
-                $this->module::LOG_SEVERITY_LEVELS['info']
-            );
         } catch (MoneiException $ex) {
             PrestaShopLogger::addLog(
                 'MONEI - Exception - validation.php - postProcess: ' . $ex->getMessage() . ' - ' . $ex->getFile(),
