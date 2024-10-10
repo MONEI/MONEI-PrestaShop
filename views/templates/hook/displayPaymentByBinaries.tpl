@@ -128,7 +128,6 @@
             onBeforeOpen: moneiValidConditions,
             onSubmit(result) {
               if (result.token) moneiTokenHandler(result.token);
-              console.log('onSubmit - Bizum', result);
             },
             onError(error) {
               Swal.fire({
@@ -165,8 +164,6 @@
             const patternCardHolderName = /^[A-Za-zÀ-ú- ]{5,50}$/;
             const isValid = patternCardHolderName.test(name);
             moneiCardErrors.innerHTML = isValid ? '' : `<div class="alert alert-warning">${window.moneiCardHolderNameNotValid}</div>`;
-            moneiCardButton.classList.toggle('disabled', !isValid);
-            moneiCardButton.disabled = !isValid;
             return isValid;
           };
 
@@ -179,7 +176,7 @@
           });
           moneiCardInput.render(moneiCardRenderContainer);
 
-          moneiCardHolderName.addEventListener('input', (event) => {
+          moneiCardHolderName.addEventListener('blur', (event) => {
             validateMoneiCardHolderName(event.currentTarget.value);
           });
 
@@ -229,7 +226,6 @@
             onBeforeOpen: moneiValidConditions,
             onSubmit(result) {
               if (result.token) moneiTokenHandler(result.token);
-              console.log('onSubmit - Google Pay', result);
             },
             onError(error) {
               Swal.fire({
@@ -260,7 +256,6 @@
             onBeforeOpen: moneiValidConditions,
             onSubmit(result) {
               if (result.token) moneiTokenHandler(result.token);
-              console.log('onSubmit - Apple Pay', result);
             },
             onError(error) {
               Swal.fire({
