@@ -5,7 +5,7 @@
   window.moneiShippingData = {$shippingData|json_encode nofilter};
 
   {literal}
-    var moneiTokenHandler = async (paymentToken, cardholderName, paymentButton) => {
+    var moneiTokenHandler = async (paymentToken, cardholderName) => {
       // support module onepagecheckoutps - v4 - PresTeamShop
       const customerEmail = document.getElementById('customer_email');
       if (customerEmail) {
@@ -93,6 +93,23 @@
       }
       return true;
     };
+
+    var moneiEnableButton = (moneiButton) => {
+      if (moneiButton) {
+        // In some PS versions, the handler fails to disable the button because of the timing.
+        setTimeout(() => {
+          moneiButton.classList.remove('disabled');
+          moneiButton.disabled = false;
+        }, 0);
+      }
+    };
+
+    var moneiDisableButton = (moneiButton) => {
+      if (moneiButton) {
+        moneiButton.classList.add('disabled');
+        moneiButton.disabled = true;
+      }
+    };
   {/literal}
 </script>
 
@@ -101,6 +118,7 @@
     class="js-payment-binary js-payment-monei js-payment-{$paymentOptionName|escape:'htmlall':'UTF-8'} mt-1 disabled">
     <div id="{$paymentOptionName|escape:'htmlall':'UTF-8'}-buttons-container">
       <form action="https://secure.monei.com/payments/{$moneiPaymentId|escape:'htmlall':'UTF-8'}/confirm" method="post">
+        <input type="hidden" name="option" value="binary">
         <div class="{$paymentOptionName|escape:'htmlall':'UTF-8'}_render"></div>
         {if $paymentOptionName eq 'monei-card'}
           <button class="btn btn-primary btn-block" type="submit">
@@ -128,7 +146,6 @@
             onBeforeOpen: moneiValidConditions,
             onSubmit(result) {
               if (result.token) moneiTokenHandler(result.token);
-              console.log('onSubmit - Bizum', result);
             },
             onError(error) {
               Swal.fire({
@@ -146,6 +163,9 @@
     {literal}
       <script>
         function initMoneiCard() {
+          const sectionMoneiCard = document.querySelector('.js-payment-monei-card');
+          if (!sectionMoneiCard) return;
+
           const moneiCardButtonsContainer = document.getElementById('monei-card-buttons-container');
           if (!moneiCardButtonsContainer) return;
 
@@ -165,8 +185,6 @@
             const patternCardHolderName = /^[A-Za-zÀ-ú- ]{5,50}$/;
             const isValid = patternCardHolderName.test(name);
             moneiCardErrors.innerHTML = isValid ? '' : `<div class="alert alert-warning">${window.moneiCardHolderNameNotValid}</div>`;
-            moneiCardButton.classList.toggle('disabled', !isValid);
-            moneiCardButton.disabled = !isValid;
             return isValid;
           };
 
@@ -179,7 +197,7 @@
           });
           moneiCardInput.render(moneiCardRenderContainer);
 
-          moneiCardHolderName.addEventListener('input', (event) => {
+          moneiCardHolderName.addEventListener('blur', (event) => {
             validateMoneiCardHolderName(event.currentTarget.value);
           });
 
@@ -187,25 +205,26 @@
             e.preventDefault();
             e.stopPropagation();
 
-            if (!moneiPaymentForm.checkValidity() || !validateMoneiCardHolderName(moneiCardHolderName.value)) return;
+            moneiDisableButton(moneiCardButton);
 
-            moneiCardButton.disabled = true;
+            if (!moneiPaymentForm.checkValidity() || !validateMoneiCardHolderName(moneiCardHolderName.value)) {
+              moneiEnableButton(moneiCardButton);
+              return;
+            }
 
             try {
               const { token, error } = await monei.createToken(moneiCardInput);
               if (!token) {
                 moneiCardErrors.innerHTML = `<div class="alert alert-warning">${error}</div>`;
-                moneiCardButton.classList.remove('disabled');
-                moneiCardButton.disabled = false;
+                moneiEnableButton(moneiCardButton);
                 return;
               }
 
               moneiCardErrors.innerHTML = '';
-              await moneiTokenHandler(token, moneiCardHolderName.value, moneiCardButton);
+              await moneiTokenHandler(token, moneiCardHolderName.value);
             } catch (error) {
               moneiCardErrors.innerHTML = `<div class="alert alert-warning">${error.message}</div>`;
-              moneiCardButton.classList.remove('disabled');
-              moneiCardButton.disabled = false;
+              moneiEnableButton(moneiCardButton);
               console.log('createToken - Card Input - error', error);
             }
           });
@@ -229,7 +248,6 @@
             onBeforeOpen: moneiValidConditions,
             onSubmit(result) {
               if (result.token) moneiTokenHandler(result.token);
-              console.log('onSubmit - Google Pay', result);
             },
             onError(error) {
               Swal.fire({
@@ -260,7 +278,6 @@
             onBeforeOpen: moneiValidConditions,
             onSubmit(result) {
               if (result.token) moneiTokenHandler(result.token);
-              console.log('onSubmit - Apple Pay', result);
             },
             onError(error) {
               Swal.fire({

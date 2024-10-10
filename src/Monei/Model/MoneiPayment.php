@@ -535,4 +535,9 @@ class MoneiPayment implements ModelInterface
         $this->container['expire_at'] = $expiration_time;
         return $this;
     }
+
+    public function existKeyInContainer(string $key): bool
+    {
+        return array_key_exists($key, $this->container);
+    }
 }

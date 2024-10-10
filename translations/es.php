@@ -94,6 +94,7 @@ $_MODULE['<{monei}prestashop>adminmoneicontroller_bef58db8b6f392c4db20313d196af9
 $_MODULE['<{monei}prestashop>adminmoneicontroller_5a1bf32fb6db7e94296ada8657cc038a'] = 'Devolución completada';
 $_MODULE['<{monei}prestashop>errors_902b0d55fddef6f8d651fe1035b7d4bd'] = 'Error';
 $_MODULE['<{monei}prestashop>error_a25c753ee3e4be15ec0daa5a40deb7b8'] = 'Ocurrió un error inesperado';
+$_MODULE['<{monei}prestashop>onsite_card_d8b29a7336b0052f6074c881be4ae24f'] = 'Nombre del titular de la tarjeta';
 $_MODULE['<{monei}prestashop>onsite_card_d053c556b9380c837b64e8fd881d2e31'] = 'Guardar tarjeta para futuros pagos';
 $_MODULE['<{monei}prestashop>cards_01abfc750a0c942167651c40d088531d'] = '#';
 $_MODULE['<{monei}prestashop>cards_1be6f9eb563f3bf85c78b4219bf09de9'] = 'Marca';

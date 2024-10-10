@@ -3,6 +3,7 @@ if (!defined('_PS_VERSION_')) {
     exit;
 }
 
+use Monei\MoneiException;
 use Monei\Model\MoneiPaymentStatus;
 
 class MoneiConfirmationModuleFrontController extends ModuleFrontController
@@ -20,10 +21,10 @@ class MoneiConfirmationModuleFrontController extends ModuleFrontController
             } else {
                 Tools::redirect('index.php?controller=order');
             }
-        } catch (Exception $ex) {
+        } catch (MoneiException $ex) {
             PrestaShopLogger::addLog(
-                'MONEI - Exception - validation.php - postProcess: ' . $ex->getMessage() . ' - ' . $ex->getFile(),
-                PrestaShopLogger::LOG_SEVERITY_LEVEL_ERROR
+                'MONEI - Exception - confirmation.php - initContent: ' . $ex->getMessage() . ' - ' . $ex->getFile(),
+                $this->module::LOG_SEVERITY_LEVELS['error']
             );
 
             $this->context->cookie->monei_error = $ex->getMessage();
