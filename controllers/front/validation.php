@@ -20,7 +20,7 @@ class MoneiValidationModuleFrontController extends ModuleFrontController
         }
 
         if (!isset($_SERVER['HTTP_MONEI_SIGNATURE'])) {
-            die('HTTP_MONEI_SIGNATURE is not set');
+            die('Unauthorized error');
         }
 
         $requestBody = Tools::file_get_contents('php://input');
