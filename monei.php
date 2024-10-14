@@ -6,13 +6,13 @@ use Monei\CoreClasses\MoneiCard;
 use Monei\CoreHelpers\PsTools;
 use Monei\ApiException;
 use Monei\CoreHelpers\PsOrderHelper;
-use Monei\Model\MoneiAddress;
 use Monei\Model\MoneiBillingDetails;
 use Monei\Model\MoneiCustomer;
 use Monei\Model\MoneiPayment;
 use Monei\Model\MoneiPaymentMethods;
 use Monei\Model\MoneiPaymentStatus;
 use Monei\MoneiClient;
+use Monei\MoneiException;
 use Monei\Traits\ValidationHelpers;
 
 use PrestaShop\PrestaShop\Adapter\ServiceLocator;
@@ -30,6 +30,13 @@ class Monei extends PaymentModule
     protected $moneiClient;
     protected $moneiPaymentId;
     protected $paymentMethods;
+
+    public const LOG_SEVERITY_LEVELS = [
+        'info' => 1,
+        'error' => 2,
+        'warning' => 3,
+        'major' => 4,
+    ];
 
     public function __construct()
     {
@@ -60,6 +67,11 @@ class Monei extends PaymentModule
                 $accountId
             );
         }
+    }
+
+    public function getMoneiClient()
+    {
+        return $this->moneiClient;
     }
 
     public function install()
@@ -114,7 +126,8 @@ class Monei extends PaymentModule
             $this->registerHook('displayBackOfficeHeader') &&
             $this->registerHook('displayAdminOrder') &&
             $this->registerHook('displayPaymentByBinaries') &&
-            $this->registerHook('paymentOptions');
+            $this->registerHook('paymentOptions') &&
+            $this->registerHook('actionCustomerLogoutAfter');
     }
 
     /**
@@ -1050,40 +1063,40 @@ class Monei extends PaymentModule
     public function getCustomerData($returnMoneiCustomerObject = false)
     {
         $customer = $this->context->customer;
-        $customer->email = str_replace(':', '', $customer->email);
 
+        if (!Validate::isLoadedObject($customer)) {
+            return false;
+        }
+
+        $customer->email = str_replace(':', '', $customer->email);
         $addressInvoice = new Address((int) $this->context->cart->id_address_invoice);
 
         $customerData = [
             'name' => $customer->firstname . ' ' . $customer->lastname,
             'email' => $customer->email,
-            'phone' => (empty($addressInvoice->phone_mobile) ? $addressInvoice->phone : $addressInvoice->phone_mobile)
+            'phone' => $addressInvoice->phone_mobile ?: $addressInvoice->phone
         ];
 
-        if ($returnMoneiCustomerObject) {
-            return (new MoneiCustomer())
-                ->setName($customerData['name'])
-                ->setEmail($customerData['email'])
-                ->setPhone($customerData['phone']);
-        }
-
-        return $customerData;
+        return $returnMoneiCustomerObject ? new MoneiCustomer($customerData) : $customerData;
     }
 
     public function getAddressData($addressId, $returnMoneiBillingObject = false)
     {
+        $customer = $this->context->customer;
         $address = new Address((int) $addressId);
+        if (!Validate::isLoadedObject($address) || !Validate::isLoadedObject($customer)) {
+            return false;
+        }
 
-        $state = (int) $address->id_state > 0 ?
-            new State($address->id_state, (int) $this->context->language->id) : new State();
+        $state = new State((int) $address->id_state, (int) $this->context->language->id);
         $stateName = $state->name ?: '';
 
         $country = new Country($address->id_country, (int) $this->context->language->id);
 
         $billingData = [
-            'name' => $address->firstname . ' ' . $address->lastname,
-            'email' => $this->context->customer->email,
-            'phone' => (empty($address->phone_mobile) ? $address->phone : $address->phone_mobile),
+            'name' => "{$address->firstname} {$address->lastname}",
+            'email' => $customer->email,
+            'phone' => $address->phone_mobile ?: $address->phone,
             'company' => $address->company,
             'address' => [
                 'line1' => $address->address1,
@@ -1095,42 +1108,49 @@ class Monei extends PaymentModule
             ]
         ];
 
-        if ($returnMoneiBillingObject) {
-            return (new MoneiBillingDetails())
-                ->setName($billingData['name'])
-                ->setEmail($billingData['email'])
-                ->setPhone($billingData['phone'])
-                ->setCompany($billingData['company'])
-                ->setAddress(
-                    (new MoneiAddress())
-                        ->setLine1($billingData['address']['line1'])
-                        ->setLine2($billingData['address']['line2'])
-                        ->setZip($billingData['address']['zip'])
-                        ->setCity($billingData['address']['city'])
-                        ->setState($billingData['address']['state'])
-                        ->setCountry($billingData['address']['country'])
-                );
-        }
-
-        return $billingData;
+        return $returnMoneiBillingObject ? new MoneiBillingDetails($billingData) : $billingData;
     }
 
+    /**
+     * Remove the MONEI payment cookie by cart amount
+     */
+    public function removeMoneiPaymentCookie()
+    {
+        foreach ($this->context->cookie->getAll() as $key => $value) {
+            if (strpos($key, 'monei_payment_') === 0) {
+                unset($this->context->cookie->$key);
+            }
+        }
+    }
+
+    /*
+     * Create a payment
+     * @param bool $tokenizeCard
+     * @param int $moneiCardId
+     * @param bool $returnMoneiPaymentObject
+     *
+     * @return MoneiPayment|string|false
+     */
     public function createPayment(bool $tokenizeCard = false, int $moneiCardId = 0)
     {
-        // check if the cart amount changed, if so, we need to create a new payment.
-        $moneiPaymentId = $this->context->cookie->monei_payment_id;
-        if (!$tokenizeCard && !$moneiCardId && !empty($moneiPaymentId)) {
-            $moneiPayment = $this->moneiClient->payments->getPayment($moneiPaymentId);
-
-            if (!empty($moneiPayment->getPaymentMethod()) || (int) $moneiPayment->getAmount() !== $this->getCartAmount()) {
-                $moneiPaymentId = null;
-                unset($this->context->cookie->monei_payment_id);
-            } else {
-                return $moneiPayment;
-            }
+        $cartAmount = $this->getCartAmount();
+        if (empty($cartAmount)) {
+            return false;
         }
 
         $cart = $this->context->cart;
+
+        // Check if the payment already exists in the cookie by cart amount
+        $moneiPaymentId = $this->context->cookie->{'monei_payment_' . $cartAmount . '_' . $cart->id_address_invoice};
+        if (!$tokenizeCard && !$moneiCardId && !empty($moneiPaymentId)) {
+            $moneiPayment = $this->moneiClient->payments->getPayment($moneiPaymentId);
+            if ($moneiPayment && $moneiPayment->getStatus() === MoneiPaymentStatus::PENDING && empty($moneiPayment->getPaymentMethod())) {
+                return $moneiPayment;
+            } else {
+                $this->removeMoneiPaymentCookie();
+            }
+        }
+
         $link = $this->context->link;
         $currency = new Currency($cart->id_currency);
 
@@ -1141,9 +1161,6 @@ class Monei extends PaymentModule
             ->setOrderId($orderId)
             ->setAmount($this->getCartAmount())
             ->setCurrency($currency->iso_code)
-            ->setCustomer($this->getCustomerData(true))
-            ->setBillingDetails($this->getAddressData((int) $cart->id_address_invoice, true))
-            ->setShippingDetails($this->getAddressData((int) $cart->id_address_delivery, true))
             ->setCompleteUrl(
                 $link->getModuleLink($this->name, 'confirmation', [
                     'success' => 1,
@@ -1164,6 +1181,21 @@ class Monei extends PaymentModule
             ->setCancelUrl(
                 $link->getPageLink('order', null, null, 'step=3')
             );
+
+        $customerData = $this->getCustomerData(true);
+        if (!empty($customerData)) {
+            $moneiPayment->setCustomer($customerData);
+        }
+
+        $billingDetails = $this->getAddressData((int) $cart->id_address_invoice, true);
+        if (!empty($billingDetails)) {
+            $moneiPayment->setBillingDetails($billingDetails);
+        }
+
+        $shippingDetails = $this->getAddressData((int) $cart->id_address_delivery, true);
+        if (!empty($shippingDetails)) {
+            $moneiPayment->setShippingDetails($shippingDetails);
+        }
 
         $payment_methods = [];
 
@@ -1232,27 +1264,23 @@ class Monei extends PaymentModule
 
             // Only save the payment id if dont tokenize the card or the card id is not set
             if (!$tokenizeCard && !$moneiCardId) {
-                $this->context->cookie->monei_payment_id = $moneiPaymentResponse->getId();
+                $this->context->cookie->{'monei_payment_' . $cartAmount . '_' . $cart->id_address_invoice} = $moneiPaymentResponse->getId();
             }
 
             return $moneiPaymentResponse;
         } catch (Exception $ex) {
             PrestaShopLogger::addLog(
                 'MONEI - Exception - monei.php - createPayment: ' . $ex->getMessage() . ' - ' . $ex->getFile(),
-                PrestaShopLogger::LOG_SEVERITY_LEVEL_ERROR
+                self::LOG_SEVERITY_LEVELS['error']
             );
 
             return false;
         }
     }
 
-    public function createOrUpdateOrder($moneiPaymentId, $redirectToConfirmationPage = false)
+    public function createOrUpdateOrder($moneiPaymentId, bool $redirectToConfirmationPage = false)
     {
-        if (is_object($moneiPaymentId)) {
-            $moneiPayment = $moneiPaymentId;
-        } else {
-            $moneiPayment = $this->moneiClient->payments->getPayment($moneiPaymentId);
-        }
+        $moneiPayment = $this->moneiClient->payments->getPayment($moneiPaymentId);
 
         $moneiOrderId = $moneiPayment->getOrderId();
         $moneiId = (int) MoneiClass::getIdByInternalOrder($moneiOrderId);
@@ -1260,26 +1288,26 @@ class Monei extends PaymentModule
         // Check Monei
         $monei = new MoneiClass($moneiId);
         if (!Validate::isLoadedObject($monei)) {
-            throw new ApiException('Monei identifier not found');
+            throw new MoneiException('Monei identifier not found');
         }
 
         // Check Cart
         $cartId = (int) $monei->id_cart;
         $cartIdResponse = is_array(explode('m', $moneiOrderId)) ? (int)explode('m', $moneiOrderId)[0] : false;
         if ($cartId !== $cartIdResponse) {
-            throw new ApiException('cartId from response and internal registry doesnt match: CartId: ' . $cartId . ' - CartIdResponse: ' . $cartIdResponse);
+            throw new MoneiException('cartId from response and internal registry doesnt match: CartId: ' . $cartId . ' - CartIdResponse: ' . $cartIdResponse);
         }
 
         // Check Currencies
         if ($monei->currency !== $moneiPayment->getCurrency()) {
-            throw new ApiException('Currency from response and internal registry doesnt match: Currency: ' . $monei->currency . ' - CurrencyResponse: ' . $moneiPayment->getCurrency());
+            throw new MoneiException('Currency from response and internal registry doesnt match: Currency: ' . $monei->currency . ' - CurrencyResponse: ' . $moneiPayment->getCurrency());
         }
 
         $cart = new Cart($cartId);
 
         $customer = new Customer((int) $cart->id_customer);
         if (!Validate::isLoadedObject($customer)) {
-            throw new ApiException('Customer #' . $cart->id_customer . ' not valid');
+            throw new MoneiException('Customer #' . $cart->id_customer . ' not valid');
         }
 
         // Save the authorization code
@@ -1307,6 +1335,8 @@ class Monei extends PaymentModule
             $failed = false;
         }
 
+        $orderId = 0;
+
         // Check if the order already exists
         $orderByCart = Order::getByCartId($cartId);
 
@@ -1320,7 +1350,7 @@ class Monei extends PaymentModule
                 $message = 'Order (' . $orderByCart->id . ') already exists with a different payment method.';
                 PrestaShopLogger::addLog(
                     'MONEI - monei:createOrUpdateOrder - ' . $message,
-                    PrestaShopLogger::LOG_SEVERITY_LEVEL_WARNING
+                    self::LOG_SEVERITY_LEVELS['warning']
                 );
 
                 return;
@@ -1344,11 +1374,11 @@ class Monei extends PaymentModule
                     }
                 }
             }
+
+            $orderId = $orderByCart->id;
         } elseif (true === $failed && !Configuration::get('MONEI_CART_TO_ORDER')) {
             $should_create_order = false;
         }
-
-        $orderId = 0;
 
         // Create the order
         if ($should_create_order) {
@@ -1370,7 +1400,7 @@ class Monei extends PaymentModule
 
                 PrestaShopLogger::addLog(
                     'MONEI - monei:createOrUpdateOrder - ' . $message,
-                    PrestaShopLogger::LOG_SEVERITY_LEVEL_WARNING
+                    self::LOG_SEVERITY_LEVELS['warning']
                 );
             } elseif ($is_locked_info['locked'] == 1 && $is_locked_info['locked_at'] > (time() - 60)) {
                 $message = 'Slow server detected, previous order creation process timed out';
@@ -1385,7 +1415,7 @@ class Monei extends PaymentModule
 
                 PrestaShopLogger::addLog(
                     'MONEI - monei:createOrUpdateOrder - ' . $message,
-                    PrestaShopLogger::LOG_SEVERITY_LEVEL_WARNING
+                    self::LOG_SEVERITY_LEVELS['warning']
                 );
             }
 
@@ -1412,27 +1442,23 @@ class Monei extends PaymentModule
         }
 
         // remove monei payment id from cookie
-        unset($this->context->cookie->monei_payment_id);
+        $this->removeMoneiPaymentCookie();
 
         // Save log (required from API for tokenization)
         if (!PsOrderHelper::saveTransaction($moneiPayment, false, $is_refund, true, $failed)) {
-            throw new ApiException('Unable to save transaction information');
+            throw new MoneiException('Unable to save transaction information');
         }
 
-        if ($orderId) {
-            if ($redirectToConfirmationPage) {
-                Tools::redirect(
-                    'index.php?controller=order-confirmation' .
-                    '&id_cart=' . $cart->id .
-                    '&id_module=' . $this->id .
-                    '&id_order=' . $this->currentOrder .
-                    '&key=' . $customer->secure_key
-                );
-            } else {
-                echo 'OK';
-            }
+        if ($redirectToConfirmationPage) {
+            Tools::redirect(
+                'index.php?controller=order-confirmation' .
+                '&id_cart=' . $cart->id .
+                '&id_module=' . $this->id .
+                '&id_order=' . $this->currentOrder .
+                '&key=' . $customer->secure_key
+            );
         } else {
-            throw new ApiException($moneiPayment->getStatusCode() . ' - ' . $moneiPayment->getStatusMessage());
+            echo 'OK';
         }
     }
 
@@ -1446,13 +1472,6 @@ class Monei extends PaymentModule
         }
         if (!$this->moneiClient) {
             return false;
-        }
-
-        if (!$this->context->customer->isLogged() && !$this->context->customer->isGuest()) {
-            return;
-        }
-        if (count($this->context->customer->getSimpleAddresses()) <= 0) {
-            return;
         }
 
         return true;
@@ -1528,7 +1547,6 @@ class Monei extends PaymentModule
         $moneiPaymentId = $moneiPayment->getId();
 
         $moneiAccount = $this->moneiClient->getMoneiAccount();
-
         $moneiPaymentMethod = $moneiAccount->getPaymentInformation($moneiPaymentId)->getPaymentMethodsAllowed();
 
         $template = '';
@@ -1579,7 +1597,7 @@ class Monei extends PaymentModule
                 }
             } else {
                 $this->context->smarty->assign([
-                    'moneiCardHolderName' => $moneiPayment->getBillingDetails()->getName(),
+                    'isCustomerLogged' => Validate::isLoadedObject($this->context->customer) ? true : false,
                 ]);
 
                 $paymentOptionList['card']['additionalInformation'] = $this->fetch('module:monei/views/templates/front/onsite_card.tpl');
@@ -1596,13 +1614,13 @@ class Monei extends PaymentModule
                     $card_expiration = $credit_card->unixEpochToExpirationDate();
 
                     $redirectUrl = $this->context->link->getModuleLink($this->name, 'redirect', [
-                        'method' => 'card',
+                        'method' => 'tokenized_card',
                         'transaction_id' => $transactionId,
                         'id_monei_card' => $credit_card->id,
                     ]);
 
                     $paymentOptionList['card-' . (int) $card['id_monei_tokens']] = [
-                        'method' => 'card',
+                        'method' => 'tokenized_card',
                         'callToActionText' => $this->l('Saved Card') . ': ' . $card_brand . ' ' . $card_number . ' (' . $card_expiration . ')',
                         'additionalInformation' => $template,
                         'logo' => Media::getMediaPath(_PS_MODULE_DIR_ . $this->name . '/views/img/payments/' . strtolower($card_brand) . '.svg'),
@@ -2008,6 +2026,13 @@ class Monei extends PaymentModule
             }
             return json_encode($this->l('MONEI Official: Unable to export customer tokenized cards from database'));
         }
+    }
+
+    public function hookActionCustomerLogoutAfter()
+    {
+        unset($this->context->cookie->monei_error);
+
+        $this->removeMoneiPaymentCookie();
     }
 
     /**
