@@ -98,7 +98,7 @@ class MoneiRedirectModuleFrontController extends ModuleFrontController
             $this->context->cookie->monei_error = 'API: ' . $ex->getMessage();
             Tools::redirect($this->context->link->getModuleLink($this->module->name, 'errors'));
         } catch (Exception $ex) {
-            $this->context->cookie->monei_error = 'API: ' . $ex->getMessage();
+            $this->context->cookie->monei_error = $ex->getMessage();
             Tools::redirect($this->context->link->getModuleLink($this->module->name, 'errors'));
         }
 
