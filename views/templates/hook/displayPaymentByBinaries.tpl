@@ -1,30 +1,30 @@
 <script>
-  window.moneiPaymentId = '{$moneiPaymentId|escape:'htmlall':'UTF-8'}';
-  window.moneiCustomerData = {$customerData|json_encode nofilter};
-  window.moneiBillingData = {$billingData|json_encode nofilter};
-  window.moneiShippingData = {$shippingData|json_encode nofilter};
+  var moneiPaymentId = '{$moneiPaymentId|escape:'htmlall':'UTF-8'}';
+  var moneiCustomerData = {$customerData|json_encode nofilter};
+  var moneiBillingData = {$billingData|json_encode nofilter};
+  var moneiShippingData = {$shippingData|json_encode nofilter};
 
   {literal}
     var moneiTokenHandler = async (paymentToken, cardholderName) => {
       // support module onepagecheckoutps - v4 - PresTeamShop
       const customerEmail = document.getElementById('customer_email');
       if (customerEmail) {
-        window.moneiCustomerData.email = customerEmail.value;
+        moneiCustomerData.email = customerEmail.value;
       }
 
       const params = {
-        paymentId: window.moneiPaymentId,
+        paymentId: moneiPaymentId,
         paymentToken,
-        customer: window.moneiCustomerData,
-        billingDetails: window.moneiBillingData,
-        shippingDetails: window.moneiShippingData,
+        customer: moneiCustomerData,
+        billingDetails: moneiBillingData,
+        shippingDetails: moneiShippingData,
       };
 
       if (cardholderName) {
         params.paymentMethod = {
           card: {
             cardholderName,
-            cardholderEmail: window.moneiCustomerData.email,
+            cardholderEmail: moneiCustomerData.email,
           }
         };
       }
@@ -47,12 +47,12 @@
             console.log('moneiTokenHandler - confirmPayment', params, result);
 
             if (result.nextAction && result.nextAction.mustRedirect) {
-              window.location.assign(result.nextAction.redirectUrl);
+              location.assign(result.nextAction.redirectUrl);
             } else {
               const icon = result.status === 'SUCCEEDED' ? 'success' : 'error';
 
               if (result.status === 'SUCCEEDED') {
-                window.location.assign(result.nextAction.redirectUrl);
+                location.assign(result.nextAction.redirectUrl);
               } else {
                 Swal.fire({
                   title: result.status,
@@ -60,9 +60,9 @@
                   icon,
                   allowOutsideClick: false,
                   allowEscapeKey: false,
-                  confirmButtonText: window.moneiMsgRetry,
+                  confirmButtonText: moneiMsgRetry,
                   willClose: () => {
-                    window.location.reload();
+                    location.reload();
                   },
                 });
               }
@@ -74,9 +74,9 @@
               icon: 'error',
               allowOutsideClick: false,
               allowEscapeKey: false,
-              confirmButtonText: window.moneiMsgRetry,
+              confirmButtonText: moneiMsgRetry,
               willClose: () => {
-                window.location.reload();
+                location.reload();
               },
             });
             console.log('moneiTokenHandler - error', params, error);
@@ -92,6 +92,22 @@
         return Array.from(requiredCheckboxes).every(checkbox => checkbox.checked);
       }
       return true;
+    };
+
+    var moneiAddChangeEventToCheckboxes = (moneiButton) => {
+      const conditionsToApprove = document.getElementById('conditions-to-approve');
+      if (conditionsToApprove) {
+        const requiredCheckboxes = conditionsToApprove.querySelectorAll('input[type="checkbox"][required]');
+        requiredCheckboxes.forEach(checkbox => {
+          checkbox.addEventListener('change', () => {
+            if (moneiValidConditions()) {
+              moneiEnableButton(moneiButton);
+            } else {
+              moneiDisableButton(moneiButton);
+            }
+          });
+        });
+      }
     };
 
     var moneiEnableButton = (moneiButton) => {
@@ -141,8 +157,8 @@
           if (!moneiBizumRenderContainer) return;
 
           monei.Bizum({
-            paymentId: window.moneiPaymentId,
-            style: window.moneiBizumStyle || {},
+            paymentId: moneiPaymentId,
+            style: moneiBizumStyle || {},
             onBeforeOpen: moneiValidConditions,
             onSubmit(result) {
               if (result.token) moneiTokenHandler(result.token);
@@ -181,19 +197,27 @@
           const moneiCardHolderName = document.getElementById('monei-card-holder-name');
           const moneiCardErrors = document.getElementById('monei-card-errors');
 
+          // support for PrestaShop versions lower than 1.7.8.X
+          moneiAddChangeEventToCheckboxes(moneiCardButton);
+          if (moneiValidConditions()) {
+            moneiEnableButton(moneiCardButton);
+          } else {
+            moneiDisableButton(moneiCardButton);
+          }
+
           const validateMoneiCardHolderName = (name) => {
             const patternCardHolderName = /^[A-Za-zÀ-ú- ]{5,50}$/;
             const isValid = patternCardHolderName.test(name);
-            moneiCardErrors.innerHTML = isValid ? '' : `<div class="alert alert-warning">${window.moneiCardHolderNameNotValid}</div>`;
+            moneiCardErrors.innerHTML = isValid ? '' : `<div class="alert alert-warning">${moneiCardHolderNameNotValid}</div>`;
             return isValid;
           };
 
           const moneiCardInput = monei.CardInput({
-            paymentId: window.moneiPaymentId,
+            paymentId: moneiPaymentId,
             onChange: () => { moneiCardErrors.innerHTML = ''; },
             onEnter: () => { moneiCardButton.click(); },
             language: prestashop.language.iso_code,
-            style: window.moneiCardInputStyle || {},
+            style: moneiCardInputStyle || {},
           });
           moneiCardInput.render(moneiCardRenderContainer);
 
@@ -243,8 +267,8 @@
           if (!moneiPaymentRequestRenderContainer) return;
 
           monei.PaymentRequest({
-            paymentId: window.moneiPaymentId,
-            style: window.moneiPaymentRequestStyle || {},
+            paymentId: moneiPaymentId,
+            style: moneiPaymentRequestStyle || {},
             onBeforeOpen: moneiValidConditions,
             onSubmit(result) {
               if (result.token) moneiTokenHandler(result.token);
@@ -273,8 +297,8 @@
           if (!moneiPaymentRequestRenderContainer) return;
 
           monei.PaymentRequest({
-            paymentId: window.moneiPaymentId,
-            style: window.moneiPaymentRequestStyle || {},
+            paymentId: moneiPaymentId,
+            style: moneiPaymentRequestStyle || {},
             onBeforeOpen: moneiValidConditions,
             onSubmit(result) {
               if (result.token) moneiTokenHandler(result.token);
