@@ -14,14 +14,21 @@ class MoneiClient
      * @var PaymentsApi
      */
     public $payments;
+
     /**
      * @var AppleApi
      */
     public $apple;
+
     /**
      * @var MoneiAccount
      */
     public $account;
+
+    /**
+     * @var PaymentMethodsApi
+     */
+    public $paymentMethods;
 
     protected $config;
 
@@ -48,6 +55,7 @@ class MoneiClient
         $this->config = $config;
         $this->payments = new PaymentsApi($this->config);
         $this->apple = new AppleApi($this->config);
+        $this->paymentMethods = new PaymentMethodsApi($this->config);
     }
 
     /**
@@ -79,10 +87,5 @@ class MoneiClient
         }
 
         return json_decode($body);
-    }
-
-    public function getMoneiAccount()
-    {
-        return new PaymentMethodsApi($this->config);
     }
 }
