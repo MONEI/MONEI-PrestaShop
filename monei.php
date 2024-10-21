@@ -28,7 +28,8 @@ class Monei extends PaymentModule
 
     protected $config_form = false;
     protected $moneiClient;
-    protected $moneiPaymentId;
+    protected $moneiAccount;
+    protected $moneiAccountId;
     protected $paymentMethods;
 
     public const LOG_SEVERITY_LEVELS = [
@@ -66,6 +67,8 @@ class Monei extends PaymentModule
                 $apiKey,
                 $accountId
             );
+            $this->moneiAccount = $this->moneiClient->paymentMethods->getAccountInformation();
+            $this->moneiAccountId = $accountId;
         }
     }
 
@@ -1139,18 +1142,6 @@ class Monei extends PaymentModule
         }
 
         $cart = $this->context->cart;
-
-        // Check if the payment already exists in the cookie by cart amount
-        $moneiPaymentId = $this->context->cookie->{'monei_payment_' . $cartAmount . '_' . $cart->id_address_invoice};
-        if (!$tokenizeCard && !$moneiCardId && !empty($moneiPaymentId)) {
-            $moneiPayment = $this->moneiClient->payments->getPayment($moneiPaymentId);
-            if ($moneiPayment && $moneiPayment->getStatus() === MoneiPaymentStatus::PENDING && empty($moneiPayment->getPaymentMethod())) {
-                return $moneiPayment;
-            } else {
-                $this->removeMoneiPaymentCookie();
-            }
-        }
-
         $link = $this->context->link;
         $currency = new Currency($cart->id_currency);
 
@@ -1261,11 +1252,6 @@ class Monei extends PaymentModule
             PsOrderHelper::saveTransaction($moneiPayment, true);
 
             $moneiPaymentResponse = $this->moneiClient->payments->createPayment($moneiPayment);
-
-            // Only save the payment id if dont tokenize the card or the card id is not set
-            if (!$tokenizeCard && !$moneiCardId) {
-                $this->context->cookie->{'monei_payment_' . $cartAmount . '_' . $cart->id_address_invoice} = $moneiPaymentResponse->getId();
-            }
 
             return $moneiPaymentResponse;
         } catch (Exception $ex) {
@@ -1478,76 +1464,18 @@ class Monei extends PaymentModule
     }
 
     /**
-     * Hook for JSON Viewer
-     */
-    public function hookDisplayBackOfficeHeader()
-    {
-        if (Tools::getValue('configure') === $this->name) {
-            $this->context->controller->addCSS($this->_path . 'views/css/moneiback.css');
-        }
-
-        // Only for Orders controller, we dont need to load JS/CSS everywhere
-        if ($this->context->controller->controller_name !== 'AdminOrders') {
-            return;
-        }
-
-        // jQuery is already included by default on 1.7.7 or higher
-        if (version_compare(_PS_VERSION_, '1.7.7', '<')) {
-            if (method_exists($this->context->controller, 'addJquery')) {
-                $this->context->controller->addJquery();
-            }
-        }
-
-        // CSS
-        $this->context->controller->addCSS($this->_path . 'views/css/jquery.json-viewer.css');
-        // JS
-        $this->context->controller->addJS($this->_path . 'views/js/sweetalert.min.js');
-        $this->context->controller->addJS($this->_path . 'views/js/moneiback.js');
-        $this->context->controller->addJS($this->_path . 'views/js/jquery.json-viewer.js');
-    }
-
-    /**
-     * Return payment options available for PS 1.7+
-     *
-     * @param array Hook parameters
-     *
-     * @return array|null
-     */
-    public function hookPaymentOptions($params)
-    {
-        if (!$this->isMoneiAvailable($params['cart'])) {
-            return;
-        }
-
-        $this->getPaymentMethods();
-        if (!$this->paymentMethods || !$this->moneiPaymentId) {
-            return;
-        }
-
-        return $this->paymentMethods;
-    }
-
-    /**
      * Get all available payment methods
      * @return array
      */
     private function getPaymentMethods()
     {
-        if ($this->paymentMethods && $this->moneiPaymentId) {
+        if ($this->paymentMethods) {
             return;
         }
 
         $cart = $this->context->cart;
 
-        $moneiPayment = $this->createPayment();
-        if (!$moneiPayment) {
-            return;
-        }
-
-        $moneiPaymentId = $moneiPayment->getId();
-
-        $moneiAccount = $this->moneiClient->getMoneiAccount();
-        $moneiPaymentMethod = $moneiAccount->getPaymentInformation($moneiPaymentId)->getPaymentMethodsAllowed();
+        $moneiPaymentMethod = $this->moneiAccount->getPaymentMethodsAllowed();
 
         $template = '';
         if (Configuration::get('MONEI_SHOW_LOGO')) {
@@ -1749,7 +1677,7 @@ class Monei extends PaymentModule
 
             if (isset($paymentOption['callToActionText'])) {
                 $testModeText = '';
-                if (!$moneiAccount->getAccountInformation()->isLiveMode()) {
+                if (!$this->moneiAccount->isLiveMode()) {
                     $testModeText = ' (' . $this->l('Test Mode') . ')';
                 }
 
@@ -1777,7 +1705,6 @@ class Monei extends PaymentModule
                         $this->context->link->getModuleLink($this->name, 'redirect', [
                             'method' => $paymentOption['method'],
                             'transaction_id' => $transactionId,
-                            'monei_payment_id' => $moneiPaymentId,
                         ])
                     );
                 }
@@ -1790,8 +1717,28 @@ class Monei extends PaymentModule
             $paymentMethods[] = $option;
         }
 
-        $this->moneiPaymentId = $moneiPaymentId;
         $this->paymentMethods = $paymentMethods;
+    }
+
+    /**
+     * Return payment options available for PS 1.7+
+     *
+     * @param array Hook parameters
+     *
+     * @return array|null
+     */
+    public function hookPaymentOptions($params)
+    {
+        if (!$this->isMoneiAvailable($params['cart'])) {
+            return;
+        }
+
+        $this->getPaymentMethods();
+        if (!$this->paymentMethods) {
+            return;
+        }
+
+        return $this->paymentMethods;
     }
 
     public function hookDisplayPaymentByBinaries($params)
@@ -1803,7 +1750,7 @@ class Monei extends PaymentModule
         $paymentMethodsToDisplay = [];
 
         $this->getPaymentMethods();
-        if (!$this->paymentMethods || !$this->moneiPaymentId) {
+        if (!$this->paymentMethods) {
             return;
         }
 
@@ -1816,11 +1763,10 @@ class Monei extends PaymentModule
         if ($paymentMethodsToDisplay) {
             $this->context->smarty->assign([
                 'paymentMethodsToDisplay' => $paymentMethodsToDisplay,
-                'moneiPaymentId' => $this->moneiPaymentId,
+                'moneiAccountId' => $this->moneiAccountId,
                 'moneiAmount' => Tools::displayPrice($this->context->cart->getOrderTotal()),
-                'customerData' => $this->getCustomerData(),
-                'billingData' => $this->getAddressData((int) $this->context->cart->id_address_invoice),
-                'shippingData' => $this->getAddressData((int) $this->context->cart->id_address_delivery),
+                'moneiCreatePaymentUrlController' => $this->context->link->getModuleLink('monei', 'createPayment'),
+                'moneiToken' => Tools::getToken(false),
             ]);
 
             return $this->fetch('module:monei/views/templates/hook/displayPaymentByBinaries.tpl');
@@ -2033,6 +1979,35 @@ class Monei extends PaymentModule
         unset($this->context->cookie->monei_error);
 
         $this->removeMoneiPaymentCookie();
+    }
+
+    /**
+     * Hook for JSON Viewer
+     */
+    public function hookDisplayBackOfficeHeader()
+    {
+        if (Tools::getValue('configure') === $this->name) {
+            $this->context->controller->addCSS($this->_path . 'views/css/moneiback.css');
+        }
+
+        // Only for Orders controller, we dont need to load JS/CSS everywhere
+        if ($this->context->controller->controller_name !== 'AdminOrders') {
+            return;
+        }
+
+        // jQuery is already included by default on 1.7.7 or higher
+        if (version_compare(_PS_VERSION_, '1.7.7', '<')) {
+            if (method_exists($this->context->controller, 'addJquery')) {
+                $this->context->controller->addJquery();
+            }
+        }
+
+        // CSS
+        $this->context->controller->addCSS($this->_path . 'views/css/jquery.json-viewer.css');
+        // JS
+        $this->context->controller->addJS($this->_path . 'views/js/sweetalert.min.js');
+        $this->context->controller->addJS($this->_path . 'views/js/moneiback.js');
+        $this->context->controller->addJS($this->_path . 'views/js/jquery.json-viewer.js');
     }
 
     /**
