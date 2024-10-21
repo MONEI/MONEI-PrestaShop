@@ -1,38 +1,37 @@
 <script>
-  window.moneiPaymentId = '{$moneiPaymentId|escape:'htmlall':'UTF-8'}';
-  window.moneiCustomerData = {$customerData|json_encode nofilter};
-  window.moneiBillingData = {$billingData|json_encode nofilter};
-  window.moneiShippingData = {$shippingData|json_encode nofilter};
+  const moneiAccountId = '{$moneiAccountId|escape:'htmlall':'UTF-8'}';
+  const moneiCreatePaymentUrlController = '{$moneiCreatePaymentUrlController|escape:'htmlall':'UTF-8'}';
+  const moneiToken = '{$moneiToken|escape:'htmlall':'UTF-8'}';
 
   {literal}
-    var moneiTokenHandler = async (paymentToken, cardholderName) => {
-      // support module onepagecheckoutps - v4 - PresTeamShop
-      const customerEmail = document.getElementById('customer_email');
-      if (customerEmail) {
-        window.moneiCustomerData.email = customerEmail.value;
-      }
+    var moneiTokenHandler = async (parameters = {}) => {
+      const { paymentToken, cardholderName = null, moneiConfirmationButton = null } = parameters;
 
-      const params = {
-        paymentId: window.moneiPaymentId,
-        paymentToken,
-        customer: window.moneiCustomerData,
-        billingDetails: window.moneiBillingData,
-        shippingDetails: window.moneiShippingData,
+      const createPayment = async () => {
+        try {
+          const response = await fetch(moneiCreatePaymentUrlController, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ token: moneiToken }),
+          });
+
+          if (!response.ok) throw new Error('Payment creation failed');
+
+          const { moneiPaymentId } = await response.json();
+          return moneiPaymentId;
+        } catch (error) {
+          Swal.fire({ title: 'Error', text: error.message, icon: 'error' });
+          throw error;
+        }
       };
 
+      const params = { paymentToken };
       if (cardholderName) {
-        params.paymentMethod = {
-          card: {
-            cardholderName,
-            cardholderEmail: window.moneiCustomerData.email,
-          }
-        };
+        params.paymentMethod = { card: { cardholderName } };
       }
 
       const saveCard = document.getElementById('monei-tokenize-card');
-      if (saveCard && saveCard.checked) {
-        params.generatePaymentToken = true;
-      }
+      if (saveCard?.checked) params.generatePaymentToken = true;
 
       Swal.fire({
         allowOutsideClick: false,
@@ -43,46 +42,58 @@
           Swal.showLoading();
 
           try {
-            const result = await monei.confirmPayment(params);
-            console.log('moneiTokenHandler - confirmPayment', params, result);
-
-            if (result.nextAction && result.nextAction.mustRedirect) {
-              window.location.assign(result.nextAction.redirectUrl);
-            } else {
-              const icon = result.status === 'SUCCEEDED' ? 'success' : 'error';
-
-              if (result.status === 'SUCCEEDED') {
-                window.location.assign(result.nextAction.redirectUrl);
-              } else {
-                Swal.fire({
-                  title: result.status,
-                  text: result.statusMessage,
-                  icon,
-                  allowOutsideClick: false,
-                  allowEscapeKey: false,
-                  confirmButtonText: window.moneiMsgRetry,
-                  willClose: () => {
-                    window.location.reload();
-                  },
-                });
-              }
-            }
+            params.paymentId = await createPayment();
           } catch (error) {
-            Swal.fire({
-              title: `${error.status} (${error.statusCode})`,
-              text: error.message,
-              icon: 'error',
-              allowOutsideClick: false,
-              allowEscapeKey: false,
-              confirmButtonText: window.moneiMsgRetry,
-              willClose: () => {
-                window.location.reload();
-              },
-            });
-            console.log('moneiTokenHandler - error', params, error);
+            if (moneiConfirmationButton) moneiEnableButton(moneiConfirmationButton);
+            return;
+          }
+
+          try {
+            const result = await monei.confirmPayment(params);
+            handleMoneiTokenResult(result, moneiConfirmationButton);
+          } catch (error) {
+            handleMoneiTokenError(error, params, moneiConfirmationButton);
           }
         },
       });
+    };
+
+    var handleMoneiTokenResult = (result, moneiConfirmationButton) => {
+      if (result.nextAction?.mustRedirect) {
+        location.assign(result.nextAction.redirectUrl);
+      } else {
+        const icon = result.status === 'SUCCEEDED' ? 'success' : 'error';
+        if (result.status === 'SUCCEEDED') {
+          location.assign(result.nextAction.redirectUrl);
+        } else {
+          Swal.fire({
+            title: result.status,
+            text: result.statusMessage,
+            icon,
+            allowOutsideClick: false,
+            allowEscapeKey: false,
+            confirmButtonText: moneiMsgRetry,
+            willClose: () => {
+              if (moneiConfirmationButton) moneiEnableButton(moneiConfirmationButton);
+            },
+          });
+        }
+      }
+    };
+
+    var handleMoneiTokenError = (error, params, moneiConfirmationButton) => {
+      Swal.fire({
+        title: `${error.status} (${error.statusCode})`,
+        text: error.message,
+        icon: 'error',
+        allowOutsideClick: false,
+        allowEscapeKey: false,
+        confirmButtonText: moneiMsgRetry,
+        willClose: () => {
+          if (moneiConfirmationButton) moneiEnableButton(moneiConfirmationButton);
+        },
+      });
+      console.log('moneiTokenHandler - error', params, error);
     };
 
     var moneiValidConditions = () => {
@@ -94,9 +105,20 @@
       return true;
     };
 
+    var moneiAddChangeEventToCheckboxes = (moneiButton) => {
+      const conditionsToApprove = document.getElementById('conditions-to-approve');
+      if (conditionsToApprove) {
+        const requiredCheckboxes = conditionsToApprove.querySelectorAll('input[type="checkbox"][required]');
+        requiredCheckboxes.forEach(checkbox => {
+          checkbox.addEventListener('change', () => {
+            moneiValidConditions() ? moneiEnableButton(moneiButton) : moneiDisableButton(moneiButton);
+          });
+        });
+      }
+    };
+
     var moneiEnableButton = (moneiButton) => {
       if (moneiButton) {
-        // In some PS versions, the handler fails to disable the button because of the timing.
         setTimeout(() => {
           moneiButton.classList.remove('disabled');
           moneiButton.disabled = false;
@@ -114,10 +136,9 @@
 </script>
 
 {foreach from=$paymentMethodsToDisplay item="paymentOptionName"}
-  <section
-    class="js-payment-binary js-payment-monei js-payment-{$paymentOptionName|escape:'htmlall':'UTF-8'} mt-1 disabled">
+  <section class="js-payment-binary js-payment-monei js-payment-{$paymentOptionName|escape:'htmlall':'UTF-8'} mt-1 disabled">
     <div id="{$paymentOptionName|escape:'htmlall':'UTF-8'}-buttons-container">
-      <form action="https://secure.monei.com/payments/{$moneiPaymentId|escape:'htmlall':'UTF-8'}/confirm" method="post">
+      <form method="post">
         <input type="hidden" name="option" value="binary">
         <div class="{$paymentOptionName|escape:'htmlall':'UTF-8'}_render"></div>
         {if $paymentOptionName eq 'monei-card'}
@@ -141,18 +162,14 @@
           if (!moneiBizumRenderContainer) return;
 
           monei.Bizum({
-            paymentId: window.moneiPaymentId,
-            style: window.moneiBizumStyle || {},
+            accountId: moneiAccountId,
+            style: moneiBizumStyle || {},
             onBeforeOpen: moneiValidConditions,
             onSubmit(result) {
-              if (result.token) moneiTokenHandler(result.token);
+              if (result.token) moneiTokenHandler({ paymentToken: result.token });
             },
             onError(error) {
-              Swal.fire({
-                title: `${error.status} (${error.statusCode})`,
-                text: error.message,
-                icon: 'error',
-              });
+              Swal.fire({ title: `${error.status} (${error.statusCode})`, text: error.message, icon: 'error' });
               console.log('onError - Bizum', error);
             }
           }).render(moneiBizumRenderContainer);
@@ -172,8 +189,8 @@
           const moneiPaymentForm = moneiCardButtonsContainer.querySelector('form');
           if (!moneiPaymentForm) return;
 
-          const moneiCardButton = moneiPaymentForm.querySelector('button[type="submit"]');
-          if (!moneiCardButton) return;
+          const moneiConfirmationButton = moneiPaymentForm.querySelector('button[type="submit"]');
+          if (!moneiConfirmationButton) return;
 
           const moneiCardRenderContainer = document.getElementById('monei-card_container');
           if (!moneiCardRenderContainer) return;
@@ -181,19 +198,22 @@
           const moneiCardHolderName = document.getElementById('monei-card-holder-name');
           const moneiCardErrors = document.getElementById('monei-card-errors');
 
+          moneiAddChangeEventToCheckboxes(moneiConfirmationButton);
+          moneiValidConditions() ? moneiEnableButton(moneiConfirmationButton) : moneiDisableButton(moneiConfirmationButton);
+
           const validateMoneiCardHolderName = (name) => {
             const patternCardHolderName = /^[A-Za-zÀ-ú- ]{5,50}$/;
             const isValid = patternCardHolderName.test(name);
-            moneiCardErrors.innerHTML = isValid ? '' : `<div class="alert alert-warning">${window.moneiCardHolderNameNotValid}</div>`;
+            moneiCardErrors.innerHTML = isValid ? '' : `<div class="alert alert-warning">${moneiCardHolderNameNotValid}</div>`;
             return isValid;
           };
 
           const moneiCardInput = monei.CardInput({
-            paymentId: window.moneiPaymentId,
+            accountId: moneiAccountId,
             onChange: () => { moneiCardErrors.innerHTML = ''; },
-            onEnter: () => { moneiCardButton.click(); },
+            onEnter: () => { moneiConfirmationButton.click(); },
             language: prestashop.language.iso_code,
-            style: window.moneiCardInputStyle || {},
+            style: moneiCardInputStyle || {},
           });
           moneiCardInput.render(moneiCardRenderContainer);
 
@@ -205,10 +225,10 @@
             e.preventDefault();
             e.stopPropagation();
 
-            moneiDisableButton(moneiCardButton);
+            moneiDisableButton(moneiConfirmationButton);
 
             if (!moneiPaymentForm.checkValidity() || !validateMoneiCardHolderName(moneiCardHolderName.value)) {
-              moneiEnableButton(moneiCardButton);
+              moneiEnableButton(moneiConfirmationButton);
               return;
             }
 
@@ -216,15 +236,15 @@
               const { token, error } = await monei.createToken(moneiCardInput);
               if (!token) {
                 moneiCardErrors.innerHTML = `<div class="alert alert-warning">${error}</div>`;
-                moneiEnableButton(moneiCardButton);
+                moneiEnableButton(moneiConfirmationButton);
                 return;
               }
 
               moneiCardErrors.innerHTML = '';
-              await moneiTokenHandler(token, moneiCardHolderName.value);
+              await moneiTokenHandler({ paymentToken: token, cardholderName: moneiCardHolderName.value, moneiConfirmationButton });
             } catch (error) {
               moneiCardErrors.innerHTML = `<div class="alert alert-warning">${error.message}</div>`;
-              moneiEnableButton(moneiCardButton);
+              moneiEnableButton(moneiConfirmationButton);
               console.log('createToken - Card Input - error', error);
             }
           });
@@ -238,23 +258,18 @@
           const moneiPaymentRequestButtonsContainer = document.getElementById('monei-googlePay-buttons-container');
           if (!moneiPaymentRequestButtonsContainer) return;
 
-          const moneiPaymentRequestRenderContainer = moneiPaymentRequestButtonsContainer.querySelector(
-            '.monei-googlePay_render');
+          const moneiPaymentRequestRenderContainer = moneiPaymentRequestButtonsContainer.querySelector('.monei-googlePay_render');
           if (!moneiPaymentRequestRenderContainer) return;
 
           monei.PaymentRequest({
-            paymentId: window.moneiPaymentId,
-            style: window.moneiPaymentRequestStyle || {},
+            accountId: moneiAccountId,
+            style: moneiPaymentRequestStyle || {},
             onBeforeOpen: moneiValidConditions,
             onSubmit(result) {
-              if (result.token) moneiTokenHandler(result.token);
+              if (result.token) moneiTokenHandler({ paymentToken: result.token });
             },
             onError(error) {
-              Swal.fire({
-                title: `${error.status} (${error.statusCode})`,
-                text: error.message,
-                icon: 'error',
-              });
+              Swal.fire({ title: `${error.status} (${error.statusCode})`, text: error.message, icon: 'error' });
               console.log('onError - Google Pay', error);
             }
           }).render(moneiPaymentRequestRenderContainer);
@@ -268,23 +283,18 @@
           const moneiPaymentRequestButtonsContainer = document.getElementById('monei-applePay-buttons-container');
           if (!moneiPaymentRequestButtonsContainer) return;
 
-          const moneiPaymentRequestRenderContainer = moneiPaymentRequestButtonsContainer.querySelector(
-            '.monei-applePay_render');
+          const moneiPaymentRequestRenderContainer = moneiPaymentRequestButtonsContainer.querySelector('.monei-applePay_render');
           if (!moneiPaymentRequestRenderContainer) return;
 
           monei.PaymentRequest({
-            paymentId: window.moneiPaymentId,
-            style: window.moneiPaymentRequestStyle || {},
+            accountId: moneiAccountId,
+            style: moneiPaymentRequestStyle || {},
             onBeforeOpen: moneiValidConditions,
             onSubmit(result) {
-              if (result.token) moneiTokenHandler(result.token);
+              if (result.token) moneiTokenHandler({ paymentToken: result.token });
             },
             onError(error) {
-              Swal.fire({
-                title: `${error.status} (${error.statusCode})`,
-                text: error.message,
-                icon: 'error',
-              });
+              Swal.fire({ title: `${error.status} (${error.statusCode})`, text: error.message, icon: 'error' });
               console.log('onError - Apple Pay', error);
             }
           }).render(moneiPaymentRequestRenderContainer);
