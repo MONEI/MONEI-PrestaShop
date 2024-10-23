@@ -59,16 +59,20 @@ class Monei extends PaymentModule
         $this->description = $this->l('Accept Card, Apple Pay, Google Pay, Bizum, PayPal and many more payment methods in your store.');
 
         $apiKey = Configuration::get('MONEI_API_KEY');
-        $accountId = Configuration::get('MONEI_ACCOUNT_ID');
-        if (!$apiKey || !$accountId) {
+        $this->moneiAccountId = Configuration::get('MONEI_ACCOUNT_ID');
+        if (!$apiKey || !$this->moneiAccountId) {
             $this->warning = $this->l('Api Key or Account ID is not set.');
         } else {
             $this->moneiClient = new MoneiClient(
                 $apiKey,
-                $accountId
+                $this->moneiAccountId
             );
-            $this->moneiAccount = $this->moneiClient->paymentMethods->getAccountInformation();
-            $this->moneiAccountId = $accountId;
+
+            try {
+                $this->moneiAccount = $this->moneiClient->paymentMethods->getAccountInformation();
+            } catch (ApiException $e) {
+                $this->warning = $e->getMessage();
+            }
         }
     }
 
@@ -1457,6 +1461,9 @@ class Monei extends PaymentModule
             return false;
         }
         if (!$this->moneiClient) {
+            return false;
+        }
+        if (!$this->moneiAccount) {
             return false;
         }
 
