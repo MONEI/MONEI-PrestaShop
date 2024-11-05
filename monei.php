@@ -1768,12 +1768,16 @@ class Monei extends PaymentModule
         }
 
         if ($paymentMethodsToDisplay) {
+            $orderTotal = $this->context->cart->getOrderTotal();
+
             $this->context->smarty->assign([
                 'paymentMethodsToDisplay' => $paymentMethodsToDisplay,
                 'moneiAccountId' => $this->moneiAccountId,
-                'moneiAmount' => Tools::displayPrice($this->context->cart->getOrderTotal()),
+                'moneiAmount' => $this->getCartAmount(),
+                'moneiAmountFormatted' => Tools::displayPrice($this->getCartAmount()),
                 'moneiCreatePaymentUrlController' => $this->context->link->getModuleLink('monei', 'createPayment'),
                 'moneiToken' => Tools::getToken(false),
+                'moneiCurrency' => $this->context->currency->iso_code,
             ]);
 
             return $this->fetch('module:monei/views/templates/hook/displayPaymentByBinaries.tpl');
