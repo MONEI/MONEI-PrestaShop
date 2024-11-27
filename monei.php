@@ -1049,7 +1049,7 @@ class Monei extends PaymentModule
         );
     }
 
-    public function getCartAmount()
+    public function getCartAmount($withoutFormatting = false)
     {
         $cart = $this->context->cart;
 
@@ -1063,6 +1063,10 @@ class Monei extends PaymentModule
         $decimals = $currencyDecimals * _PS_PRICE_DISPLAY_PRECISION_; // _PS_PRICE_DISPLAY_PRECISION_ deprec 1.7.7 TODO
 
         $total_price = Tools::ps_round($totalShippingTaxExc + $subTotal + $totalTax, $decimals);
+
+        if ($withoutFormatting) {
+            return $total_price;
+        }
 
         return (int) number_format($total_price, 2, '', '');
     }
@@ -1768,13 +1772,11 @@ class Monei extends PaymentModule
         }
 
         if ($paymentMethodsToDisplay) {
-            $orderTotal = $this->context->cart->getOrderTotal();
-
             $this->context->smarty->assign([
                 'paymentMethodsToDisplay' => $paymentMethodsToDisplay,
                 'moneiAccountId' => $this->moneiAccountId,
                 'moneiAmount' => $this->getCartAmount(),
-                'moneiAmountFormatted' => Tools::displayPrice($this->getCartAmount()),
+                'moneiAmountFormatted' => Tools::displayPrice($this->getCartAmount(true)),
                 'moneiCreatePaymentUrlController' => $this->context->link->getModuleLink('monei', 'createPayment'),
                 'moneiToken' => Tools::getToken(false),
                 'moneiCurrency' => $this->context->currency->iso_code,
