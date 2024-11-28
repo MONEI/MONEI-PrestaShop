@@ -26,7 +26,7 @@ class MoneiValidationModuleFrontController extends ModuleFrontController
         $requestBody = Tools::file_get_contents('php://input');
         $sigHeader = $_SERVER['HTTP_MONEI_SIGNATURE'];
 
-        sleep(1); // Adding a delay to prevent processing too quickly and potentially generating duplicate orders.
+        sleep(3); // Adding a delay to prevent processing too quickly and potentially generating duplicate orders.
 
         try {
             $this->module->getMoneiClient()->verifySignature($requestBody, $sigHeader);
@@ -51,7 +51,7 @@ class MoneiValidationModuleFrontController extends ModuleFrontController
 
             // Log the JSON array for debugging
             PrestaShopLogger::addLog(
-                'MONEI - JSON Data: ' . json_encode($json_array),
+                'MONEI - validation.php - postProcess - JSON Data: ' . json_encode($json_array),
                 $this->module::LOG_SEVERITY_LEVELS['info']
             );
 
