@@ -17,6 +17,11 @@ class MoneiConfirmationModuleFrontController extends ModuleFrontController
 
         try {
             if (!empty($moneiPaymentId) && $moneiStatus !== MoneiPaymentStatus::CANCELED) {
+                PrestaShopLogger::addLog(
+                    'MONEI - confirmation.php - initContent - Monei Payment ID: ' . $moneiPaymentId . ' - Monei Status: ' . $moneiStatus,
+                    $this->module::LOG_SEVERITY_LEVELS['info']
+                );
+
                 $this->module->createOrUpdateOrder($moneiPaymentId, true);
             } else {
                 Tools::redirect('index.php?controller=order');
