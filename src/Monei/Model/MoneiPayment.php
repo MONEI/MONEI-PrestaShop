@@ -223,7 +223,7 @@ class MoneiPayment implements ModelInterface
      */
     public function getAuthorizationCode(): ?string
     {
-        return $this->container['authorization_code'];
+        return isset($this->container['authorization_code']) ? $this->container['authorization_code'] : '';
     }
 
     /**

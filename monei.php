@@ -1259,6 +1259,13 @@ class Monei extends PaymentModule
             // Save the information before sending it to the API
             PsOrderHelper::saveTransaction($moneiPayment, true);
 
+            if (!$this->moneiClient) {
+                throw new MoneiException('Monei client not initialized');
+            }
+            if (!isset($this->moneiClient->payments)) {
+                throw new MoneiException('Monei client payments not initialized');
+            }
+
             $moneiPaymentResponse = $this->moneiClient->payments->createPayment($moneiPayment);
 
             return $moneiPaymentResponse;
@@ -1274,6 +1281,13 @@ class Monei extends PaymentModule
 
     public function createOrUpdateOrder($moneiPaymentId, bool $redirectToConfirmationPage = false)
     {
+        if (!$this->moneiClient) {
+            throw new MoneiException('Monei client not initialized');
+        }
+        if (!isset($this->moneiClient->payments)) {
+            throw new MoneiException('Monei client payments not initialized');
+        }
+
         $moneiPayment = $this->moneiClient->payments->getPayment($moneiPaymentId);
 
         $moneiOrderId = $moneiPayment->getOrderId();
@@ -1375,11 +1389,11 @@ class Monei extends PaymentModule
         }
 
         // Create the order
-        if ($should_create_order) {
+        if ($should_create_order && !PsOrderHelper::orderExists($cartId)) {
             // Set a LOCK for slow servers
             $is_locked_info = MoneiClass::getLockInformation($moneiId);
 
-            if ($is_locked_info['locked'] == 0) {
+            if ($is_locked_info['locked'] == '0') {
                 Db::getInstance()->update(
                     'monei',
                     [
@@ -1388,15 +1402,16 @@ class Monei extends PaymentModule
                     ],
                     'id_monei = ' . (int)$moneiId
                 );
-            } elseif ($is_locked_info['locked'] == 1 && $is_locked_info['locked_at'] < (time() - 60)) {
+            } elseif ($is_locked_info['locked'] == '1' && $is_locked_info['locked_at'] < (time() - 60)) {
                 $should_create_order = false;
+
                 $message = 'Slow server detected, order in creation process';
 
                 PrestaShopLogger::addLog(
                     'MONEI - monei:createOrUpdateOrder - ' . $message,
                     self::LOG_SEVERITY_LEVELS['warning']
                 );
-            } elseif ($is_locked_info['locked'] == 1 && $is_locked_info['locked_at'] > (time() - 60)) {
+            } elseif ($is_locked_info['locked'] == '1' && $is_locked_info['locked_at'] > (time() - 60)) {
                 $message = 'Slow server detected, previous order creation process timed out';
 
                 Db::getInstance()->update(
@@ -1404,7 +1419,7 @@ class Monei extends PaymentModule
                     [
                         'locked_at' => time(),
                     ],
-                    'id_monei = ' . (int)$moneiId
+                    'id_monei = ' . (int) $moneiId
                 );
 
                 PrestaShopLogger::addLog(
