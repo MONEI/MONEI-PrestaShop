@@ -27,9 +27,6 @@ class Monei extends PaymentModule
     use ValidationHelpers;
 
     protected $config_form = false;
-    protected $moneiClient;
-    protected $moneiAccount;
-    protected $moneiAccountId;
     protected $paymentMethods;
 
     public const LOG_SEVERITY_LEVELS = [
@@ -57,28 +54,39 @@ class Monei extends PaymentModule
         parent::__construct();
 
         $this->description = $this->l('Accept Card, Apple Pay, Google Pay, Bizum, PayPal and many more payment methods in your store.');
-
-        $apiKey = Configuration::get('MONEI_API_KEY');
-        $this->moneiAccountId = Configuration::get('MONEI_ACCOUNT_ID');
-        if (!$apiKey || !$this->moneiAccountId) {
-            $this->warning = $this->l('Api Key or Account ID is not set.');
-        } else {
-            $this->moneiClient = new MoneiClient(
-                $apiKey,
-                $this->moneiAccountId
-            );
-
-            try {
-                $this->moneiAccount = $this->moneiClient->paymentMethods->getAccountInformation();
-            } catch (ApiException $e) {
-                $this->warning = $e->getMessage();
-            }
-        }
     }
 
     public function getMoneiClient()
     {
-        return $this->moneiClient;
+        $apiKey = Configuration::get('MONEI_API_KEY');
+        $moneiAccountId = Configuration::get('MONEI_ACCOUNT_ID');
+
+        if (!$apiKey || !$moneiAccountId) {
+            return false;
+        }
+
+        try {
+            return new MoneiClient(
+                $apiKey,
+                $moneiAccountId
+            );
+        } catch (ApiException $e) {
+            return false;
+        }
+    }
+
+    public function getMoneiAccount()
+    {
+        try {
+            $moneiClient = $this->getMoneiClient();
+            if (!$moneiClient) {
+                return false;
+            }
+
+            return $moneiClient->paymentMethods->getAccountInformation();
+        } catch (ApiException $e) {
+            return false;
+        }
     }
 
     public function install()
@@ -352,10 +360,11 @@ class Monei extends PaymentModule
         }
 
         // Register domain for Apple Pay only in production mode
-        if ($this->moneiClient && (bool) Configuration::get('MONEI_PRODUCTION_MODE')) {
+        $moneiClient = $this->getMoneiClient();
+        if ($moneiClient && (bool) Configuration::get('MONEI_PRODUCTION_MODE')) {
             try {
                 $domain = str_replace(['www.', 'https://', 'http://'], '', Tools::getShopDomainSsl(false, true));
-                $this->moneiClient->apple->register($domain);
+                $moneiClient->apple->register($domain);
             } catch (\Exception $e) {
                 $this->warning[] = $e->getMessage();
             }
@@ -1259,14 +1268,15 @@ class Monei extends PaymentModule
             // Save the information before sending it to the API
             PsOrderHelper::saveTransaction($moneiPayment, true);
 
-            if (!$this->moneiClient) {
+            $moneiClient = $this->getMoneiClient();
+            if (!$moneiClient) {
                 throw new MoneiException('Monei client not initialized');
             }
-            if (!isset($this->moneiClient->payments)) {
+            if (!isset($moneiClient->payments)) {
                 throw new MoneiException('Monei client payments not initialized');
             }
 
-            $moneiPaymentResponse = $this->moneiClient->payments->createPayment($moneiPayment);
+            $moneiPaymentResponse = $moneiClient->payments->createPayment($moneiPayment);
 
             return $moneiPaymentResponse;
         } catch (Exception $ex) {
@@ -1281,14 +1291,15 @@ class Monei extends PaymentModule
 
     public function createOrUpdateOrder($moneiPaymentId, bool $redirectToConfirmationPage = false)
     {
-        if (!$this->moneiClient) {
+        $moneiClient = $this->getMoneiClient();
+        if (!$moneiClient) {
             throw new MoneiException('Monei client not initialized');
         }
-        if (!isset($this->moneiClient->payments)) {
+        if (!isset($moneiClient->payments)) {
             throw new MoneiException('Monei client payments not initialized');
         }
 
-        $moneiPayment = $this->moneiClient->payments->getPayment($moneiPaymentId);
+        $moneiPayment = $moneiClient->payments->getPayment($moneiPaymentId);
 
         $moneiOrderId = $moneiPayment->getOrderId();
         $moneiId = (int) MoneiClass::getIdByInternalOrder($moneiOrderId);
@@ -1389,7 +1400,7 @@ class Monei extends PaymentModule
         }
 
         // Create the order
-        if ($should_create_order && !PsOrderHelper::orderExists($cartId)) {
+        if ($should_create_order) {
             // Set a LOCK for slow servers
             $is_locked_info = MoneiClass::getLockInformation($moneiId);
 
@@ -1479,10 +1490,14 @@ class Monei extends PaymentModule
         if (!$this->checkCurrency($cart)) {
             return false;
         }
-        if (!$this->moneiClient) {
+
+        $moneiClient = $this->getMoneiClient();
+        if (!$moneiClient) {
             return false;
         }
-        if (!$this->moneiAccount) {
+
+        $moneiAccount = $this->getMoneiAccount();
+        if (!$moneiAccount) {
             return false;
         }
 
@@ -1501,7 +1516,12 @@ class Monei extends PaymentModule
 
         $cart = $this->context->cart;
 
-        $moneiPaymentMethod = $this->moneiAccount->getPaymentMethodsAllowed();
+        $moneiPaymentMethod = false;
+
+        $moneiAccount = $this->getMoneiAccount();
+        if ($moneiAccount) {
+            $moneiPaymentMethod = $moneiAccount->getPaymentMethodsAllowed();
+        }
 
         $template = '';
         if (Configuration::get('MONEI_SHOW_LOGO')) {
@@ -1528,7 +1548,7 @@ class Monei extends PaymentModule
         );
 
         // Credit Card
-        if (Configuration::get('MONEI_ALLOW_CARD') && $moneiPaymentMethod->isPaymentMethodAllowed(MoneiPaymentMethods::CARD, $currencyIsoCode)) {
+        if (Configuration::get('MONEI_ALLOW_CARD') && (!$moneiPaymentMethod || $moneiPaymentMethod->isPaymentMethodAllowed(MoneiPaymentMethods::CARD, $currencyIsoCode))) {
             $paymentOptionList['card'] = [
                 'method' => 'card',
                 'callToActionText' => $this->l('Credit Card'),
@@ -1586,7 +1606,7 @@ class Monei extends PaymentModule
 
         // Bizum
         if (Configuration::get('MONEI_ALLOW_BIZUM') &&
-            $moneiPaymentMethod->isPaymentMethodAllowed(MoneiPaymentMethods::BIZUM, $currencyIsoCode, $countryIsoCode)
+            (!$moneiPaymentMethod || $moneiPaymentMethod->isPaymentMethodAllowed(MoneiPaymentMethods::BIZUM, $currencyIsoCode, $countryIsoCode))
         ) {
             $paymentOptionList['bizum'] = [
                 'method' => 'bizum',
@@ -1600,7 +1620,7 @@ class Monei extends PaymentModule
         // Apple
         if (Configuration::get('MONEI_ALLOW_APPLE') &&
             PsTools::isSafariBrowser() &&
-            $moneiPaymentMethod->isPaymentMethodAllowed(MoneiPaymentMethods::APPLE, $currencyIsoCode)
+            (!$moneiPaymentMethod || $moneiPaymentMethod->isPaymentMethodAllowed(MoneiPaymentMethods::APPLE, $currencyIsoCode))
         ) {
             $paymentOptionList['applePay'] = [
                 'method' => 'applePay',
@@ -1614,7 +1634,7 @@ class Monei extends PaymentModule
         // Google
         if (Configuration::get('MONEI_ALLOW_GOOGLE') &&
             !PsTools::isSafariBrowser() &&
-            $moneiPaymentMethod->isPaymentMethodAllowed(MoneiPaymentMethods::GOOGLE, $currencyIsoCode)
+            (!$moneiPaymentMethod || $moneiPaymentMethod->isPaymentMethodAllowed(MoneiPaymentMethods::GOOGLE, $currencyIsoCode))
         ) {
             $paymentOptionList['googlePay'] = [
                 'method' => 'googlePay',
@@ -1627,7 +1647,7 @@ class Monei extends PaymentModule
 
         // ClickToPay
         if (Configuration::get('MONEI_ALLOW_CLICKTOPAY') &&
-            $moneiPaymentMethod->isPaymentMethodAllowed(MoneiPaymentMethods::CLICKTOPAY, $currencyIsoCode)
+            (!$moneiPaymentMethod || $moneiPaymentMethod->isPaymentMethodAllowed(MoneiPaymentMethods::CLICKTOPAY, $currencyIsoCode))
         ) {
             $paymentOptionList['clickToPay'] = [
                 'method' => 'clickToPay',
@@ -1639,7 +1659,7 @@ class Monei extends PaymentModule
 
         // PayPal
         if (Configuration::get('MONEI_ALLOW_PAYPAL') &&
-            $moneiPaymentMethod->isPaymentMethodAllowed(MoneiPaymentMethods::PAYPAL, $currencyIsoCode)
+            (!$moneiPaymentMethod || $moneiPaymentMethod->isPaymentMethodAllowed(MoneiPaymentMethods::PAYPAL, $currencyIsoCode))
         ) {
             $paymentOptionList['paypal'] = [
                 'method' => 'paypal',
@@ -1651,7 +1671,7 @@ class Monei extends PaymentModule
 
         // COFIDIS
         if (Configuration::get('MONEI_ALLOW_COFIDIS') &&
-            $moneiPaymentMethod->isPaymentMethodAllowed(MoneiPaymentMethods::COFIDIS, $currencyIsoCode, $countryIsoCode)
+            (!$moneiPaymentMethod || $moneiPaymentMethod->isPaymentMethodAllowed(MoneiPaymentMethods::COFIDIS, $currencyIsoCode, $countryIsoCode))
         ) {
             $paymentOptionList['cofidis'] = [
                 'method' => 'cofidis',
@@ -1663,7 +1683,7 @@ class Monei extends PaymentModule
 
         // Klarna
         if (Configuration::get('MONEI_ALLOW_KLARNA') &&
-            $moneiPaymentMethod->isPaymentMethodAllowed(MoneiPaymentMethods::KLARNA, $currencyIsoCode, $countryIsoCode)
+            (!$moneiPaymentMethod || $moneiPaymentMethod->isPaymentMethodAllowed(MoneiPaymentMethods::KLARNA, $currencyIsoCode, $countryIsoCode))
         ) {
             $paymentOptionList['klarna'] = [
                 'method' => 'klarna',
@@ -1675,7 +1695,7 @@ class Monei extends PaymentModule
 
         // Multibanco
         if (Configuration::get('MONEI_ALLOW_MULTIBANCO') &&
-            $moneiPaymentMethod->isPaymentMethodAllowed(MoneiPaymentMethods::MULTIBANCO, $currencyIsoCode, $countryIsoCode)
+            (!$moneiPaymentMethod || $moneiPaymentMethod->isPaymentMethodAllowed(MoneiPaymentMethods::MULTIBANCO, $currencyIsoCode, $countryIsoCode))
         ) {
             $paymentOptionList['multibanco'] = [
                 'method' => 'multibanco',
@@ -1687,7 +1707,7 @@ class Monei extends PaymentModule
 
         // MBWay
         if (Configuration::get('MONEI_ALLOW_MBWAY') &&
-            $moneiPaymentMethod->isPaymentMethodAllowed(MoneiPaymentMethods::MBWAY, $currencyIsoCode, $countryIsoCode)
+            (!$moneiPaymentMethod || $moneiPaymentMethod->isPaymentMethodAllowed(MoneiPaymentMethods::MBWAY, $currencyIsoCode, $countryIsoCode))
         ) {
             $paymentOptionList['mbway'] = [
                 'method' => 'mbway',
@@ -1703,7 +1723,7 @@ class Monei extends PaymentModule
 
             if (isset($paymentOption['callToActionText'])) {
                 $testModeText = '';
-                if (!$this->moneiAccount->isLiveMode()) {
+                if ($moneiAccount && !$moneiAccount->isLiveMode()) {
                     $testModeText = ' (' . $this->l('Test Mode') . ')';
                 }
 
@@ -1789,7 +1809,7 @@ class Monei extends PaymentModule
         if ($paymentMethodsToDisplay) {
             $this->context->smarty->assign([
                 'paymentMethodsToDisplay' => $paymentMethodsToDisplay,
-                'moneiAccountId' => $this->moneiAccountId,
+                'moneiAccountId' => Configuration::get('MONEI_ACCOUNT_ID'),
                 'moneiAmount' => $this->getCartAmount(),
                 'moneiAmountFormatted' => Tools::displayPrice($this->getCartAmount(true)),
                 'moneiCreatePaymentUrlController' => $this->context->link->getModuleLink('monei', 'createPayment'),
