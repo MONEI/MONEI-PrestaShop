@@ -1,9 +1,9 @@
 <script>
-  const moneiAccountId = '{$moneiAccountId|escape:'htmlall':'UTF-8'}';
-  const moneiCreatePaymentUrlController = '{$moneiCreatePaymentUrlController|escape:'htmlall':'UTF-8'}';
-  const moneiToken = '{$moneiToken|escape:'htmlall':'UTF-8'}';
-  const moneiCurrency = '{$moneiCurrency|escape:'htmlall':'UTF-8'}';
-  const moneiAmount = {$moneiAmount|intval};
+  var moneiAccountId = '{$moneiAccountId|escape:'htmlall':'UTF-8'}';
+  var moneiCreatePaymentUrlController = '{$moneiCreatePaymentUrlController|escape:'htmlall':'UTF-8'}';
+  var moneiToken = '{$moneiToken|escape:'htmlall':'UTF-8'}';
+  var moneiCurrency = '{$moneiCurrency|escape:'htmlall':'UTF-8'}';
+  var moneiAmount = {$moneiAmount|intval};
 
   {literal}
     var moneiTokenHandler = async (parameters = {}) => {
