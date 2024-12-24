@@ -1,9 +1,9 @@
 <script>
-  const moneiAccountId = '{$moneiAccountId|escape:'htmlall':'UTF-8'}';
-  const moneiCreatePaymentUrlController = '{$moneiCreatePaymentUrlController|escape:'htmlall':'UTF-8'}';
-  const moneiToken = '{$moneiToken|escape:'htmlall':'UTF-8'}';
-  const moneiCurrency = '{$moneiCurrency|escape:'htmlall':'UTF-8'}';
-  const moneiAmount = {$moneiAmount|intval};
+  var moneiAccountId = '{$moneiAccountId|escape:'htmlall':'UTF-8'}';
+  var moneiCreatePaymentUrlController = '{$moneiCreatePaymentUrlController|escape:'htmlall':'UTF-8'}';
+  var moneiToken = '{$moneiToken|escape:'htmlall':'UTF-8'}';
+  var moneiCurrency = '{$moneiCurrency|escape:'htmlall':'UTF-8'}';
+  var moneiAmount = {$moneiAmount|intval};
 
   {literal}
     var moneiTokenHandler = async (parameters = {}) => {
@@ -156,6 +156,8 @@
   {if $paymentOptionName eq 'monei-bizum'}
     {literal}
       <script>
+        var processingMoneiBizumPayment = false;
+
         function initMoneiBizum() {
           const moneiBizumButtonsContainer = document.getElementById('monei-bizum-buttons-container');
           if (!moneiBizumButtonsContainer) return;
@@ -166,13 +168,28 @@
           monei.Bizum({
             accountId: moneiAccountId,
             style: moneiBizumStyle || {},
-            onBeforeOpen: moneiValidConditions,
-            onSubmit(result) {
-              if (result.token) moneiTokenHandler({ paymentToken: result.token });
+            onBeforeOpen() {
+              if (!moneiValidConditions() || processingMoneiBizumPayment) {
+                return false;
+              }
+              processingMoneiBizumPayment = true;
+              return true;
             },
-            onError(error) {
-              Swal.fire({ title: `${error.status} (${error.statusCode})`, text: error.message, icon: 'error' });
-              console.log('onError - Bizum', error);
+            onLoad() {
+              processingMoneiBizumPayment = false;
+            },
+            onSubmit({token}) {
+              if (token) {
+                moneiTokenHandler({paymentToken: token});
+              }
+            },
+            onError({status, statusCode, message}) {
+              Swal.fire({
+                title: `${status} (${statusCode})`,
+                text: message,
+                icon: 'error'
+              });
+              console.log('onError - Bizum', {status, statusCode, message});
             }
           }).render(moneiBizumRenderContainer);
         }
