@@ -1,7 +1,5 @@
 <?php
-
-
-namespace Monei\CoreClasses;
+namespace PsMonei;
 
 use Db;
 use ObjectModel;

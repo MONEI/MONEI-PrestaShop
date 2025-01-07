@@ -1,19 +1,20 @@
 <?php
 require_once dirname(__FILE__) . '/vendor/autoload.php';
 
-use Monei\CoreClasses\Monei as MoneiClass;
-use Monei\CoreClasses\MoneiCard;
-use Monei\CoreHelpers\PsTools;
+use PsMonei\Monei as MoneiClass;
+use PsMonei\MoneiCard;
+use PsMonei\MoneiPaymentMethods;
+use PsMonei\MoneiPaymentStatus;
+use PsMonei\Exception\MoneiException;
+use PsMonei\Helper\PsTools;
+use PsMonei\Helper\PsOrderHelper;
+use PsMonei\Traits\ValidationHelpers;
+
 use Monei\ApiException;
-use Monei\CoreHelpers\PsOrderHelper;
-use Monei\Model\MoneiBillingDetails;
-use Monei\Model\MoneiCustomer;
-use Monei\Model\MoneiPayment;
-use Monei\Model\MoneiPaymentMethods;
-use Monei\Model\MoneiPaymentStatus;
 use Monei\MoneiClient;
-use Monei\MoneiException;
-use Monei\Traits\ValidationHelpers;
+use OpenAPI\Client\Model\CreatePaymentRequest;
+use OpenAPI\Client\Model\PaymentBillingDetails;
+use OpenAPI\Client\Model\PaymentCustomer;
 
 use PrestaShop\PrestaShop\Adapter\ServiceLocator;
 use Symfony\Polyfill\Mbstring\Mbstring;
@@ -21,7 +22,6 @@ use Symfony\Polyfill\Mbstring\Mbstring;
 if (!defined('_PS_VERSION_')) {
     exit;
 }
-
 class Monei extends PaymentModule
 {
     use ValidationHelpers;
@@ -59,35 +59,31 @@ class Monei extends PaymentModule
     public function getMoneiClient()
     {
         $apiKey = Configuration::get('MONEI_API_KEY');
-        $moneiAccountId = Configuration::get('MONEI_ACCOUNT_ID');
 
-        if (!$apiKey || !$moneiAccountId) {
+        if (!$apiKey) {
             return false;
         }
 
         try {
-            return new MoneiClient(
-                $apiKey,
-                $moneiAccountId
-            );
+            return new MoneiClient($apiKey);
         } catch (ApiException $e) {
             return false;
         }
     }
 
-    public function getMoneiAccount()
-    {
-        try {
-            $moneiClient = $this->getMoneiClient();
-            if (!$moneiClient) {
-                return false;
-            }
+    // public function getMoneiAccount()
+    // {
+    //     try {
+    //         $moneiClient = $this->getMoneiClient();
+    //         if (!$moneiClient) {
+    //             return false;
+    //         }
 
-            return $moneiClient->paymentMethods->getAccountInformation();
-        } catch (ApiException $e) {
-            return false;
-        }
-    }
+    //         return $moneiClient->paymentMethods->getAccountInformation();
+    //     } catch (ApiException $e) {
+    //         return false;
+    //     }
+    // }
 
     public function install()
     {
@@ -1097,7 +1093,7 @@ class Monei extends PaymentModule
             'phone' => $addressInvoice->phone_mobile ?: $addressInvoice->phone
         ];
 
-        return $returnMoneiCustomerObject ? new MoneiCustomer($customerData) : $customerData;
+        return $returnMoneiCustomerObject ? new PaymentCustomer($customerData) : $customerData;
     }
 
     public function getAddressData($addressId, $returnMoneiBillingObject = false)
@@ -1128,7 +1124,7 @@ class Monei extends PaymentModule
             ]
         ];
 
-        return $returnMoneiBillingObject ? new MoneiBillingDetails($billingData) : $billingData;
+        return $returnMoneiBillingObject ? new PaymentBillingDetails($billingData) : $billingData;
     }
 
     /**
@@ -1164,8 +1160,8 @@ class Monei extends PaymentModule
 
         $orderId = str_pad($cart->id . 'm' . time() % 1000, 12, '0', STR_PAD_LEFT); // Redsys/Bizum Style
 
-        $moneiPayment = new MoneiPayment();
-        $moneiPayment
+        $createPaymentRequest = new CreatePaymentRequest();
+        $createPaymentRequest
             ->setOrderId($orderId)
             ->setAmount($this->getCartAmount())
             ->setCurrency($currency->iso_code)
@@ -1192,17 +1188,17 @@ class Monei extends PaymentModule
 
         $customerData = $this->getCustomerData(true);
         if (!empty($customerData)) {
-            $moneiPayment->setCustomer($customerData);
+            $createPaymentRequest->setCustomer($customerData);
         }
 
         $billingDetails = $this->getAddressData((int) $cart->id_address_invoice, true);
         if (!empty($billingDetails)) {
-            $moneiPayment->setBillingDetails($billingDetails);
+            $createPaymentRequest->setBillingDetails($billingDetails);
         }
 
         $shippingDetails = $this->getAddressData((int) $cart->id_address_delivery, true);
         if (!empty($shippingDetails)) {
-            $moneiPayment->setShippingDetails($shippingDetails);
+            $createPaymentRequest->setShippingDetails($shippingDetails);
         }
 
         $payment_methods = [];
@@ -1247,9 +1243,9 @@ class Monei extends PaymentModule
             }
         }
 
-        $moneiPayment->setAllowedPaymentMethods($payment_methods);
+        $createPaymentRequest->setAllowedPaymentMethods($payment_methods);
         if ($tokenizeCard) {
-            $moneiPayment->setGeneratePaymentToken(true);
+            $createPaymentRequest->setGeneratePaymentToken(true);
         } else if ($moneiCardId) {
             $belongsToCustomer = MoneiCard::belongsToCustomer(
                 $moneiCardId,
@@ -1266,7 +1262,7 @@ class Monei extends PaymentModule
 
         try {
             // Save the information before sending it to the API
-            PsOrderHelper::saveTransaction($moneiPayment, true);
+            PsOrderHelper::saveTransaction($createPaymentRequest, true);
 
             $moneiClient = $this->getMoneiClient();
             if (!$moneiClient) {
@@ -1276,7 +1272,7 @@ class Monei extends PaymentModule
                 throw new MoneiException('Monei client payments not initialized');
             }
 
-            $moneiPaymentResponse = $moneiClient->payments->createPayment($moneiPayment);
+            $moneiPaymentResponse = $moneiClient->payments->createPayment($createPaymentRequest);
 
             return $moneiPaymentResponse;
         } catch (Exception $ex) {
@@ -1496,10 +1492,10 @@ class Monei extends PaymentModule
             return false;
         }
 
-        $moneiAccount = $this->getMoneiAccount();
-        if (!$moneiAccount) {
-            return false;
-        }
+        // $moneiAccount = $this->getMoneiAccount();
+        // if (!$moneiAccount) {
+        //     return false;
+        // }
 
         return true;
     }
@@ -1518,10 +1514,11 @@ class Monei extends PaymentModule
 
         $moneiPaymentMethod = false;
 
-        $moneiAccount = $this->getMoneiAccount();
-        if ($moneiAccount) {
-            $moneiPaymentMethod = $moneiAccount->getPaymentMethodsAllowed();
-        }
+        $moneiAccount = false;
+        // $moneiAccount = $this->getMoneiAccount();
+        // if ($moneiAccount) {
+        //     $moneiPaymentMethod = $moneiAccount->getPaymentMethodsAllowed();
+        // }
 
         $template = '';
         if (Configuration::get('MONEI_SHOW_LOGO')) {

@@ -1,12 +1,12 @@
 <?php
-namespace Monei\CoreHelpers;
+namespace PsMonei\Helper;
 
 use Context;
 use Db;
 use Monei\ApiException;
-use Monei\CoreClasses\Monei;
-use Monei\Model\MoneiPayment;
-use Monei\Model\MoneiPaymentStatus;
+use Monei\Model\Payment;
+use PsMonei\Monei;
+use PsMonei\MoneiPaymentStatus;
 use Order;
 
 class PsOrderHelper
@@ -19,7 +19,7 @@ class PsOrderHelper
      * @return mixed
      */
     public static function saveTransaction(
-        MoneiPayment $payment,
+        Payment $payment,
         bool         $save_amount = false,
         bool         $is_refund = false,
         bool         $is_callback = false,
@@ -99,12 +99,12 @@ class PsOrderHelper
     /**
      * Avoid saving same information
      * @param int $id_monei
-     * @param MoneiPayment $payment
+     * @param Payment $payment
      * @return bool
      */
     private static function sameState(
         int          $id_monei,
-        MoneiPayment $payment
+        Payment $payment
     )
     {
         $res = Db::getInstance()->getRow('
@@ -156,14 +156,14 @@ class PsOrderHelper
      * @param int $id_status_code
      * @param bool $is_refund
      * @param Monei $monei
-     * @param MoneiPayment $payment
+     * @param Payment $payment
      * @return bool
      */
     private static function saveHistory(
         ?int         $id_status_code,
         bool         $is_refund,
         Monei        $monei,
-        MoneiPayment $payment,
+        Payment $payment,
                      $is_callback = false
     )
     {
@@ -180,13 +180,13 @@ class PsOrderHelper
 
     /**
      * Save Refund Payment object information into log
-     * @param MoneiPayment $refund
+     * @param Payment $refund
      * @return bool
      */
     private static function saveRefund(
         int          $id_monei_history,
         Monei        $monei,
-        MoneiPayment $refund
+        Payment $refund
     ): bool
     {
         $employeeId = 0;
@@ -206,12 +206,12 @@ class PsOrderHelper
 
     /**
      * Saves Credit Card token
-     * @param MoneiPayment $payment
+     * @param Payment $payment
      * @return bool
      */
     private static function savePaymentToken(
         Monei        $monei,
-        MoneiPayment $payment
+        Payment $payment
     ): bool
     {
         $id_order = $monei->id_order;

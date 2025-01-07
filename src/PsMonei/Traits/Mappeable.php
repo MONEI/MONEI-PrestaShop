@@ -1,7 +1,5 @@
 <?php
-
-
-namespace Monei\Traits;
+namespace PsMonei\Traits;
 
 use Tools;
 

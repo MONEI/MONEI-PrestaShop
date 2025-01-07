@@ -1,5 +1,5 @@
 <?php
-namespace Monei\Model;
+namespace PsMonei;
 
 class MoneiPaymentMethods
 {

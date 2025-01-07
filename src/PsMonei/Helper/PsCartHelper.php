@@ -1,7 +1,5 @@
 <?php
-
-
-namespace Monei\CoreHelpers;
+namespace PsMonei\Helper;
 
 use Cart;
 use Configuration;

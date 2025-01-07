@@ -1,5 +1,5 @@
 <?php
-namespace Monei;
+namespace PsMonei\Exception;
 
 use Exception;
 

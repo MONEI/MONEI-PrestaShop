@@ -1,7 +1,5 @@
 <?php
-
-
-namespace Monei\CoreClasses;
+namespace PsMonei;
 
 use Configuration;
 use Currency;

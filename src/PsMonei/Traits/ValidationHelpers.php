@@ -1,9 +1,7 @@
 <?php
+namespace PsMonei\Traits;
 
-
-namespace Monei\Traits;
-
-use Monei\ApiException;
+use MoneiSDK\ApiException;
 
 trait ValidationHelpers
 {
