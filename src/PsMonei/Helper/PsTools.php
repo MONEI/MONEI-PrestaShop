@@ -1,5 +1,5 @@
 <?php
-namespace Monei\CoreHelpers;
+namespace PsMonei\Helper;
 
 use Tools;
 
