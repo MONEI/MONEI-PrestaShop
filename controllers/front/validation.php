@@ -2,7 +2,6 @@
 use Monei\ApiException;
 use Monei\Model\MoneiPayment;
 use Monei\MoneiException;
-use Monei\Traits\ValidationHelpers;
 
 if (!defined('_PS_VERSION_')) {
     exit;
@@ -10,8 +9,6 @@ if (!defined('_PS_VERSION_')) {
 
 class MoneiValidationModuleFrontController extends ModuleFrontController
 {
-    use ValidationHelpers;
-
     public function postProcess()
     {
         // If the module is not active anymore, no need to process anything.
@@ -59,8 +56,6 @@ class MoneiValidationModuleFrontController extends ModuleFrontController
             $moneiPayment = new MoneiPayment($json_array);
 
             // Create or update the order
-            // The ID is sent instead of the object, as if the card token is to be saved, it must be queried via the API and cannot be done from the object.
-            // https://docs.monei.com/docs/guides/save-payment-method/#2-obtain-and-store-payment-token
             $this->module->createOrUpdateOrder($moneiPayment->getId());
         } catch (MoneiException $ex) {
             PrestaShopLogger::addLog(

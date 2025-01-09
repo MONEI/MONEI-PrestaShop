@@ -7,7 +7,6 @@ use PsMonei\MoneiPaymentMethods;
 use PsMonei\MoneiPaymentStatus;
 use PsMonei\Exception\MoneiException;
 use PsMonei\Helper\PsTools;
-use PsMonei\Helper\PsOrderHelper;
 use PsMonei\Traits\ValidationHelpers;
 
 use Monei\ApiException;
@@ -15,7 +14,6 @@ use Monei\MoneiClient;
 use OpenAPI\Client\Model\CreatePaymentRequest;
 use OpenAPI\Client\Model\PaymentBillingDetails;
 use OpenAPI\Client\Model\PaymentCustomer;
-
 use PrestaShop\PrestaShop\Adapter\ServiceLocator;
 use Symfony\Polyfill\Mbstring\Mbstring;
 
@@ -1261,9 +1259,6 @@ class Monei extends PaymentModule
         }
 
         try {
-            // Save the information before sending it to the API
-            PsOrderHelper::saveTransaction($createPaymentRequest, true);
-
             $moneiClient = $this->getMoneiClient();
             if (!$moneiClient) {
                 throw new MoneiException('Monei client not initialized');
@@ -1272,7 +1267,136 @@ class Monei extends PaymentModule
                 throw new MoneiException('Monei client payments not initialized');
             }
 
-            $moneiPaymentResponse = $moneiClient->payments->createPayment($createPaymentRequest);
+            if (!$createPaymentRequest->valid()) {
+                throw new MoneiException('PaymentRequest is not valid');
+            }
+
+            // $moneiPaymentResponse = $moneiClient->payments->create($createPaymentRequest);
+
+            $content = json_decode('{
+    "id": "fff0227e0967c1748477b061b25bfab8e098a334",
+    "accountId": "0e8dfe0b-2304-4ecb-8264-73bc1d74f06c",
+    "sequenceId": null,
+    "subscriptionId": null,
+    "providerReferenceId": "5E3SMnEqupZsmb4Kh6WlEYYSdZVFYTDN",
+    "createdAt": 1734983558,
+    "updatedAt": 1734983568,
+    "amount": 3572,
+    "authorizationCode": "674239",
+    "billingDetails": {
+      "email": "test@presteamshop.com",
+      "name": "Jehyson Rendon",
+      "company": null,
+      "phone": "3178067607",
+      "address": {
+        "city": "Cali",
+        "country": "CO",
+        "line1": "Carrera 97B # 42 - 41",
+        "line2": null,
+        "zip": "760026",
+        "state": "Valle del Cauca"
+      }
+    },
+    "currency": "EUR",
+    "customer": {
+      "email": "test@presteamshop.com",
+      "name": "ASDASD ASDASD",
+      "phone": "3178067607"
+    },
+    "description": null,
+    "livemode": false,
+    "orderId": "00000153m561",
+    "paymentMethod": {
+      "method": "card",
+      "card": {
+        "brand": "visa",
+        "country": "PL",
+        "type": "credit",
+        "threeDSecure": true,
+        "threeDSecureVersion": "2.1.0",
+        "threeDSecureFlow": "CHALLENGE",
+        "last4": "4406",
+        "cardholderName": "ASDASD ASDASD",
+        "cardholderEmail": null,
+        "expiration": 1985472000,
+        "bank": "Credit Agricole Bank Polska S.A.",
+        "tokenizationMethod": null
+      },
+      "bizum": null,
+      "paypal": null,
+      "cofidis": null,
+      "cofidisLoan": null,
+      "trustly": null,
+      "sepa": null,
+      "klarna": null,
+      "mbway": null
+    },
+    "refundedAmount": null,
+    "lastRefundAmount": null,
+    "lastRefundReason": null,
+    "cancellationReason": null,
+    "shippingDetails": {
+      "email": "test@presteamshop.com",
+      "name": "Jehyson Rendon",
+      "company": null,
+      "phone": "3178067607",
+      "address": {
+        "city": "Cali",
+        "country": "CO",
+        "line1": "Carrera 97B # 42 - 41",
+        "line2": null,
+        "zip": "760026",
+        "state": "Valle del Cauca"
+      }
+    },
+    "shop": {
+      "name": "PresTeamShop Test",
+      "country": "ES"
+    },
+    "status": "SUCCEEDED",
+    "statusCode": "E000",
+    "statusMessage": "Transaction approved",
+    "sessionDetails": {
+      "ip": "181.54.0.58",
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+      "countryCode": "CO",
+      "lang": "es",
+      "deviceType": "desktop",
+      "deviceModel": null,
+      "browser": "Chrome",
+      "browserVersion": "131.0.0.0",
+      "browserAccept": "*/*",
+      "browserColorDepth": "24",
+      "browserScreenHeight": "1080",
+      "browserScreenWidth": "1920",
+      "browserTimezoneOffset": "300",
+      "os": "Windows",
+      "osVersion": "10",
+      "source": null,
+      "sourceVersion": null
+    },
+    "traceDetails": {
+      "ip": "181.54.0.58",
+      "userAgent": "MONEI/PrestaShop/1.4.10",
+      "countryCode": "CO",
+      "lang": "en",
+      "deviceType": "desktop",
+      "deviceModel": null,
+      "browser": null,
+      "browserVersion": null,
+      "browserAccept": null,
+      "os": null,
+      "osVersion": null,
+      "source": "MONEI/PrestaShop",
+      "sourceVersion": "1.4.10",
+      "userId": null,
+      "userEmail": null
+    }
+  }');
+            $moneiPaymentResponse = ObjectSerializer::deserialize($content, '\OpenAPI\Client\Model\Payment', []);
+dump($moneiPaymentResponse);die;
+
+            $moneiClass = new MoneiClass();
 
             return $moneiPaymentResponse;
         } catch (Exception $ex) {
@@ -1295,40 +1419,20 @@ class Monei extends PaymentModule
             throw new MoneiException('Monei client payments not initialized');
         }
 
-        $moneiPayment = $moneiClient->payments->getPayment($moneiPaymentId);
+        $moneiPayment = $moneiClient->payments->get($moneiPaymentId);
 
+        // Get the cart ID from the MONEI order ID
         $moneiOrderId = $moneiPayment->getOrderId();
-        $moneiId = (int) MoneiClass::getIdByInternalOrder($moneiOrderId);
-
-        // Check Monei
-        $monei = new MoneiClass($moneiId);
-        if (!Validate::isLoadedObject($monei)) {
-            throw new MoneiException('Monei identifier not found');
-        }
-
-        // Check Cart
-        $cartId = (int) $monei->id_cart;
-        $cartIdResponse = is_array(explode('m', $moneiOrderId)) ? (int)explode('m', $moneiOrderId)[0] : false;
-        if ($cartId !== $cartIdResponse) {
-            throw new MoneiException('cartId from response and internal registry doesnt match: CartId: ' . $cartId . ' - CartIdResponse: ' . $cartIdResponse);
-        }
-
-        // Check Currencies
-        if ($monei->currency !== $moneiPayment->getCurrency()) {
-            throw new MoneiException('Currency from response and internal registry doesnt match: Currency: ' . $monei->currency . ' - CurrencyResponse: ' . $moneiPayment->getCurrency());
-        }
-
+        $cartId = (int) substr($moneiOrderId, 0, strpos($moneiOrderId, 'm')); // Extracting cart ID from the formatted order ID
         $cart = new Cart($cartId);
+        if (!Validate::isLoadedObject($cart)) {
+            throw new MoneiException('Cart #' . $cartId . ' not valid');
+        }
 
+        // Get the customer from the cart
         $customer = new Customer((int) $cart->id_customer);
         if (!Validate::isLoadedObject($customer)) {
             throw new MoneiException('Customer #' . $cart->id_customer . ' not valid');
-        }
-
-        // Save the authorization code
-        if ($moneiPayment->getStatus() === MoneiPaymentStatus::SUCCEEDED) {
-            $monei->authorization_code = $moneiPayment->getAuthorizationCode();
-            $monei->save();
         }
 
         $cartAmountResponse = $moneiPayment->getAmount();
@@ -1336,12 +1440,12 @@ class Monei extends PaymentModule
         $orderStateId = (int) Configuration::get('MONEI_STATUS_FAILED');
         $message = '';
         $failed = true;
-        $is_refund = false;
+        // $is_refund = false;
 
         if (in_array($moneiPayment->getStatus(), [MoneiPaymentStatus::REFUNDED, MoneiPaymentStatus::PARTIALLY_REFUNDED])) {
             $orderStateId = (int) Configuration::get('MONEI_STATUS_REFUNDED');
             $failed = false;
-            $is_refund = true;
+            // $is_refund = true;
         } elseif ($moneiPayment->getStatus() === MoneiPaymentStatus::PENDING) {
             $orderStateId = (int) Configuration::get('MONEI_STATUS_PENDING');
             $failed = false;
@@ -1389,81 +1493,26 @@ class Monei extends PaymentModule
                     }
                 }
             }
-
-            $orderId = $orderByCart->id;
         } elseif (true === $failed && !Configuration::get('MONEI_CART_TO_ORDER')) {
             $should_create_order = false;
         }
 
-        // Create the order
         if ($should_create_order) {
-            // Set a LOCK for slow servers
-            $is_locked_info = MoneiClass::getLockInformation($moneiId);
-
-            if ($is_locked_info['locked'] == '0') {
-                Db::getInstance()->update(
-                    'monei',
-                    [
-                        'locked' => 1,
-                        'locked_at' => time(),
-                    ],
-                    'id_monei = ' . (int)$moneiId
-                );
-            } elseif ($is_locked_info['locked'] == '1' && $is_locked_info['locked_at'] < (time() - 60)) {
-                $should_create_order = false;
-
-                $message = 'Slow server detected, order in creation process';
-
-                PrestaShopLogger::addLog(
-                    'MONEI - monei:createOrUpdateOrder - ' . $message,
-                    self::LOG_SEVERITY_LEVELS['warning']
-                );
-            } elseif ($is_locked_info['locked'] == '1' && $is_locked_info['locked_at'] > (time() - 60)) {
-                $message = 'Slow server detected, previous order creation process timed out';
-
-                Db::getInstance()->update(
-                    'monei',
-                    [
-                        'locked_at' => time(),
-                    ],
-                    'id_monei = ' . (int) $moneiId
-                );
-
-                PrestaShopLogger::addLog(
-                    'MONEI - monei:createOrUpdateOrder - ' . $message,
-                    self::LOG_SEVERITY_LEVELS['warning']
-                );
-            }
-
-            if ($should_create_order) {
-                $this->validateOrder(
-                    $cartId,
-                    $orderStateId,
-                    $cartAmountResponse / 100,
-                    'MONEI ' . $moneiPayment->getPaymentMethod()->getMethod(),
-                    $message,
-                    ['transaction_id' => $moneiPayment->getId()],
-                    $cart->id_currency,
-                    false,
-                    $customer->secure_key
-                );
-
-                // Check id_order and save it
-                $orderId = (int) Order::getIdByCartId($cartId);
-                if ($orderId) {
-                    $monei->id_order = $orderId;
-                    $monei->save();
-                }
-            }
+            $this->validateOrder(
+                $cartId,
+                $orderStateId,
+                $cartAmountResponse / 100,
+                'MONEI ' . $moneiPayment->getPaymentMethod()->getMethod(),
+                $message,
+                ['transaction_id' => $moneiPayment->getId()],
+                $cart->id_currency,
+                false,
+                $customer->secure_key
+            );
         }
 
         // remove monei payment id from cookie
         $this->removeMoneiPaymentCookie();
-
-        // Save log (required from API for tokenization)
-        if (!PsOrderHelper::saveTransaction($moneiPayment, false, $is_refund, true, $failed)) {
-            throw new MoneiException('Unable to save transaction information');
-        }
 
         if ($redirectToConfirmationPage) {
             Tools::redirect(
