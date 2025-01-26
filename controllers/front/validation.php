@@ -2,6 +2,7 @@
 use Monei\ApiException;
 use Monei\Model\MoneiPayment;
 use Monei\MoneiException;
+use PsMonei\Service\Order\OrderService;
 
 if (!defined('_PS_VERSION_')) {
     exit;
@@ -56,7 +57,9 @@ class MoneiValidationModuleFrontController extends ModuleFrontController
             $moneiPayment = new MoneiPayment($json_array);
 
             // Create or update the order
-            $this->module->createOrUpdateOrder($moneiPayment->getId());
+            // $this->module->createOrUpdateOrder($moneiPayment->getId());
+            $orderService = new OrderService($this->module);
+            $orderService->createOrUpdateOrder($moneiPayment->getId());
         } catch (MoneiException $ex) {
             PrestaShopLogger::addLog(
                 'MONEI - Exception - validation.php - postProcess: ' . $ex->getMessage() . ' - ' . $ex->getFile(),
