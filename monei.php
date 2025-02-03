@@ -2,10 +2,8 @@
 
 require_once dirname(__FILE__).'/vendor/autoload.php';
 
-use PsMonei\Monei as MoneiClass;
 use PsMonei\MoneiCard;
 use PsMonei\MoneiPaymentMethods;
-use PsMonei\MoneiPaymentStatus;
 use PsMonei\Exception\MoneiException;
 use PsMonei\Helper\PsTools;
 use PsMonei\Traits\ValidationHelpers;
@@ -13,8 +11,6 @@ use PsMonei\Traits\ValidationHelpers;
 use Monei\ApiException;
 use Monei\MoneiClient;
 use OpenAPI\Client\Model\CreatePaymentRequest;
-use OpenAPI\Client\Model\PaymentBillingDetails;
-use OpenAPI\Client\Model\PaymentCustomer;
 use PrestaShop\PrestaShop\Adapter\ServiceLocator;
 use Symfony\Polyfill\Mbstring\Mbstring;
 
@@ -34,6 +30,12 @@ class Monei extends PaymentModule
         'warning' => 3,
         'major' => 4,
     ];
+
+    const NAME = 'monei';
+    const VERSION = '1.5.1';
+
+    private static $serviceContainer;
+    private static $serviceList;
 
     public function __construct()
     {
@@ -138,6 +140,58 @@ class Monei extends PaymentModule
             $this->registerHook('displayPaymentByBinaries') &&
             $this->registerHook('paymentOptions') &&
             $this->registerHook('actionCustomerLogoutAfter');
+    }
+
+    public static function getService($serviceName)
+    {
+        $serviceName = self::NAME . '.' . $serviceName;
+
+        if (is_null(self::$serviceContainer)) {
+            $localPath = _PS_MODULE_DIR_ . self::NAME . '/';
+
+            self::$serviceContainer = new \PrestaShop\ModuleLibServiceContainer\DependencyInjection\ServiceContainer(
+                self::NAME . str_replace('.', '', self::VERSION),
+                $localPath
+            );
+        }
+
+        if (isset(self::$serviceList[$serviceName])) {
+            return self::$serviceList[$serviceName];
+        }
+
+        self::$serviceList[$serviceName] = self::$serviceContainer->getService($serviceName);
+
+        return self::$serviceList[$serviceName];
+    }
+
+    public function getRepository($class)
+    {
+        return $this->get('doctrine.orm.entity_manager')->getRepository($class);
+    }
+
+    public function getDbalConnection()
+    {
+        return $this->get('doctrine.dbal.default_connection');
+    }
+
+    public function getLegacyContext()
+    {
+        return $this->get('prestashop.adapter.legacy.context');
+    }
+
+    public function getLegacyConfiguration()
+    {
+        return $this->get('prestashop.adapter.legacy.configuration');
+    }
+
+    public function getCacheClearerChain()
+    {
+        return $this->get('prestashop.core.cache.clearer.cache_clearer_chain');
+    }
+
+    public function getModuleLink(string $controller, array $params = [])
+    {
+        return $this->context->link->getModuleLink($this->name, $controller, $params);
     }
 
     /**
@@ -1053,79 +1107,6 @@ class Monei extends PaymentModule
         );
     }
 
-    public function getCartAmount($withoutFormatting = false)
-    {
-        $cart = $this->context->cart;
-
-        $cartSummaryDetails = $cart->getSummaryDetails(null, true);
-        $totalShippingTaxExc = $cartSummaryDetails['total_shipping_tax_exc'];
-        $subTotal = $cartSummaryDetails['total_price_without_tax'] - $cartSummaryDetails['total_shipping_tax_exc'];
-        $totalTax = $cartSummaryDetails['total_tax'];
-
-        $currency = new Currency($cart->id_currency);
-        $currencyDecimals = is_array($currency) ? (int) $currency['decimals'] : (int) $currency->decimals;
-        $decimals = $currencyDecimals * _PS_PRICE_DISPLAY_PRECISION_; // _PS_PRICE_DISPLAY_PRECISION_ deprec 1.7.7 TODO
-
-        $total_price = Tools::ps_round($totalShippingTaxExc + $subTotal + $totalTax, $decimals);
-
-        if ($withoutFormatting) {
-            return $total_price;
-        }
-
-        return (int) number_format($total_price, 2, '', '');
-    }
-
-    public function getCustomerData($returnMoneiCustomerObject = false)
-    {
-        $customer = $this->context->customer;
-
-        if (!Validate::isLoadedObject($customer)) {
-            return false;
-        }
-
-        $customer->email = str_replace(':', '', $customer->email);
-        $addressInvoice = new Address((int) $this->context->cart->id_address_invoice);
-
-        $customerData = [
-            'name' => $customer->firstname . ' ' . $customer->lastname,
-            'email' => $customer->email,
-            'phone' => $addressInvoice->phone_mobile ?: $addressInvoice->phone
-        ];
-
-        return $returnMoneiCustomerObject ? new PaymentCustomer($customerData) : $customerData;
-    }
-
-    public function getAddressData($addressId, $returnMoneiBillingObject = false)
-    {
-        $customer = $this->context->customer;
-        $address = new Address((int) $addressId);
-        if (!Validate::isLoadedObject($address) || !Validate::isLoadedObject($customer)) {
-            return false;
-        }
-
-        $state = new State((int) $address->id_state, (int) $this->context->language->id);
-        $stateName = $state->name ?: '';
-
-        $country = new Country($address->id_country, (int) $this->context->language->id);
-
-        $billingData = [
-            'name' => "{$address->firstname} {$address->lastname}",
-            'email' => $customer->email,
-            'phone' => $address->phone_mobile ?: $address->phone,
-            'company' => $address->company,
-            'address' => [
-                'line1' => $address->address1,
-                'line2' => $address->address2,
-                'zip' => $address->postcode,
-                'city' => $address->city,
-                'state' => $stateName,
-                'country' => $country->iso_code
-            ]
-        ];
-
-        return $returnMoneiBillingObject ? new PaymentBillingDetails($billingData) : $billingData;
-    }
-
     /**
      * Remove the MONEI payment cookie by cart amount
      */
@@ -1138,155 +1119,6 @@ class Monei extends PaymentModule
         }
     }
 
-    /*
-     * Create a payment
-     * @param bool $tokenizeCard
-     * @param int $moneiCardId
-     * @param bool $returnMoneiPaymentObject
-     *
-     * @return MoneiPayment|string|false
-     */
-    public function createPayment(bool $tokenizeCard = false, int $moneiCardId = 0)
-    {
-        $cartAmount = $this->getCartAmount();
-        if (empty($cartAmount)) {
-            return false;
-        }
-
-        $cart = $this->context->cart;
-        $link = $this->context->link;
-        $currency = new Currency($cart->id_currency);
-
-        $orderId = str_pad($cart->id . 'm' . time() % 1000, 12, '0', STR_PAD_LEFT); // Redsys/Bizum Style
-
-        $createPaymentRequest = new CreatePaymentRequest();
-        $createPaymentRequest
-            ->setOrderId($orderId)
-            ->setAmount($this->getCartAmount())
-            ->setCurrency($currency->iso_code)
-            ->setCompleteUrl(
-                $link->getModuleLink($this->name, 'confirmation', [
-                    'success' => 1,
-                    'cart_id' => $cart->id,
-                    'order_id' => $orderId
-                ])
-            )
-            ->setFailUrl(
-                $link->getModuleLink($this->name, 'confirmation', [
-                    'success' => 0,
-                    'cart_id' => $cart->id,
-                    'order_id' => $orderId
-                ])
-            )
-            ->setCallbackUrl(
-                $link->getModuleLink($this->name, 'validation')
-            )
-            ->setCancelUrl(
-                $link->getPageLink('order', null, null, 'step=3')
-            );
-
-        $customerData = $this->getCustomerData(true);
-        if (!empty($customerData)) {
-            $createPaymentRequest->setCustomer($customerData);
-        }
-
-        $billingDetails = $this->getAddressData((int) $cart->id_address_invoice, true);
-        if (!empty($billingDetails)) {
-            $createPaymentRequest->setBillingDetails($billingDetails);
-        }
-
-        $shippingDetails = $this->getAddressData((int) $cart->id_address_delivery, true);
-        if (!empty($shippingDetails)) {
-            $createPaymentRequest->setShippingDetails($shippingDetails);
-        }
-
-        $payment_methods = [];
-
-        // Check for available payment methods
-        if (!Configuration::get('MONEI_ALLOW_ALL')) {
-            if (Tools::isSubmit('method')) {
-                $param_method = Tools::getValue('method', 'card');
-                $payment_methods[] = in_array($param_method, MoneiPaymentMethods::getAllowableEnumValues()) ?
-                    $param_method : 'card'; // Fallback card
-            } else {
-                if (Configuration::get('MONEI_ALLOW_CARD')) {
-                    $payment_methods[] = 'card';
-                }
-                if (Configuration::get('MONEI_ALLOW_BIZUM')) {
-                    $payment_methods[] = 'bizum';
-                }
-                if (Configuration::get('MONEI_ALLOW_APPLE')) {
-                    $payment_methods[] = 'applePay';
-                }
-                if (Configuration::get('MONEI_ALLOW_GOOGLE')) {
-                    $payment_methods[] = 'googlePay';
-                }
-                if (Configuration::get('MONEI_ALLOW_CLICKTOPAY')) {
-                    $payment_methods[] = 'clickToPay';
-                }
-                if (Configuration::get('MONEI_ALLOW_PAYPAL')) {
-                    $payment_methods[] = 'paypal';
-                }
-                if (Configuration::get('MONEI_ALLOW_COFIDIS')) {
-                    $payment_methods[] = 'cofidis';
-                }
-                if (Configuration::get('MONEI_ALLOW_KLARNA')) {
-                    $payment_methods[] = 'klarna';
-                }
-                if (Configuration::get('MONEI_ALLOW_MULTIBANCO')) {
-                    $payment_methods[] = 'multibanco';
-                }
-                if (Configuration::get('MONEI_ALLOW_MBWAY')) {
-                    $payment_methods[] = 'mbway';
-                }
-            }
-        }
-
-        $createPaymentRequest->setAllowedPaymentMethods($payment_methods);
-        if ($tokenizeCard) {
-            $createPaymentRequest->setGeneratePaymentToken(true);
-        } else if ($moneiCardId) {
-            $belongsToCustomer = MoneiCard::belongsToCustomer(
-                $moneiCardId,
-                $this->context->customer->id
-            );
-
-            if ($belongsToCustomer) {
-                $tokenizedCard = new MoneiCard($moneiCardId);
-
-                $moneiPayment->setPaymentToken($tokenizedCard->tokenized);
-                $moneiPayment->setGeneratePaymentToken(false);
-            }
-        }
-
-        try {
-            $moneiClient = $this->getMoneiClient();
-            if (!$moneiClient) {
-                throw new MoneiException('Monei client not initialized');
-            }
-            if (!isset($moneiClient->payments)) {
-                throw new MoneiException('Monei client payments not initialized');
-            }
-
-            if (!$createPaymentRequest->valid()) {
-                throw new MoneiException('PaymentRequest is not valid');
-            }
-
-            $moneiPaymentResponse = $moneiClient->payments->create($createPaymentRequest);
-
-            // hacer el save de la
-//             $moneiClass = new MoneiClass();
-
-            return $moneiPaymentResponse;
-        } catch (Exception $ex) {
-            PrestaShopLogger::addLog(
-                'MONEI - Exception - monei.php - createPayment: ' . $ex->getMessage() . ' - ' . $ex->getFile(),
-                self::LOG_SEVERITY_LEVELS['error']
-            );
-
-            return false;
-        }
-    }
     public function isMoneiAvailable($cart)
     {
         if (!$this->active) {
@@ -1384,30 +1216,30 @@ class Monei extends PaymentModule
                 $paymentOptionList['card']['binary'] = true;
             }
 
-            // Get current customer cards (not expired ones)
-            $customer_cards = MoneiCard::getStaticCustomerCards($this->context->cart->id_customer, false);
-            if ($customer_cards) {
-                foreach ($customer_cards as $card) {
-                    $credit_card = new MoneiCard($card['id_monei_tokens']);
-                    $card_number = '**** **** **** ' . $credit_card->last_four;
-                    $card_brand = Tools::strtoupper($credit_card->brand);
-                    $card_expiration = $credit_card->unixEpochToExpirationDate();
+            // // Get current customer cards (not expired ones)
+            // $customer_cards = MoneiCard::getStaticCustomerCards($this->context->cart->id_customer, false);
+            // if ($customer_cards) {
+            //     foreach ($customer_cards as $card) {
+            //         $credit_card = new MoneiCard($card['id_monei_tokens']);
+            //         $card_number = '**** **** **** ' . $credit_card->last_four;
+            //         $card_brand = Tools::strtoupper($credit_card->brand);
+            //         $card_expiration = $credit_card->unixEpochToExpirationDate();
 
-                    $redirectUrl = $this->context->link->getModuleLink($this->name, 'redirect', [
-                        'method' => 'tokenized_card',
-                        'transaction_id' => $transactionId,
-                        'id_monei_card' => $credit_card->id,
-                    ]);
+            //         $redirectUrl = $this->context->link->getModuleLink($this->name, 'redirect', [
+            //             'method' => 'tokenized_card',
+            //             'transaction_id' => $transactionId,
+            //             'id_monei_card' => $credit_card->id,
+            //         ]);
 
-                    $paymentOptionList['card-' . (int) $card['id_monei_tokens']] = [
-                        'method' => 'tokenized_card',
-                        'callToActionText' => $this->l('Saved Card') . ': ' . $card_brand . ' ' . $card_number . ' (' . $card_expiration . ')',
-                        'additionalInformation' => $template,
-                        'logo' => Media::getMediaPath(_PS_MODULE_DIR_ . $this->name . '/views/img/payments/' . strtolower($card_brand) . '.svg'),
-                        'action' => $redirectUrl,
-                    ];
-                }
-            }
+            //         $paymentOptionList['card-' . (int) $card['id_monei_tokens']] = [
+            //             'method' => 'tokenized_card',
+            //             'callToActionText' => $this->l('Saved Card') . ': ' . $card_brand . ' ' . $card_number . ' (' . $card_expiration . ')',
+            //             'additionalInformation' => $template,
+            //             'logo' => Media::getMediaPath(_PS_MODULE_DIR_ . $this->name . '/views/img/payments/' . strtolower($card_brand) . '.svg'),
+            //             'action' => $redirectUrl,
+            //         ];
+            //     }
+            // }
         }
 
         // Bizum
@@ -1612,12 +1444,15 @@ class Monei extends PaymentModule
             }
         }
 
+        $moneiService = $this->getService('service.monei');
+        $cartSummaryDetails = $this->context->cart->getSummaryDetails(null, true);
+
         if ($paymentMethodsToDisplay) {
             $this->context->smarty->assign([
                 'paymentMethodsToDisplay' => $paymentMethodsToDisplay,
                 'moneiAccountId' => Configuration::get('MONEI_ACCOUNT_ID'),
-                'moneiAmount' => $this->getCartAmount(),
-                'moneiAmountFormatted' => Tools::displayPrice($this->getCartAmount(true)),
+                'moneiAmount' => $moneiService->getCartAmount($cartSummaryDetails, $this->context->cart->id_currency),
+                'moneiAmountFormatted' => Tools::displayPrice($moneiService->getCartAmount($cartSummaryDetails, $this->context->cart->id_currency, true)),
                 'moneiCreatePaymentUrlController' => $this->context->link->getModuleLink('monei', 'createPayment'),
                 'moneiToken' => Tools::getToken(false),
                 'moneiCurrency' => $this->context->currency->iso_code,
@@ -1831,8 +1666,6 @@ class Monei extends PaymentModule
     public function hookActionCustomerLogoutAfter()
     {
         unset($this->context->cookie->monei_error);
-
-        $this->removeMoneiPaymentCookie();
     }
 
     /**

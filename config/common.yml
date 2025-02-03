@@ -1,0 +1,34 @@
+services:
+  _defaults:
+    public: true
+
+  monei.module:
+    class: 'Monei'
+    factory: ['Module', 'getInstanceByName']
+    public: true
+    arguments:
+      - 'monei'
+
+  monei.legacy.context:
+    class: 'Monei'
+    factory: ['@monei.module', 'getLegacyContext']
+
+  monei.dbal.connection:
+    class: 'Monei'
+    factory: ['@monei.module', 'getDbalConnection']
+
+  monei.legacy.configuration:
+    class: 'Monei'
+    public: true
+    factory: ['@monei.module', 'getLegacyConfiguration']
+
+  monei.prestashop.core.cache_clearer_chain:
+    class: 'Monei'
+    factory: ['@monei.module', 'getCacheClearerChain']
+
+# REPOSITORIES
+  monei.repository.monei_payment:
+    class: 'PsMonei\Repository\MoneiPaymentRepository'
+    factory: ['@monei.module', 'getRepository']
+    arguments:
+      - 'PsMonei\Entity\MoPayment'

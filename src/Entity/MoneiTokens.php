@@ -7,14 +7,14 @@ use Doctrine\ORM\Mapping as ORM;
  * @ORM\Entity
  * @ORM\Table(name="monei_tokens")
  */
-class MoneiTokens
+class MoneiToken
 {
     /**
      * @ORM\Id
      * @ORM\GeneratedValue
      * @ORM\Column(type="integer")
      */
-    private $id_monei_tokens;
+    private $id_monei_token;
 
     /**
      * @ORM\Column(type="integer")

@@ -1,7 +1,7 @@
 <?php
-use Monei\ApiException;
-use Monei\CoreClasses\Monei;
-use Monei\Model\MoneiPaymentStatus;
+use PsMonei\ApiException;
+use PsMonei\CoreClasses\Monei;
+use PsMonei\Model\MoneiPaymentStatus;
 use PrestaShop\PrestaShop\Adapter\ServiceLocator;
 
 if (!defined('_PS_VERSION_')) {

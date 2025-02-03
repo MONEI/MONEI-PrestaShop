@@ -1,14 +1,12 @@
 <?php
 
-
 $sql = [];
 
-$sql[] = 'CREATE TABLE IF NOT EXISTS `' . _DB_PREFIX_ . 'monei` (
-    `id_monei` int(11) NOT NULL AUTO_INCREMENT,
+$sql[] = 'CREATE TABLE IF NOT EXISTS `' . _DB_PREFIX_ . 'mo_payment` (
+    `id_payment` VARCHAR(50) NOT NULL,
     `id_cart` int(11) NOT NULL,
     `id_order` int(11) DEFAULT NULL,
     `id_order_monei` VARCHAR(50) DEFAULT NULL,
-    `id_order_internal` VARCHAR(50) DEFAULT NULL,
     `amount` int(11) NOT NULL,
     `currency` VARCHAR(3) DEFAULT NULL,
     `authorization_code` VARCHAR(50) DEFAULT NULL,
@@ -16,17 +14,15 @@ $sql[] = 'CREATE TABLE IF NOT EXISTS `' . _DB_PREFIX_ . 'monei` (
     "AUTHORIZED", "EXPIRED", "UNKNOWN") DEFAULT "PENDING",
     `date_add` DATETIME,
     `date_upd` DATETIME,
-    PRIMARY KEY  (`id_monei`),
+    PRIMARY KEY  (`id_payment`),
     INDEX (`id_cart`),
     INDEX (`id_order`),
     INDEX (`id_order_monei`),
-    INDEX (`id_order_internal`),
     INDEX (`id_cart`, `id_order_monei`),
     INDEX (`id_order`, `id_order_monei`),
     INDEX (`id_cart`, `id_order`, `id_order_monei`)
 ) ENGINE=' . _MYSQL_ENGINE_ . ' DEFAULT CHARSET=utf8;';
-
-$sql[] = 'CREATE TABLE IF NOT EXISTS `' . _DB_PREFIX_ . 'monei_history` (
+$sql[] = 'CREATE TABLE IF NOT EXISTS `' . _DB_PREFIX_ . 'mo_history` (
     `id_monei_history` int(11) NOT NULL AUTO_INCREMENT,
     `id_monei` int(11) NOT NULL,
     `status` ENUM("PENDING","SUCCEEDED","FAILED","CANCELED","REFUNDED","PARTIALLY_REFUNDED",
@@ -41,9 +37,8 @@ $sql[] = 'CREATE TABLE IF NOT EXISTS `' . _DB_PREFIX_ . 'monei_history` (
     INDEX (`id_monei_code`),
     INDEX (`id_monei`, `id_monei_code`)
 ) ENGINE=' . _MYSQL_ENGINE_ . ' DEFAULT CHARSET=utf8;';
-
-$sql[] = 'CREATE TABLE `' . _DB_PREFIX_ . 'monei_tokens` (
-    `id_monei_tokens` int(11) NOT NULL AUTO_INCREMENT,
+$sql[] = 'CREATE TABLE `' . _DB_PREFIX_ . 'mo_token` (
+    `id_monei_token` int(11) NOT NULL AUTO_INCREMENT,
     `id_customer` int(11) NOT NULL,
     `brand` varchar(50) DEFAULT NULL,
     `country` varchar(4) DEFAULT NULL,
@@ -57,7 +52,7 @@ $sql[] = 'CREATE TABLE `' . _DB_PREFIX_ . 'monei_tokens` (
     INDEX (`id_customer`)
   ) ENGINE=' . _MYSQL_ENGINE_ . ' DEFAULT CHARSET=utf8;';
 
-$sql[] = 'CREATE TABLE IF NOT EXISTS `' . _DB_PREFIX_ . 'monei_refund` (
+$sql[] = 'CREATE TABLE IF NOT EXISTS `' . _DB_PREFIX_ . 'mo_refund` (
     `id_monei_refund` bigint(20) NOT NULL AUTO_INCREMENT,
     `id_monei` int(11) DEFAULT NULL,
     `id_monei_history` int(11) DEFAULT NULL,
@@ -70,16 +65,14 @@ $sql[] = 'CREATE TABLE IF NOT EXISTS `' . _DB_PREFIX_ . 'monei_refund` (
     INDEX (`id_monei_history`),
     INDEX (`id_employee`)
 ) ENGINE=' . _MYSQL_ENGINE_ . ' DEFAULT CHARSET=utf8;';
-
-$sql[] = 'CREATE TABLE IF NOT EXISTS `' . _DB_PREFIX_ . 'monei_codes` (
+$sql[] = 'CREATE TABLE IF NOT EXISTS `' . _DB_PREFIX_ . 'mo_codes` (
     `id_monei_codes` int(11) NOT NULL AUTO_INCREMENT,
     `code` VARCHAR(4),
     `message` VARCHAR(255),
     PRIMARY KEY  (`id_monei_codes`),
     INDEX (`code`)
 ) ENGINE=' . _MYSQL_ENGINE_ . ' DEFAULT CHARSET=utf8;';
-
-$sql[] = "INSERT INTO `" . _DB_PREFIX_ . "monei_codes` (`code`, `message`) VALUES
+$sql[] = "INSERT INTO `" . _DB_PREFIX_ . "mo_codes` (`code`, `message`) VALUES
     ('E000','Transaction approved'),
     ('E101','Error with payment processor configuration. Check this in your dashboard or contact MONEI for support'),
     ('E102','Invalid or inactive MID. Please contact the acquiring entity'),

@@ -5,7 +5,6 @@ if (!defined('_PS_VERSION_')) {
 
 use PsMonei\Exception\MoneiException;
 use PsMonei\MoneiPaymentStatus;
-use PsMonei\Service\Order\OrderService;
 
 class MoneiConfirmationModuleFrontController extends ModuleFrontController
 {
@@ -23,9 +22,7 @@ class MoneiConfirmationModuleFrontController extends ModuleFrontController
                     $this->module::LOG_SEVERITY_LEVELS['info']
                 );
 
-                // $this->module->createOrUpdateOrder($moneiPaymentId, true);
-                $orderService = new OrderService($this->module);
-                $orderService->createOrUpdateOrder($moneiPaymentId, true);
+                $this->module->getService('service.order')->createOrUpdateOrder($moneiPaymentId, true);
             } else {
                 Tools::redirect('index.php?controller=order');
             }

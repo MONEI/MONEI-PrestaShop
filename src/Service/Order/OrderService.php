@@ -1,8 +1,10 @@
 <?php
-
 namespace PsMonei\Service\Order;
 
-use Monei;
+if (!defined('_PS_VERSION_')) {
+    exit;
+}
+
 use Cart;
 use Customer;
 use Validate;
@@ -19,7 +21,7 @@ class OrderService
     private $moneiInstance;
     private $moneiClient;
 
-    public function __construct(Monei $moneiInstance)
+    public function __construct($moneiInstance)
     {
         $this->moneiInstance = $moneiInstance;
         $this->moneiClient = $this->moneiInstance->getMoneiClient();
@@ -68,7 +70,7 @@ class OrderService
         return $moneiClient->payments->get($moneiPaymentId);
     }
 
-    private function extractCartIdFromMoneiOrderId($moneiOrderId)
+    public function extractCartIdFromMoneiOrderId($moneiOrderId)
     {
         return (int) substr($moneiOrderId, 0, strpos($moneiOrderId, 'm'));
     }
@@ -163,8 +165,6 @@ class OrderService
 
     private function handlePostOrderCreation($redirectToConfirmationPage, $cart, $customer, $order)
     {
-        $this->moneiInstance->removeMoneiPaymentCookie();
-
         if ($redirectToConfirmationPage) {
             Tools::redirect(
                 'index.php?controller=order-confirmation' .

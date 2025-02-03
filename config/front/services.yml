@@ -1,0 +1,22 @@
+imports:
+  - { resource: ../common.yml }
+  - { resource: ../hooks.yml }
+  - { resource: hooks.yml }
+
+services:
+  _defaults:
+    public: true
+
+# SERVICES
+  monei.service.order:
+    class: 'PsMonei\Service\Order\OrderService'
+    arguments:
+      - '@monei.module'
+      - '@monei.repository.monei_payment'
+
+  monei.service.monei:
+    class: 'PsMonei\Service\Monei\MoneiService'
+    arguments:
+      - '@monei.module'
+      - '@monei.legacy.context'
+      - '@monei.repository.monei_payment'
