@@ -1,7 +1,7 @@
 <?php
-use Monei\ApiException;
-use Monei\Model\MoneiPayment;
-use Monei\MoneiException;
+use PsMonei\ApiException;
+use PsMonei\Model\MoneiPayment;
+use PsMonei\MoneiException;
 use PsMonei\Service\Order\OrderService;
 
 if (!defined('_PS_VERSION_')) {

@@ -3,8 +3,8 @@ namespace PsMonei\Helper;
 
 use Context;
 use Db;
-use Monei\ApiException;
-use Monei\Model\Payment;
+use PsMonei\ApiException;
+use PsMonei\Model\Payment;
 use PsMonei\Monei;
 use PsMonei\MoneiPaymentStatus;
 use Order;

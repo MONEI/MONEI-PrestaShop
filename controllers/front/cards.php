@@ -1,6 +1,6 @@
 <?php
 
-use Monei\CoreClasses\MoneiCard;
+use PsMonei\CoreClasses\MoneiCard;
 
 // Load libraries
 require_once dirname(__FILE__) . '/../../vendor/autoload.php';

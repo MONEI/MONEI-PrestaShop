@@ -1,5 +1,5 @@
 <?php
-namespace PsMonei;
+namespace Monei;
 
 use Db;
 use ObjectModel;

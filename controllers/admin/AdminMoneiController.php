@@ -1,11 +1,11 @@
 <?php
 
-use Monei\ApiException;
-use Monei\CoreClasses\Monei as MoneiClass;
-use Monei\CoreHelpers\PsOrderHelper;
-use Monei\Model\MoneiRefundPayment;
-use Monei\Model\MoneiRefundReason;
-use Monei\MoneiClient;
+use PsMonei\ApiException;
+use PsMonei\CoreClasses\Monei as MoneiClass;
+use PsMonei\CoreHelpers\PsOrderHelper;
+use PsMonei\Model\MoneiRefundPayment;
+use PsMonei\Model\MoneiRefundReason;
+use PsMonei\MoneiClient;
 
 class AdminMoneiController extends ModuleAdminController
 {

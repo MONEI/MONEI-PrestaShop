@@ -1,0 +1,13 @@
+<?php
+namespace PsMonei\Exception;
+
+use Exception;
+
+class MoneiException extends Exception
+{
+    const CART_NOT_FOUND = 1;
+    const CART_AMOUNT_EMPTY = 2;
+    const CURRENCY_NOT_FOUND = 3;
+    const CUSTOMER_NOT_FOUND = 4;
+    const ADDRESS_NOT_FOUND = 5;
+}
