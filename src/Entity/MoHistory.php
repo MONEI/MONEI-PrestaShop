@@ -2,7 +2,6 @@
 namespace PsMonei\Entity;
 
 use Doctrine\ORM\Mapping as ORM;
-use OpenAPI\Client\Model\PaymentStatus;
 
 /**
  * @ORM\Table()
@@ -18,10 +17,15 @@ class MoHistory
     private $id;
 
     /**
-     * @ORM\ManyToOne(targetEntity="PsMonei\Entity\MoPayment", inversedBy="paymentHistory")
+     * @ORM\ManyToOne(targetEntity="PsMonei\Entity\MoPayment", inversedBy="history")
      * @ORM\JoinColumn(name="id_payment", referencedColumnName="id_payment", nullable=false)
      */
     private $payment;
+
+    /**
+     * @ORM\OneToOne(targetEntity="PsMonei\Entity\MoRefund", mappedBy="history")
+     */
+    private $refund;
 
     /**
      * @ORM\Column(type="string", length=20)
@@ -29,19 +33,9 @@ class MoHistory
     private $status;
 
     /**
-     * @ORM\Column(type="string", length=4)
+     * @ORM\Column(type="string", length=4, nullable=true)
      */
     private $status_code;
-
-    /**
-     * @ORM\Column(type="boolean")
-     */
-    private $is_refund;
-
-    /**
-     * @ORM\Column(type="boolean")
-     */
-    private $is_callback;
 
     /**
      * @ORM\Column(type="string", length=4000, nullable=true)
@@ -88,40 +82,23 @@ class MoHistory
 
     public function getStatusCode(): ?string
     {
-        return $this->status_code;
+        return $this->status_code ?? '';
     }
 
-    public function setStatusCode(string $status_code): self
+    public function setStatusCode(?string $status_code): self
     {
         $this->status_code = $status_code;
-        return $this;
-    }
-
-    public function isRefund(): ?bool
-    {
-        return $this->is_refund;
-    }
-
-    public function setIsRefund(bool $is_refund): self
-    {
-        $this->is_refund = $is_refund;
-        return $this;
-    }
-
-    public function isCallback(): ?bool
-    {
-        return $this->is_callback;
-    }
-
-    public function setIsCallback(bool $is_callback): self
-    {
-        $this->is_callback = $is_callback;
         return $this;
     }
 
     public function getResponse(): ?string
     {
         return $this->response;
+    }
+
+    public function getResponseDecoded(): ?array
+    {
+        return json_decode($this->response, true);
     }
 
     public function setResponse(?string $response): self
@@ -135,9 +112,39 @@ class MoHistory
         return $this->date_add;
     }
 
+    public function getDateAddFormatted(): ?string
+    {
+        return $this->date_add->format('Y-m-d H:i:s');
+    }
+
     public function setDateAdd(?\DateTime $date_add): self
     {
         $this->date_add = $date_add;
         return $this;
+    }
+
+    public function getRefund(): ?MoRefund
+    {
+        return $this->refund;
+    }
+
+    public function toArray()
+    {
+        return [
+            'status' => $this->getStatus(),
+            'statusCode' => $this->getStatusCode(),
+            'response' => $this->getResponse(),
+            'dateAdd' => $this->getDateAddFormatted(),
+        ];
+    }
+
+    public function toArrayLegacy()
+    {
+        return [
+            'status' => $this->getStatus(),
+            'status_code' => $this->getStatusCode(),
+            'response' => $this->getResponse(),
+            'date_add' => $this->getDateAddFormatted(),
+        ];
     }
 }
