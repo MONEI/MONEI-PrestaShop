@@ -5,16 +5,16 @@ use Doctrine\ORM\Mapping as ORM;
 
 /**
  * @ORM\Table()
- * @ORM\Entity(repositoryClass="PsMonei\Repository\MoneiTokenRepository")
+ * @ORM\Entity(repositoryClass="PsMonei\Repository\MoneiCustomerCardRepository")
  */
-class MoToken
+class MoCustomerCard
 {
     /**
      * @ORM\Id
      * @ORM\GeneratedValue
-     * @ORM\Column(type="integer")
+     * @ORM\Column(name="id_customer_card", type="string", length=50)
      */
-    private $id_token;
+    private $id;
 
     /**
      * @ORM\Column(type="integer")
@@ -66,9 +66,9 @@ class MoToken
         $this->date_add = new \DateTime();
     }
 
-    public function getTokenId(): ?int
+    public function getId(): ?int
     {
-        return $this->id_token;
+        return $this->id;
     }
 
     public function getCustomerId(): ?int
@@ -84,7 +84,7 @@ class MoToken
 
     public function getBrand(): ?string
     {
-        return $this->brand;
+        return strtoupper($this->brand);
     }
 
     public function setBrand(?string $brand): self
@@ -107,6 +107,11 @@ class MoToken
     public function getLastFour(): string
     {
         return $this->last_four;
+    }
+
+    public function getLastFourWithMask(): string
+    {
+        return '**** **** **** ' . $this->last_four;
     }
 
     public function setLastFour(string $last_four): self
@@ -142,6 +147,11 @@ class MoToken
         return $this->expiration;
     }
 
+    public function getExpirationFormatted(): string
+    {
+        return date('m/y', $this->expiration);
+    }
+
     public function setExpiration(int $expiration): self
     {
         $this->expiration = $expiration;
@@ -168,5 +178,39 @@ class MoToken
     {
         $this->date_add = $timestamp ? (new \DateTime())->setTimestamp($timestamp) : null;
         return $this;
+    }
+
+    public function toArrayLegacy(): array
+    {
+        return [
+            'id_customer_card' => $this->id,
+            'id_customer' => $this->id_customer,
+            'brand' => $this->brand,
+            'country' => $this->country,
+            'last_four' => $this->last_four,
+            'last_four_with_mask' => $this->getLastFourWithMask(),
+            'threeds' => $this->threeds,
+            'threeds_version' => $this->threeds_version,
+            'expiration' => $this->expiration,
+            'tokenized' => $this->tokenized,
+            'date_add' => $this->date_add->format('Y-m-d H:i:s'),
+        ];
+    }
+
+    public function toArray(): array
+    {
+        return [
+            'id' => $this->id,
+            'customerId' => $this->id_customer,
+            'brand' => $this->brand,
+            'country' => $this->country,
+            'lastFour' => $this->last_four,
+            'lastFourWithMask' => $this->getLastFourWithMask(),
+            'threeds' => $this->threeds,
+            'threedsVersion' => $this->threeds_version,
+            'expiration' => $this->expiration,
+            'tokenized' => $this->tokenized,
+            'dateAdd' => $this->date_add->format('Y-m-d H:i:s'),
+        ];
     }
 }

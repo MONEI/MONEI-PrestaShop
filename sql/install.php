@@ -38,8 +38,8 @@ $sql[] = 'CREATE TABLE IF NOT EXISTS `' . _DB_PREFIX_ . 'mo_history` (
 ) ENGINE=' . _MYSQL_ENGINE_ . ' DEFAULT CHARSET=utf8;';
 
 // Create mo_token table
-$sql[] = 'CREATE TABLE IF NOT EXISTS `' . _DB_PREFIX_ . 'mo_token` (
-    `id_token` INT(11) NOT NULL AUTO_INCREMENT,
+$sql[] = 'CREATE TABLE IF NOT EXISTS `' . _DB_PREFIX_ . 'mo_customer_card` (
+    `id_customer_card` INT(11) NOT NULL AUTO_INCREMENT,
     `id_customer` INT(11) NOT NULL,
     `brand` VARCHAR(50) DEFAULT NULL,
     `country` VARCHAR(4) DEFAULT NULL,
@@ -49,7 +49,7 @@ $sql[] = 'CREATE TABLE IF NOT EXISTS `' . _DB_PREFIX_ . 'mo_token` (
     `expiration` INT(11) NOT NULL,
     `tokenized` VARCHAR(255) NOT NULL,
     `date_add` DATETIME DEFAULT NULL,
-    PRIMARY KEY (`id_token`),
+    PRIMARY KEY (`id_customer_card`),
     INDEX (`id_customer`)
 ) ENGINE=' . _MYSQL_ENGINE_ . ' DEFAULT CHARSET=utf8;';
 

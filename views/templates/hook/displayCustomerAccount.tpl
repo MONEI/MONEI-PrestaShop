@@ -1,6 +1,6 @@
-{if $is_warehouse == 0}
+{if !$isWarehouseInstalled}
     <a class="col-lg-4 col-md-6 col-sm-6 col-xs-12" title="{l s='My Credit Cards' mod='monei'}"
-       href="{url entity='module' name='monei' controller='cards'}">
+       href="{url entity='module' name='monei' controller='customerCards'}">
         <span class="link-item">
             <i class="material-icons">credit_card</i>
             {l s='My Credit Cards' mod='monei'}
@@ -9,7 +9,7 @@
 {else}
     {* Specific for warehouse theme *}
     <a class="col-lg-4 col-md-6 col-sm-6 col-xs-12" title="{l s='My Credit Cards' mod='monei'}"
-       href="{url entity='module' name='monei' controller='cards'}">
+       href="{url entity='module' name='monei' controller='customerCards'}">
         <span class="link-item">
             <span class="fa fa-credit-card" aria-hidden="true"></span>
             {l s='My Credit Cards' mod='monei'}
