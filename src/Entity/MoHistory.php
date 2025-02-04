@@ -2,24 +2,26 @@
 namespace PsMonei\Entity;
 
 use Doctrine\ORM\Mapping as ORM;
+use OpenAPI\Client\Model\PaymentStatus;
 
 /**
- * @ORM\Entity
- * @ORM\Table(name="monei_history")
+ * @ORM\Table()
+ * @ORM\Entity(repositoryClass="PsMonei\Repository\MoneiHistoryRepository")
  */
-class MoneiHistory
+class MoHistory
 {
     /**
      * @ORM\Id
      * @ORM\GeneratedValue
-     * @ORM\Column(type="integer")
+     * @ORM\Column(name="id_history", type="integer", length=10)
      */
-    private $id_monei_history;
+    private $id;
 
     /**
-     * @ORM\Column(type="integer")
+     * @ORM\ManyToOne(targetEntity="PsMonei\Entity\MoPayment", inversedBy="paymentHistory")
+     * @ORM\JoinColumn(name="id_payment", referencedColumnName="id_payment", nullable=false)
      */
-    private $id_monei;
+    private $payment;
 
     /**
      * @ORM\Column(type="string", length=20)
@@ -27,9 +29,9 @@ class MoneiHistory
     private $status;
 
     /**
-     * @ORM\Column(type="integer")
+     * @ORM\Column(type="string", length=4)
      */
-    private $id_monei_code;
+    private $status_code;
 
     /**
      * @ORM\Column(type="boolean")
@@ -51,20 +53,25 @@ class MoneiHistory
      */
     private $date_add;
 
+    public function __construct()
+    {
+        $this->date_add = new \DateTime();
+    }
+
     // Getters and Setters for each property
-    public function getIdMoneiHistory(): ?int
+    public function getId(): ?int
     {
-        return $this->id_monei_history;
+        return $this->id;
     }
 
-    public function getIdMonei(): ?int
+    public function getPayment()
     {
-        return $this->id_monei;
+        return $this->payment;
     }
 
-    public function setIdMonei(int $id_monei): self
+    public function setPayment(MoPayment $payment)
     {
-        $this->id_monei = $id_monei;
+        $this->payment = $payment;
         return $this;
     }
 
@@ -73,20 +80,20 @@ class MoneiHistory
         return $this->status;
     }
 
-    public function setStatus(string $status): self
+    public function setStatus($status): self
     {
         $this->status = $status;
         return $this;
     }
 
-    public function getIdMoneiCode(): ?int
+    public function getStatusCode(): ?string
     {
-        return $this->id_monei_code;
+        return $this->status_code;
     }
 
-    public function setIdMoneiCode(int $id_monei_code): self
+    public function setStatusCode(string $status_code): self
     {
-        $this->id_monei_code = $id_monei_code;
+        $this->status_code = $status_code;
         return $this;
     }
 

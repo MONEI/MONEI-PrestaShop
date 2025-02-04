@@ -8,15 +8,17 @@ services:
     public: true
 
 # SERVICES
-  monei.service.order:
-    class: 'PsMonei\Service\Order\OrderService'
-    arguments:
-      - '@monei.module'
-      - '@monei.repository.monei_payment'
-
   monei.service.monei:
     class: 'PsMonei\Service\Monei\MoneiService'
     arguments:
       - '@monei.module'
-      - '@monei.legacy.context'
       - '@monei.repository.monei_payment'
+      - '@monei.repository.monei_token'
+      - '@monei.repository.monei_history'
+      - '@monei.repository.monei_refund'
+
+  monei.service.order:
+    class: 'PsMonei\Service\Order\OrderService'
+    arguments:
+      - '@monei.module'
+      - '@monei.service.monei'

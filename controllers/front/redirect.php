@@ -3,6 +3,7 @@ use PsMonei\ApiException;
 use PsMonei\CoreClasses\Monei;
 use PsMonei\Model\MoneiPaymentStatus;
 use PrestaShop\PrestaShop\Adapter\ServiceLocator;
+use PsMonei\Exception\MoneiException;
 
 if (!defined('_PS_VERSION_')) {
     exit;
@@ -39,7 +40,8 @@ class MoneiRedirectModuleFrontController extends ModuleFrontController
                 throw new ApiException('Invalid crypto hash');
             }
 
-            $moneiPayment = $this->module->createPayment($tokenizeCard, $moneiCardId);
+            $moneiService = $this->module->getService('service.monei');
+            $moneiPayment = $moneiService->createMoneiPayment($cart, $tokenizeCard, $moneiCardId);
             if (!$moneiPayment) {
                 Tools::redirect($this->context->link->getPageLink('order'));
             }
@@ -50,52 +52,20 @@ class MoneiRedirectModuleFrontController extends ModuleFrontController
             // Convert the cart to order
             $orderState = new OrderState(Configuration::get('MONEI_STATUS_PENDING'));
             if (Configuration::get('MONEI_CART_TO_ORDER') && Validate::isLoadedObject($orderState)) {
-                $customer = new Customer($cart->id_customer);
-                $currency = new Currency($this->context->cart->id_currency);
-                $currency_decimals = is_array($currency) ?
-                    (int)$currency['decimals'] : (int) $currency->decimals;
-                $cart_details = $this->context->cart->getSummaryDetails(null, true);
-                $decimals = $currency_decimals * _PS_PRICE_DISPLAY_PRECISION_;
-                $shipping = $cart_details['total_shipping_tax_exc'];
-                $subtotal = $cart_details['total_price_without_tax'] -
-                    $cart_details['total_shipping_tax_exc'];
-                $total_tax = $cart_details['total_tax'];
-                $total_price = Tools::ps_round($shipping + $subtotal + $total_tax, $decimals);
-                $amount = (int) number_format($total_price, 2, '', '');
-
-                $paymentMethod = Tools::getValue('method', 'card');
-
-                $this->module->validateOrder(
-                    $cart->id,
-                    $orderState->id,
-                    $amount / 100,
-                    'MONEI ' . $paymentMethod,
-                    null,
-                    array(),
-                    $cart->id_currency,
-                    false,
-                    $customer->secure_key
-                );
-
-                // Check id_order and save it
-                $orderId = (int) Order::getIdByCartId($cart->id);
-                if ($orderId) {
-                    $monei = new Monei($moneiId);
-                    $monei->id_order = $orderId;
-                    $monei->save();
-                }
+                $orderService = $this->module->getService('service.order');
+                $orderService->createOrUpdateOrder($moneiPayment->getId());
             }
 
             if ($moneiPayment->getNextAction()->getMustRedirect()) {
                 $redirectURL = $moneiPayment->getNextAction()->getRedirectUrl();
-                if ($moneiPayment->getStatus() === MoneiPaymentStatus::FAILED) {
+                if ($moneiPayment->getStatus() === $this->module::FAILED) {
                     $redirectURL .= '&message=' . $moneiPayment->getStatusMessage();
                 }
 
                 Tools::redirect($redirectURL);
             }
-        } catch (ApiException $ex) {
-            $this->context->cookie->monei_error = 'API: ' . $ex->getMessage();
+        } catch (MoneiException $ex) {
+            $this->context->cookie->monei_error = 'MONEI: ' . $ex->getMessage();
             Tools::redirect($this->context->link->getModuleLink($this->module->name, 'errors'));
         } catch (Exception $ex) {
             $this->context->cookie->monei_error = $ex->getMessage();
