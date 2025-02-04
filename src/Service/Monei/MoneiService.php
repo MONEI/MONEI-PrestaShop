@@ -24,13 +24,13 @@ use Validate;
 use PrestaShopLogger;
 use OpenAPI\Client\Model\Payment;
 use OpenAPI\Client\Model\RefundPaymentRequest;
+use PsMonei\Entity\MoCustomerCard;
 use PsMonei\Entity\MoPayment;
 use PsMonei\Repository\MoneiPaymentRepository;
-use PsMonei\Repository\MoneiTokenRepository;
 use PsMonei\Repository\MoneiHistoryRepository;
 use PsMonei\Entity\MoHistory;
 use PsMonei\Entity\MoRefund;
-use PsMonei\Entity\MoToken;
+use PsMonei\Repository\MoneiCustomerCardRepository;
 use PsMonei\Repository\MoneiRefundRepository;
 
 class MoneiService
@@ -38,21 +38,21 @@ class MoneiService
     private $moneiInstance;
     private $legacyContext;
     private $moneiPaymentRepository;
-    private $moneiTokenRepository;
+    private $moneiCustomerCardRepository;
     private $moneiHistoryRepository;
     private $moneiRefundRepository;
 
     public function __construct(
         Monei $moneiInstance,
         MoneiPaymentRepository $moneiPaymentRepository,
-        MoneiTokenRepository $moneiTokenRepository,
+        MoneiCustomerCardRepository $moneiCustomerCardRepository,
         MoneiHistoryRepository $moneiHistoryRepository,
         MoneiRefundRepository $moneiRefundRepository
     ) {
         $this->moneiInstance = $moneiInstance;
         $this->legacyContext = $this->moneiInstance->getLegacyContext();
         $this->moneiPaymentRepository = $moneiPaymentRepository;
-        $this->moneiTokenRepository = $moneiTokenRepository;
+        $this->moneiCustomerCardRepository = $moneiCustomerCardRepository;
         $this->moneiHistoryRepository = $moneiHistoryRepository;
         $this->moneiRefundRepository = $moneiRefundRepository;
     }
@@ -243,24 +243,23 @@ class MoneiService
         $cardPayment = $moneiPayment->getPaymentMethod()->getCard();
         $paymentToken = $moneiPayment->getPaymentToken();
         if ($cardPayment && $paymentToken) {
-            $moToken = $this->moneiTokenRepository->findOneBy([
+            $moCustomerCard = $this->moneiCustomerCardRepository->findOneBy([
                 'tokenized' => $paymentToken,
                 'expiration' => $cardPayment->getExpiration(),
                 'last_four' => $cardPayment->getLast4()
             ]);
 
-            if (!$moToken) {
-                $moToken = new MoToken();
-                $moToken->setCustomerId($customerId);
-                $moToken->setBrand($cardPayment->getBrand());
-                $moToken->setCountry($cardPayment->getCountry());
-                $moToken->setLastFour($cardPayment->getLast4());
-                $moToken->setThreeDS($cardPayment->getThreeDSecure());
-                $moToken->setThreeDSVersion($cardPayment->getThreeDSecureVersion());
-                $moToken->setExpiration($cardPayment->getExpiration());
-                $moToken->setTokenized($paymentToken);
+            if (!$moCustomerCard) {
+                $moCustomerCard = new MoCustomerCard();
+                $moCustomerCard->setCustomerId($customerId);
+                $moCustomerCard->setBrand($cardPayment->getBrand());
+                $moCustomerCard->setCountry($cardPayment->getCountry());
+                $moCustomerCard->setLastFour($cardPayment->getLast4());
+                $moCustomerCard->setThreeDS($cardPayment->getThreeDSecure());
+                $moCustomerCard->setExpiration($cardPayment->getExpiration());
+                $moCustomerCard->setTokenized($paymentToken);
 
-                $this->moneiTokenRepository->saveMoneiToken($moToken);
+                $this->moneiCustomerCardRepository->saveMoneiCustomerCard($moCustomerCard);
             }
         }
     }
@@ -336,13 +335,13 @@ class MoneiService
         if ($tokenizeCard) {
             $createPaymentRequest->setGeneratePaymentToken(true);
         } else if ($cardTokenId) {
-            $moToken = $this->moneiTokenRepository->findOneBy([
-                'id_token' => $cardTokenId,
+            $moCustomerCard = $this->moneiCustomerCardRepository->findOneBy([
+                'id' => $cardTokenId,
                 'id_customer' => $customer->id
             ]);
 
-            if ($moToken) {
-                $createPaymentRequest->setPaymentToken($moToken->getTokenized());
+            if ($moCustomerCard) {
+                $createPaymentRequest->setPaymentToken($moCustomerCard->getTokenized());
                 $createPaymentRequest->setGeneratePaymentToken(false);
             }
         }

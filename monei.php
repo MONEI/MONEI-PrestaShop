@@ -2,15 +2,12 @@
 
 require_once dirname(__FILE__).'/vendor/autoload.php';
 
-use PsMonei\MoneiCard;
 use PsMonei\MoneiPaymentMethods;
-use PsMonei\Helper\PsTools;
-use PsMonei\Traits\ValidationHelpers;
 
 use Monei\ApiException;
 use Monei\MoneiClient;
-use OpenAPI\Client\Model\CreatePaymentRequest;
 use PrestaShop\PrestaShop\Adapter\ServiceLocator;
+use PsMonei\Entity\MoCustomerCard;
 use PsMonei\Entity\MoPayment;
 use Symfony\Polyfill\Mbstring\Mbstring;
 
@@ -19,8 +16,6 @@ if (!defined('_PS_VERSION_')) {
 }
 class Monei extends PaymentModule
 {
-    use ValidationHelpers;
-
     protected $config_form = false;
     protected $paymentMethods;
 
@@ -1169,18 +1164,6 @@ class Monei extends PaymentModule
         );
     }
 
-    /**
-     * Remove the MONEI payment cookie by cart amount
-     */
-    public function removeMoneiPaymentCookie()
-    {
-        foreach ($this->context->cookie->getAll() as $key => $value) {
-            if (strpos($key, 'monei_payment_') === 0) {
-                unset($this->context->cookie->$key);
-            }
-        }
-    }
-
     public function isMoneiAvailable($cart)
     {
         if (!$this->active) {
@@ -1278,30 +1261,29 @@ class Monei extends PaymentModule
                 $paymentOptionList['card']['binary'] = true;
             }
 
-            // // Get current customer cards (not expired ones)
-            // $customer_cards = MoneiCard::getStaticCustomerCards($this->context->cart->id_customer, false);
-            // if ($customer_cards) {
-            //     foreach ($customer_cards as $card) {
-            //         $credit_card = new MoneiCard($card['id_monei_tokens']);
-            //         $card_number = '**** **** **** ' . $credit_card->last_four;
-            //         $card_brand = Tools::strtoupper($credit_card->brand);
-            //         $card_expiration = $credit_card->unixEpochToExpirationDate();
+            // Get current customer cards (not expired ones)
+            $activeCustomerCards = $this->getRepository(MoCustomerCard::class)->getActiveCustomerCards($this->context->cart->id_customer);
+            if ($activeCustomerCards) {
+                foreach ($activeCustomerCards as $customerCard) {
+                    $callToActionText = $this->l('Saved Card');
+                    $callToActionText .= ': ' . $customerCard->getBrand() . ' ' . $customerCard->getLastFourWithMask();
+                    $callToActionText .= ' (' . $customerCard->getExpirationFormatted() . ')';
 
-            //         $redirectUrl = $this->context->link->getModuleLink($this->name, 'redirect', [
-            //             'method' => 'tokenized_card',
-            //             'transaction_id' => $transactionId,
-            //             'id_monei_card' => $credit_card->id,
-            //         ]);
+                    $redirectUrl = $this->context->link->getModuleLink($this->name, 'redirect', [
+                        'method' => 'tokenized_card',
+                        'transaction_id' => $transactionId,
+                        'id_monei_card' => $customerCard->getId(),
+                    ]);
 
-            //         $paymentOptionList['card-' . (int) $card['id_monei_tokens']] = [
-            //             'method' => 'tokenized_card',
-            //             'callToActionText' => $this->l('Saved Card') . ': ' . $card_brand . ' ' . $card_number . ' (' . $card_expiration . ')',
-            //             'additionalInformation' => $template,
-            //             'logo' => Media::getMediaPath(_PS_MODULE_DIR_ . $this->name . '/views/img/payments/' . strtolower($card_brand) . '.svg'),
-            //             'action' => $redirectUrl,
-            //         ];
-            //     }
-            // }
+                    $paymentOptionList['card-' . $customerCard->getId()] = [
+                        'method' => 'tokenized_card',
+                        'callToActionText' => $callToActionText,
+                        'additionalInformation' => $template,
+                        'logo' => Media::getMediaPath(_PS_MODULE_DIR_ . $this->name . '/views/img/payments/' . strtolower($customerCard->getBrand()) . '.svg'),
+                        'action' => $redirectUrl,
+                    ];
+                }
+            }
         }
 
         // Bizum
@@ -1319,7 +1301,7 @@ class Monei extends PaymentModule
 
         // Apple
         if (Configuration::get('MONEI_ALLOW_APPLE') &&
-            PsTools::isSafariBrowser() &&
+            $this->isSafariBrowser() &&
             (!$moneiPaymentMethod || $moneiPaymentMethod->isPaymentMethodAllowed(MoneiPaymentMethods::APPLE, $currencyIsoCode))
         ) {
             $paymentOptionList['applePay'] = [
@@ -1333,7 +1315,7 @@ class Monei extends PaymentModule
 
         // Google
         if (Configuration::get('MONEI_ALLOW_GOOGLE') &&
-            !PsTools::isSafariBrowser() &&
+            !$this->isSafariBrowser() &&
             (!$moneiPaymentMethod || $moneiPaymentMethod->isPaymentMethodAllowed(MoneiPaymentMethods::GOOGLE, $currencyIsoCode))
         ) {
             $paymentOptionList['googlePay'] = [
@@ -1589,6 +1571,7 @@ class Monei extends PaymentModule
             'orderTotalPaid' => $order->getTotalPaid() * 100,
             'currencySymbol' => $currency->getSign('right'),
             'currencyIso' => $currency->iso_code,
+            'sweetalert2' => 'https://cdn.jsdelivr.net/npm/sweetalert2@11',
         ]);
 
         return $this->display(__FILE__, 'views/templates/hook/displayAdminOrder.tpl');
@@ -1599,11 +1582,27 @@ class Monei extends PaymentModule
      */
     public function hookActionFrontControllerSetMedia()
     {
+        if (!property_exists($this->context->controller, 'page_name')) {
+            return;
+        }
+
+        $pageName = $this->context->controller->page_name;
+
+        if ($pageName == 'module-monei-customerCards' || $pageName == 'checkout') {
+            $sweetalert2 = 'https://cdn.jsdelivr.net/npm/sweetalert2@11';
+            $this->context->controller->registerJavascript(
+                sha1($sweetalert2),
+                $sweetalert2,
+                [
+                    'server' => 'remote',
+                    'priority' => 50,
+                    'attribute' => 'defer',
+                ]
+            );
+        }
+
         // Checkout
-        if (
-            property_exists($this->context->controller, 'page_name')
-            && $this->context->controller->page_name == 'checkout'
-        ) {
+        if ($pageName == 'checkout') {
             $moneiv2 = 'https://js.monei.com/v2/monei.js';
             $this->context->controller->registerJavascript(
                 sha1($moneiv2),
@@ -1615,20 +1614,9 @@ class Monei extends PaymentModule
                 ]
             );
 
-            $sweetalert2 = 'https://cdn.jsdelivr.net/npm/sweetalert2@11';
-            $this->context->controller->registerJavascript(
-                sha1($sweetalert2),
-                $sweetalert2,
-                [
-                    'server' => 'remote',
-                    'priority' => 50,
-                    'attribute' => 'defer',
-                ]
-            );
-
             $this->context->controller->registerJavascript(
                 'module-' . $this->name . '-front',
-                'modules/' . $this->name . '/views/js/front.js',
+                'modules/' . $this->name . '/views/js/front/front.js',
                 [
                     'priority' => 300,
                     'attribute' => 'async',
@@ -1638,7 +1626,7 @@ class Monei extends PaymentModule
 
             $this->context->controller->registerStylesheet(
                 'module-' . $this->name . '-checkout-page',
-                'modules/' . $this->name . '/views/css/checkout_page.css',
+                'modules/' . $this->name . '/views/css/front/checkout_page.css',
                 [
                     'priority' => 200,
                     'media' => 'all',
@@ -1657,38 +1645,21 @@ class Monei extends PaymentModule
         }
 
         // Card manager
-        if (
-            property_exists($this->context->controller, 'page_name')
-            && $this->context->controller->page_name == 'module-monei-cards'
-        ) {
-            $msg_title_remove_card = $this->l('Remove card');
-            $msg_text_remove_card = $this->l('Are you sure you want to remove this card?');
-            $btn_cancel_remove_card = $this->l('Cancel');
-            $btn_confirm_remove_card = $this->l('Confirm');
-            $monei_successfully_removed_card = $this->l('Card successfully removed');
-
+        if ($pageName == 'module-monei-customerCards') {
             Media::addJsDef([
-                'monei_title_remove_card' => $msg_title_remove_card,
-                'monei_text_remove_card' => $msg_text_remove_card,
-                'monei_cancel_remove_card' => $btn_cancel_remove_card,
-                'monei_confirm_remove_card' => $btn_confirm_remove_card,
-                'monei_successfully_removed_card' => $monei_successfully_removed_card,
-                'monei_index_url' => $this->context->link->getPageLink('index')
+                'MoneiVars' => [
+                    'titleRemoveCard' => $this->l('Remove card'),
+                    'textRemoveCard' => $this->l('Are you sure you want to remove this card?'),
+                    'cancelRemoveCard' => $this->l('Cancel'),
+                    'confirmRemoveCard' => $this->l('Confirm'),
+                    'successfullyRemovedCard' => $this->l('Card successfully removed'),
+                    'indexUrl' => $this->context->link->getPageLink('index')
+                ]
             ]);
 
             $this->context->controller->registerJavascript(
-                'module-' . $this->name . '-sweet',
-                'modules/' . $this->name . '/views/js/sweetalert.min.js',
-                [
-                    'priority' => 300,
-                    'attribute' => 'async',
-                    'position' => 'bottom',
-                ]
-            );
-
-            $this->context->controller->registerJavascript(
-                'module-' . $this->name . '-cards',
-                'modules/' . $this->name . '/views/js/cards.js',
+                'module-' . $this->name . '-customerCards',
+                'modules/' . $this->name . '/views/js/front/customerCards.js',
                 [
                     'priority' => 300,
                     'attribute' => 'async',
@@ -1700,17 +1671,14 @@ class Monei extends PaymentModule
 
     public function hookDisplayCustomerAccount()
     {
-        $nb_cards = MoneiCard::getNbCards($this->context->customer->id);
-        $is_warehouse = Module::isEnabled('iqitelementor');
+        $customerCards = $this->getRepository(MoCustomerCard::class)->findBy(['id_customer' => $this->context->customer->id]);
 
-        if ($nb_cards > 0) {
-            $this->context->smarty->assign(
-                [
-                    'is_warehouse' => $is_warehouse
-                ]
-            );
+        $isWarehouseInstalled = Module::isEnabled('iqitelementor');
 
-            return $this->display(__FILE__, 'views/templates/hook/customer_account.tpl');
+        if ($customerCards) {
+            $this->context->smarty->assign('isWarehouseInstalled', $isWarehouseInstalled);
+
+            return $this->display(__FILE__, 'views/templates/hook/displayCustomerAccount.tpl');
         }
     }
 
@@ -1720,22 +1688,37 @@ class Monei extends PaymentModule
     public function hookActionDeleteGDPRCustomer($customer)
     {
         if (!empty($customer['id'])) {
-            $sql = 'DELETE FROM `' . _DB_PREFIX_ . 'monei_tokens` WHERE `id_customer` = ' . (int)$customer['id'];
-            if (Db::getInstance()->execute($sql)) {
+            try {
+                $customerCards = $this->getRepository(MoCustomerCard::class)->findBy(['id_customer' => (int) $customer['id']]);
+                if ($customerCards) {
+                    foreach ($customerCards as $customerCard) {
+                        $this->getRepository(MoCustomerCard::class)->removeMoneiCustomerCard($customerCard);
+                    }
+                }
+
                 return json_encode(true);
+            } catch (Exception $e) {
+                return json_encode($this->l('MONEI Official: Unable to delete customer tokenized cards from database'));
             }
-            return json_encode($this->l('MONEI Official: Unable to delete customer tokenized cards from database'));
         }
     }
 
     public function hookActionExportGDPRData($customer)
     {
         if (!empty($customer['id'])) {
-            $sql = 'SELECT * FROM `' . _DB_PREFIX_ . 'monei_tokens` WHERE `id_customer` = ' . (int)$customer['id'];
-            if ($res = Db::getInstance()->execute($sql)) {
-                return json_encode($res);
+            try {
+                $customerCards = $this->getRepository(MoCustomerCard::class)->findBy(['id_customer' => (int) $customer['id']]);
+                if ($customerCards) {
+                    $customerCardsArray = [];
+                    foreach ($customerCards as $customerCard) {
+                        $customerCardsArray[] = $customerCard->toArrayLegacy();
+                    }
+
+                    return json_encode($customerCardsArray);
+                }
+            } catch (Exception $e) {
+                return json_encode($this->l('MONEI Official: Unable to export customer tokenized cards from database'));
             }
-            return json_encode($this->l('MONEI Official: Unable to export customer tokenized cards from database'));
         }
     }
 
@@ -1750,7 +1733,7 @@ class Monei extends PaymentModule
     public function hookDisplayBackOfficeHeader()
     {
         if (Tools::getValue('configure') === $this->name) {
-            $this->context->controller->addCSS($this->_path . 'views/css/moneiback.css');
+            $this->context->controller->addCSS($this->_path . 'views/css/admin/admin.css');
         }
 
         // Only for Orders controller, we dont need to load JS/CSS everywhere
@@ -1768,17 +1751,10 @@ class Monei extends PaymentModule
             ],
         ]);
 
-        // JS
-        $this->context->controller->addJS($this->_path . 'views/js/admin/admin.js');
-
-        // Libraries
-
-        // CSS
         $this->context->controller->addCSS($this->_path . 'views/css/jquery.json-viewer.css');
 
-        // JS
-        $this->context->controller->addJS($this->_path . 'views/js/sweetalert.min.js');
         $this->context->controller->addJS($this->_path . 'views/js/jquery.json-viewer.js');
+        $this->context->controller->addJS($this->_path . 'views/js/admin/admin.js');
     }
 
     /**
@@ -1812,5 +1788,18 @@ class Monei extends PaymentModule
     {
         $locale = Tools::getContextLocale($this->context);
         return $locale->formatPrice($price, $currencyIso);
+    }
+
+    /**
+     * Detects if Safari is the current browser.
+     * @return bool
+     */
+    public function isSafariBrowser()
+    {
+        $userBrowser = Tools::getUserBrowser();
+        if (strpos($userBrowser, 'Safari') !== false) {
+            return true;
+        }
+        return false;
     }
 }

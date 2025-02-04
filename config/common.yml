@@ -33,11 +33,11 @@ services:
     arguments:
       - 'PsMonei\Entity\MoPayment'
 
-  monei.repository.monei_token:
-    class: 'PsMonei\Repository\MoneiTokenRepository'
+  monei.repository.monei_customer_card:
+    class: 'PsMonei\Repository\MoneiCustomerCardRepository'
     factory: ['@monei.module', 'getRepository']
     arguments:
-      - 'PsMonei\Entity\MoToken'
+      - 'PsMonei\Entity\MoCustomerCard'
 
   monei.repository.monei_history:
     class: 'PsMonei\Repository\MoneiHistoryRepository'
@@ -57,7 +57,7 @@ services:
     arguments:
       - '@monei.module'
       - '@monei.repository.monei_payment'
-      - '@monei.repository.monei_token'
+      - '@monei.repository.monei_customer_card'
       - '@monei.repository.monei_history'
       - '@monei.repository.monei_refund'
 

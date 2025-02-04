@@ -1,3 +1,5 @@
+<script src="{$sweetalert2}"></script>
+
 <div class="row">
     <div class="col-lg-12">
         <ul class="nav nav-tabs d-print-none" role="tablist">

@@ -39,14 +39,15 @@
         });
 
         $('body').on('click', '#moneiBtnRefund', function () {
-            swal({
+            Swal.fire({
                 title: MoneiVars.titleRefund,
                 text: MoneiVars.textRefund,
                 icon: 'warning',
-                dangerMode: true,
-                buttons: [MoneiVars.cancelRefund, MoneiVars.confirmRefund],
+                showCancelButton: true,
+                confirmButtonText: MoneiVars.confirmRefund,
+                cancelButtonText: MoneiVars.cancelRefund,
             }).then((result) => {
-                if (result) {
+                if (result.isConfirmed) {
                     makeARefund();
                 }
             });
@@ -69,13 +70,13 @@
                 },
                 dataType: 'json',
                 success: function (json_response) {
-                    swal(MoneiVars.titleRefund, json_response['message'], 'success')
+                    Swal.fire(MoneiVars.titleRefund, json_response['message'], 'success')
                         .then(() => {
                             location.reload();
                         });
                 },
                 error: function (xJHR) {
-                    swal(MoneiVars.titleRefund, xJHR.responseJSON.message, 'error');
+                    Swal.fire(MoneiVars.titleRefund, xJHR.responseJSON.message, 'error');
                 },
                 complete: function () {
                     $('body').css('opacity', '1');
