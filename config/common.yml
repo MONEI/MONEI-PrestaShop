@@ -32,3 +32,21 @@ services:
     factory: ['@monei.module', 'getRepository']
     arguments:
       - 'PsMonei\Entity\MoPayment'
+
+  monei.repository.monei_token:
+    class: 'PsMonei\Repository\MoneiTokenRepository'
+    factory: ['@monei.module', 'getRepository']
+    arguments:
+      - 'PsMonei\Entity\MoToken'
+
+  monei.repository.monei_history:
+    class: 'PsMonei\Repository\MoneiHistoryRepository'
+    factory: ['@monei.module', 'getRepository']
+    arguments:
+      - 'PsMonei\Entity\MoHistory'
+
+  monei.repository.monei_refund:
+    class: 'PsMonei\Repository\MoneiRefundRepository'
+    factory: ['@monei.module', 'getRepository']
+    arguments:
+      - 'PsMonei\Entity\MoRefund'

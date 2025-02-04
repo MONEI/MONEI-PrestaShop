@@ -1,8 +1,8 @@
 <?php
+
+use OpenAPI\Client\Model\Payment;
 use PsMonei\ApiException;
-use PsMonei\Model\MoneiPayment;
 use PsMonei\MoneiException;
-use PsMonei\Service\Order\OrderService;
 
 if (!defined('_PS_VERSION_')) {
     exit;
@@ -28,10 +28,10 @@ class MoneiValidationModuleFrontController extends ModuleFrontController
 
         try {
             $this->module->getMoneiClient()->verifySignature($requestBody, $sigHeader);
-        } catch (ApiException $e) {
+        } catch (MoneiException $e) {
             PrestaShopLogger::addLog(
                 'MONEI - Exception - validation.php - postProcess: ' . $e->getMessage() . ' - ' . $e->getFile(),
-                $this->module::LOG_SEVERITY_LEVELS['error']
+                PrestaShopLogger::LOG_SEVERITY_LEVEL_ERROR
             );
 
             header('HTTP/1.1 401 Unauthorized');
@@ -42,7 +42,7 @@ class MoneiValidationModuleFrontController extends ModuleFrontController
 
         try {
             // Check if the data is a valid JSON
-            $json_array = $this->vJSON($requestBody);
+            $json_array = json_decode($requestBody, true);
             if (!$json_array) {
                 throw new ApiException('Invalid JSON');
             }
@@ -50,20 +50,18 @@ class MoneiValidationModuleFrontController extends ModuleFrontController
             // Log the JSON array for debugging
             PrestaShopLogger::addLog(
                 'MONEI - validation.php - postProcess - JSON Data: ' . json_encode($json_array),
-                $this->module::LOG_SEVERITY_LEVELS['info']
+                PrestaShopLogger::LOG_SEVERITY_LEVEL_INFORMATIVE
             );
 
             // Parse the JSON to a MoneiPayment object
-            $moneiPayment = new MoneiPayment($json_array);
+            $moneiPayment = new Payment($json_array);
 
             // Create or update the order
-            // $this->module->createOrUpdateOrder($moneiPayment->getId());
-            $orderService = new OrderService($this->module);
-            $orderService->createOrUpdateOrder($moneiPayment->getId());
+            $this->module->getService('service.order')->createOrUpdateOrder($moneiPayment->getId());
         } catch (MoneiException $ex) {
             PrestaShopLogger::addLog(
                 'MONEI - Exception - validation.php - postProcess: ' . $ex->getMessage() . ' - ' . $ex->getFile(),
-                $this->module::LOG_SEVERITY_LEVELS['error']
+                PrestaShopLogger::LOG_SEVERITY_LEVEL_ERROR
             );
 
             header('HTTP/1.1 400 Bad Request');

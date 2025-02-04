@@ -2,7 +2,7 @@
 namespace PsMonei\Entity;
 
 use Doctrine\ORM\Mapping as ORM;
-use OpenAPI\Client\Model\Payment;
+use Doctrine\Common\Collections\ArrayCollection;
 
 /**
  * @ORM\Table()
@@ -12,9 +12,9 @@ class MoPayment
 {
     /**
      * @ORM\Id
-     * @ORM\Column(type="string", length=50)
+     * @ORM\Column(name="id_payment", type="string", length=50)
      */
-    private $id_payment;
+    private $id;
 
     /**
      * @ORM\Column(type="integer")
@@ -61,16 +61,30 @@ class MoPayment
      */
     private $date_upd;
 
+    /**
+     * @ORM\OneToMany(targetEntity="PsMonei\Entity\MoHistory", cascade={"persist", "remove"}, mappedBy="payment")
+     */
+    private $paymentHistory;
 
+    /**
+     * @ORM\OneToMany(targetEntity="PsMonei\Entity\MoRefund", cascade={"persist", "remove"}, mappedBy="payment")
+     */
+    private $paymentRefund;
 
-    public function getPaymentId(): string
+    public function __construct()
     {
-        return $this->id_payment;
+        $this->paymentHistory = new ArrayCollection();
+        $this->paymentRefund = new ArrayCollection();
     }
 
-    public function setPaymentId(string $id_payment): self
+    public function getId(): string
     {
-        $this->id_payment = $id_payment;
+        return $this->id;
+    }
+
+    public function setId(string $id): self
+    {
+        $this->id = $id;
         return $this;
     }
 
@@ -171,5 +185,57 @@ class MoPayment
     {
         $this->date_upd = $timestamp ? (new \DateTime())->setTimestamp($timestamp) : null;
         return $this;
+    }
+
+    public function getHistory()
+    {
+        return $this->paymentHistory;
+    }
+
+    public function getHistoryFormatted()
+    {
+        dump($this->paymentHistory);die;
+        $historyList = $this->paymentHistory;
+        if (!$historyList) {
+            return [];
+        }
+
+        $historyListFormatted = [];
+
+        foreach ($historyList as $history) {
+            $historyListFormatted[] = json_encode($history);
+        }
+        return $historyListFormatted;
+    }
+
+    public function addHistory(MoHistory $paymentHistory)
+    {
+        $paymentHistory->setPayment($this);
+        $this->paymentHistory->add($paymentHistory);
+    }
+
+    public function getRefunds()
+    {
+        return $this->paymentRefund;
+    }
+
+    public function getRefundsFormatted()
+    {
+        $refundList = $this->paymentRefund;
+        if (!$refundList) {
+            return [];
+        }
+
+        $refundListFormatted = [];
+        foreach ($refundList as $refund) {
+            $refundListFormatted[] = json_encode($refund);
+        }
+        return $refundListFormatted;
+    }
+
+    public function addRefund(MoRefund $paymentRefund)
+    {
+        $paymentRefund->setPayment($this);
+        $this->paymentRefund->add($paymentRefund);
     }
 }

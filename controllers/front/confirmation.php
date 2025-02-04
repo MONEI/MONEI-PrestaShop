@@ -16,10 +16,10 @@ class MoneiConfirmationModuleFrontController extends ModuleFrontController
         $moneiStatus = Tools::getValue('status');
 
         try {
-            if (!empty($moneiPaymentId) && $moneiStatus !== MoneiPaymentStatus::CANCELED) {
+            if (!empty($moneiPaymentId) && $moneiStatus !== $this->module::MONEI_STATUS_CANCELED) {
                 PrestaShopLogger::addLog(
                     'MONEI - confirmation.php - initContent - Monei Payment ID: ' . $moneiPaymentId . ' - Monei Status: ' . $moneiStatus,
-                    $this->module::LOG_SEVERITY_LEVELS['info']
+                    PrestaShopLogger::LOG_SEVERITY_LEVEL_INFORMATIVE
                 );
 
                 $this->module->getService('service.order')->createOrUpdateOrder($moneiPaymentId, true);
@@ -29,7 +29,7 @@ class MoneiConfirmationModuleFrontController extends ModuleFrontController
         } catch (MoneiException $ex) {
             PrestaShopLogger::addLog(
                 'MONEI - Exception - confirmation.php - initContent: ' . $ex->getMessage() . ' - ' . $ex->getFile(),
-                $this->module::LOG_SEVERITY_LEVELS['error']
+                PrestaShopLogger::LOG_SEVERITY_LEVEL_ERROR
             );
 
             $this->context->cookie->monei_error = $ex->getMessage();

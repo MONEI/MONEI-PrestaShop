@@ -12,6 +12,7 @@ use Monei\ApiException;
 use Monei\MoneiClient;
 use OpenAPI\Client\Model\CreatePaymentRequest;
 use PrestaShop\PrestaShop\Adapter\ServiceLocator;
+use PsMonei\Entity\MoPayment;
 use Symfony\Polyfill\Mbstring\Mbstring;
 
 if (!defined('_PS_VERSION_')) {
@@ -30,6 +31,35 @@ class Monei extends PaymentModule
         'warning' => 3,
         'major' => 4,
     ];
+
+    /**
+     * Payment methods
+     */
+    public const MONEI_PAYMENT_METHOD_CARD = 'card';
+    public const MONEI_PAYMENT_METHOD_BIZUM = 'bizum';
+    public const MONEI_PAYMENT_METHOD_APPLE = 'applePay';
+    public const MONEI_PAYMENT_METHOD_GOOGLE = 'googlePay';
+    public const MONEI_PAYMENT_METHOD_CLICKTOPAY = 'clickToPay';
+    public const MONEI_PAYMENT_METHOD_PAYPAL = 'paypal';
+    public const MONEI_PAYMENT_METHOD_COFIDIS = 'cofidis';
+    public const MONEI_PAYMENT_METHOD_KLARNA = 'klarna';
+    public const MONEI_PAYMENT_METHOD_MULTIBANCO = 'multibanco';
+    public const MONEI_PAYMENT_METHOD_MBWAY = 'mbway';
+
+    /**
+     * Payment statuses
+     */
+    public const MONEI_STATUS_SUCCEEDED = 'SUCCEEDED';
+    public const MONEI_STATUS_PENDING = 'PENDING';
+    public const MONEI_STATUS_FAILED = 'FAILED';
+    public const MONEI_STATUS_CANCELED = 'CANCELED';
+    public const MONEI_STATUS_REFUNDED = 'REFUNDED';
+    public const MONEI_STATUS_PARTIALLY_REFUNDED = 'PARTIALLY_REFUNDED';
+    public const MONEI_STATUS_AUTHORIZED = 'AUTHORIZED';
+    public const MONEI_STATUS_EXPIRED = 'EXPIRED';
+    public const MONEI_STATUS_UPDATED = 'UPDATED';
+    public const MONEI_STATUS_PAID_OUT = 'PAID_OUT';
+    public const MONEI_STATUS_PENDING_PROCESSING = 'PENDING_PROCESSING';
 
     const NAME = 'monei';
     const VERSION = '1.5.1';
@@ -192,6 +222,39 @@ class Monei extends PaymentModule
     public function getModuleLink(string $controller, array $params = [])
     {
         return $this->context->link->getModuleLink($this->name, $controller, $params);
+    }
+
+    public static function getPaymentMethodsAllowed()
+    {
+        return [
+            self::CARD,
+            self::BIZUM,
+            self::APPLE,
+            self::GOOGLE,
+            self::CLICKTOPAY,
+            self::PAYPAL,
+            self::COFIDIS,
+            self::KLARNA,
+            self::MULTIBANCO,
+            self::MBWAY,
+        ];
+    }
+
+    public static function getPaymentStatusesAllowed()
+    {
+        return [
+            self::SUCCEEDED,
+            self::PENDING,
+            self::FAILED,
+            self::CANCELED,
+            self::REFUNDED,
+            self::PARTIALLY_REFUNDED,
+            self::AUTHORIZED,
+            self::EXPIRED,
+            self::UPDATED,
+            self::PAID_OUT,
+            self::PENDING_PROCESSING,
+        ];
     }
 
     /**
@@ -1467,13 +1530,22 @@ class Monei extends PaymentModule
      */
     public function hookDisplayAdminOrder($params)
     {
-        $id_order = (int) $params['id_order'];
-        $history_logs = [];
+        $orderId = (int) $params['id_order'];
 
-        $id_monei = MoneiClass::getIdByIdOrder($id_order);
-        if (!$id_monei) {
+        $moPaymentEntity = $this->getRepository(MoPayment::class)->findOneBy(['id_order' => $orderId]);
+        if (!$moPaymentEntity) {
             return;
         }
+
+        $historyLogs = $moPaymentEntity->getHistoryFormatted();
+        dump($historyLogs);
+        die;
+        $refundLogs = $moPaymentEntity->getRefundsFormatted();
+
+        $historyLogs = [];
+
+
+
 
         $monei = new MoneiClass($id_monei);
         $history_logs = $this->formatHistoryLogs($monei->getHistory());
@@ -1716,6 +1788,24 @@ class Monei extends PaymentModule
             }
         }
         return false;
+    }
+
+    private function formatMoPaymentAdmin($moPayment)
+    {
+        $dataListFormatted = [];
+        if (!$moPayment) {
+            return $dataListFormatted;
+        }
+
+        $history = $moPayment->getHistory();
+        $refunds = $moPayment->getRefunds();
+
+
+        foreach ($dataList as $data) {
+            $dataListFormatted[] = $data;
+        }
+
+        return $dataListFormatted;
     }
 
     /**

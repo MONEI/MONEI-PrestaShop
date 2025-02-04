@@ -4,17 +4,17 @@ namespace PsMonei\Entity;
 use Doctrine\ORM\Mapping as ORM;
 
 /**
- * @ORM\Entity
- * @ORM\Table(name="monei_tokens")
+ * @ORM\Table()
+ * @ORM\Entity(repositoryClass="PsMonei\Repository\MoneiTokenRepository")
  */
-class MoneiToken
+class MoToken
 {
     /**
      * @ORM\Id
      * @ORM\GeneratedValue
      * @ORM\Column(type="integer")
      */
-    private $id_monei_token;
+    private $id_token;
 
     /**
      * @ORM\Column(type="integer")
@@ -39,12 +39,12 @@ class MoneiToken
     /**
      * @ORM\Column(type="boolean", nullable=true)
      */
-    private $threeDS;
+    private $threeds;
 
     /**
      * @ORM\Column(type="string", length=50, nullable=true)
      */
-    private $threeDS_version;
+    private $threeds_version;
 
     /**
      * @ORM\Column(type="integer")
@@ -61,18 +61,22 @@ class MoneiToken
      */
     private $date_add;
 
-    // Getters and Setters for each property
-    public function getIdMoneiTokens(): ?int
+    public function __construct()
     {
-        return $this->id_monei_tokens;
+        $this->date_add = new \DateTime();
     }
 
-    public function getIdCustomer(): ?int
+    public function getTokenId(): ?int
+    {
+        return $this->id_token;
+    }
+
+    public function getCustomerId(): ?int
     {
         return $this->id_customer;
     }
 
-    public function setIdCustomer(int $id_customer): self
+    public function setCustomerId(int $id_customer): self
     {
         $this->id_customer = $id_customer;
         return $this;
@@ -113,23 +117,23 @@ class MoneiToken
 
     public function getThreeDS(): ?bool
     {
-        return $this->threeDS;
+        return $this->threeds;
     }
 
-    public function setThreeDS(?bool $threeDS): self
+    public function setThreeDS(?bool $threeds): self
     {
-        $this->threeDS = $threeDS;
+        $this->threeds = $threeds;
         return $this;
     }
 
     public function getThreeDSVersion(): ?string
     {
-        return $this->threeDS_version;
+        return $this->threeds_version;
     }
 
-    public function setThreeDSVersion(?string $threeDS_version): self
+    public function setThreeDSVersion(?string $threeds_version): self
     {
-        $this->threeDS_version = $threeDS_version;
+        $this->threeds_version = $threeds_version;
         return $this;
     }
 
@@ -160,9 +164,9 @@ class MoneiToken
         return $this->date_add;
     }
 
-    public function setDateAdd(?\DateTime $date_add): self
+    public function setDateAdd(?int $timestamp): self
     {
-        $this->date_add = $date_add;
+        $this->date_add = $timestamp ? (new \DateTime())->setTimestamp($timestamp) : null;
         return $this;
     }
 }

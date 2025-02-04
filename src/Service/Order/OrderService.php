@@ -15,23 +15,24 @@ use Order;
 use OrderState;
 use PsMonei\Exception\OrderException;
 use Tools;
+use PsMonei\Service\Monei\MoneiService;
 
 class OrderService
 {
     private $moneiInstance;
-    private $moneiClient;
+    private $moneiService;
 
-    public function __construct($moneiInstance)
+    public function __construct($moneiInstance, MoneiService $moneiService)
     {
         $this->moneiInstance = $moneiInstance;
-        $this->moneiClient = $this->moneiInstance->getMoneiClient();
+        $this->moneiService = $moneiService;
     }
 
     public function createOrUpdateOrder($moneiPaymentId, bool $redirectToConfirmationPage = false)
     {
         try {
-            $moneiPayment = $this->getMoneiPayment($moneiPaymentId);
-            $cartId = $this->extractCartIdFromMoneiOrderId($moneiPayment->getOrderId());
+            $moneiPayment = $this->moneiService->getMoneiPayment($moneiPaymentId);
+            $cartId = $this->moneiService->extractCartIdFromMoneiOrderId($moneiPayment->getOrderId());
             $cart = $this->validateCart($cartId);
             $customer = $this->validateCustomer($cart->id_customer);
 
@@ -44,6 +45,12 @@ class OrderService
                 $order = $this->createNewOrder($cart, $customer, $orderStateId, $moneiPayment);
             }
 
+            if (!$failed) {
+                $this->moneiService->saveMoneiToken($moneiPayment, $customer->id);
+            }
+
+            $this->moneiService->saveMoneiPayment($moneiPayment, $order->id);
+
             $this->handlePostOrderCreation($redirectToConfirmationPage, $cart, $customer, $order);
         } catch (OrderException $e) {
             PrestaShopLogger::addLog(
@@ -51,28 +58,6 @@ class OrderService
                 PrestaShopLogger::LOG_SEVERITY_LEVEL_WARNING
             );
         }
-    }
-
-    private function getMoneiClient()
-    {
-        if (null === $this->moneiClient) {
-            throw new OrderException('Monei client not initialized', OrderException::MONEI_CLIENT_NOT_INITIALIZED);
-        }
-        return $this->moneiClient;
-    }
-
-    public function getMoneiPayment($moneiPaymentId)
-    {
-        $moneiClient = $this->getMoneiClient();
-        if (!isset($moneiClient->payments)) {
-            throw new OrderException('Monei client payments not initialized', OrderException::MONEI_CLIENT_NOT_INITIALIZED);
-        }
-        return $moneiClient->payments->get($moneiPaymentId);
-    }
-
-    public function extractCartIdFromMoneiOrderId($moneiOrderId)
-    {
-        return (int) substr($moneiOrderId, 0, strpos($moneiOrderId, 'm'));
     }
 
     private function determineOrderStateId($moneiPaymentStatus)
@@ -135,6 +120,21 @@ class OrderService
                 $order->setCurrentState($orderStateId);
                 $this->updateOrderPaymentTransactionId($order, $moneiPayment->getId());
             }
+        }
+    }
+
+    public function updateOrderStateAfterRefund(int $orderId)
+    {
+        if ((int) Configuration::get('MONEI_SWITCH_REFUNDS') === 0) {
+            return;
+        }
+
+        $order = new Order($orderId);
+        $totalOrderRefunded = $this->moneiService->getTotalRefundedByIdOrder($orderId);
+        if ($order->getTotalPaid() > $totalOrderRefunded) {
+            $order->setCurrentState(Configuration::get('MONEI_STATUS_PARTIALLY_REFUNDED'));
+        } else {
+            $order->setCurrentState(Configuration::get('MONEI_STATUS_REFUNDED'));
         }
     }
 
