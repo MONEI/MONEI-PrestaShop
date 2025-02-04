@@ -17,14 +17,14 @@ class MoRefund
     private $id;
 
     /**
-     * @ORM\ManyToOne(targetEntity="PsMonei\Entity\MoPayment", inversedBy="paymentRefund")
+     * @ORM\ManyToOne(targetEntity="PsMonei\Entity\MoPayment", inversedBy="refund")
      * @ORM\JoinColumn(name="id_payment", referencedColumnName="id_payment", nullable=false)
      */
     private $payment;
 
     /**
-     * @ORM\ManyToOne(targetEntity="PsMonei\Entity\MoHistory", inversedBy="paymentRefund")
-     * @ORM\JoinColumn(name="id_history", referencedColumnName="id", nullable=false)
+     * @ORM\OneToOne(targetEntity="PsMonei\Entity\MoHistory", inversedBy="refund")
+     * @ORM\JoinColumn(name="id_history", referencedColumnName="id_history", nullable=false)
      */
     private $history;
 
@@ -97,15 +97,15 @@ class MoRefund
         return $this->reason;
     }
 
-    public function setReason(string $reason): self
+    public function setReason(?string $reason): self
     {
         $this->reason = $reason;
         return $this;
     }
 
-    public function getAmount(): ?int
+    public function getAmount(bool $inDecimal = false): ?float
     {
-        return $this->amount;
+        return $inDecimal ? $this->amount / 100 : $this->amount;
     }
 
     public function setAmount(?int $amount): self
@@ -119,9 +119,36 @@ class MoRefund
         return $this->date_add;
     }
 
+    public function getDateAddFormatted(): ?string
+    {
+        return $this->date_add->format('Y-m-d H:i:s');
+    }
+
     public function setDateAdd(?\DateTimeInterface $date_add): self
     {
         $this->date_add = $date_add;
         return $this;
+    }
+
+    public function toArray()
+    {
+        return [
+            'idEmployee' => $this->getEmployeeId(),
+            'reason' => $this->getReason(),
+            'amount' => $this->getAmount(),
+            'amountInDecimal' => $this->getAmount(true),
+            'dateAdd' => $this->getDateAddFormatted(),
+        ];
+    }
+
+    public function toArrayLegacy()
+    {
+        return [
+            'id_employee' => $this->getEmployeeId(),
+            'reason' => $this->getReason(),
+            'amount' => $this->getAmount(),
+            'amount_in_decimal' => $this->getAmount(true),
+            'date_add' => $this->getDateAddFormatted(),
+        ];
     }
 }

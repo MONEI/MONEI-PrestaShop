@@ -8,6 +8,7 @@ $sql[] = 'CREATE TABLE IF NOT EXISTS `' . _DB_PREFIX_ . 'mo_payment` (
     `id_order` INT(11) DEFAULT NULL,
     `id_order_monei` VARCHAR(50) DEFAULT NULL,
     `amount` INT(11) NOT NULL,
+    `refunded_amount` INT(11) DEFAULT NULL,
     `currency` VARCHAR(3) DEFAULT NULL,
     `authorization_code` VARCHAR(50) DEFAULT NULL,
     `status` ENUM("PENDING", "SUCCEEDED", "FAILED", "CANCELED", "REFUNDED", "PARTIALLY_REFUNDED", "AUTHORIZED", "EXPIRED", "UNKNOWN") DEFAULT "PENDING",
@@ -27,9 +28,7 @@ $sql[] = 'CREATE TABLE IF NOT EXISTS `' . _DB_PREFIX_ . 'mo_history` (
     `id_history` INT(11) NOT NULL AUTO_INCREMENT,
     `id_payment` VARCHAR(50) NOT NULL,
     `status` ENUM("PENDING", "SUCCEEDED", "FAILED", "CANCELED", "REFUNDED", "PARTIALLY_REFUNDED", "AUTHORIZED", "EXPIRED", "UNKNOWN") DEFAULT "PENDING",
-    `status_code` VARCHAR(4) NOT NULL,
-    `is_refund` BOOL DEFAULT FALSE,
-    `is_callback` BOOL DEFAULT FALSE,
+    `status_code` VARCHAR(4) DEFAULT NULL,
     `response` VARCHAR(4000) DEFAULT NULL,
     `date_add` DATETIME,
     PRIMARY KEY (`id_history`),
@@ -56,7 +55,7 @@ $sql[] = 'CREATE TABLE IF NOT EXISTS `' . _DB_PREFIX_ . 'mo_token` (
 
 // Create mo_refund table
 $sql[] = 'CREATE TABLE IF NOT EXISTS `' . _DB_PREFIX_ . 'mo_refund` (
-    `id_refund` BIGINT(20) NOT NULL AUTO_INCREMENT,
+    `id_refund` INT(11) NOT NULL AUTO_INCREMENT,
     `id_payment` VARCHAR(50) NOT NULL,
     `id_history` INT(11) DEFAULT NULL,
     `id_employee` INT(11) DEFAULT NULL,

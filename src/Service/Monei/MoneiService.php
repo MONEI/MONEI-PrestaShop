@@ -200,47 +200,49 @@ class MoneiService
         return $totalRefunded;
     }
 
-    public function saveMoneiPayment(Payment $moneiPayment, int $orderId = 0, bool $isRefund = false, bool $isCallback = false)
+    public function saveMoneiPayment(Payment $moneiPayment, int $orderId = 0, int $employeeId = 0)
     {
         $cartId = $this->extractCartIdFromMoneiOrderId($moneiPayment->getOrderId());
 
-        $moPaymentEntity = $this->moneiPaymentRepository->findOneById($moneiPayment->getId());
-        if ($moPaymentEntity) {
-            $moPaymentEntity->setAuthorizationCode($moneiPayment->getAuthorizationCode());
-            $moPaymentEntity->setStatus($moneiPayment->getStatus());
-            $moPaymentEntity->setDateUpd($moneiPayment->getUpdatedAt());
-        } else {
-            $moPaymentEntity = new MoPayment();
-            $moPaymentEntity->setId($moneiPayment->getId());
-            $moPaymentEntity->setCartId($cartId);
-            $moPaymentEntity->setOrderId($orderId);
-            $moPaymentEntity->setOrderMoneiId($moneiPayment->getOrderId());
-            $moPaymentEntity->setAmount($moneiPayment->getAmount());
-            $moPaymentEntity->setCurrency($moneiPayment->getCurrency());
-            $moPaymentEntity->setAuthorizationCode($moneiPayment->getAuthorizationCode());
-            $moPaymentEntity->setStatus($moneiPayment->getStatus());
-            $moPaymentEntity->setDateAdd($moneiPayment->getCreatedAt());
-            $moPaymentEntity->setDateUpd($moneiPayment->getUpdatedAt());
-        }
+        $moPaymentEntity = $this->moneiPaymentRepository->findOneById($moneiPayment->getId()) ?? new MoPayment();
+
+        $moPaymentEntity->setId($moneiPayment->getId());
+        $moPaymentEntity->setCartId($cartId);
+        $moPaymentEntity->setOrderId($orderId);
+        $moPaymentEntity->setOrderMoneiId($moneiPayment->getOrderId());
+        $moPaymentEntity->setAmount($moneiPayment->getAmount());
+        $moPaymentEntity->setRefundedAmount($moneiPayment->getRefundedAmount());
+        $moPaymentEntity->setCurrency($moneiPayment->getCurrency());
+        $moPaymentEntity->setAuthorizationCode($moneiPayment->getAuthorizationCode());
+        $moPaymentEntity->setStatus($moneiPayment->getStatus());
+        $moPaymentEntity->setDateAdd($moneiPayment->getCreatedAt());
+        $moPaymentEntity->setDateUpd($moneiPayment->getUpdatedAt());
 
         $moHistoryEntity = new MoHistory();
         $moHistoryEntity->setStatus($moneiPayment->getStatus());
         $moHistoryEntity->setStatusCode($moneiPayment->getStatusCode());
-        $moHistoryEntity->setIsRefund($isRefund);
-        $moHistoryEntity->setIsCallback($isCallback);
         $moHistoryEntity->setResponse(json_encode($moneiPayment->jsonSerialize()));
-
         $moPaymentEntity->addHistory($moHistoryEntity);
 
+        if ($moneiPayment->getLastRefundAmount() > 0) {
+            $moRefund = new MoRefund();
+            $moRefund->setHistory($moHistoryEntity);
+            $moRefund->setEmployeeId($employeeId);
+            $moRefund->setReason($moneiPayment->getLastRefundReason());
+            $moRefund->setAmount($moneiPayment->getLastRefundAmount());
+            $moPaymentEntity->addRefund($moRefund);
+        }
+
         $this->moneiPaymentRepository->saveMoneiPayment($moPaymentEntity);
+
+        return $moPaymentEntity;
     }
 
     public function saveMoneiToken(Payment $moneiPayment, int $customerId): void
     {
         $cardPayment = $moneiPayment->getPaymentMethod()->getCard();
-        if ($cardPayment) {
-            $paymentToken = $moneiPayment->getPaymentToken();
-
+        $paymentToken = $moneiPayment->getPaymentToken();
+        if ($cardPayment && $paymentToken) {
             $moToken = $this->moneiTokenRepository->findOneBy([
                 'tokenized' => $paymentToken,
                 'expiration' => $cardPayment->getExpiration(),
@@ -261,18 +263,6 @@ class MoneiService
                 $this->moneiTokenRepository->saveMoneiToken($moToken);
             }
         }
-    }
-
-    public function saveMoneiRefund(Payment $moneiPayment, int $moHistoryId = 0, int $employeeId = 0, string $reason): void
-    {
-        $moRefund = new MoRefund();
-        $moRefund->setPaymentId($moneiPayment->getId());
-        $moRefund->setHistoryId($moHistoryId);
-        $moRefund->setEmployeeId($employeeId);
-        $moRefund->setReason($moneiPayment->getCancellationReason());
-        $moRefund->setAmount($moneiPayment->getRefundedAmount());
-
-        $this->moneiRefundRepository->saveMoneiRefund($moRefund);
     }
 
     public function createMoneiPayment(Cart $cart, bool $tokenizeCard = false, int $cardTokenId = 0)
@@ -383,9 +373,9 @@ class MoneiService
         }
     }
 
-    public function createRefund(int $orderId, int $amount, string $reason, int $employeeId = 0)
+    public function createRefund(int $orderId, int $amount, int $employeeId = 0, string $reason)
     {
-        $moneiPayment = $this->moneiPaymentRepository->findOneByIdOrderMonei($orderId);
+        $moneiPayment = $this->moneiPaymentRepository->findOneBy(['id_order' => $orderId]);
         if (!$moneiPayment) {
             throw new MoneiException('The order could not be loaded correctly', MoneiException::ORDER_NOT_FOUND);
         }
@@ -396,7 +386,6 @@ class MoneiService
 
         $moneiPayment = $this->getMoneiClient()->payments->refund($moneiPayment->getId(), $refundPaymentRequest);
 
-        $moHistory = $this->saveMoneiHistory($moneiPayment, true, false);
-        $this->saveMoneiRefund($moneiPayment, $moHistory->getHistoryId(), $employeeId, $reason);
+        $this->saveMoneiPayment($moneiPayment, $orderId, $employeeId);
     }
 }

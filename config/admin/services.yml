@@ -6,5 +6,3 @@ imports:
 services:
   _defaults:
     public: true
-
-# SERVICES

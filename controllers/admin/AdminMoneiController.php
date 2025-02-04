@@ -2,10 +2,24 @@
 
 class AdminMoneiController extends ModuleAdminController
 {
+    /** @var monei */
+    public $module;
+
+    /**
+     * @param string $content
+     *
+     * @throws PrestaShopException
+     */
+    protected function ajaxRenderJson($content)
+    {
+        header('Content-Type: application/json');
+        $this->ajaxRender(json_encode($content));
+    }
+
     /**
      * Process the "refund" action for AJAX requests
      */
-    public function ajaxProcessRefund()
+    public function displayAjaxRefund()
     {
         $amount = Tools::getValue('amount');
         $orderId = (int) Tools::getValue('id_order');
@@ -20,16 +34,19 @@ class AdminMoneiController extends ModuleAdminController
             $amount = str_replace([',', '.'], '', $amount) * $multiplier;
 
             $this->module->getService('service.monei')
-                ->createRefund($orderId, $amount, $reason);
+                ->createRefund($orderId, $amount, $this->context->employee->id, $reason);
             $this->module->getService('service.order')
                 ->updateOrderStateAfterRefund($orderId);
 
-            die(json_encode([
+            $this->ajaxRenderJson([
                 'code' => 200,
                 'message' => $this->l('Refunded successfully'),
-            ]));
+            ]);
         } catch (Exception $e) {
-            die();
+            $this->ajaxRenderJson([
+                'code' => $e->getCode(),
+                'message' => $e->getMessage(),
+            ]);
         }
     }
 }

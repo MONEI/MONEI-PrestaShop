@@ -37,6 +37,11 @@ class MoPayment
     private $amount;
 
     /**
+     * @ORM\Column(type="integer")
+     */
+    private $refunded_amount;
+
+    /**
      * @ORM\Column(type="string", length=3)
      */
     private $currency;
@@ -64,17 +69,34 @@ class MoPayment
     /**
      * @ORM\OneToMany(targetEntity="PsMonei\Entity\MoHistory", cascade={"persist", "remove"}, mappedBy="payment")
      */
-    private $paymentHistory;
+    private $historyList;
 
     /**
      * @ORM\OneToMany(targetEntity="PsMonei\Entity\MoRefund", cascade={"persist", "remove"}, mappedBy="payment")
      */
-    private $paymentRefund;
+    private $refundList;
 
     public function __construct()
     {
-        $this->paymentHistory = new ArrayCollection();
-        $this->paymentRefund = new ArrayCollection();
+        $this->historyList = new ArrayCollection();
+        $this->refundList = new ArrayCollection();
+
+        $this->setDateAdd(time());
+        $this->setDateUpd(time());
+    }
+
+    public function isRefundable(): bool
+    {
+        if ($this->getRefundedAmount() < $this->getAmount()) {
+            return true;
+        }
+
+        return false;
+    }
+
+    public function getRemainingAmountToRefund(): int
+    {
+        return $this->getAmount() - $this->getRefundedAmount();
     }
 
     public function getId(): string
@@ -121,14 +143,25 @@ class MoPayment
         return $this;
     }
 
-    public function getAmount(): ?int
+    public function getAmount(bool $inDecimal = false): ?int
     {
-        return $this->amount;
+        return $inDecimal ? $this->amount / 100 : $this->amount;
     }
 
     public function setAmount(int $amount): self
     {
         $this->amount = $amount;
+        return $this;
+    }
+
+    public function getRefundedAmount(bool $inDecimal = false): ?float
+    {
+        return $inDecimal ? $this->refunded_amount / 100 : $this->refunded_amount;
+    }
+
+    public function setRefundedAmount(?int $refunded_amount): self
+    {
+        $this->refunded_amount = $refunded_amount;
         return $this;
     }
 
@@ -170,6 +203,11 @@ class MoPayment
         return $this->date_add;
     }
 
+    public function getDateAddFormatted(): ?string
+    {
+        return $this->date_add->format('Y-m-d H:i:s');
+    }
+
     public function setDateAdd(?int $timestamp): self
     {
         $this->date_add = $timestamp ? (new \DateTime())->setTimestamp($timestamp) : null;
@@ -181,61 +219,79 @@ class MoPayment
         return $this->date_upd;
     }
 
+    public function getDateUpdFormatted(): ?string
+    {
+        return $this->date_upd->format('Y-m-d H:i:s');
+    }
+
     public function setDateUpd(?int $timestamp): self
     {
         $this->date_upd = $timestamp ? (new \DateTime())->setTimestamp($timestamp) : null;
         return $this;
     }
 
-    public function getHistory()
+    public function getHistoryList()
     {
-        return $this->paymentHistory;
-    }
-
-    public function getHistoryFormatted()
-    {
-        dump($this->paymentHistory);die;
-        $historyList = $this->paymentHistory;
-        if (!$historyList) {
-            return [];
-        }
-
-        $historyListFormatted = [];
-
-        foreach ($historyList as $history) {
-            $historyListFormatted[] = json_encode($history);
-        }
-        return $historyListFormatted;
+        return $this->historyList;
     }
 
     public function addHistory(MoHistory $paymentHistory)
     {
         $paymentHistory->setPayment($this);
-        $this->paymentHistory->add($paymentHistory);
+        $this->historyList->add($paymentHistory);
     }
 
-    public function getRefunds()
+    public function getRefundList()
     {
-        return $this->paymentRefund;
+        return $this->refundList;
     }
 
-    public function getRefundsFormatted()
+    public function getRefundByHistoryId($historyId)
     {
-        $refundList = $this->paymentRefund;
-        if (!$refundList) {
-            return [];
+        foreach ($this->refundList as $refund) {
+            if ($refund->getHistory()->getId() === (int) $historyId) {
+                return $refund;
+            }
         }
 
-        $refundListFormatted = [];
-        foreach ($refundList as $refund) {
-            $refundListFormatted[] = json_encode($refund);
-        }
-        return $refundListFormatted;
+        return null;
     }
 
     public function addRefund(MoRefund $paymentRefund)
     {
         $paymentRefund->setPayment($this);
-        $this->paymentRefund->add($paymentRefund);
+        $this->refundList->add($paymentRefund);
+    }
+
+    public function toArray()
+    {
+        return [
+            'id' => $this->getId(),
+            'cartId' => $this->getCartId(),
+            'orderId' => $this->getOrderId(),
+            'orderMoneiId' => $this->getOrderMoneiId(),
+            'amount' => $this->getAmount(),
+            'currency' => $this->getCurrency(),
+            'authorizationCode' => $this->getAuthorizationCode(),
+            'status' => $this->getStatus(),
+            'dateAdd' => $this->getDateAddFormatted(),
+            'dateUpd' => $this->getDateUpdFormatted(),
+        ];
+    }
+
+    public function toArrayLegacy()
+    {
+        return [
+            'id_payment' => $this->getId(),
+            'id_cart' => $this->getCartId(),
+            'id_order' => $this->getOrderId(),
+            'id_order_monei' => $this->getOrderMoneiId(),
+            'amount' => $this->getAmount(),
+            'currency' => $this->getCurrency(),
+            'authorization_code' => $this->getAuthorizationCode(),
+            'status' => $this->getStatus(),
+            'date_add' => $this->getDateAddFormatted(),
+            'date_upd' => $this->getDateUpdFormatted(),
+        ];
     }
 }

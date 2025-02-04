@@ -4,7 +4,6 @@ require_once dirname(__FILE__).'/vendor/autoload.php';
 
 use PsMonei\MoneiCard;
 use PsMonei\MoneiPaymentMethods;
-use PsMonei\Exception\MoneiException;
 use PsMonei\Helper\PsTools;
 use PsMonei\Traits\ValidationHelpers;
 
@@ -62,7 +61,7 @@ class Monei extends PaymentModule
     public const MONEI_STATUS_PENDING_PROCESSING = 'PENDING_PROCESSING';
 
     const NAME = 'monei';
-    const VERSION = '1.5.1';
+    const VERSION = '2.0.0';
 
     private static $serviceContainer;
     private static $serviceList;
@@ -72,7 +71,7 @@ class Monei extends PaymentModule
         $this->displayName = 'MONEI Payments';
         $this->name = 'monei';
         $this->tab = 'payments_gateways';
-        $this->version = '1.5.1';
+        $this->version = '2.0.0';
         $this->author = 'MONEI';
         $this->need_instance = 0;
         $this->ps_versions_compliancy = ['min' => '1.7', 'max' => _PS_VERSION_];
@@ -1537,57 +1536,62 @@ class Monei extends PaymentModule
             return;
         }
 
-        $historyLogs = $moPaymentEntity->getHistoryFormatted();
-        dump($historyLogs);
-        die;
-        $refundLogs = $moPaymentEntity->getRefundsFormatted();
-
-        $historyLogs = [];
-
-
-
-
-        $monei = new MoneiClass($id_monei);
-        $history_logs = $this->formatHistoryLogs($monei->getHistory());
-        $refund_logs = $this->formatHistoryLogs($monei->getRefundHistory(), true);
-        $order = new Order($id_order);
-        $total_order = $order->getTotalPaid() * 100;
-        $amount_refunded = $monei->getTotalRefunded($id_monei);
-
-        $is_refundable = false;
-        if ($amount_refunded <= $total_order) {
-            $is_refundable = true;
+        $order = new Order($orderId);
+        if (!Validate::isLoadedObject($order)) {
+            return;
         }
 
         $currency = new Currency($order->id_currency);
-        $this->context->smarty->assign(
-            [
-                'admin_monei_token' => Tools::getAdminTokenLite('AdminMonei'),
-                'id_order' => $id_order,
-                'refund_logs' => $refund_logs,
-                'history_logs' => $history_logs,
-                'id_order_monei' => $monei->id_order_monei,
-                'id_order_internal' => $monei->id_order_internal,
-                'authorization_code' => $monei->authorization_code,
-                //'status' => $monei->status,
-                'max_amount' => ($monei->amount - $amount_refunded) / 100,
-                'amount_paid' => $total_order,
-                'amount_refunded' => $amount_refunded,
-                'amount_refunded_formatted' => $this->formatPrice(
-                    $amount_refunded / 100,
-                    MoneiClass::getISOCurrencyByIdOrder($id_order)
-                ),
-                'is_refundable' => $is_refundable,
-                'currency_symbol' => $currency->getSign('right'),
-                'currency_iso' => $currency->iso_code
-            ]
-        );
-        $template = 'order177';
-        if (version_compare(_PS_VERSION_, '1.7.7', '<')) {
-            $template = 'order17';
+        if (!Validate::isLoadedObject($currency)) {
+            return;
         }
 
-        return $this->display(__FILE__, 'views/templates/admin/' . $template . '.tpl');
+        $paymentHistoryLogs = [];
+        $paymentRefundLogs = [];
+
+        $paymentHistory = $moPaymentEntity->getHistoryList();
+        if (!$paymentHistory->isEmpty()) {
+            foreach ($paymentHistory as $history) {
+                $paymentHistoryLog = $history->toArrayLegacy();
+                $paymentHistoryLog['responseDecoded'] = $history->getResponseDecoded();
+                $paymentHistoryLog['responseB64'] = Mbstring::mb_convert_encoding($history->getResponse(), 'BASE64');
+
+                $paymentHistoryLogs[] = $paymentHistoryLog;
+
+                $paymentRefund = $moPaymentEntity->getRefundByHistoryId($history->getId());
+                if ($paymentRefund) {
+                    $paymentRefundLog = $paymentRefund->toArrayLegacy();
+                    $paymentRefundLog['paymentHistory'] = $paymentHistoryLog;
+                    $paymentRefundLog['amountFormatted'] = $this->formatPrice($paymentRefundLog['amount_in_decimal'], $currency->iso_code);
+
+                    $employeeEmail = '';
+                    if ($paymentRefundLog['id_employee']) {
+                        $employee = new Employee($paymentRefundLog['id_employee']);
+                        $employeeEmail = $employee->email;
+                    }
+
+                    $paymentRefundLog['employeeEmail'] = $employeeEmail;
+
+                    $paymentRefundLogs[] = $paymentRefundLog;
+                }
+            }
+        }
+
+        $this->context->smarty->assign([
+            'moneiPayment' => $moPaymentEntity->toArrayLegacy(),
+            'isRefundable' => $moPaymentEntity->isRefundable(),
+            'remainingAmountToRefund' => $moPaymentEntity->getRemainingAmountToRefund(),
+            'totalRefundedAmount' => $moPaymentEntity->getRefundedAmount(),
+            'totalRefundedAmountFormatted' => $this->formatPrice($moPaymentEntity->getRefundedAmount(true), $currency->iso_code),
+            'paymentHistoryLogs' => $paymentHistoryLogs,
+            'paymentRefundLogs' => $paymentRefundLogs,
+            'orderId' => $orderId,
+            'orderTotalPaid' => $order->getTotalPaid() * 100,
+            'currencySymbol' => $currency->getSign('right'),
+            'currencyIso' => $currency->iso_code,
+        ]);
+
+        return $this->display(__FILE__, 'views/templates/hook/displayAdminOrder.tpl');
     }
 
     /**
@@ -1754,18 +1758,26 @@ class Monei extends PaymentModule
             return;
         }
 
-        // jQuery is already included by default on 1.7.7 or higher
-        if (version_compare(_PS_VERSION_, '1.7.7', '<')) {
-            if (method_exists($this->context->controller, 'addJquery')) {
-                $this->context->controller->addJquery();
-            }
-        }
+        Media::addJsDef([
+            'MoneiVars' => [
+                'titleRefund' => $this->l('Refund'),
+                'textRefund' => $this->l('Are you sure you want to refund this order?'),
+                'confirmRefund' => $this->l('Yes, make the refund'),
+                'cancelRefund' => $this->l('Cancel'),
+                'adminMoneiControllerUrl' => $this->context->link->getAdminLink('AdminMonei'),
+            ],
+        ]);
+
+        // JS
+        $this->context->controller->addJS($this->_path . 'views/js/admin/admin.js');
+
+        // Libraries
 
         // CSS
         $this->context->controller->addCSS($this->_path . 'views/css/jquery.json-viewer.css');
+
         // JS
         $this->context->controller->addJS($this->_path . 'views/js/sweetalert.min.js');
-        $this->context->controller->addJS($this->_path . 'views/js/moneiback.js');
         $this->context->controller->addJS($this->_path . 'views/js/jquery.json-viewer.js');
     }
 
@@ -1790,96 +1802,15 @@ class Monei extends PaymentModule
         return false;
     }
 
-    private function formatMoPaymentAdmin($moPayment)
-    {
-        $dataListFormatted = [];
-        if (!$moPayment) {
-            return $dataListFormatted;
-        }
-
-        $history = $moPayment->getHistory();
-        $refunds = $moPayment->getRefunds();
-
-
-        foreach ($dataList as $data) {
-            $dataListFormatted[] = $data;
-        }
-
-        return $dataListFormatted;
-    }
-
-    /**
-     * Get formatted logs for Smarty templates
-     * @param mixed $history_logs
-     * @param bool $are_refunds
-     * @return array
-     */
-    private function formatHistoryLogs($history_logs, $are_refunds = false)
-    {
-        $logs = [];
-        if (!$history_logs) {
-            return $logs;
-        }
-
-        foreach ($history_logs as $history) {
-            // Instanciamos MoneiPayment
-            $json_clean = trim(str_replace('\"', '"', $history['response']), '"');
-            $json_clean = trim(str_replace('\\"', '"', $json_clean), '"');
-            $json_array = $this->vJSON($json_clean);
-
-            if ($json_array) {
-                $badge = 'info';
-                if (isset($json_array['status'])) {
-                    switch ($json_array['status']) {
-                        case 'FAILED':
-                            $badge = 'danger';
-                            break;
-                        case 'PENDING':
-                            $badge = 'warning';
-                            break;
-                        case 'REFUNDED':
-                        case 'PARTIALLY_REFUNDED':
-                        case 'SUCCESS':
-                            $badge = 'success';
-                            break;
-                    }
-                }
-
-                if ($are_refunds) {
-                    $id_order = (int)MoneiClass::getIdOrderByIdMonei($history['id_monei']);
-                    $iso_currency = MoneiClass::getISOCurrencyByIdOrder($id_order);
-                    $details = MoneiClass::getRefundDetailByIdMoneiHistory($history['id_monei_history']);
-                    $employee = new Employee($details['id_employee']);
-                    $amount = $details['amount'];
-                    $json_array['amount'] = $this->formatPrice($amount / 100, $iso_currency);
-                    $json_array['employee'] = $employee->email;
-                }
-
-                $json_array['date_add'] = $history['date_add'];
-                $json_array['b64'] = Mbstring::mb_convert_encoding(json_encode($json_array), 'BASE64');
-                $json_array['badge'] = $badge;
-                $json_array['is_callback'] = $history['is_callback'];
-                $logs[] = $json_array;
-            }
-        }
-
-        return $logs;
-    }
-
     /**
      * Formats number to Currency (price)
      * @param mixed $price
      * @return mixed
      * @throws LocalizationException
      */
-    private function formatPrice($price, $iso_currency)
+    private function formatPrice($price, $currencyIso)
     {
-        if (version_compare(_PS_VERSION_, '1.7.7', '>=')) {
-            $context = Context::getContext();
-            $locale = Tools::getContextLocale($context);
-            return $locale->formatPrice($price, $iso_currency);
-        } else {
-            return Tools::displayPrice($price);
-        }
+        $locale = Tools::getContextLocale($this->context);
+        return $locale->formatPrice($price, $currencyIso);
     }
 }
