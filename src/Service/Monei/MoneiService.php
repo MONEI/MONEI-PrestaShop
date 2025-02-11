@@ -16,70 +16,108 @@ use Tools;
 use Customer;
 use Address;
 use State;
-use Monei;
 use Country;
 use Exception;
 use Monei\MoneiClient;
 use Validate;
 use PrestaShopLogger;
 use OpenAPI\Client\Model\Payment;
+use OpenAPI\Client\Model\PaymentPaymentMethod;
 use OpenAPI\Client\Model\RefundPaymentRequest;
 use PsMonei\Entity\MoCustomerCard;
 use PsMonei\Entity\MoPayment;
 use PsMonei\Repository\MoneiPaymentRepository;
-use PsMonei\Repository\MoneiHistoryRepository;
 use PsMonei\Entity\MoHistory;
 use PsMonei\Entity\MoRefund;
 use PsMonei\Repository\MoneiCustomerCardRepository;
 use PsMonei\Repository\MoneiRefundRepository;
+use PrestaShop\PrestaShop\Adapter\LegacyContext;
 
 class MoneiService
 {
-    private $moneiInstance;
     private $legacyContext;
     private $moneiPaymentRepository;
     private $moneiCustomerCardRepository;
-    private $moneiHistoryRepository;
     private $moneiRefundRepository;
 
     public function __construct(
-        Monei $moneiInstance,
+        LegacyContext $legacyContext,
         MoneiPaymentRepository $moneiPaymentRepository,
         MoneiCustomerCardRepository $moneiCustomerCardRepository,
-        MoneiHistoryRepository $moneiHistoryRepository,
         MoneiRefundRepository $moneiRefundRepository
     ) {
-        $this->moneiInstance = $moneiInstance;
-        $this->legacyContext = $this->moneiInstance->getLegacyContext();
+        $this->legacyContext = $legacyContext;
         $this->moneiPaymentRepository = $moneiPaymentRepository;
         $this->moneiCustomerCardRepository = $moneiCustomerCardRepository;
-        $this->moneiHistoryRepository = $moneiHistoryRepository;
         $this->moneiRefundRepository = $moneiRefundRepository;
     }
 
-    private function getMoneiClient()
+    public function getMoneiClient()
     {
         $apiKey = Configuration::get('MONEI_API_KEY');
-
         if (!$apiKey) {
-            throw new MoneiException('The monei api key is not set.', MoneiException::MONEI_API_KEY_IS_EMPTY);
+            throw new MoneiException('Monei client not initialized.', MoneiException::MONEI_CLIENT_NOT_INITIALIZED);
         }
 
-        try {
-            return new MoneiClient($apiKey);
-        } catch (Exception $e) {
-            PrestaShopLogger::addLog(
-                'MONEI - Exception - MoneiService.php - getMoneiClient: ' . $e->getMessage() . ' - ' . $e->getFile(),
-                PrestaShopLogger::LOG_SEVERITY_LEVEL_ERROR
-            );
+        return new MoneiClient($apiKey);
+    }
 
+    public function getMoneiAccountInformation()
+    {
+        $accountId = Configuration::get('MONEI_ACCOUNT_ID');
+        if (!$accountId) {
+            throw new MoneiException('Monei account id is not set.', MoneiException::MONEI_ACCOUNT_ID_IS_EMPTY);
+        }
+
+        $endpoint = 'https://api.monei.com/v1/payment-methods?accountId=' . $accountId;
+
+        $response = Tools::file_get_contents($endpoint);
+        if (!$response) {
+            throw new MoneiException('Monei account information not found.', MoneiException::MONEI_ACCOUNT_INFORMATION_NOT_FOUND);
+        }
+
+        $responseJson = json_decode($response, true);
+        if (json_last_error() !== JSON_ERROR_NONE) {
+            throw new MoneiException('Invalid JSON response from Monei.', MoneiException::INVALID_JSON_RESPONSE);
+        }
+
+        return $responseJson;
+    }
+
+    public function isPaymentMethodAllowedByCurrency(array $paymentMethodsAllowed, string $paymentMethod, string $currencyIsoCode, string $countryIsoCode = null): bool
+    {
+        if ($currencyIsoCode !== 'EUR') {
             return false;
+        }
+
+        if (!isset($paymentMethodsAllowed)) {
+            // If the payment methods are not found, we allow the payment method
+            return true;
+        }
+
+        if (!in_array($paymentMethod, $paymentMethodsAllowed)) {
+            return false;
+        }
+
+        switch ($paymentMethod) {
+            case PaymentPaymentMethod::METHOD_BIZUM:
+                return $countryIsoCode === 'ES';
+            case PaymentPaymentMethod::METHOD_COFIDIS:
+                return $countryIsoCode === 'ES';
+            case PaymentPaymentMethod::METHOD_MULTIBANCO:
+            case PaymentPaymentMethod::METHOD_MBWAY:
+                return $countryIsoCode === 'PT';
+            case PaymentPaymentMethod::METHOD_KLARNA:
+                return in_array($countryIsoCode, ['AT', 'BE', 'CH', 'DE', 'DK', 'ES', 'FI', 'FR', 'GB', 'IT', 'NL', 'NO', 'SE']);
+            default:
+                return true;
         }
     }
 
     public function getMoneiPayment($moneiPaymentId)
     {
         $moneiClient = $this->getMoneiClient();
+
         if (!isset($moneiClient->payments)) {
             throw new MoneiException('Monei client payments not initialized.', MoneiException::MONEI_CLIENT_NOT_INITIALIZED);
         }
@@ -96,7 +134,7 @@ class MoneiService
         return (int) substr($moneiOrderId, 0, strpos($moneiOrderId, 'm'));
     }
 
-    public function getCartAmount(array $cartSummaryDetails, int $currencyId, bool $withoutFormatting = false): int|float
+    public function getCartAmount(array $cartSummaryDetails, int $currencyId, bool $withoutFormatting = false)
     {
         $totalPrice = $cartSummaryDetails['total_price_without_tax'] + $cartSummaryDetails['total_tax'];
 
@@ -285,6 +323,8 @@ class MoneiService
             throw new MoneiException('The customer could not be loaded correctly', MoneiException::CUSTOMER_NOT_LOADED);
         }
 
+        $link = $this->legacyContext->getContext()->link;
+
         $orderId = $this->createMoneiOrderId($cart->id);
 
         $createPaymentRequest = new CreatePaymentRequest();
@@ -293,21 +333,21 @@ class MoneiService
             ->setAmount($cartAmount)
             ->setCurrency($currency->iso_code)
             ->setCompleteUrl(
-                $this->moneiInstance->getModuleLink('confirmation', [
+                $link->getModuleLink('monei', 'confirmation', [
                     'success' => 1,
                     'cart_id' => $cart->id,
                     'order_id' => $orderId
                 ])
             )
             ->setFailUrl(
-                $this->moneiInstance->  getModuleLink('confirmation', [
+                $link->getModuleLink('monei', 'confirmation', [
                     'success' => 0,
                     'cart_id' => $cart->id,
                     'order_id' => $orderId
                 ])
             )
             ->setCallbackUrl(
-                $this->moneiInstance->getModuleLink('validation')
+                $link->getModuleLink('monei', 'validation')
             )
             ->setCancelUrl(
                 $this->legacyContext->getFrontUrl('order')
