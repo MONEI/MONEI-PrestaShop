@@ -18,7 +18,6 @@
                     <tr>
                         <th>{l s='#' mod='monei'}</th>
                         <th>{l s='Brand' mod='monei'}</th>
-                        <th>{l s='3D Secure' mod='monei'}</th>
                         <th>{l s='Numbers' mod='monei'}</th>
                         <th>{l s='Expiration' mod='monei'}</th>
                         <th>{l s='Date Added' mod='monei'}</th>
@@ -33,13 +32,6 @@
                                 <img width="48"
                                      src="{$modules_dir|escape:'html':'UTF-8'}/monei/views/img/payments/{$customerCard.brand|escape:'html':'UTF-8'}.svg"
                                      class="img img-responsive" alt="{$customerCard.brand|escape:'html':'UTF-8'}">
-                            </td>
-                            <td class="text-center">
-                                {if $customerCard.threeds}
-                                    <span class="material-icons text-success">verified_user</span>
-                                {else}
-                                    <span class="material-icons text-danger">block</span>
-                                {/if}
                             </td>
                             <td>{$customerCard.lastFourWithMask|escape:'html':'UTF-8'}</td>
                             <td>{$customerCard.expiration|date_format:'%m/%y'|escape:'html':'UTF-8'}</td>

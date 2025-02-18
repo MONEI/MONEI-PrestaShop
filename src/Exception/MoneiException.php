@@ -17,4 +17,5 @@ class MoneiException extends Exception
     const MONEI_ACCOUNT_ID_IS_EMPTY = 10;
     const MONEI_ACCOUNT_INFORMATION_NOT_FOUND = 11;
     const INVALID_JSON_RESPONSE = 12;
+    const INVALID_CRYPTO_HASH = 13;
 }

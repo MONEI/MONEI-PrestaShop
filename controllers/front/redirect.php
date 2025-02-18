@@ -1,7 +1,5 @@
 <?php
-
 use OpenAPI\Client\Model\PaymentStatus;
-use PsMonei\ApiException;
 use PrestaShop\PrestaShop\Adapter\ServiceLocator;
 use PsMonei\Exception\MoneiException;
 
@@ -15,10 +13,6 @@ class MoneiRedirectModuleFrontController extends ModuleFrontController
 
     public function postProcess()
     {
-        if (Tools::getValue('action') === 'error') {
-            return $this->displayError();
-        }
-
         $transactionId = Tools::getValue('transaction_id');
         $tokenizeCard = (bool) Tools::getValue('tokenize_card', false);
         $moneiCardId = (int) Tools::getValue('id_monei_card', 0);
@@ -37,7 +31,7 @@ class MoneiRedirectModuleFrontController extends ModuleFrontController
 
         try {
             if (!$check_encrypt) {
-                throw new ApiException('Invalid crypto hash');
+                throw new MoneiException('Invalid crypto hash', MoneiException::INVALID_CRYPTO_HASH);
             }
 
             $moneiService = $this->module->getService('service.monei');
@@ -61,19 +55,11 @@ class MoneiRedirectModuleFrontController extends ModuleFrontController
 
                 Tools::redirect($redirectURL);
             }
-        } catch (MoneiException $ex) {
-            $this->context->cookie->monei_error = 'MONEI: ' . $ex->getMessage();
-            Tools::redirect($this->context->link->getModuleLink($this->module->name, 'errors'));
         } catch (Exception $ex) {
             $this->context->cookie->monei_error = $ex->getMessage();
             Tools::redirect($this->context->link->getModuleLink($this->module->name, 'errors'));
         }
 
         exit;
-    }
-
-    protected function displayError()
-    {
-        return $this->setTemplate('error.tpl');
     }
 }

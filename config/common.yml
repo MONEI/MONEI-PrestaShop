@@ -65,3 +65,11 @@ services:
     arguments:
       - '@monei.module'
       - '@monei.service.monei'
+
+  monei.service.payment:
+    class: 'PsMonei\Service\Payment\PaymentOptionService'
+    arguments:
+      - '@monei.service.monei'
+      - '@monei.repository.monei_customer_card'
+      - '@monei.legacy.configuration'
+      - '@monei.legacy.context'

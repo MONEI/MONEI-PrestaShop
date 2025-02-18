@@ -37,16 +37,6 @@ class Monei2CustomerCard
     private $last_four;
 
     /**
-     * @ORM\Column(type="boolean", nullable=true)
-     */
-    private $threeds;
-
-    /**
-     * @ORM\Column(type="string", length=50, nullable=true)
-     */
-    private $threeds_version;
-
-    /**
      * @ORM\Column(type="integer")
      */
     private $expiration;
@@ -120,28 +110,6 @@ class Monei2CustomerCard
         return $this;
     }
 
-    public function getThreeDS(): ?bool
-    {
-        return $this->threeds;
-    }
-
-    public function setThreeDS(?bool $threeds): self
-    {
-        $this->threeds = $threeds;
-        return $this;
-    }
-
-    public function getThreeDSVersion(): ?string
-    {
-        return $this->threeds_version;
-    }
-
-    public function setThreeDSVersion(?string $threeds_version): self
-    {
-        $this->threeds_version = $threeds_version;
-        return $this;
-    }
-
     public function getExpiration(): int
     {
         return $this->expiration;
@@ -189,8 +157,6 @@ class Monei2CustomerCard
             'country' => $this->country,
             'last_four' => $this->last_four,
             'last_four_with_mask' => $this->getLastFourWithMask(),
-            'threeds' => $this->threeds,
-            'threeds_version' => $this->threeds_version,
             'expiration' => $this->expiration,
             'tokenized' => $this->tokenized,
             'date_add' => $this->date_add->format('Y-m-d H:i:s'),
@@ -206,8 +172,6 @@ class Monei2CustomerCard
             'country' => $this->country,
             'lastFour' => $this->last_four,
             'lastFourWithMask' => $this->getLastFourWithMask(),
-            'threeds' => $this->threeds,
-            'threedsVersion' => $this->threeds_version,
             'expiration' => $this->expiration,
             'tokenized' => $this->tokenized,
             'dateAdd' => $this->date_add->format('Y-m-d H:i:s'),

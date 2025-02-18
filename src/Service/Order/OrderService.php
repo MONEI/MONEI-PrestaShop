@@ -31,6 +31,8 @@ class OrderService
     public function createOrUpdateOrder($moneiPaymentId, bool $redirectToConfirmationPage = false)
     {
         try {
+            // check flag order with error log
+
             $moneiPayment = $this->moneiService->getMoneiPayment($moneiPaymentId);
             $cartId = $this->moneiService->extractCartIdFromMoneiOrderId($moneiPayment->getOrderId());
             $cart = $this->validateCart($cartId);
@@ -50,6 +52,8 @@ class OrderService
             }
 
             $this->moneiService->saveMoneiPayment($moneiPayment, $order->id);
+
+            // save flag order
 
             $this->handlePostOrderCreation($redirectToConfirmationPage, $cart, $customer, $order);
         } catch (OrderException $e) {

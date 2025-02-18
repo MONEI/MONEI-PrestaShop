@@ -20,8 +20,8 @@ function upgrade_module_2_0_0()
 
     // Migration monei_tokens to monei2_customer_card
     // ----------------------------------------------
-    $sql = 'INSERT INTO `' . _DB_PREFIX_ . 'monei2_customer_card` (`id_customer_card`, `id_customer`, `brand`, `country`, `last_four`, `threeds`, `threeds_version`, `expiration`, `tokenized`, `date_add`)
-              SELECT `id_monei_tokens`, `id_customer`, `brand`, `country`, `last_four`, `threeDS`, `threeDS_version`, `expiration`, `tokenized`, `date_add`
+    $sql = 'INSERT INTO `' . _DB_PREFIX_ . 'monei2_customer_card` (`id_customer_card`, `id_customer`, `brand`, `country`, `last_four`, `expiration`, `tokenized`, `date_add`)
+              SELECT `id_monei_tokens`, `id_customer`, `brand`, `country`, `last_four`, `expiration`, `tokenized`, `date_add`
               FROM `' . _DB_PREFIX_ . 'monei_tokens`;';
     $db->execute($sql);
     // ----------------------------------------------
