@@ -15,6 +15,7 @@ use Order;
 use OrderState;
 use PsMonei\Exception\OrderException;
 use Tools;
+use Db;
 use PsMonei\Service\Monei\MoneiService;
 
 class OrderService
@@ -31,7 +32,12 @@ class OrderService
     public function createOrUpdateOrder($moneiPaymentId, bool $redirectToConfirmationPage = false)
     {
         try {
-            // check flag order with error log
+            // Check if order already exists
+            $query = 'SELECT * FROM ' . _DB_PREFIX_ . 'monei2_order_payment WHERE id_payment = "' . $moneiPaymentId . '"';
+            $orderPaymentExists = Db::getInstance()->getRow($query);
+            if ($orderPaymentExists) {
+                PrestaShopLogger::addLog('MONEI - createOrUpdateOrder - Order: (' . $result['id_order'] . ') already exists. Payment ID: ' . $moneiPaymentId . ' Date: ' . $result['date_add'], PrestaShopLogger::LOG_SEVERITY_LEVEL_WARNING);
+            }
 
             $moneiPayment = $this->moneiService->getMoneiPayment($moneiPaymentId);
             $cartId = $this->moneiService->extractCartIdFromMoneiOrderId($moneiPayment->getOrderId());
@@ -53,7 +59,11 @@ class OrderService
 
             $this->moneiService->saveMoneiPayment($moneiPayment, $order->id);
 
-            // save flag order
+            // Flag order created or updated
+            $sql = 'INSERT INTO ' . _DB_PREFIX_ . 'monei2_order_payment (id_order, id_payment, date_add) VALUES (' . $order->id . ', "' . $moneiPaymentId . '", NOW())';
+            if (!$orderPaymentExists && Db::getInstance()->execute($sql)) {
+                PrestaShopLogger::addLog('MONEI - createOrUpdateOrder - Order (' . $order->id . ') created or updated.', PrestaShopLogger::LOG_SEVERITY_LEVEL_INFORMATIVE);
+            }
 
             $this->handlePostOrderCreation($redirectToConfirmationPage, $cart, $customer, $order);
         } catch (OrderException $e) {
@@ -106,6 +116,11 @@ class OrderService
 
                 throw new OrderException('Order (' . $existingOrder->id . ') already exists with a different payment method.', OrderException::ORDER_ALREADY_EXISTS);
             }
+
+            PrestaShopLogger::addLog(
+                'MONEI - CreateOrderService - Order (' . $existingOrder->id . ') already exists.',
+                PrestaShopLogger::LOG_SEVERITY_LEVEL_INFORMATIVE
+            );
 
             $this->updateExistingOrder($existingOrder, $orderStateId, $moneiPayment);
 

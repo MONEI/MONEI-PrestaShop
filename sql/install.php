@@ -62,6 +62,14 @@ $sql[] = 'CREATE TABLE IF NOT EXISTS `' . _DB_PREFIX_ . 'monei2_refund` (
     INDEX (`id_employee`)
 ) ENGINE=' . _MYSQL_ENGINE_ . ' DEFAULT CHARSET=utf8;';
 
+$sql[] = 'CREATE TABLE IF NOT EXISTS `' . _DB_PREFIX_ . 'monei2_order_payment` (
+    `id_payment` VARCHAR(50) NOT NULL,
+    `id_order` INT(11) NOT NULL,
+    `date_add` DATETIME DEFAULT NULL,
+    PRIMARY KEY (`id_payment`),
+    INDEX (`id_order`)
+) ENGINE=' . _MYSQL_ENGINE_ . ' DEFAULT CHARSET=utf8;';
+
 // Execute SQL queries
 foreach ($sql as $query) {
     if (Db::getInstance()->execute($query) === false) {
