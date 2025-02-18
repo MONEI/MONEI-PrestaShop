@@ -66,7 +66,7 @@ services:
       - '@monei.module'
       - '@monei.service.monei'
 
-  monei.service.payment:
+  monei.service.payment.option:
     class: 'PsMonei\Service\Payment\PaymentOptionService'
     arguments:
       - '@monei.service.monei'

@@ -119,16 +119,14 @@ class PaymentOptionService
             ];
 
             if ($this->configuration->get('MONEI_CARD_WITH_REDIRECT')) {
-                $redirectUrl = $this->context->link->getModuleLink('monei', 'redirect', [
-                    'method' => 'card',
-                    'transaction_id' => $this->getTransactionId(),
-                ]);
-
                 if ($this->configuration->get('MONEI_TOKENIZE')) {
+                    $redirectUrl = $this->context->link->getModuleLink('monei', 'redirect', [
+                        'method' => 'card',
+                        'transaction_id' => $this->getTransactionId(),
+                    ]);
                     $smarty->assign('link_create_payment', $redirectUrl);
+
                     $paymentOption['form'] = $smarty->fetch('module:monei/views/templates/hook/paymentOptions.tpl');
-                } else {
-                    $paymentOption['action'] = $redirectUrl;
                 }
             } else {
                 $smarty->assign([
@@ -148,8 +146,6 @@ class PaymentOptionService
         if ($this->configuration->get('MONEI_ALLOW_CARD') && $this->isPaymentMethodAllowed(PaymentPaymentMethod::METHOD_CARD)) {
             $customer = $this->context->customer;
             $link = $this->context->link;
-
-            $paymentOptionList = [];
 
             // Get current customer cards (not expired ones)
             $activeCustomerCards = $this->moneiCustomerCardRepository->getActiveCustomerCards($customer->id);

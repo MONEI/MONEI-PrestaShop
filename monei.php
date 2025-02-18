@@ -1124,10 +1124,14 @@ class Monei extends PaymentModule
             $additionalInformation = $this->fetch('module:monei/views/templates/front/additional_info.tpl');
         }
 
-        $paymentOptions = $this->getService('service.payment')->getPaymentOptions();
+        $paymentOptionService = $this->getService('service.payment.option');
+
+        $paymentOptions = $paymentOptionService->getPaymentOptions();
         if (empty($paymentOptions)) {
             return;
         }
+
+        $transactionId = $paymentOptionService->getTransactionId();
 
         $paymentNames = [
             'bizum' => $this->l('Bizum'),
@@ -1179,6 +1183,17 @@ class Monei extends PaymentModule
 
             if (isset($paymentOption['action'])) {
                 $option->setAction($paymentOption['action']);
+            }
+
+            if (isset($paymentOption['action'])) {
+                $option->setAction($paymentOption['action']);
+            } else {
+                $option->setAction(
+                    $this->context->link->getModuleLink($this->name, 'redirect', [
+                        'method' => $paymentOption['name'],
+                        'transaction_id' => $transactionId,
+                    ])
+                );
             }
 
             if (isset($paymentOption['binary'])) {
