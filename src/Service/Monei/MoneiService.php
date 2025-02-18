@@ -5,33 +5,32 @@ if (!defined('_PS_VERSION_')) {
     exit;
 }
 
-use OpenAPI\Client\Model\CreatePaymentRequest;
-use OpenAPI\Client\Model\PaymentBillingDetails;
-use OpenAPI\Client\Model\PaymentCustomer;
+use Address;
 use Cart;
 use Configuration;
-use Currency;
-use PsMonei\Exception\MoneiException;
-use Tools;
-use Customer;
-use Address;
-use State;
 use Country;
+use Currency;
+use Customer;
 use Exception;
 use Monei\MoneiClient;
-use Validate;
-use PrestaShopLogger;
+use OpenAPI\Client\Model\CreatePaymentRequest;
 use OpenAPI\Client\Model\Payment;
-use OpenAPI\Client\Model\PaymentPaymentMethod;
+use OpenAPI\Client\Model\PaymentBillingDetails;
+use OpenAPI\Client\Model\PaymentCustomer;
 use OpenAPI\Client\Model\RefundPaymentRequest;
-use PsMonei\Entity\Monei2CustomerCard;
-use PsMonei\Entity\Monei2Payment;
-use PsMonei\Repository\MoneiPaymentRepository;
-use PsMonei\Entity\Monei2History;
-use PsMonei\Entity\Monei2Refund;
-use PsMonei\Repository\MoneiCustomerCardRepository;
-use PsMonei\Repository\MoneiRefundRepository;
 use PrestaShop\PrestaShop\Adapter\LegacyContext;
+use PrestaShopLogger;
+use PsMonei\Entity\Monei2CustomerCard;
+use PsMonei\Entity\Monei2History;
+use PsMonei\Entity\Monei2Payment;
+use PsMonei\Entity\Monei2Refund;
+use PsMonei\Exception\MoneiException;
+use PsMonei\Repository\MoneiCustomerCardRepository;
+use PsMonei\Repository\MoneiPaymentRepository;
+use PsMonei\Repository\MoneiRefundRepository;
+use State;
+use Tools;
+use Validate;
 
 class MoneiService
 {
@@ -101,6 +100,7 @@ class MoneiService
         if (!isset($moneiClient->payments)) {
             throw new MoneiException('Monei client payments not initialized.', MoneiException::MONEI_CLIENT_NOT_INITIALIZED);
         }
+
         return $moneiClient->payments->get($moneiPaymentId);
     }
 
@@ -143,7 +143,7 @@ class MoneiService
         $customerData = [
             'name' => $customer->firstname . ' ' . $customer->lastname,
             'email' => $customer->email,
-            'phone' => $addressInvoice->phone_mobile ?: $addressInvoice->phone
+            'phone' => $addressInvoice->phone_mobile ?: $addressInvoice->phone,
         ];
 
         return $returnMoneiCustomerObject ? new PaymentCustomer($customerData) : $customerData;
@@ -175,8 +175,8 @@ class MoneiService
                 'zip' => $address->postcode,
                 'city' => $address->city,
                 'state' => $stateName,
-                'country' => $country->iso_code
-            ]
+                'country' => $country->iso_code,
+            ],
         ];
 
         return $returnMoneiBillingObject ? new PaymentBillingDetails($billingData) : $billingData;
@@ -215,6 +215,7 @@ class MoneiService
         foreach ($refunds as $refund) {
             $totalRefunded += $refund->getAmount();
         }
+
         return $totalRefunded;
     }
 
@@ -264,7 +265,7 @@ class MoneiService
             $monei2CustomerCard = $this->moneiCustomerCardRepository->findOneBy([
                 'tokenized' => $paymentToken,
                 'expiration' => $cardPayment->getExpiration(),
-                'last_four' => $cardPayment->getLast4()
+                'last_four' => $cardPayment->getLast4(),
             ]);
 
             if (!$monei2CustomerCard) {
@@ -315,14 +316,14 @@ class MoneiService
                 $link->getModuleLink('monei', 'confirmation', [
                     'success' => 1,
                     'cart_id' => $cart->id,
-                    'order_id' => $orderId
+                    'order_id' => $orderId,
                 ])
             )
             ->setFailUrl(
                 $link->getModuleLink('monei', 'confirmation', [
                     'success' => 0,
                     'cart_id' => $cart->id,
-                    'order_id' => $orderId
+                    'order_id' => $orderId,
                 ])
             )
             ->setCallbackUrl(
@@ -353,10 +354,10 @@ class MoneiService
         // Set the payment token
         if ($tokenizeCard) {
             $createPaymentRequest->setGeneratePaymentToken(true);
-        } else if ($cardTokenId) {
+        } elseif ($cardTokenId) {
             $monei2CustomerCard = $this->moneiCustomerCardRepository->findOneBy([
                 'id' => $cardTokenId,
-                'id_customer' => $customer->id
+                'id_customer' => $customer->id,
             ]);
 
             if ($monei2CustomerCard) {

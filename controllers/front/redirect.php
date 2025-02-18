@@ -21,10 +21,10 @@ class MoneiRedirectModuleFrontController extends ModuleFrontController
         $cart = $this->context->cart;
         $check_encrypt = $crypto->checkHash((int) $cart->id . (int) $cart->id_customer, $transactionId);
 
-        if ($cart->id_customer == 0 ||
-            $cart->id_address_delivery == 0 ||
-            $cart->id_address_invoice == 0 ||
-            !$this->module->active
+        if ($cart->id_customer == 0
+            || $cart->id_address_delivery == 0
+            || $cart->id_address_invoice == 0
+            || !$this->module->active
         ) {
             Tools::redirect($this->context->link->getPageLink('index'));
         }

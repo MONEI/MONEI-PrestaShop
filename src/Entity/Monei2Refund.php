@@ -67,6 +67,7 @@ class Monei2Refund
     public function setPayment(Monei2Payment $payment): self
     {
         $this->payment = $payment;
+
         return $this;
     }
 
@@ -78,6 +79,7 @@ class Monei2Refund
     public function setHistory(Monei2History $history): self
     {
         $this->history = $history;
+
         return $this;
     }
 
@@ -89,6 +91,7 @@ class Monei2Refund
     public function setEmployeeId(?int $id_employee): self
     {
         $this->id_employee = $id_employee;
+
         return $this;
     }
 
@@ -100,6 +103,7 @@ class Monei2Refund
     public function setReason(?string $reason): self
     {
         $this->reason = $reason;
+
         return $this;
     }
 
@@ -111,6 +115,7 @@ class Monei2Refund
     public function setAmount(?int $amount): self
     {
         $this->amount = $amount;
+
         return $this;
     }
 
@@ -127,6 +132,7 @@ class Monei2Refund
     public function setDateAdd(?\DateTimeInterface $date_add): self
     {
         $this->date_add = $date_add;
+
         return $this;
     }
 

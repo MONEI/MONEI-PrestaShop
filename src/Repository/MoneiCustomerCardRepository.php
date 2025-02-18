@@ -46,6 +46,7 @@ class MoneiCustomerCardRepository extends EntityRepository
     public function getActiveCustomerCards(int $customerId): array
     {
         $currentDate = new \DateTime();
+
         return $this->createQueryBuilder('c')
             ->where('c.id_customer = :customerId')
             ->andWhere('c.expiration > :currentDate')

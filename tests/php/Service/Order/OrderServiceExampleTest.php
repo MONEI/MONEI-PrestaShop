@@ -2,11 +2,11 @@
 
 namespace PsMonei\Tests\Service\Order;
 
-use PHPUnit\Framework\TestCase;
-use Mockery;
-use Monei_Official;
 use Context;
+use Mockery;
 use Module;
+use Monei_Official;
+use PHPUnit\Framework\TestCase;
 
 class OrderServiceExampleTest extends TestCase
 {

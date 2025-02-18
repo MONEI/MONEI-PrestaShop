@@ -6,17 +6,17 @@ if (!defined('_PS_VERSION_')) {
 }
 
 use Cart;
-use Customer;
-use Validate;
-use PrestaShopLogger;
 use Configuration;
+use Customer;
+use Db;
 use OpenAPI\Client\Model\PaymentStatus;
 use Order;
 use OrderState;
+use PrestaShopLogger;
 use PsMonei\Exception\OrderException;
-use Tools;
-use Db;
 use PsMonei\Service\Monei\MoneiService;
+use Tools;
+use Validate;
 
 class OrderService
 {
@@ -83,6 +83,7 @@ class OrderService
             PaymentStatus::SUCCEEDED => 'MONEI_STATUS_SUCCEEDED',
         ];
         $configKey = $statusMap[$moneiPaymentStatus] ?? 'MONEI_STATUS_FAILED';
+
         return (int) Configuration::get($configKey);
     }
 
@@ -92,6 +93,7 @@ class OrderService
         if (!Validate::isLoadedObject($cart)) {
             throw new OrderException('Cart #' . $cartId . ' not valid', OrderException::CART_NOT_VALID);
         }
+
         return $cart;
     }
 
@@ -101,6 +103,7 @@ class OrderService
         if (!Validate::isLoadedObject($customer)) {
             throw new OrderException('Customer #' . $customerId . ' not valid', OrderException::CUSTOMER_NOT_VALID);
         }
+
         return $customer;
     }
 
@@ -179,6 +182,7 @@ class OrderService
             false,
             $customer->secure_key
         );
+
         return Order::getByCartId($cart->id);
     }
 
@@ -186,11 +190,11 @@ class OrderService
     {
         if ($redirectToConfirmationPage) {
             Tools::redirect(
-                'index.php?controller=order-confirmation' .
-                '&id_cart=' . $cart->id .
-                '&id_module=' . $this->moneiInstance->id .
-                '&id_order=' . $order->id .
-                '&key=' . $customer->secure_key
+                'index.php?controller=order-confirmation'
+                . '&id_cart=' . $cart->id
+                . '&id_module=' . $this->moneiInstance->id
+                . '&id_order=' . $order->id
+                . '&key=' . $customer->secure_key
             );
         } else {
             echo 'OK';

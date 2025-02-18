@@ -1,16 +1,16 @@
 <?php
 namespace PsMonei\Service\Payment;
 
+use Address;
+use Country;
+use Media;
 use OpenAPI\Client\Model\PaymentPaymentMethod;
-use PsMonei\Service\Monei\MoneiService;
 use PrestaShop\PrestaShop\Adapter\Configuration as ConfigurationLegacy;
 use PrestaShop\PrestaShop\Adapter\LegacyContext;
 use PsMonei\Repository\MoneiCustomerCardRepository;
-use Media;
+use PsMonei\Service\Monei\MoneiService;
 use Tools;
 use Validate;
-use Address;
-use Country;
 
 class PaymentOptionService
 {
@@ -77,6 +77,7 @@ class PaymentOptionService
     {
         $cart = $this->context->cart;
         $crypto = new \PrestaShop\PrestaShop\Core\Crypto\Hashing();
+
         return $crypto->hash($cart->id . $cart->id_customer, _COOKIE_KEY_);
     }
 
