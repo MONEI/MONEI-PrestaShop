@@ -1,8 +1,8 @@
 <?php
 namespace PsMonei\Entity;
 
-use Doctrine\ORM\Mapping as ORM;
 use Doctrine\Common\Collections\ArrayCollection;
+use Doctrine\ORM\Mapping as ORM;
 
 /**
  * @ORM\Table()
@@ -107,6 +107,7 @@ class Monei2Payment
     public function setId(string $id): self
     {
         $this->id = $id;
+
         return $this;
     }
 
@@ -118,6 +119,7 @@ class Monei2Payment
     public function setCartId(int $id_cart): self
     {
         $this->id_cart = $id_cart;
+
         return $this;
     }
 
@@ -129,6 +131,7 @@ class Monei2Payment
     public function setOrderId(?int $id_order): self
     {
         $this->id_order = $id_order;
+
         return $this;
     }
 
@@ -140,6 +143,7 @@ class Monei2Payment
     public function setOrderMoneiId(?string $id_order_monei): self
     {
         $this->id_order_monei = $id_order_monei;
+
         return $this;
     }
 
@@ -151,6 +155,7 @@ class Monei2Payment
     public function setAmount(int $amount): self
     {
         $this->amount = $amount;
+
         return $this;
     }
 
@@ -162,6 +167,7 @@ class Monei2Payment
     public function setRefundedAmount(?int $refunded_amount): self
     {
         $this->refunded_amount = $refunded_amount;
+
         return $this;
     }
 
@@ -173,6 +179,7 @@ class Monei2Payment
     public function setCurrency(string $currency): self
     {
         $this->currency = $currency;
+
         return $this;
     }
 
@@ -184,6 +191,7 @@ class Monei2Payment
     public function setAuthorizationCode(?string $authorization_code): self
     {
         $this->authorization_code = $authorization_code;
+
         return $this;
     }
 
@@ -195,6 +203,7 @@ class Monei2Payment
     public function setStatus(?string $status): self
     {
         $this->status = $status;
+
         return $this;
     }
 
@@ -211,6 +220,7 @@ class Monei2Payment
     public function setDateAdd(?int $timestamp): self
     {
         $this->date_add = $timestamp ? (new \DateTime())->setTimestamp($timestamp) : null;
+
         return $this;
     }
 
@@ -227,6 +237,7 @@ class Monei2Payment
     public function setDateUpd(?int $timestamp): self
     {
         $this->date_upd = $timestamp ? (new \DateTime())->setTimestamp($timestamp) : null;
+
         return $this;
     }
 

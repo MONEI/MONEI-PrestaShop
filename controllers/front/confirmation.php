@@ -4,6 +4,7 @@ if (!defined('_PS_VERSION_')) {
 }
 
 use OpenAPI\Client\Model\PaymentStatus;
+
 class MoneiConfirmationModuleFrontController extends ModuleFrontController
 {
     public function initContent()

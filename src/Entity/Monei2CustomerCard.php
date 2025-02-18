@@ -69,6 +69,7 @@ class Monei2CustomerCard
     public function setCustomerId(int $id_customer): self
     {
         $this->id_customer = $id_customer;
+
         return $this;
     }
 
@@ -80,6 +81,7 @@ class Monei2CustomerCard
     public function setBrand(?string $brand): self
     {
         $this->brand = $brand;
+
         return $this;
     }
 
@@ -91,6 +93,7 @@ class Monei2CustomerCard
     public function setCountry(?string $country): self
     {
         $this->country = $country;
+
         return $this;
     }
 
@@ -107,6 +110,7 @@ class Monei2CustomerCard
     public function setLastFour(string $last_four): self
     {
         $this->last_four = $last_four;
+
         return $this;
     }
 
@@ -123,6 +127,7 @@ class Monei2CustomerCard
     public function setExpiration(int $expiration): self
     {
         $this->expiration = $expiration;
+
         return $this;
     }
 
@@ -134,6 +139,7 @@ class Monei2CustomerCard
     public function setTokenized(string $tokenized): self
     {
         $this->tokenized = $tokenized;
+
         return $this;
     }
 
@@ -145,6 +151,7 @@ class Monei2CustomerCard
     public function setDateAdd(?int $timestamp): self
     {
         $this->date_add = $timestamp ? (new \DateTime())->setTimestamp($timestamp) : null;
+
         return $this;
     }
 

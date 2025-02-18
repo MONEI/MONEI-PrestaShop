@@ -66,6 +66,7 @@ class Monei2History
     public function setPayment(Monei2Payment $payment)
     {
         $this->payment = $payment;
+
         return $this;
     }
 
@@ -77,6 +78,7 @@ class Monei2History
     public function setStatus($status): self
     {
         $this->status = $status;
+
         return $this;
     }
 
@@ -88,6 +90,7 @@ class Monei2History
     public function setStatusCode(?string $status_code): self
     {
         $this->status_code = $status_code;
+
         return $this;
     }
 
@@ -104,6 +107,7 @@ class Monei2History
     public function setResponse(?string $response): self
     {
         $this->response = $response;
+
         return $this;
     }
 
@@ -120,6 +124,7 @@ class Monei2History
     public function setDateAdd(?\DateTime $date_add): self
     {
         $this->date_add = $date_add;
+
         return $this;
     }
 

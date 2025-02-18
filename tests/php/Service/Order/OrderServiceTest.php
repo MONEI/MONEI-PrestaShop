@@ -2,12 +2,12 @@
 
 namespace Tests\Service\Order;
 
-use \Mockery;
-use PsMonei\Service\Order\OrderService;
-use PsMonei\MoneiClient;
-use PHPUnit\Framework\TestCase;
+use Mockery;
 use OpenAPI\Client\Model\Payment as MoneiPayment;
 use OpenAPI\Client\Model\PaymentStatus;
+use PHPUnit\Framework\TestCase;
+use PsMonei\MoneiClient;
+use PsMonei\Service\Order\OrderService;
 
 class OrderServiceTest extends TestCase
 {
@@ -282,7 +282,7 @@ class OrderServiceTest extends TestCase
         $existingOrder->shouldReceive('isLoadedObject')->andReturn(true);
         $existingOrder->shouldReceive('setCurrentState')->with($orderStateId)->andReturnSelf();
         $existingOrder->shouldReceive('getOrderPaymentCollection')->andReturn([
-            $orderPaymentMock
+            $orderPaymentMock,
         ]);
         $existingOrder->module = 'monei';
         $existingOrder->current_state = self::MONEI_STATUS_PENDING;
@@ -345,11 +345,11 @@ class OrderServiceTest extends TestCase
             $moneiInstanceMock->shouldReceive('id')->andReturn(1);
 
             return [
-                'redirect' => 'index.php?controller=order-confirmation' .
-                '&id_cart=' . $cart->id .
-                '&id_module=' . $moneiInstanceMock->id .
-                '&id_order=' . $order->id .
-                '&key=' . $customer->secure_key
+                'redirect' => 'index.php?controller=order-confirmation'
+                . '&id_cart=' . $cart->id
+                . '&id_module=' . $moneiInstanceMock->id
+                . '&id_order=' . $order->id
+                . '&key=' . $customer->secure_key,
             ];
         } else {
             return 'OK';

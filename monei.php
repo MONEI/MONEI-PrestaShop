@@ -1,6 +1,6 @@
 <?php
 
-require_once dirname(__FILE__).'/vendor/autoload.php';
+require_once dirname(__FILE__) . '/vendor/autoload.php';
 
 use PsMonei\Entity\Monei2CustomerCard;
 use PsMonei\Entity\Monei2Payment;
@@ -33,7 +33,7 @@ class Monei extends PaymentModule
         $this->bootstrap = true;
 
         $this->controllers = [
-            'validation', 'confirmation', 'redirect', 'cards', 'errors', 'check'
+            'validation', 'confirmation', 'redirect', 'cards', 'errors', 'check',
         ];
 
         parent::__construct();
@@ -45,6 +45,7 @@ class Monei extends PaymentModule
     {
         if (extension_loaded('curl') == false) {
             $this->_errors[] = $this->l('You have to enable the cURL extension on your server to install this module');
+
             return false;
         }
 
@@ -83,20 +84,20 @@ class Monei extends PaymentModule
         Configuration::updateValue('MONEI_BIZUM_STYLE', '{"height": "42"}');
         Configuration::updateValue('MONEI_PAYMENT_REQUEST_STYLE', '{"height": "42"}');
 
-        include(dirname(__FILE__) . '/sql/install.php');
+        include dirname(__FILE__) . '/sql/install.php';
 
-        return parent::install() &&
-            $this->installOrderState() &&
-            $this->installAdminTab('AdminMonei', 'MONEI') &&
-            $this->registerHook('actionFrontControllerSetMedia') &&
-            $this->registerHook('displayCustomerAccount') &&
-            $this->registerHook('actionDeleteGDPRCustomer') &&
-            $this->registerHook('actionExportGDPRData') &&
-            $this->registerHook('displayBackOfficeHeader') &&
-            $this->registerHook('displayAdminOrder') &&
-            $this->registerHook('displayPaymentByBinaries') &&
-            $this->registerHook('paymentOptions') &&
-            $this->registerHook('actionCustomerLogoutAfter');
+        return parent::install()
+            && $this->installOrderState()
+            && $this->installAdminTab('AdminMonei', 'MONEI')
+            && $this->registerHook('actionFrontControllerSetMedia')
+            && $this->registerHook('displayCustomerAccount')
+            && $this->registerHook('actionDeleteGDPRCustomer')
+            && $this->registerHook('actionExportGDPRData')
+            && $this->registerHook('displayBackOfficeHeader')
+            && $this->registerHook('displayAdminOrder')
+            && $this->registerHook('displayPaymentByBinaries')
+            && $this->registerHook('paymentOptions')
+            && $this->registerHook('actionCustomerLogoutAfter');
     }
 
     public static function getService($serviceName)
@@ -148,11 +149,12 @@ class Monei extends PaymentModule
 
     /**
      * Create order state
-     * @return boolean
+     *
+     * @return bool
      */
     private function installOrderState()
     {
-        if ((int)Configuration::get('MONEI_STATUS_PENDING') === 0) {
+        if ((int) Configuration::get('MONEI_STATUS_PENDING') === 0) {
             $order_state = new OrderState();
             $order_state->name = [];
             $spanish_isos = ['es', 'mx', 'co', 'pe', 'ar', 'cl', 've', 'py', 'uy', 'bo', 've', 'ag', 'cb'];
@@ -177,7 +179,7 @@ class Monei extends PaymentModule
 
             if ($order_state->add()) {
                 $source = _PS_MODULE_DIR_ . $this->name . '/views/img/mini_monei.gif';
-                $destination = _PS_ROOT_DIR_ . '/img/os/' . (int)$order_state->id . '.gif';
+                $destination = _PS_ROOT_DIR_ . '/img/os/' . (int) $order_state->id . '.gif';
                 @copy($source, $destination);
 
                 if (Shop::isFeatureActive()) {
@@ -185,14 +187,14 @@ class Monei extends PaymentModule
                     foreach ($shops as $shop) {
                         Configuration::updateValue(
                             'MONEI_STATUS_PENDING',
-                            (int)$order_state->id,
+                            (int) $order_state->id,
                             false,
                             null,
-                            (int)$shop['id_shop']
+                            (int) $shop['id_shop']
                         );
                     }
                 } else {
-                    Configuration::updateValue('MONEI_STATUS_PENDING', (int)$order_state->id);
+                    Configuration::updateValue('MONEI_STATUS_PENDING', (int) $order_state->id);
                 }
             } else {
                 return false;
@@ -204,8 +206,10 @@ class Monei extends PaymentModule
 
     /**
      * Installs a hidden Tab for AJAX calls
+     *
      * @param mixed $class_name
      * @param mixed $tab_name
+     *
      * @return bool
      */
     private function installAdminTab($class_name, $tab_name)
@@ -221,6 +225,7 @@ class Monei extends PaymentModule
 
         $tab->id_parent = -1;
         $tab->module = $this->name;
+
         return $tab->add();
     }
 
@@ -270,19 +275,21 @@ class Monei extends PaymentModule
         Configuration::deleteByName('MONEI_STATUS_PARTIALLY_REFUNDED');
         Configuration::deleteByName('MONEI_STATUS_PENDING');
 
-        include(dirname(__FILE__) . '/sql/uninstall.php');
+        include dirname(__FILE__) . '/sql/uninstall.php';
 
         return parent::uninstall();
     }
 
     /**
      * Checks if the MONEI OrderState is used by some order
+     *
      * @return bool
      */
     private function isMoneiStateUsed()
     {
         $sql = 'SELECT COUNT(*) FROM ' . _DB_PREFIX_ . 'order_state WHERE id_order_state = '
-            . (int)Configuration::get('MONEI_STATUS_PENDING');
+            . (int) Configuration::get('MONEI_STATUS_PENDING');
+
         return Db::getInstance()->getValue($sql) > 0 ? true : false;
     }
 
@@ -293,10 +300,10 @@ class Monei extends PaymentModule
     {
         $message = '';
 
-        /**
+        /*
          * If values have been submitted in the form, process.
          */
-        if ((bool)Tools::isSubmit('submitMoneiModule')) {
+        if ((bool) Tools::isSubmit('submitMoneiModule')) {
             $message = $this->postProcess(1);
         } elseif (Tools::isSubmit('submitMoneiModuleGateways')) {
             $message = $this->postProcess(2);
@@ -307,7 +314,7 @@ class Monei extends PaymentModule
         }
 
         // Assign values
-        $this->context->smarty->assign(array(
+        $this->context->smarty->assign([
             'module_dir' => $this->_path,
             'module_version' => $this->version,
             'module_name' => $this->name,
@@ -316,7 +323,7 @@ class Monei extends PaymentModule
             'helper_form_2' => $this->renderFormGateways(),
             'helper_form_3' => $this->renderFormStatus(),
             'helper_form_4' => $this->renderFormComponentStyle(),
-        ));
+        ]);
 
         return $message . $this->context->smarty->fetch($this->local_path . 'views/templates/admin/configure.tpl');
     }
@@ -331,14 +338,17 @@ class Monei extends PaymentModule
             case 1:
                 $section = $this->l('General');
                 $form_values = $this->getConfigFormValues();
+
                 break;
             case 2:
                 $section = $this->l('Payment Methods');
                 $form_values = $this->getConfigFormGatewaysValues();
+
                 break;
             case 3:
                 $section = $this->l('Status');
                 $form_values = $this->getConfigFormStatusValues();
+
                 break;
             case 4:
                 $section = $this->l('Component Style');
@@ -381,7 +391,7 @@ class Monei extends PaymentModule
      */
     protected function getConfigFormValues()
     {
-        return array(
+        return [
             'MONEI_TOKENIZE' => Configuration::get('MONEI_TOKENIZE', false),
             'MONEI_PRODUCTION_MODE' => Configuration::get('MONEI_PRODUCTION_MODE', false),
             'MONEI_SHOW_LOGO' => Configuration::get('MONEI_SHOW_LOGO', true),
@@ -390,7 +400,7 @@ class Monei extends PaymentModule
             'MONEI_TEST_API_KEY' => Configuration::get('MONEI_TEST_API_KEY', ''),
             'MONEI_TEST_ACCOUNT_ID' => Configuration::get('MONEI_TEST_ACCOUNT_ID', ''),
             'MONEI_CART_TO_ORDER' => Configuration::get('MONEI_CART_TO_ORDER', true),
-        );
+        ];
     }
 
     /**
@@ -398,7 +408,7 @@ class Monei extends PaymentModule
      */
     protected function getConfigFormGatewaysValues()
     {
-        return array(
+        return [
             'MONEI_ALLOW_CARD' => Configuration::get('MONEI_ALLOW_CARD', true),
             'MONEI_CARD_WITH_REDIRECT' => Configuration::get('MONEI_CARD_WITH_REDIRECT', false),
             'MONEI_ALLOW_BIZUM' => Configuration::get('MONEI_ALLOW_BIZUM', false),
@@ -411,7 +421,7 @@ class Monei extends PaymentModule
             'MONEI_ALLOW_KLARNA' => Configuration::get('MONEI_ALLOW_KLARNA', false),
             'MONEI_ALLOW_MULTIBANCO' => Configuration::get('MONEI_ALLOW_MULTIBANCO', false),
             'MONEI_ALLOW_MBWAY' => Configuration::get('MONEI_ALLOW_MBWAY', false),
-        );
+        ];
     }
 
     /**
@@ -419,19 +429,14 @@ class Monei extends PaymentModule
      */
     protected function getConfigFormStatusValues()
     {
-        return array(
-            'MONEI_STATUS_PENDING' =>
-                Configuration::get('MONEI_STATUS_PENDING', Configuration::get('PS_OS_WS_PAYMENT')),
-            'MONEI_STATUS_SUCCEEDED' =>
-                Configuration::get('MONEI_STATUS_SUCCEEDED', Configuration::get('PS_OS_PAYMENT')),
-            'MONEI_STATUS_FAILED' =>
-                Configuration::get('MONEI_STATUS_FAILED', Configuration::get('PS_OS_ERROR')),
+        return [
+            'MONEI_STATUS_PENDING' => Configuration::get('MONEI_STATUS_PENDING', Configuration::get('PS_OS_WS_PAYMENT')),
+            'MONEI_STATUS_SUCCEEDED' => Configuration::get('MONEI_STATUS_SUCCEEDED', Configuration::get('PS_OS_PAYMENT')),
+            'MONEI_STATUS_FAILED' => Configuration::get('MONEI_STATUS_FAILED', Configuration::get('PS_OS_ERROR')),
             'MONEI_SWITCH_REFUNDS' => Configuration::get('MONEI_SWITCH_REFUNDS', false),
-            'MONEI_STATUS_REFUNDED' =>
-                Configuration::get('MONEI_STATUS_REFUNDED', Configuration::get('PS_OS_REFUND')),
-            'MONEI_STATUS_PARTIALLY_REFUNDED' =>
-                Configuration::get('MONEI_STATUS_PARTIALLY_REFUNDED', Configuration::get('PS_OS_REFUND'))
-        );
+            'MONEI_STATUS_REFUNDED' => Configuration::get('MONEI_STATUS_REFUNDED', Configuration::get('PS_OS_REFUND')),
+            'MONEI_STATUS_PARTIALLY_REFUNDED' => Configuration::get('MONEI_STATUS_PARTIALLY_REFUNDED', Configuration::get('PS_OS_REFUND')),
+        ];
     }
 
     /**
@@ -439,11 +444,11 @@ class Monei extends PaymentModule
      */
     protected function getConfigFormComponentStyleValues()
     {
-        return array(
+        return [
             'MONEI_CARD_INPUT_STYLE' => Configuration::get('MONEI_CARD_INPUT_STYLE', '{"base": {"height": "42px"}}'),
             'MONEI_BIZUM_STYLE' => Configuration::get('MONEI_BIZUM_STYLE', '{"height": "42"}'),
             'MONEI_PAYMENT_REQUEST_STYLE' => Configuration::get('MONEI_PAYMENT_REQUEST_STYLE', '{"height": "42"}'),
-        );
+        ];
     }
 
     /**
@@ -465,13 +470,13 @@ class Monei extends PaymentModule
             . '&configure=' . $this->name . '&tab_module=' . $this->tab . '&module_name=' . $this->name;
         $helper->token = Tools::getAdminTokenLite('AdminModules');
 
-        $helper->tpl_vars = array(
+        $helper->tpl_vars = [
             'fields_value' => $this->getConfigFormValues(), /* Add values for your inputs */
             'languages' => $this->context->controller->getLanguages(),
             'id_language' => $this->context->language->id,
-        );
+        ];
 
-        return $helper->generateForm(array($this->getConfigForm()));
+        return $helper->generateForm([$this->getConfigForm()]);
     }
 
     /**
@@ -479,127 +484,127 @@ class Monei extends PaymentModule
      */
     protected function getConfigForm()
     {
-        return array(
-            'form' => array(
-                'legend' => array(
+        return [
+            'form' => [
+                'legend' => [
                     'title' => $this->l('Settings'),
                     'icon' => 'icon-cogs',
-                ),
-                'input' => array(
-                    array(
+                ],
+                'input' => [
+                    [
                         'type' => 'switch',
                         'label' => $this->l('Real environment'),
                         'name' => 'MONEI_PRODUCTION_MODE',
                         'is_bool' => true,
                         'desc' => $this->l('Set to OFF/DISABLED to set the test environment.'),
-                        'values' => array(
-                            array(
+                        'values' => [
+                            [
                                 'id' => 'active_on',
                                 'value' => true,
-                                'label' => $this->l('Enabled')
-                            ),
-                            array(
+                                'label' => $this->l('Enabled'),
+                            ],
+                            [
                                 'id' => 'active_off',
                                 'value' => false,
-                                'label' => $this->l('Disabled')
-                            )
-                        )
-                    ),
-                    array(
+                                'label' => $this->l('Disabled'),
+                            ],
+                        ],
+                    ],
+                    [
                         'col' => 3,
                         'type' => 'text',
                         'prefix' => '<i class="icon icon-key"></i>',
                         'desc' => $this->l('Your MONEI API Key. Available at your MONEI dashboard.'),
                         'name' => 'MONEI_API_KEY',
                         'label' => $this->l('API Key'),
-                    ),
-                    array(
+                    ],
+                    [
                         'col' => 3,
                         'type' => 'text',
                         'prefix' => '<i class="icon icon-key"></i>',
                         'desc' => $this->l('Your MONEI Account ID. Available at your MONEI dashboard.'),
                         'name' => 'MONEI_ACCOUNT_ID',
                         'label' => $this->l('Account ID'),
-                    ),
-                    array(
+                    ],
+                    [
                         'col' => 3,
                         'type' => 'text',
                         'prefix' => '<i class="icon icon-key"></i>',
                         'desc' => $this->l('Your MONEI Test API Key. Available at your MONEI dashboard.'),
                         'name' => 'MONEI_TEST_API_KEY',
                         'label' => $this->l('Test API Key'),
-                    ),
-                    array(
+                    ],
+                    [
                         'col' => 3,
                         'type' => 'text',
                         'prefix' => '<i class="icon icon-key"></i>',
                         'desc' => $this->l('Your MONEI Test Account ID. Available at your MONEI dashboard.'),
                         'name' => 'MONEI_TEST_ACCOUNT_ID',
                         'label' => $this->l('Test Account ID'),
-                    ),
-                    array(
+                    ],
+                    [
                         'type' => 'switch',
                         'label' => $this->l('Allow Credit Card Tokenization'),
                         'name' => 'MONEI_TOKENIZE',
                         'is_bool' => true,
                         'desc' => $this->l('Allow the customers to save their credit card information.'),
-                        'values' => array(
-                            array(
+                        'values' => [
+                            [
                                 'id' => 'active_on',
                                 'value' => true,
-                                'label' => $this->l('Enabled')
-                            ),
-                            array(
+                                'label' => $this->l('Enabled'),
+                            ],
+                            [
                                 'id' => 'active_off',
                                 'value' => false,
-                                'label' => $this->l('Disabled')
-                            )
-                        )
-                    ),
-                    array(
+                                'label' => $this->l('Disabled'),
+                            ],
+                        ],
+                    ],
+                    [
                         'type' => 'switch',
                         'label' => $this->l('Cart to order'),
                         'name' => 'MONEI_CART_TO_ORDER',
                         'is_bool' => true,
                         'desc' => $this->l('Convert the customer cart into an order before the payment.'),
-                        'values' => array(
-                            array(
+                        'values' => [
+                            [
                                 'id' => 'active_on',
                                 'value' => true,
-                                'label' => $this->l('Enabled')
-                            ),
-                            array(
+                                'label' => $this->l('Enabled'),
+                            ],
+                            [
                                 'id' => 'active_off',
                                 'value' => false,
-                                'label' => $this->l('Disabled')
-                            )
-                        ),
-                    ),
-                    array(
+                                'label' => $this->l('Disabled'),
+                            ],
+                        ],
+                    ],
+                    [
                         'type' => 'switch',
                         'label' => $this->l('Show MONEI logo'),
                         'name' => 'MONEI_SHOW_LOGO',
                         'is_bool' => true,
                         'desc' => $this->l('Shows the MONEI logo on checkout step.'),
-                        'values' => array(
-                            array(
+                        'values' => [
+                            [
                                 'id' => 'active_on',
                                 'value' => true,
-                                'label' => $this->l('Enabled')
-                            ),
-                            array(
+                                'label' => $this->l('Enabled'),
+                            ],
+                            [
                                 'id' => 'active_off',
                                 'value' => false,
-                                'label' => $this->l('Disabled')
-                            )
-                        )
-                    ),
-                ),
-                'submit' => array(
+                                'label' => $this->l('Disabled'),
+                            ],
+                        ],
+                    ],
+                ],
+                'submit' => [
                     'title' => $this->l('Save'),
-                ),
-            ),
-        );
+                ],
+            ],
+        ];
     }
 
     /**
@@ -621,13 +626,13 @@ class Monei extends PaymentModule
             . '&configure=' . $this->name . '&tab_module=' . $this->tab . '&module_name=' . $this->name;
         $helper->token = Tools::getAdminTokenLite('AdminModules');
 
-        $helper->tpl_vars = array(
+        $helper->tpl_vars = [
             'fields_value' => $this->getConfigFormGatewaysValues(), /* Add values for your inputs */
             'languages' => $this->context->controller->getLanguages(),
             'id_language' => $this->context->language->id,
-        );
+        ];
 
-        return $helper->generateForm(array($this->getConfigFormGateways()));
+        return $helper->generateForm([$this->getConfigFormGateways()]);
     }
 
     /**
@@ -635,251 +640,251 @@ class Monei extends PaymentModule
      */
     protected function getConfigFormGateways()
     {
-        return array(
-            'form' => array(
-                'legend' => array(
+        return [
+            'form' => [
+                'legend' => [
                     'title' => $this->l('Payment methods'),
                     'icon' => 'icon-money',
-                ),
-                'input' => array(
-                    array(
+                ],
+                'input' => [
+                    [
                         'type' => 'switch',
                         'label' => $this->l('Allow Credit Card'),
                         'name' => 'MONEI_ALLOW_CARD',
                         'is_bool' => true,
                         // 'desc' => $this->l('Allow payments with Credit Card.'),
                         'hint' => $this->l('The payment must be active and configured on your MONEI Dashboard.'),
-                        'values' => array(
-                            array(
+                        'values' => [
+                            [
                                 'id' => 'active_on',
                                 'value' => true,
-                                'label' => $this->l('Enabled')
-                            ),
-                            array(
+                                'label' => $this->l('Enabled'),
+                            ],
+                            [
                                 'id' => 'active_off',
                                 'value' => false,
-                                'label' => $this->l('Disabled')
-                            )
-                        ),
-                    ),
-                    array(
+                                'label' => $this->l('Disabled'),
+                            ],
+                        ],
+                    ],
+                    [
                         'type' => 'switch',
                         'label' => $this->l('Activate Credit Card with Redirect'),
                         'name' => 'MONEI_CARD_WITH_REDIRECT',
                         'is_bool' => true,
                         'hint' => $this->l('It is recommended to enable redirection in cases where card payments do not function correctly.'),
-                        'values' => array(
-                            array(
+                        'values' => [
+                            [
                                 'id' => 'active_on',
                                 'value' => true,
-                                'label' => $this->l('Enabled')
-                            ),
-                            array(
+                                'label' => $this->l('Enabled'),
+                            ],
+                            [
                                 'id' => 'active_off',
                                 'value' => false,
-                                'label' => $this->l('Disabled')
-                            )
-                        ),
-                    ),
-                    array(
+                                'label' => $this->l('Disabled'),
+                            ],
+                        ],
+                    ],
+                    [
                         'type' => 'switch',
                         'label' => $this->l('Allow Bizum'),
                         'name' => 'MONEI_ALLOW_BIZUM',
                         'is_bool' => true,
                         // 'desc' => $this->l('Allow payments with Bizum.'),
                         'hint' => $this->l('The payment must be active and configured on your MONEI Dashboard.'),
-                        'values' => array(
-                            array(
+                        'values' => [
+                            [
                                 'id' => 'active_on',
                                 'value' => true,
-                                'label' => $this->l('Enabled')
-                            ),
-                            array(
+                                'label' => $this->l('Enabled'),
+                            ],
+                            [
                                 'id' => 'active_off',
                                 'value' => false,
-                                'label' => $this->l('Disabled')
-                            )
-                        ),
-                    ),
-                    array(
+                                'label' => $this->l('Disabled'),
+                            ],
+                        ],
+                    ],
+                    [
                         'type' => 'switch',
                         'label' => $this->l('Activate Bizum with Redirect'),
                         'name' => 'MONEI_BIZUM_WITH_REDIRECT',
                         'is_bool' => true,
                         'hint' => $this->l('It is recommended to enable redirection in cases where bizum payment do not function correctly.'),
-                        'values' => array(
-                            array(
+                        'values' => [
+                            [
                                 'id' => 'active_on',
                                 'value' => true,
-                                'label' => $this->l('Enabled')
-                            ),
-                            array(
+                                'label' => $this->l('Enabled'),
+                            ],
+                            [
                                 'id' => 'active_off',
                                 'value' => false,
-                                'label' => $this->l('Disabled')
-                            )
-                        ),
-                    ),
-                    array(
+                                'label' => $this->l('Disabled'),
+                            ],
+                        ],
+                    ],
+                    [
                         'type' => 'switch',
                         'label' => $this->l('Allow Apple Pay'),
                         'name' => 'MONEI_ALLOW_APPLE',
                         'is_bool' => true,
                         'desc' => $this->l('Allow payments with Apple Pay. Only displayed in Safari browser.'),
                         'hint' => $this->l('The payment must be active and configured on your MONEI Dashboard.'),
-                        'values' => array(
-                            array(
+                        'values' => [
+                            [
                                 'id' => 'active_on',
                                 'value' => true,
-                                'label' => $this->l('Enabled')
-                            ),
-                            array(
+                                'label' => $this->l('Enabled'),
+                            ],
+                            [
                                 'id' => 'active_off',
                                 'value' => false,
-                                'label' => $this->l('Disabled')
-                            )
-                        ),
-                    ),
-                    array(
+                                'label' => $this->l('Disabled'),
+                            ],
+                        ],
+                    ],
+                    [
                         'type' => 'switch',
                         'label' => $this->l('Allow Google Pay'),
                         'name' => 'MONEI_ALLOW_GOOGLE',
                         'is_bool' => true,
                         // 'desc' => $this->l('Allow payments with Google Pay.'),
                         'hint' => $this->l('The payment must be active and configured on your MONEI Dashboard.'),
-                        'values' => array(
-                            array(
+                        'values' => [
+                            [
                                 'id' => 'active_on',
                                 'value' => true,
-                                'label' => $this->l('Enabled')
-                            ),
-                            array(
+                                'label' => $this->l('Enabled'),
+                            ],
+                            [
                                 'id' => 'active_off',
                                 'value' => false,
-                                'label' => $this->l('Disabled')
-                            )
-                        ),
-                    ),
-                    array(
+                                'label' => $this->l('Disabled'),
+                            ],
+                        ],
+                    ],
+                    [
                         'type' => 'switch',
                         'label' => $this->l('Allow Click To Pay'),
                         'name' => 'MONEI_ALLOW_CLICKTOPAY',
                         'is_bool' => true,
                         'hint' => $this->l('The payment must be active and configured on your MONEI Dashboard.'),
-                        'values' => array(
-                            array(
+                        'values' => [
+                            [
                                 'id' => 'active_on',
                                 'value' => true,
-                                'label' => $this->l('Enabled')
-                            ),
-                            array(
+                                'label' => $this->l('Enabled'),
+                            ],
+                            [
                                 'id' => 'active_off',
                                 'value' => false,
-                                'label' => $this->l('Disabled')
-                            )
-                        ),
-                    ),
-                    array(
+                                'label' => $this->l('Disabled'),
+                            ],
+                        ],
+                    ],
+                    [
                         'type' => 'switch',
                         'label' => $this->l('Allow PayPal'),
                         'name' => 'MONEI_ALLOW_PAYPAL',
                         'is_bool' => true,
                         'hint' => $this->l('The payment must be active and configured on your MONEI Dashboard.'),
-                        'values' => array(
-                            array(
+                        'values' => [
+                            [
                                 'id' => 'active_on',
                                 'value' => true,
-                                'label' => $this->l('Enabled')
-                            ),
-                            array(
+                                'label' => $this->l('Enabled'),
+                            ],
+                            [
                                 'id' => 'active_off',
                                 'value' => false,
-                                'label' => $this->l('Disabled')
-                            )
-                        ),
-                    ),
-                    array(
+                                'label' => $this->l('Disabled'),
+                            ],
+                        ],
+                    ],
+                    [
                         'type' => 'switch',
                         'label' => $this->l('Allow COFIDIS'),
                         'name' => 'MONEI_ALLOW_COFIDIS',
                         'is_bool' => true,
                         'hint' => $this->l('The payment must be active and configured on your MONEI Dashboard.'),
-                        'values' => array(
-                            array(
+                        'values' => [
+                            [
                                 'id' => 'active_on',
                                 'value' => true,
-                                'label' => $this->l('Enabled')
-                            ),
-                            array(
+                                'label' => $this->l('Enabled'),
+                            ],
+                            [
                                 'id' => 'active_off',
                                 'value' => false,
-                                'label' => $this->l('Disabled')
-                            )
-                        ),
-                    ),
-                    array(
+                                'label' => $this->l('Disabled'),
+                            ],
+                        ],
+                    ],
+                    [
                         'type' => 'switch',
                         'label' => $this->l('Allow Klarna'),
                         'name' => 'MONEI_ALLOW_KLARNA',
                         'is_bool' => true,
                         'hint' => $this->l('The payment must be active and configured on your MONEI Dashboard.'),
-                        'values' => array(
-                            array(
+                        'values' => [
+                            [
                                 'id' => 'active_on',
                                 'value' => true,
-                                'label' => $this->l('Enabled')
-                            ),
-                            array(
+                                'label' => $this->l('Enabled'),
+                            ],
+                            [
                                 'id' => 'active_off',
                                 'value' => false,
-                                'label' => $this->l('Disabled')
-                            )
-                        ),
-                    ),
-                    array(
+                                'label' => $this->l('Disabled'),
+                            ],
+                        ],
+                    ],
+                    [
                         'type' => 'switch',
                         'label' => $this->l('Allow Multibanco'),
                         'name' => 'MONEI_ALLOW_MULTIBANCO',
                         'is_bool' => true,
                         'hint' => $this->l('The payment must be active and configured on your MONEI Dashboard.'),
-                        'values' => array(
-                            array(
+                        'values' => [
+                            [
                                 'id' => 'active_on',
                                 'value' => true,
-                                'label' => $this->l('Enabled')
-                            ),
-                            array(
+                                'label' => $this->l('Enabled'),
+                            ],
+                            [
                                 'id' => 'active_off',
                                 'value' => false,
-                                'label' => $this->l('Disabled')
-                            )
-                        ),
-                    ),
-                    array(
+                                'label' => $this->l('Disabled'),
+                            ],
+                        ],
+                    ],
+                    [
                         'type' => 'switch',
                         'label' => $this->l('Allow MBWay'),
                         'name' => 'MONEI_ALLOW_MBWAY',
                         'is_bool' => true,
                         'hint' => $this->l('The payment must be active and configured on your MONEI Dashboard.'),
-                        'values' => array(
-                            array(
+                        'values' => [
+                            [
                                 'id' => 'active_on',
                                 'value' => true,
-                                'label' => $this->l('Enabled')
-                            ),
-                            array(
+                                'label' => $this->l('Enabled'),
+                            ],
+                            [
                                 'id' => 'active_off',
                                 'value' => false,
-                                'label' => $this->l('Disabled')
-                            )
-                        ),
-                    ),
-                ),
-                'submit' => array(
+                                'label' => $this->l('Disabled'),
+                            ],
+                        ],
+                    ],
+                ],
+                'submit' => [
                     'title' => $this->l('Save'),
-                ),
-            ),
-        );
+                ],
+            ],
+        ];
     }
 
     /**
@@ -901,13 +906,13 @@ class Monei extends PaymentModule
             . '&configure=' . $this->name . '&tab_module=' . $this->tab . '&module_name=' . $this->name;
         $helper->token = Tools::getAdminTokenLite('AdminModules');
 
-        $helper->tpl_vars = array(
+        $helper->tpl_vars = [
             'fields_value' => $this->getConfigFormStatusValues(), /* Add values for your inputs */
             'languages' => $this->context->controller->getLanguages(),
             'id_language' => $this->context->language->id,
-        );
+        ];
 
-        return $helper->generateForm(array($this->getConfigFormStatus()));
+        return $helper->generateForm([$this->getConfigFormStatus()]);
     }
 
     /**
@@ -917,98 +922,98 @@ class Monei extends PaymentModule
     {
         $order_statuses = OrderState::getOrderStates($this->context->language->id);
 
-        return array(
-            'form' => array(
-                'legend' => array(
+        return [
+            'form' => [
+                'legend' => [
                     'title' => $this->l('Order States'),
                     'icon' => 'icon-shopping-cart',
-                ),
-                'input' => array(
-                    array(
+                ],
+                'input' => [
+                    [
                         'type' => 'select',
                         'label' => $this->l('Status for pending payment'),
                         'name' => 'MONEI_STATUS_PENDING',
                         'required' => true,
                         'desc' => $this->l('You must select here the default status for a pending payment.'),
-                        'options' => array(
+                        'options' => [
                             'query' => $order_statuses,
                             'id' => 'id_order_state',
                             'name' => 'name',
-                        ),
-                    ),
-                    array(
+                        ],
+                    ],
+                    [
                         'type' => 'select',
                         'label' => $this->l('Status for succeeded payment'),
                         'name' => 'MONEI_STATUS_SUCCEEDED',
                         'required' => true,
                         'desc' => $this->l('You must select here the status for a completed payment.'),
-                        'options' => array(
+                        'options' => [
                             'query' => $order_statuses,
                             'id' => 'id_order_state',
                             'name' => 'name',
-                        ),
-                    ),
-                    array(
+                        ],
+                    ],
+                    [
                         'type' => 'select',
                         'label' => $this->l('Status for failed payment'),
                         'name' => 'MONEI_STATUS_FAILED',
                         'required' => true,
                         'desc' => $this->l('You must select here the status for a failed payment.'),
-                        'options' => array(
+                        'options' => [
                             'query' => $order_statuses,
                             'id' => 'id_order_state',
                             'name' => 'name',
-                        ),
-                    ),
-                    array(
+                        ],
+                    ],
+                    [
                         'type' => 'switch',
                         'label' => $this->l('Change Status for Refunds'),
                         'name' => 'MONEI_SWITCH_REFUNDS',
                         'is_bool' => true,
                         'desc' => $this->l('Changes the order state to below ones once a refund is done.'),
-                        'values' => array(
-                            array(
+                        'values' => [
+                            [
                                 'id' => 'active_on',
                                 'value' => true,
-                                'label' => $this->l('Enabled')
-                            ),
-                            array(
+                                'label' => $this->l('Enabled'),
+                            ],
+                            [
                                 'id' => 'active_off',
                                 'value' => false,
-                                'label' => $this->l('Disabled')
-                            )
-                        ),
-                    ),
-                    array(
+                                'label' => $this->l('Disabled'),
+                            ],
+                        ],
+                    ],
+                    [
                         'type' => 'select',
                         'label' => $this->l('Status for refunded payment'),
                         'name' => 'MONEI_STATUS_REFUNDED',
                         'required' => true,
                         'desc' => $this->l('You must select here the status for fully refunded payment.'),
-                        'options' => array(
+                        'options' => [
                             'query' => $order_statuses,
                             'id' => 'id_order_state',
                             'name' => 'name',
-                        ),
-                    ),
-                    array(
+                        ],
+                    ],
+                    [
                         'type' => 'select',
                         'label' => $this->l('Status for partially refunded'),
                         'name' => 'MONEI_STATUS_PARTIALLY_REFUNDED',
                         'required' => true,
                         'desc' => $this->l('You must select here the status for partially refunded payment.'),
-                        'options' => array(
+                        'options' => [
                             'query' => $order_statuses,
                             'id' => 'id_order_state',
                             'name' => 'name',
-                        ),
-                    )
-                ),
-                'submit' => array(
+                        ],
+                    ],
+                ],
+                'submit' => [
                     'title' => $this->l('Save'),
-                ),
-            ),
-        );
+                ],
+            ],
+        ];
     }
 
     protected function renderFormComponentStyle()
@@ -1026,57 +1031,57 @@ class Monei extends PaymentModule
             . '&configure=' . $this->name . '&tab_module=' . $this->tab . '&module_name=' . $this->name;
         $helper->token = Tools::getAdminTokenLite('AdminModules');
 
-        $helper->tpl_vars = array(
+        $helper->tpl_vars = [
             'fields_value' => $this->getConfigFormComponentStyleValues(),
             'languages' => $this->context->controller->getLanguages(),
             'id_language' => $this->context->language->id,
-        );
+        ];
 
-        return $helper->generateForm(array($this->getConfigFormComponentStyle()));
+        return $helper->generateForm([$this->getConfigFormComponentStyle()]);
     }
 
     protected function getConfigFormComponentStyle()
     {
-        return array(
-            'form' => array(
-                'legend' => array(
+        return [
+            'form' => [
+                'legend' => [
                     'title' => $this->l('Component Style'),
                     'icon' => 'icon-paint-brush',
-                ),
-                'input' => array(
-                    array(
+                ],
+                'input' => [
+                    [
                         'type' => 'textarea',
                         'label' => $this->l('Card input style'),
                         'name' => 'MONEI_CARD_INPUT_STYLE',
-                        'desc' => $this->l('Configure in JSON format the style of the Card Input component. Documentation: ') .
-                            '<a href="https://docs.monei.com/docs/monei-js/reference/#cardinput-style-object" target="_blank">MONEI Card Input Style</a>',
+                        'desc' => $this->l('Configure in JSON format the style of the Card Input component. Documentation: ')
+                            . '<a href="https://docs.monei.com/docs/monei-js/reference/#cardinput-style-object" target="_blank">MONEI Card Input Style</a>',
                         'cols' => 60,
                         'rows' => 10,
-                    ),
-                    array(
+                    ],
+                    [
                         'type' => 'textarea',
                         'label' => $this->l('Bizum style'),
                         'name' => 'MONEI_BIZUM_STYLE',
-                        'desc' => $this->l('Configure in JSON format the style of the Bizum component. Documentation: ') .
-                            '<a href="https://docs.monei.com/docs/monei-js/reference/#bizum-options" target="_blank">MONEI Bizum Style</a>',
+                        'desc' => $this->l('Configure in JSON format the style of the Bizum component. Documentation: ')
+                            . '<a href="https://docs.monei.com/docs/monei-js/reference/#bizum-options" target="_blank">MONEI Bizum Style</a>',
                         'cols' => 60,
                         'rows' => 10,
-                    ),
-                    array(
+                    ],
+                    [
                         'type' => 'textarea',
                         'label' => $this->l('Payment Request style'),
                         'name' => 'MONEI_PAYMENT_REQUEST_STYLE',
-                        'desc' => $this->l('Configure in JSON format the style of the Payment Request component. Documentation: ') .
-                            '<a href="https://docs.monei.com/docs/monei-js/reference/#paymentrequest-options" target="_blank">MONEI Payment Request Style</a>',
+                        'desc' => $this->l('Configure in JSON format the style of the Payment Request component. Documentation: ')
+                            . '<a href="https://docs.monei.com/docs/monei-js/reference/#paymentrequest-options" target="_blank">MONEI Payment Request Style</a>',
                         'cols' => 60,
                         'rows' => 10,
-                    ),
-                ),
-                'submit' => array(
+                    ],
+                ],
+                'submit' => [
                     'title' => $this->l('Save'),
-                ),
-            ),
-        );
+                ],
+            ],
+        ];
     }
 
     public function isMoneiAvailable($cart)
@@ -1104,6 +1109,7 @@ class Monei extends PaymentModule
 
     /**
      * Get all available payment methods
+     *
      * @return array
      */
     private function getPaymentMethods()
@@ -1115,7 +1121,7 @@ class Monei extends PaymentModule
         $additionalInformation = '';
         if (Configuration::get('MONEI_SHOW_LOGO')) {
             $this->context->smarty->assign([
-                'module_dir' => $this->_path
+                'module_dir' => $this->_path,
             ]);
             $additionalInformation = $this->fetch('module:monei/views/templates/front/additional_info.tpl');
         }
@@ -1149,7 +1155,7 @@ class Monei extends PaymentModule
             $testModeText = '';
             if (!(bool) Configuration::get('MONEI_PRODUCTION_MODE')) {
                 $testModeText = ' (' . $this->l('Test Mode') . ')';
-            };
+            }
 
             if (isset($paymentOption['title'])) {
                 $option->setCallToActionText(
@@ -1409,8 +1415,8 @@ class Monei extends PaymentModule
                     'cancelRemoveCard' => $this->l('Cancel'),
                     'confirmRemoveCard' => $this->l('Confirm'),
                     'successfullyRemovedCard' => $this->l('Card successfully removed'),
-                    'indexUrl' => $this->context->link->getPageLink('index')
-                ]
+                    'indexUrl' => $this->context->link->getPageLink('index'),
+                ],
             ]);
 
             $this->context->controller->registerJavascript(
@@ -1511,8 +1517,11 @@ class Monei extends PaymentModule
 
     /**
      * Checks if the currency is one of the granted ones
+     *
      * @param mixed $cart
+     *
      * @return bool
+     *
      * @throws PrestaShopException
      * @throws PrestaShopDatabaseException
      */
@@ -1527,18 +1536,23 @@ class Monei extends PaymentModule
                 }
             }
         }
+
         return false;
     }
 
     /**
      * Formats number to Currency (price)
+     *
      * @param mixed $price
+     *
      * @return mixed
+     *
      * @throws LocalizationException
      */
     private function formatPrice($price, $currencyIso)
     {
         $locale = Tools::getContextLocale($this->context);
+
         return $locale->formatPrice($price, $currencyIso);
     }
 }

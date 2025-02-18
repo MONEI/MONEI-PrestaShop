@@ -11,7 +11,7 @@ function upgrade_module_2_0_0()
     $db = Db::getInstance();
 
     // Create the new tables
-    include_once(dirname(__FILE__) . '/../sql/install.php');
+    include_once dirname(__FILE__) . '/../sql/install.php';
 
     // Migration monei to monei2_payment
     // ----------------------------------------------
@@ -33,8 +33,8 @@ function upgrade_module_2_0_0()
     // ----------------------------------------------
     $query = new DbQuery();
     $query->select('*')
-          ->from('monei_history')
-          ->where('id_monei_history > 0');
+        ->from('monei_history')
+        ->where('id_monei_history > 0');
     $moneiHistoryResult = $db->executeS($query);
 
     if ($moneiHistoryResult) {
@@ -43,8 +43,8 @@ function upgrade_module_2_0_0()
 
             $query = new DbQuery();
             $query->select('code')
-                  ->from('monei_codes')
-                  ->where('id_monei_codes = ' . $history['id_monei_code']);
+                ->from('monei_codes')
+                ->where('id_monei_codes = ' . $history['id_monei_code']);
             $statusCode = $db->getValue($query);
             if (!$statusCode) {
                 $statusCode = 'UNKNOWN';
@@ -68,15 +68,15 @@ function upgrade_module_2_0_0()
     // ----------------------------------------------
     $query = new DbQuery();
     $query->select('*')
-          ->from('monei_refund')
-          ->where('id_monei_refund > 0');
+        ->from('monei_refund')
+        ->where('id_monei_refund > 0');
     $moneiRefundResult = $db->executeS($query);
     if ($moneiRefundResult) {
         foreach ($moneiRefundResult as $refund) {
             $query = new DbQuery();
             $query->select('id_order_monei')
-                  ->from('monei')
-                  ->where('id_monei = ' . $refund['id_monei']);
+                ->from('monei')
+                ->where('id_monei = ' . $refund['id_monei']);
             $paymentId = $db->getValue($query);
             if (!$paymentId) {
                 continue;
