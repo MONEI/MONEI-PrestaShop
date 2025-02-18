@@ -1415,6 +1415,7 @@ class Monei extends PaymentModule
                     'cancelRemoveCard' => $this->l('Cancel'),
                     'confirmRemoveCard' => $this->l('Confirm'),
                     'successfullyRemovedCard' => $this->l('Card successfully removed'),
+                    'errorRemovingCard' => $this->l('An error occurred while deleting the card.'),
                     'indexUrl' => $this->context->link->getPageLink('index'),
                 ],
             ]);
