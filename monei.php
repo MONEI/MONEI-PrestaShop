@@ -1116,229 +1116,59 @@ class Monei extends PaymentModule
             return;
         }
 
-        $cart = $this->context->cart;
-
-        $template = '';
+        $additionalInformation = '';
         if (Configuration::get('MONEI_SHOW_LOGO')) {
             $this->context->smarty->assign([
                 'module_dir' => $this->_path
             ]);
-            $template = $this->fetch('module:monei/views/templates/front/additional_info.tpl');
+            $additionalInformation = $this->fetch('module:monei/views/templates/front/additional_info.tpl');
         }
 
-        $paymentMethods = [];
-        $paymentOptionList = [];
-
-        $countryIsoCode = $this->context->country->iso_code;
-        $currencyIsoCode = $this->context->currency->iso_code;
-        $addressInvoice = new Address($cart->id_address_invoice);
-        if (Validate::isLoadedObject($addressInvoice)) {
-            $countryInvoice = new Country($addressInvoice->id_country);
-            $countryIsoCode = $countryInvoice->iso_code;
+        $paymentOptions = $this->getService('service.payment')->getPaymentOptions();
+        if (empty($paymentOptions)) {
+            return;
         }
 
-        $crypto = ServiceLocator::get('\\PrestaShop\\PrestaShop\\Core\\Crypto\\Hashing');
-        $transactionId = $crypto->hash(
-            $cart->id . $cart->id_customer, _COOKIE_KEY_
-        );
+        $paymentNames = [
+            'bizum' => $this->l('Bizum'),
+            'card' => $this->l('Credit Card'),
+            'applePay' => $this->l('Apple Pay'),
+            'googlePay' => $this->l('Google Pay'),
+            'clickToPay' => $this->l('Click To Pay'),
+            'paypal' => $this->l('Paypal'),
+            'cofidis' => $this->l('COFIDIS'),
+            'klarna' => $this->l('Klarna'),
+            'multibanco' => $this->l('Multibanco'),
+            'mbway' => $this->l('MB Way'),
+        ];
 
-        $moneiService = $this->getService('service.monei');
-
-        $paymentMethodsAllowed = [];
-        $accountInformation = $moneiService->getMoneiAccountInformation();
-        if ($accountInformation) {
-            $paymentMethodsAllowed = $accountInformation['paymentMethods'];
-        }
-
-        // Credit Card
-        if (Configuration::get('MONEI_ALLOW_CARD')
-            && $moneiService->isPaymentMethodAllowedByCurrency($paymentMethodsAllowed, PaymentPaymentMethod::METHOD_CARD, $currencyIsoCode)
-        ) {
-            $paymentOptionList['card'] = [
-                'method' => 'card',
-                'callToActionText' => $this->l('Credit Card'),
-                'additionalInformation' => $template,
-                'logo' => Media::getMediaPath(_PS_MODULE_DIR_ . $this->name . '/views/img/payments/cards.svg'),
-            ];
-
-            if (Configuration::get('MONEI_CARD_WITH_REDIRECT')) {
-                $redirectUrl = $this->context->link->getModuleLink($this->name, 'redirect', [
-                    'method' => 'card',
-                    'transaction_id' => $transactionId,
-                ]);
-
-                if (Configuration::get('MONEI_TOKENIZE')) {
-                    $this->context->smarty->assign('link_create_payment', $redirectUrl);
-
-                    $paymentOptionList['card']['form'] = $this->fetch('module:monei/views/templates/hook/paymentOptions.tpl');
-                } else {
-                    $paymentOptionList['card']['action'] = $redirectUrl;
-                }
-            } else {
-                $this->context->smarty->assign([
-                    'isCustomerLogged' => Validate::isLoadedObject($this->context->customer) ? true : false,
-                    'tokenize' => (bool) Configuration::get('MONEI_TOKENIZE'),
-                ]);
-
-                $paymentOptionList['card']['additionalInformation'] = $this->fetch('module:monei/views/templates/front/onsite_card.tpl');
-                $paymentOptionList['card']['binary'] = true;
-            }
-
-            // Get current customer cards (not expired ones)
-            $activeCustomerCards = $this->getRepository(Monei2CustomerCard::class)->getActiveCustomerCards($this->context->cart->id_customer);
-            if ($activeCustomerCards) {
-                foreach ($activeCustomerCards as $customerCard) {
-                    $callToActionText = $this->l('Saved Card');
-                    $callToActionText .= ': ' . $customerCard->getBrand() . ' ' . $customerCard->getLastFourWithMask();
-                    $callToActionText .= ' (' . $customerCard->getExpirationFormatted() . ')';
-
-                    $redirectUrl = $this->context->link->getModuleLink($this->name, 'redirect', [
-                        'method' => 'tokenized_card',
-                        'transaction_id' => $transactionId,
-                        'id_monei_card' => $customerCard->getId(),
-                    ]);
-
-                    $paymentOptionList['card-' . $customerCard->getId()] = [
-                        'method' => 'tokenized_card',
-                        'callToActionText' => $callToActionText,
-                        'additionalInformation' => $template,
-                        'logo' => Media::getMediaPath(_PS_MODULE_DIR_ . $this->name . '/views/img/payments/' . strtolower($customerCard->getBrand()) . '.svg'),
-                        'action' => $redirectUrl,
-                    ];
-                }
-            }
-        }
-
-        // Bizum
-        if (Configuration::get('MONEI_ALLOW_BIZUM') &&
-            $moneiService->isPaymentMethodAllowedByCurrency($paymentMethodsAllowed, PaymentPaymentMethod::METHOD_BIZUM, $currencyIsoCode, $countryIsoCode)
-        ) {
-            $paymentOptionList['bizum'] = [
-                'method' => 'bizum',
-                'callToActionText' => $this->l('Bizum'),
-                'additionalInformation' => Configuration::get('MONEI_BIZUM_WITH_REDIRECT') ? $template : '',
-                'logo' => Media::getMediaPath(_PS_MODULE_DIR_ . $this->name . '/views/img/payments/bizum.svg'),
-                'binary' => Configuration::get('MONEI_BIZUM_WITH_REDIRECT') ? false : true,
-            ];
-        }
-
-        // Apple
-        if (Configuration::get('MONEI_ALLOW_APPLE') &&
-            $this->isSafariBrowser() &&
-            $moneiService->isPaymentMethodAllowedByCurrency($paymentMethodsAllowed, 'applePay', $currencyIsoCode)
-        ) {
-            $paymentOptionList['applePay'] = [
-                'method' => 'applePay',
-                'callToActionText' => $this->l('Apple Pay'),
-                'additionalInformation' => '',
-                'logo' => Media::getMediaPath(_PS_MODULE_DIR_ . $this->name . '/views/img/payments/apple-pay.svg'),
-                'binary' => true,
-            ];
-        }
-
-        // Google
-        if (Configuration::get('MONEI_ALLOW_GOOGLE') &&
-            !$this->isSafariBrowser() &&
-            $moneiService->isPaymentMethodAllowedByCurrency($paymentMethodsAllowed, 'googlePay', $currencyIsoCode)
-        ) {
-            $paymentOptionList['googlePay'] = [
-                'method' => 'googlePay',
-                'callToActionText' => $this->l('Google Pay'),
-                'additionalInformation' => '',
-                'logo' => Media::getMediaPath(_PS_MODULE_DIR_ . $this->name . '/views/img/payments/google-pay.svg'),
-                'binary' => true,
-            ];
-        }
-
-        // ClickToPay
-        if (Configuration::get('MONEI_ALLOW_CLICKTOPAY') &&
-            $moneiService->isPaymentMethodAllowedByCurrency($paymentMethodsAllowed, 'clickToPay', $currencyIsoCode)
-        ) {
-            $paymentOptionList['clickToPay'] = [
-                'method' => 'clickToPay',
-                'callToActionText' => $this->l('Click To Pay'),
-                'additionalInformation' => $template,
-                'logo' => Media::getMediaPath(_PS_MODULE_DIR_ . $this->name . '/views/img/payments/click-to-pay.svg'),
-            ];
-        }
-
-        // PayPal
-        if (Configuration::get('MONEI_ALLOW_PAYPAL') &&
-            $moneiService->isPaymentMethodAllowedByCurrency($paymentMethodsAllowed, PaymentPaymentMethod::METHOD_PAYPAL, $currencyIsoCode)
-        ) {
-            $paymentOptionList['paypal'] = [
-                'method' => 'paypal',
-                'callToActionText' => $this->l('Paypal'),
-                'additionalInformation' => $template,
-                'logo' => Media::getMediaPath(_PS_MODULE_DIR_ . $this->name . '/views/img/payments/paypal.svg'),
-            ];
-        }
-
-        // COFIDIS
-        if (Configuration::get('MONEI_ALLOW_COFIDIS') &&
-            $moneiService->isPaymentMethodAllowedByCurrency($paymentMethodsAllowed, PaymentPaymentMethod::METHOD_COFIDIS, $currencyIsoCode, $countryIsoCode)
-        ) {
-            $paymentOptionList['cofidis'] = [
-                'method' => 'cofidis',
-                'callToActionText' => $this->l('COFIDIS'),
-                'additionalInformation' => $template,
-                'logo' => Media::getMediaPath(_PS_MODULE_DIR_ . $this->name . '/views/img/payments/cofidis.svg'),
-            ];
-        }
-
-        // Klarna
-        if (Configuration::get('MONEI_ALLOW_KLARNA') &&
-            $moneiService->isPaymentMethodAllowedByCurrency($paymentMethodsAllowed, PaymentPaymentMethod::METHOD_KLARNA, $currencyIsoCode, $countryIsoCode)
-        ) {
-            $paymentOptionList['klarna'] = [
-                'method' => 'klarna',
-                'callToActionText' => $this->l('Klarna'),
-                'additionalInformation' => $template,
-                'logo' => Media::getMediaPath(_PS_MODULE_DIR_ . $this->name . '/views/img/payments/klarna.svg'),
-            ];
-        }
-
-        // Multibanco
-        if (Configuration::get('MONEI_ALLOW_MULTIBANCO') &&
-            $moneiService->isPaymentMethodAllowedByCurrency($paymentMethodsAllowed, PaymentPaymentMethod::METHOD_MULTIBANCO, $currencyIsoCode, $countryIsoCode)
-        ) {
-            $paymentOptionList['multibanco'] = [
-                'method' => 'multibanco',
-                'callToActionText' => $this->l('Multibanco'),
-                'additionalInformation' => $template,
-                'logo' => Media::getMediaPath(_PS_MODULE_DIR_ . $this->name . '/views/img/payments/multibanco.svg'),
-            ];
-        }
-
-        // MBWay
-        if (Configuration::get('MONEI_ALLOW_MBWAY') &&
-            $moneiService->isPaymentMethodAllowedByCurrency($paymentMethodsAllowed, PaymentPaymentMethod::METHOD_MBWAY, $currencyIsoCode, $countryIsoCode)
-        ) {
-            $paymentOptionList['mbway'] = [
-                'method' => 'mbway',
-                'callToActionText' => $this->l('MB Way'),
-                'additionalInformation' => $template,
-                'logo' => Media::getMediaPath(_PS_MODULE_DIR_ . $this->name . '/views/img/payments/mbway.svg'),
-            ];
-        }
-
-        foreach ($paymentOptionList as $paymentOption) {
+        foreach ($paymentOptions as $paymentOption) {
             $option = new \PrestaShop\PrestaShop\Core\Payment\PaymentOption();
-            $option->setModuleName($this->name . '-' . $paymentOption['method']);
+            $option->setModuleName($this->name . '-' . $paymentOption['name']);
 
-            if (isset($paymentOption['callToActionText'])) {
-                $testModeText = '';
-                if (!(bool) Configuration::get('MONEI_PRODUCTION_MODE')) {
-                    $testModeText = ' (' . $this->l('Test Mode') . ')';
-                };
+            $testModeText = '';
+            if (!(bool) Configuration::get('MONEI_PRODUCTION_MODE')) {
+                $testModeText = ' (' . $this->l('Test Mode') . ')';
+            };
 
+            if (isset($paymentOption['title'])) {
                 $option->setCallToActionText(
-                    $paymentOption['callToActionText'] . $testModeText
+                    $paymentOption['title'] . $testModeText
+                );
+            } else {
+                $option->setCallToActionText(
+                    $paymentNames[$paymentOption['name']] . $testModeText
                 );
             }
+
             if (isset($paymentOption['additionalInformation'])) {
                 $option->setAdditionalInformation($paymentOption['additionalInformation']);
+            } else {
+                if (!empty($additionalInformation)) {
+                    $option->setAdditionalInformation($additionalInformation);
+                }
             }
+
             if (isset($paymentOption['logo'])) {
                 $option->setLogo($paymentOption['logo']);
             }
@@ -1349,16 +1179,6 @@ class Monei extends PaymentModule
 
             if (isset($paymentOption['action'])) {
                 $option->setAction($paymentOption['action']);
-            } else {
-                $redirection = true;
-                if ($redirection) {
-                    $option->setAction(
-                        $this->context->link->getModuleLink($this->name, 'redirect', [
-                            'method' => $paymentOption['method'],
-                            'transaction_id' => $transactionId,
-                        ])
-                    );
-                }
             }
 
             if (isset($paymentOption['binary'])) {
@@ -1369,6 +1189,8 @@ class Monei extends PaymentModule
         }
 
         $this->paymentMethods = $paymentMethods;
+
+        return;
     }
 
     /**
@@ -1650,9 +1472,6 @@ class Monei extends PaymentModule
         unset($this->context->cookie->monei_error);
     }
 
-    /**
-     * Hook for JSON Viewer
-     */
     public function hookDisplayBackOfficeHeader()
     {
         $this->context->controller->addCSS($this->_path . 'views/css/admin/admin.css');
@@ -1710,18 +1529,5 @@ class Monei extends PaymentModule
     {
         $locale = Tools::getContextLocale($this->context);
         return $locale->formatPrice($price, $currencyIso);
-    }
-
-    /**
-     * Detects if Safari is the current browser.
-     * @return bool
-     */
-    public function isSafariBrowser()
-    {
-        $userBrowser = Tools::getUserBrowser();
-        if (strpos($userBrowser, 'Safari') !== false) {
-            return true;
-        }
-        return false;
     }
 }

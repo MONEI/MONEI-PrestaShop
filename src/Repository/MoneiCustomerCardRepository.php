@@ -3,20 +3,20 @@ namespace PsMonei\Repository;
 
 use Doctrine\ORM\EntityRepository;
 use Doctrine\ORM\ORMException;
-use PsMonei\Entity\Monei2CustomerCard;
+use PsMonei\Entity\MoCustomerCard;
 
 class MoneiCustomerCardRepository extends EntityRepository
 {
     /**
-     * @param Monei2CustomerCard $monei2CustomerCard
+     * @param MoCustomerCard $moCustomerCard
      * @param bool $flush
      *
      * @return void
      */
-    public function saveMoneiCustomerCard(Monei2CustomerCard $monei2CustomerCard, bool $flush = true): void
+    public function saveMoneiCustomerCard(MoCustomerCard $moCustomerCard, bool $flush = true): void
     {
         try {
-            $this->getEntityManager()->persist($monei2CustomerCard);
+            $this->getEntityManager()->persist($moCustomerCard);
             if ($flush) {
                 $this->getEntityManager()->flush();
             }
@@ -26,15 +26,15 @@ class MoneiCustomerCardRepository extends EntityRepository
     }
 
     /**
-     * @param Monei2CustomerCard $monei2CustomerCard
+     * @param MoCustomerCard $moCustomerCard
      * @param bool $flush
      *
      * @return void
      */
-    public function removeMoneiCustomerCard(Monei2CustomerCard $monei2CustomerCard, bool $flush = true): void
+    public function removeMoneiCustomerCard(MoCustomerCard $moCustomerCard, bool $flush = true): void
     {
         try {
-            $this->getEntityManager()->remove($monei2CustomerCard);
+            $this->getEntityManager()->remove($moCustomerCard);
             if ($flush) {
                 $this->getEntityManager()->flush();
             }

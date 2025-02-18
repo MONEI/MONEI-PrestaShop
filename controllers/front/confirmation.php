@@ -3,7 +3,6 @@ if (!defined('_PS_VERSION_')) {
     exit;
 }
 
-use PsMonei\Exception\MoneiException;
 use OpenAPI\Client\Model\PaymentStatus;
 class MoneiConfirmationModuleFrontController extends ModuleFrontController
 {
@@ -25,7 +24,7 @@ class MoneiConfirmationModuleFrontController extends ModuleFrontController
             } else {
                 Tools::redirect('index.php?controller=order');
             }
-        } catch (MoneiException $ex) {
+        } catch (Exception $ex) {
             PrestaShopLogger::addLog(
                 'MONEI - Exception - confirmation.php - initContent: ' . $ex->getMessage() . ' - ' . $ex->getFile(),
                 PrestaShopLogger::LOG_SEVERITY_LEVEL_ERROR

@@ -94,36 +94,6 @@ class MoneiService
         return $responseJson;
     }
 
-    public function isPaymentMethodAllowedByCurrency(array $paymentMethodsAllowed, string $paymentMethod, string $currencyIsoCode, string $countryIsoCode = null): bool
-    {
-        if ($currencyIsoCode !== 'EUR') {
-            return false;
-        }
-
-        if (!isset($paymentMethodsAllowed)) {
-            // If the payment methods are not found, we allow the payment method
-            return true;
-        }
-
-        if (!in_array($paymentMethod, $paymentMethodsAllowed)) {
-            return false;
-        }
-
-        switch ($paymentMethod) {
-            case PaymentPaymentMethod::METHOD_BIZUM:
-                return $countryIsoCode === 'ES';
-            case PaymentPaymentMethod::METHOD_COFIDIS:
-                return $countryIsoCode === 'ES';
-            case PaymentPaymentMethod::METHOD_MULTIBANCO:
-            case PaymentPaymentMethod::METHOD_MBWAY:
-                return $countryIsoCode === 'PT';
-            case PaymentPaymentMethod::METHOD_KLARNA:
-                return in_array($countryIsoCode, ['AT', 'BE', 'CH', 'DE', 'DK', 'ES', 'FI', 'FR', 'GB', 'IT', 'NL', 'NO', 'SE']);
-            default:
-                return true;
-        }
-    }
-
     public function getMoneiPayment($moneiPaymentId)
     {
         $moneiClient = $this->getMoneiClient();
@@ -303,7 +273,6 @@ class MoneiService
                 $monei2CustomerCard->setBrand($cardPayment->getBrand());
                 $monei2CustomerCard->setCountry($cardPayment->getCountry());
                 $monei2CustomerCard->setLastFour($cardPayment->getLast4());
-                $monei2CustomerCard->setThreeDS($cardPayment->getThreeDSecure());
                 $monei2CustomerCard->setExpiration($cardPayment->getExpiration());
                 $monei2CustomerCard->setTokenized($paymentToken);
 
@@ -406,14 +375,13 @@ class MoneiService
             if (!$createPaymentRequest->valid()) {
                 throw new MoneiException('The payment request is not valid', MoneiException::PAYMENT_REQUEST_NOT_VALID);
             }
-dump($createPaymentRequest);
+
             $moneiPaymentResponse = $moneiClient->payments->create($createPaymentRequest);
 
             $this->saveMoneiPayment($moneiPaymentResponse);
 
             return $moneiPaymentResponse;
         } catch (Exception $ex) {
-            dump($ex);die;
             PrestaShopLogger::addLog(
                 'MONEI - Exception - MoneiService.php - createMoneiPayment: ' . $ex->getMessage() . ' - ' . $ex->getFile(),
                 PrestaShopLogger::LOG_SEVERITY_LEVEL_ERROR
