@@ -1,4 +1,7 @@
 <?php
+
+use OpenAPI\Client\ObjectSerializer;
+
 if (!defined('_PS_VERSION_')) {
     exit;
 }
@@ -8,7 +11,7 @@ function upgrade_module_2_0_0()
     $db = Db::getInstance();
 
     // Create the new tables
-    include_once(dirname(__FILE__) . '/install.php');
+    include_once(dirname(__FILE__) . '/../sql/install.php');
 
     // Migration monei to monei2_payment
     // ----------------------------------------------
@@ -41,15 +44,22 @@ function upgrade_module_2_0_0()
             $query = new DbQuery();
             $query->select('code')
                   ->from('monei_codes')
-                  ->where('id_monei_code = ' . $history['id_monei_code']);
+                  ->where('id_monei_codes = ' . $history['id_monei_code']);
             $statusCode = $db->getValue($query);
             if (!$statusCode) {
                 $statusCode = 'UNKNOWN';
             }
 
-            $sql = 'INSERT INTO `' . _DB_PREFIX_ . 'monei2_history` (`id_history`, `id_payment`, `status`, `status_code`, `response`, `date_add`)
-                    VALUES (' . $history['id_monei_history'] . ', "' . $paymentResponse['id'] . '", "' . $history['status'] . '", "' . $statusCode . '", "' . $history['response'] . '", "' . $history['date_add'] . '");';
-            $db->execute($sql);
+            $moneiPayment = ObjectSerializer::deserialize($paymentResponse, 'OpenAPI\Client\Model\Payment');
+
+            $db->insert('monei2_history', [
+                'id_history' => (int) $history['id_monei_history'],
+                'id_payment' => $moneiPayment->getId(),
+                'status' => pSQL($history['status']),
+                'status_code' => pSQL($statusCode),
+                'response' => pSQL($history['response']),
+                'date_add' => pSQL($history['date_add']),
+            ]);
         }
     }
     // ----------------------------------------------
@@ -72,9 +82,14 @@ function upgrade_module_2_0_0()
                 continue;
             }
 
-            $sql = 'INSERT INTO `' . _DB_PREFIX_ . 'monei2_refund` (`id_payment`, `id_history`, `id_employee`, `reason`, `amount`, `date_add`)
-                    VALUES (' . $paymentId . ', ' . $refund['id_monei_history'] . ', ' . $refund['id_employee'] . ', "' . $refund['reason'] . '", ' . $refund['amount'] . ', "' . $refund['date_add'] . '");';
-            $db->execute($sql);
+            $db->insert('monei2_refund', [
+                'id_payment' => (int) $paymentId,
+                'id_history' => (int) $refund['id_monei_history'],
+                'id_employee' => (int) $refund['id_employee'],
+                'reason' => pSQL($refund['reason']),
+                'amount' => (float) $refund['amount'],
+                'date_add' => pSQL($refund['date_add']),
+            ]);
         }
     }
     // ----------------------------------------------
