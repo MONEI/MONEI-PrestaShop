@@ -8,7 +8,7 @@ use Doctrine\Common\Collections\ArrayCollection;
  * @ORM\Table()
  * @ORM\Entity(repositoryClass="PsMonei\Repository\MoneiPaymentRepository")
  */
-class MoPayment
+class Monei2Payment
 {
     /**
      * @ORM\Id
@@ -67,12 +67,12 @@ class MoPayment
     private $date_upd;
 
     /**
-     * @ORM\OneToMany(targetEntity="PsMonei\Entity\MoHistory", cascade={"persist", "remove"}, mappedBy="payment")
+     * @ORM\OneToMany(targetEntity="PsMonei\Entity\Monei2History", cascade={"persist", "remove"}, mappedBy="payment")
      */
     private $historyList;
 
     /**
-     * @ORM\OneToMany(targetEntity="PsMonei\Entity\MoRefund", cascade={"persist", "remove"}, mappedBy="payment")
+     * @ORM\OneToMany(targetEntity="PsMonei\Entity\Monei2Refund", cascade={"persist", "remove"}, mappedBy="payment")
      */
     private $refundList;
 
@@ -235,7 +235,7 @@ class MoPayment
         return $this->historyList;
     }
 
-    public function addHistory(MoHistory $paymentHistory)
+    public function addHistory(Monei2History $paymentHistory)
     {
         $paymentHistory->setPayment($this);
         $this->historyList->add($paymentHistory);
@@ -257,7 +257,7 @@ class MoPayment
         return null;
     }
 
-    public function addRefund(MoRefund $paymentRefund)
+    public function addRefund(Monei2Refund $paymentRefund)
     {
         $paymentRefund->setPayment($this);
         $this->refundList->add($paymentRefund);

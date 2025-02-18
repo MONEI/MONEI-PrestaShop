@@ -24,11 +24,11 @@ use PrestaShopLogger;
 use OpenAPI\Client\Model\Payment;
 use OpenAPI\Client\Model\PaymentPaymentMethod;
 use OpenAPI\Client\Model\RefundPaymentRequest;
-use PsMonei\Entity\MoCustomerCard;
-use PsMonei\Entity\MoPayment;
+use PsMonei\Entity\Monei2CustomerCard;
+use PsMonei\Entity\Monei2Payment;
 use PsMonei\Repository\MoneiPaymentRepository;
-use PsMonei\Entity\MoHistory;
-use PsMonei\Entity\MoRefund;
+use PsMonei\Entity\Monei2History;
+use PsMonei\Entity\Monei2Refund;
 use PsMonei\Repository\MoneiCustomerCardRepository;
 use PsMonei\Repository\MoneiRefundRepository;
 use PrestaShop\PrestaShop\Adapter\LegacyContext;
@@ -252,38 +252,38 @@ class MoneiService
     {
         $cartId = $this->extractCartIdFromMoneiOrderId($moneiPayment->getOrderId());
 
-        $moPaymentEntity = $this->moneiPaymentRepository->findOneById($moneiPayment->getId()) ?? new MoPayment();
+        $monei2PaymentEntity = $this->moneiPaymentRepository->findOneById($moneiPayment->getId()) ?? new Monei2Payment();
 
-        $moPaymentEntity->setId($moneiPayment->getId());
-        $moPaymentEntity->setCartId($cartId);
-        $moPaymentEntity->setOrderId($orderId);
-        $moPaymentEntity->setOrderMoneiId($moneiPayment->getOrderId());
-        $moPaymentEntity->setAmount($moneiPayment->getAmount());
-        $moPaymentEntity->setRefundedAmount($moneiPayment->getRefundedAmount());
-        $moPaymentEntity->setCurrency($moneiPayment->getCurrency());
-        $moPaymentEntity->setAuthorizationCode($moneiPayment->getAuthorizationCode());
-        $moPaymentEntity->setStatus($moneiPayment->getStatus());
-        $moPaymentEntity->setDateAdd($moneiPayment->getCreatedAt());
-        $moPaymentEntity->setDateUpd($moneiPayment->getUpdatedAt());
+        $monei2PaymentEntity->setId($moneiPayment->getId());
+        $monei2PaymentEntity->setCartId($cartId);
+        $monei2PaymentEntity->setOrderId($orderId);
+        $monei2PaymentEntity->setOrderMoneiId($moneiPayment->getOrderId());
+        $monei2PaymentEntity->setAmount($moneiPayment->getAmount());
+        $monei2PaymentEntity->setRefundedAmount($moneiPayment->getRefundedAmount());
+        $monei2PaymentEntity->setCurrency($moneiPayment->getCurrency());
+        $monei2PaymentEntity->setAuthorizationCode($moneiPayment->getAuthorizationCode());
+        $monei2PaymentEntity->setStatus($moneiPayment->getStatus());
+        $monei2PaymentEntity->setDateAdd($moneiPayment->getCreatedAt());
+        $monei2PaymentEntity->setDateUpd($moneiPayment->getUpdatedAt());
 
-        $moHistoryEntity = new MoHistory();
-        $moHistoryEntity->setStatus($moneiPayment->getStatus());
-        $moHistoryEntity->setStatusCode($moneiPayment->getStatusCode());
-        $moHistoryEntity->setResponse(json_encode($moneiPayment->jsonSerialize()));
-        $moPaymentEntity->addHistory($moHistoryEntity);
+        $monei2HistoryEntity = new Monei2History();
+        $monei2HistoryEntity->setStatus($moneiPayment->getStatus());
+        $monei2HistoryEntity->setStatusCode($moneiPayment->getStatusCode());
+        $monei2HistoryEntity->setResponse(json_encode($moneiPayment->jsonSerialize()));
+        $monei2PaymentEntity->addHistory($monei2HistoryEntity);
 
         if ($moneiPayment->getLastRefundAmount() > 0) {
-            $moRefund = new MoRefund();
-            $moRefund->setHistory($moHistoryEntity);
-            $moRefund->setEmployeeId($employeeId);
-            $moRefund->setReason($moneiPayment->getLastRefundReason());
-            $moRefund->setAmount($moneiPayment->getLastRefundAmount());
-            $moPaymentEntity->addRefund($moRefund);
+            $monei2Refund = new Monei2Refund();
+            $monei2Refund->setHistory($monei2HistoryEntity);
+            $monei2Refund->setEmployeeId($employeeId);
+            $monei2Refund->setReason($moneiPayment->getLastRefundReason());
+            $monei2Refund->setAmount($moneiPayment->getLastRefundAmount());
+            $monei2PaymentEntity->addRefund($monei2Refund);
         }
 
-        $this->moneiPaymentRepository->saveMoneiPayment($moPaymentEntity);
+        $this->moneiPaymentRepository->saveMoneiPayment($monei2PaymentEntity);
 
-        return $moPaymentEntity;
+        return $monei2PaymentEntity;
     }
 
     public function saveMoneiToken(Payment $moneiPayment, int $customerId): void
@@ -291,23 +291,23 @@ class MoneiService
         $cardPayment = $moneiPayment->getPaymentMethod()->getCard();
         $paymentToken = $moneiPayment->getPaymentToken();
         if ($cardPayment && $paymentToken) {
-            $moCustomerCard = $this->moneiCustomerCardRepository->findOneBy([
+            $monei2CustomerCard = $this->moneiCustomerCardRepository->findOneBy([
                 'tokenized' => $paymentToken,
                 'expiration' => $cardPayment->getExpiration(),
                 'last_four' => $cardPayment->getLast4()
             ]);
 
-            if (!$moCustomerCard) {
-                $moCustomerCard = new MoCustomerCard();
-                $moCustomerCard->setCustomerId($customerId);
-                $moCustomerCard->setBrand($cardPayment->getBrand());
-                $moCustomerCard->setCountry($cardPayment->getCountry());
-                $moCustomerCard->setLastFour($cardPayment->getLast4());
-                $moCustomerCard->setThreeDS($cardPayment->getThreeDSecure());
-                $moCustomerCard->setExpiration($cardPayment->getExpiration());
-                $moCustomerCard->setTokenized($paymentToken);
+            if (!$monei2CustomerCard) {
+                $monei2CustomerCard = new Monei2CustomerCard();
+                $monei2CustomerCard->setCustomerId($customerId);
+                $monei2CustomerCard->setBrand($cardPayment->getBrand());
+                $monei2CustomerCard->setCountry($cardPayment->getCountry());
+                $monei2CustomerCard->setLastFour($cardPayment->getLast4());
+                $monei2CustomerCard->setThreeDS($cardPayment->getThreeDSecure());
+                $monei2CustomerCard->setExpiration($cardPayment->getExpiration());
+                $monei2CustomerCard->setTokenized($paymentToken);
 
-                $this->moneiCustomerCardRepository->saveMoneiCustomerCard($moCustomerCard);
+                $this->moneiCustomerCardRepository->saveMoneiCustomerCard($monei2CustomerCard);
             }
         }
     }
@@ -385,13 +385,13 @@ class MoneiService
         if ($tokenizeCard) {
             $createPaymentRequest->setGeneratePaymentToken(true);
         } else if ($cardTokenId) {
-            $moCustomerCard = $this->moneiCustomerCardRepository->findOneBy([
+            $monei2CustomerCard = $this->moneiCustomerCardRepository->findOneBy([
                 'id' => $cardTokenId,
                 'id_customer' => $customer->id
             ]);
 
-            if ($moCustomerCard) {
-                $createPaymentRequest->setPaymentToken($moCustomerCard->getTokenized());
+            if ($monei2CustomerCard) {
+                $createPaymentRequest->setPaymentToken($monei2CustomerCard->getTokenized());
                 $createPaymentRequest->setGeneratePaymentToken(false);
             }
         }
@@ -406,13 +406,14 @@ class MoneiService
             if (!$createPaymentRequest->valid()) {
                 throw new MoneiException('The payment request is not valid', MoneiException::PAYMENT_REQUEST_NOT_VALID);
             }
-
+dump($createPaymentRequest);
             $moneiPaymentResponse = $moneiClient->payments->create($createPaymentRequest);
 
             $this->saveMoneiPayment($moneiPaymentResponse);
 
             return $moneiPaymentResponse;
         } catch (Exception $ex) {
+            dump($ex);die;
             PrestaShopLogger::addLog(
                 'MONEI - Exception - MoneiService.php - createMoneiPayment: ' . $ex->getMessage() . ' - ' . $ex->getFile(),
                 PrestaShopLogger::LOG_SEVERITY_LEVEL_ERROR

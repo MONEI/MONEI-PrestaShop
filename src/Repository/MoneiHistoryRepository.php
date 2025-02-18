@@ -3,20 +3,20 @@ namespace PsMonei\Repository;
 
 use Doctrine\ORM\EntityRepository;
 use Doctrine\ORM\ORMException;
-use PsMonei\Entity\MoHistory;
+use PsMonei\Entity\Monei2History;
 
 class MoneiHistoryRepository extends EntityRepository
 {
     /**
-     * @param MoHistory $moHistory
+     * @param Monei2History $monei2History
      * @param bool $flush
      *
      * @return void
      */
-    public function saveMoneiHistory(MoHistory $moHistory, bool $flush = true): void
+    public function saveMoneiHistory(Monei2History $monei2History, bool $flush = true): void
     {
         try {
-            $this->getEntityManager()->persist($moHistory);
+            $this->getEntityManager()->persist($monei2History);
             if ($flush) {
                 $this->getEntityManager()->flush();
             }
@@ -26,15 +26,15 @@ class MoneiHistoryRepository extends EntityRepository
     }
 
     /**
-     * @param MoHistory $moHistory
+     * @param Monei2History $monei2History
      * @param bool $flush
      *
      * @return void
      */
-    public function removeMoneiHistory(MoHistory $moHistory, bool $flush = true): void
+    public function removeMoneiHistory(Monei2History $monei2History, bool $flush = true): void
     {
         try {
-            $this->getEntityManager()->remove($moHistory);
+            $this->getEntityManager()->remove($monei2History);
             if ($flush) {
                 $this->getEntityManager()->flush();
             }

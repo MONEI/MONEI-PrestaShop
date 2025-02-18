@@ -6,8 +6,8 @@ use OpenAPI\Client\Model\PaymentPaymentMethod;
 use PsMonei\MoneiPaymentMethods;
 
 use PrestaShop\PrestaShop\Adapter\ServiceLocator;
-use PsMonei\Entity\MoCustomerCard;
-use PsMonei\Entity\MoPayment;
+use PsMonei\Entity\Monei2CustomerCard;
+use PsMonei\Entity\Monei2Payment;
 use Symfony\Polyfill\Mbstring\Mbstring;
 
 if (!defined('_PS_VERSION_')) {
@@ -1095,6 +1095,11 @@ class Monei extends PaymentModule
         try {
             $this->getService('service.monei')->getMoneiClient();
         } catch (Exception $e) {
+            PrestaShopLogger::addLog(
+                'MONEI - Exception - monei.php - isMoneiAvailable: ' . $e->getMessage() . ' - ' . $e->getFile(),
+                PrestaShopLogger::LOG_SEVERITY_LEVEL_ERROR
+            );
+
             return false;
         }
 
@@ -1180,7 +1185,7 @@ class Monei extends PaymentModule
             }
 
             // Get current customer cards (not expired ones)
-            $activeCustomerCards = $this->getRepository(MoCustomerCard::class)->getActiveCustomerCards($this->context->cart->id_customer);
+            $activeCustomerCards = $this->getRepository(Monei2CustomerCard::class)->getActiveCustomerCards($this->context->cart->id_customer);
             if ($activeCustomerCards) {
                 foreach ($activeCustomerCards as $customerCard) {
                     $callToActionText = $this->l('Saved Card');
@@ -1431,8 +1436,8 @@ class Monei extends PaymentModule
     {
         $orderId = (int) $params['id_order'];
 
-        $moPaymentEntity = $this->getRepository(MoPayment::class)->findOneBy(['id_order' => $orderId]);
-        if (!$moPaymentEntity) {
+        $monei2PaymentEntity = $this->getRepository(Monei2Payment::class)->findOneBy(['id_order' => $orderId]);
+        if (!$monei2PaymentEntity) {
             return;
         }
 
@@ -1449,7 +1454,7 @@ class Monei extends PaymentModule
         $paymentHistoryLogs = [];
         $paymentRefundLogs = [];
 
-        $paymentHistory = $moPaymentEntity->getHistoryList();
+        $paymentHistory = $monei2PaymentEntity->getHistoryList();
         if (!$paymentHistory->isEmpty()) {
             foreach ($paymentHistory as $history) {
                 $paymentHistoryLog = $history->toArrayLegacy();
@@ -1458,7 +1463,7 @@ class Monei extends PaymentModule
 
                 $paymentHistoryLogs[] = $paymentHistoryLog;
 
-                $paymentRefund = $moPaymentEntity->getRefundByHistoryId($history->getId());
+                $paymentRefund = $monei2PaymentEntity->getRefundByHistoryId($history->getId());
                 if ($paymentRefund) {
                     $paymentRefundLog = $paymentRefund->toArrayLegacy();
                     $paymentRefundLog['paymentHistory'] = $paymentHistoryLog;
@@ -1478,11 +1483,11 @@ class Monei extends PaymentModule
         }
 
         $this->context->smarty->assign([
-            'moneiPayment' => $moPaymentEntity->toArrayLegacy(),
-            'isRefundable' => $moPaymentEntity->isRefundable(),
-            'remainingAmountToRefund' => $moPaymentEntity->getRemainingAmountToRefund(),
-            'totalRefundedAmount' => $moPaymentEntity->getRefundedAmount(),
-            'totalRefundedAmountFormatted' => $this->formatPrice($moPaymentEntity->getRefundedAmount(true), $currency->iso_code),
+            'moneiPayment' => $monei2PaymentEntity->toArrayLegacy(),
+            'isRefundable' => $monei2PaymentEntity->isRefundable(),
+            'remainingAmountToRefund' => $monei2PaymentEntity->getRemainingAmountToRefund(),
+            'totalRefundedAmount' => $monei2PaymentEntity->getRefundedAmount(),
+            'totalRefundedAmountFormatted' => $this->formatPrice($monei2PaymentEntity->getRefundedAmount(true), $currency->iso_code),
             'paymentHistoryLogs' => $paymentHistoryLogs,
             'paymentRefundLogs' => $paymentRefundLogs,
             'orderId' => $orderId,
@@ -1589,7 +1594,7 @@ class Monei extends PaymentModule
 
     public function hookDisplayCustomerAccount()
     {
-        $customerCards = $this->getRepository(MoCustomerCard::class)->findBy(['id_customer' => $this->context->customer->id]);
+        $customerCards = $this->getRepository(Monei2CustomerCard::class)->findBy(['id_customer' => $this->context->customer->id]);
 
         $isWarehouseInstalled = Module::isEnabled('iqitelementor');
 
@@ -1607,10 +1612,10 @@ class Monei extends PaymentModule
     {
         if (!empty($customer['id'])) {
             try {
-                $customerCards = $this->getRepository(MoCustomerCard::class)->findBy(['id_customer' => (int) $customer['id']]);
+                $customerCards = $this->getRepository(Monei2CustomerCard::class)->findBy(['id_customer' => (int) $customer['id']]);
                 if ($customerCards) {
                     foreach ($customerCards as $customerCard) {
-                        $this->getRepository(MoCustomerCard::class)->removeMoneiCustomerCard($customerCard);
+                        $this->getRepository(Monei2CustomerCard::class)->removeMoneiCustomerCard($customerCard);
                     }
                 }
 
@@ -1625,7 +1630,7 @@ class Monei extends PaymentModule
     {
         if (!empty($customer['id'])) {
             try {
-                $customerCards = $this->getRepository(MoCustomerCard::class)->findBy(['id_customer' => (int) $customer['id']]);
+                $customerCards = $this->getRepository(Monei2CustomerCard::class)->findBy(['id_customer' => (int) $customer['id']]);
                 if ($customerCards) {
                     $customerCardsArray = [];
                     foreach ($customerCards as $customerCard) {
