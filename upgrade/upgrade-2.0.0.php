@@ -83,7 +83,7 @@ function upgrade_module_2_0_0()
             }
 
             $db->insert('monei2_refund', [
-                'id_payment' => (int) $paymentId,
+                'id_payment' => $paymentId,
                 'id_history' => (int) $refund['id_monei_history'],
                 'id_employee' => (int) $refund['id_employee'],
                 'reason' => pSQL($refund['reason']),

@@ -119,7 +119,7 @@ $_MODULE['<{monei}prestashop>displayadminorder_16f78b9465f03f7ec5a03c24918fbde3'
 $_MODULE['<{monei}prestashop>displayadminorder_ec53a8c4f07baed5d8825072c89799be'] = 'Estado';
 $_MODULE['<{monei}prestashop>displayadminorder_cfa22c94ed7417cf7cd863b74191c4fc'] = 'Mensaje de estado';
 $_MODULE['<{monei}prestashop>displayadminorder_a12a3079e14ced46e69ba52b8a90b21a'] = 'Propiedad intelectual';
-$_MODULE['<{monei}prestashop>displayadminorder_955ad3298db330b5ee880c2c9e6f23a0'] = 'Vivir';
+$_MODULE['<{monei}prestashop>displayadminorder_955ad3298db330b5ee880c2c9e6f23a0'] = 'Live';
 $_MODULE['<{monei}prestashop>displayadminorder_549fa398acc100796592d7be0e8634d1'] = 'Detalles...';
 $_MODULE['<{monei}prestashop>displayadminorder_0eaadb4fcb48a0a0ed7bc9868be9fbaa'] = 'Advertencia';
 $_MODULE['<{monei}prestashop>displayadminorder_a5c4c4d1744bb5d31c6a9c4346cea629'] = 'El importe reembolsado es superior al pago realizado.';
@@ -140,6 +140,6 @@ $_MODULE['<{monei}prestashop>displaypaymentbybinaries_99938b17c91170dfb0c2f3f8bc
 $_MODULE['<{monei}prestashop>paymentoptions_d053c556b9380c837b64e8fd881d2e31'] = 'Guardar tarjeta para futuros pagos';
 $_MODULE['<{monei}prestashop>customercards_01abfc750a0c942167651c40d088531d'] = '#';
 $_MODULE['<{monei}prestashop>customercards_1be6f9eb563f3bf85c78b4219bf09de9'] = 'Marca';
-$_MODULE['<{monei}prestashop>customercards_cbebfa21dbe8e87e788d94a76f073807'] = 'Números';
+$_MODULE['<{monei}prestashop>customercards_cbebfa21dbe8e87e788d94a76f073807'] = 'Tarjetas';
 $_MODULE['<{monei}prestashop>customercards_d30fd576bd308f6facc9343ebd031b8e'] = 'Vencimiento';
 $_MODULE['<{monei}prestashop>customercards_93a524d9a34a84b2c8b9f0575c08b6c8'] = 'Fecha añadida';
