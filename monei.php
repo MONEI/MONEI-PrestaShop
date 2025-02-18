@@ -58,6 +58,8 @@ class Monei extends PaymentModule
         Configuration::updateValue('MONEI_SHOW_LOGO', true);
         Configuration::updateValue('MONEI_API_KEY', '');
         Configuration::updateValue('MONEI_ACCOUNT_ID', '');
+        Configuration::updateValue('MONEI_TEST_API_KEY', '');
+        Configuration::updateValue('MONEI_TEST_ACCOUNT_ID', '');
         Configuration::updateValue('MONEI_CART_TO_ORDER', false);
         Configuration::updateValue('MONEI_EXPIRE_TIME', 600);
         // Gateways
@@ -247,6 +249,8 @@ class Monei extends PaymentModule
         Configuration::deleteByName('MONEI_SHOW_LOGO');
         Configuration::deleteByName('MONEI_API_KEY');
         Configuration::deleteByName('MONEI_ACCOUNT_ID');
+        Configuration::deleteByName('MONEI_TEST_API_KEY');
+        Configuration::deleteByName('MONEI_TEST_ACCOUNT_ID');
         Configuration::deleteByName('MONEI_CART_TO_ORDER');
         Configuration::deleteByName('MONEI_EXPIRE_TIME');
         // Gateways
@@ -367,7 +371,7 @@ class Monei extends PaymentModule
             $moneiClient = $this->getService('service.monei')->getMoneiClient();
             if ($moneiClient) {
                 $domain = str_replace(['www.', 'https://', 'http://'], '', Tools::getShopDomainSsl(false, true));
-                $moneiClient->apple->register($domain);
+                $moneiClient->applePayDomain->register($domain);
             }
         } catch (Exception $e) {
             $this->warning[] = $e->getMessage();
@@ -387,6 +391,8 @@ class Monei extends PaymentModule
             'MONEI_SHOW_LOGO' => Configuration::get('MONEI_SHOW_LOGO', true),
             'MONEI_API_KEY' => Configuration::get('MONEI_API_KEY', ''),
             'MONEI_ACCOUNT_ID' => Configuration::get('MONEI_ACCOUNT_ID', ''),
+            'MONEI_TEST_API_KEY' => Configuration::get('MONEI_TEST_API_KEY', ''),
+            'MONEI_TEST_ACCOUNT_ID' => Configuration::get('MONEI_TEST_ACCOUNT_ID', ''),
             'MONEI_CART_TO_ORDER' => Configuration::get('MONEI_CART_TO_ORDER', true),
         );
     }
@@ -485,22 +491,6 @@ class Monei extends PaymentModule
                 ),
                 'input' => array(
                     array(
-                        'col' => 3,
-                        'type' => 'text',
-                        'prefix' => '<i class="icon icon-key"></i>',
-                        'desc' => $this->l('Your MONEI API Key. Available at your MONEI dashboard.'),
-                        'name' => 'MONEI_API_KEY',
-                        'label' => $this->l('API Key'),
-                    ),
-                    array(
-                        'col' => 3,
-                        'type' => 'text',
-                        'prefix' => '<i class="icon icon-key"></i>',
-                        'desc' => $this->l('Your MONEI Account ID. Available at your MONEI dashboard.'),
-                        'name' => 'MONEI_ACCOUNT_ID',
-                        'label' => $this->l('Account ID'),
-                    ),
-                    array(
                         'type' => 'switch',
                         'label' => $this->l('Real environment'),
                         'name' => 'MONEI_PRODUCTION_MODE',
@@ -518,6 +508,38 @@ class Monei extends PaymentModule
                                 'label' => $this->l('Disabled')
                             )
                         )
+                    ),
+                    array(
+                        'col' => 3,
+                        'type' => 'text',
+                        'prefix' => '<i class="icon icon-key"></i>',
+                        'desc' => $this->l('Your MONEI API Key. Available at your MONEI dashboard.'),
+                        'name' => 'MONEI_API_KEY',
+                        'label' => $this->l('API Key'),
+                    ),
+                    array(
+                        'col' => 3,
+                        'type' => 'text',
+                        'prefix' => '<i class="icon icon-key"></i>',
+                        'desc' => $this->l('Your MONEI Account ID. Available at your MONEI dashboard.'),
+                        'name' => 'MONEI_ACCOUNT_ID',
+                        'label' => $this->l('Account ID'),
+                    ),
+                    array(
+                        'col' => 3,
+                        'type' => 'text',
+                        'prefix' => '<i class="icon icon-key"></i>',
+                        'desc' => $this->l('Your MONEI Test API Key. Available at your MONEI dashboard.'),
+                        'name' => 'MONEI_TEST_API_KEY',
+                        'label' => $this->l('Test API Key'),
+                    ),
+                    array(
+                        'col' => 3,
+                        'type' => 'text',
+                        'prefix' => '<i class="icon icon-key"></i>',
+                        'desc' => $this->l('Your MONEI Test Account ID. Available at your MONEI dashboard.'),
+                        'name' => 'MONEI_TEST_ACCOUNT_ID',
+                        'label' => $this->l('Test Account ID'),
                     ),
                     array(
                         'type' => 'switch',
@@ -1150,6 +1172,7 @@ class Monei extends PaymentModule
             } else {
                 $this->context->smarty->assign([
                     'isCustomerLogged' => Validate::isLoadedObject($this->context->customer) ? true : false,
+                    'tokenize' => (bool) Configuration::get('MONEI_TOKENIZE'),
                 ]);
 
                 $paymentOptionList['card']['additionalInformation'] = $this->fetch('module:monei/views/templates/front/onsite_card.tpl');
@@ -1294,21 +1317,15 @@ class Monei extends PaymentModule
             ];
         }
 
-        try {
-            $accountInformation = $moneiService->getMoneiAccountInformation();
-        } catch (Exception $e) {
-            $accountInformation = false;
-        }
-
         foreach ($paymentOptionList as $paymentOption) {
             $option = new \PrestaShop\PrestaShop\Core\Payment\PaymentOption();
             $option->setModuleName($this->name . '-' . $paymentOption['method']);
 
             if (isset($paymentOption['callToActionText'])) {
                 $testModeText = '';
-                if ($accountInformation && !(bool) $accountInformation['livemode']) {
+                if (!(bool) Configuration::get('MONEI_PRODUCTION_MODE')) {
                     $testModeText = ' (' . $this->l('Test Mode') . ')';
-                }
+                };
 
                 $option->setCallToActionText(
                     $paymentOption['callToActionText'] . $testModeText
@@ -1395,7 +1412,7 @@ class Monei extends PaymentModule
         if ($paymentMethodsToDisplay) {
             $this->context->smarty->assign([
                 'paymentMethodsToDisplay' => $paymentMethodsToDisplay,
-                'moneiAccountId' => Configuration::get('MONEI_ACCOUNT_ID'),
+                'moneiAccountId' => (bool) Configuration::get('MONEI_PRODUCTION_MODE') ? Configuration::get('MONEI_ACCOUNT_ID') : Configuration::get('MONEI_TEST_ACCOUNT_ID'),
                 'moneiAmount' => $moneiService->getCartAmount($cartSummaryDetails, $this->context->cart->id_currency),
                 'moneiAmountFormatted' => Tools::displayPrice($moneiService->getCartAmount($cartSummaryDetails, $this->context->cart->id_currency, true)),
                 'moneiCreatePaymentUrlController' => $this->context->link->getModuleLink('monei', 'createPayment'),
@@ -1633,9 +1650,8 @@ class Monei extends PaymentModule
      */
     public function hookDisplayBackOfficeHeader()
     {
-        if (Tools::getValue('configure') === $this->name) {
-            $this->context->controller->addCSS($this->_path . 'views/css/admin/admin.css');
-        }
+        $this->context->controller->addCSS($this->_path . 'views/css/admin/admin.css');
+        $this->context->controller->addJS($this->_path . 'views/js/admin/admin.js');
 
         // Only for Orders controller, we dont need to load JS/CSS everywhere
         if ($this->context->controller->controller_name !== 'AdminOrders') {

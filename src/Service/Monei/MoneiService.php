@@ -54,7 +54,12 @@ class MoneiService
 
     public function getMoneiClient()
     {
-        $apiKey = Configuration::get('MONEI_API_KEY');
+        if ((bool) Configuration::get('MONEI_PRODUCTION_MODE')) {
+            $apiKey = Configuration::get('MONEI_API_KEY');
+        } else {
+            $apiKey = Configuration::get('MONEI_TEST_API_KEY');
+        }
+
         if (!$apiKey) {
             throw new MoneiException('Monei client not initialized.', MoneiException::MONEI_CLIENT_NOT_INITIALIZED);
         }
@@ -64,7 +69,12 @@ class MoneiService
 
     public function getMoneiAccountInformation()
     {
-        $accountId = Configuration::get('MONEI_ACCOUNT_ID');
+        if ((bool) Configuration::get('MONEI_PRODUCTION_MODE')) {
+            $accountId = Configuration::get('MONEI_ACCOUNT_ID');
+        } else {
+            $accountId = Configuration::get('MONEI_TEST_ACCOUNT_ID');
+        }
+
         if (!$accountId) {
             throw new MoneiException('Monei account id is not set.', MoneiException::MONEI_ACCOUNT_ID_IS_EMPTY);
         }

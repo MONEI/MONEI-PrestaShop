@@ -1,5 +1,20 @@
 (function ($) {
     $(document).ready(function () {
+        $('body').on('change', 'input[name="MONEI_PRODUCTION_MODE"]:checked', function () {
+            if ($(this).val() === '1') {
+                $('#MONEI_API_KEY').parents('.form-group').show();
+                $('#MONEI_ACCOUNT_ID').parents('.form-group').show();
+                $('#MONEI_TEST_API_KEY').parents('.form-group').hide();
+                $('#MONEI_TEST_ACCOUNT_ID').parents('.form-group').hide();
+            } else {
+                $('#MONEI_API_KEY').parents('.form-group').hide();
+                $('#MONEI_ACCOUNT_ID').parents('.form-group').hide();
+                $('#MONEI_TEST_API_KEY').parents('.form-group').show();
+                $('#MONEI_TEST_ACCOUNT_ID').parents('.form-group').show();
+            }
+        });
+        $('input[name="MONEI_PRODUCTION_MODE"]').trigger('change');
+
         if (typeof MoneiVars === 'undefined') {
             return;
         }
