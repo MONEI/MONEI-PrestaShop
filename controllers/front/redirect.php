@@ -1,7 +1,7 @@
 <?php
+
+use OpenAPI\Client\Model\PaymentStatus;
 use PsMonei\ApiException;
-use PsMonei\CoreClasses\Monei;
-use PsMonei\Model\MoneiPaymentStatus;
 use PrestaShop\PrestaShop\Adapter\ServiceLocator;
 use PsMonei\Exception\MoneiException;
 
@@ -41,13 +41,11 @@ class MoneiRedirectModuleFrontController extends ModuleFrontController
             }
 
             $moneiService = $this->module->getService('service.monei');
+
             $moneiPayment = $moneiService->createMoneiPayment($cart, $tokenizeCard, $moneiCardId);
             if (!$moneiPayment) {
                 Tools::redirect($this->context->link->getPageLink('order'));
             }
-
-            $moneiOrderId = $moneiPayment->getOrderId();
-            $moneiId = Monei::getIdByInternalOrder($moneiOrderId);
 
             // Convert the cart to order
             $orderState = new OrderState(Configuration::get('MONEI_STATUS_PENDING'));
@@ -56,9 +54,8 @@ class MoneiRedirectModuleFrontController extends ModuleFrontController
                 $orderService->createOrUpdateOrder($moneiPayment->getId());
             }
 
-            if ($moneiPayment->getNextAction()->getMustRedirect()) {
-                $redirectURL = $moneiPayment->getNextAction()->getRedirectUrl();
-                if ($moneiPayment->getStatus() === $this->module::FAILED) {
+            if ($redirectURL = $moneiPayment->getNextAction()->getRedirectUrl()) {
+                if ($moneiPayment->getStatus() === PaymentStatus::FAILED) {
                     $redirectURL .= '&message=' . $moneiPayment->getStatusMessage();
                 }
 

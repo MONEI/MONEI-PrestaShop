@@ -4,8 +4,7 @@ if (!defined('_PS_VERSION_')) {
 }
 
 use PsMonei\Exception\MoneiException;
-use PsMonei\MoneiPaymentStatus;
-
+use OpenAPI\Client\Model\PaymentStatus;
 class MoneiConfirmationModuleFrontController extends ModuleFrontController
 {
     public function initContent()
@@ -16,7 +15,7 @@ class MoneiConfirmationModuleFrontController extends ModuleFrontController
         $moneiStatus = Tools::getValue('status');
 
         try {
-            if (!empty($moneiPaymentId) && $moneiStatus !== $this->module::MONEI_STATUS_CANCELED) {
+            if (!empty($moneiPaymentId) && $moneiStatus !== PaymentStatus::CANCELED) {
                 PrestaShopLogger::addLog(
                     'MONEI - confirmation.php - initContent - Monei Payment ID: ' . $moneiPaymentId . ' - Monei Status: ' . $moneiStatus,
                     PrestaShopLogger::LOG_SEVERITY_LEVEL_INFORMATIVE
