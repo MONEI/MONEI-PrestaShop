@@ -91,6 +91,7 @@ $_MODULE['<{monei}prestashop>monei_501c05e156fef7fb93a9bfe9230e2e1c'] = '¿Está
 $_MODULE['<{monei}prestashop>monei_ea4788705e6873b424c65e91c2846b19'] = 'Cancelar';
 $_MODULE['<{monei}prestashop>monei_70d9be9b139893aa6c69b5e77e614311'] = 'Confirmar';
 $_MODULE['<{monei}prestashop>monei_cbcf72ad0577822d6203ddc59a1c0aa9'] = 'Tarjeta borrada correctamente';
+$_MODULE['<{monei}prestashop>monei_04f579ee25a6eeb341522d3032539192'] = 'Se produjo un error al eliminar la tarjeta.';
 $_MODULE['<{monei}prestashop>monei_6eabf8a04d5ed5447a67f736b8bd0d84'] = 'MONEI Official: Ha sido imposible borrar las tarjetas tokenizadas del cliente de la base de datos';
 $_MODULE['<{monei}prestashop>monei_b088fcc645e47d98ced788fc2f37f808'] = 'MONEI Official: Ha sido imposible exportar las tarjetas tokenizadas del cliente de la base de datos';
 $_MODULE['<{monei}prestashop>monei_76f0ed934de85cc7131910b32ede7714'] = 'Reembolso';

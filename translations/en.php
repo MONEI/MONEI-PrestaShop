@@ -92,6 +92,7 @@ $_MODULE['<{monei}prestashop>monei_501c05e156fef7fb93a9bfe9230e2e1c'] = 'Are you
 $_MODULE['<{monei}prestashop>monei_ea4788705e6873b424c65e91c2846b19'] = 'Cancel';
 $_MODULE['<{monei}prestashop>monei_70d9be9b139893aa6c69b5e77e614311'] = 'Confirm';
 $_MODULE['<{monei}prestashop>monei_cbcf72ad0577822d6203ddc59a1c0aa9'] = 'Card successfully removed';
+$_MODULE['<{monei}prestashop>monei_04f579ee25a6eeb341522d3032539192'] = 'An error occurred while deleting the card.';
 $_MODULE['<{monei}prestashop>monei_6eabf8a04d5ed5447a67f736b8bd0d84'] = 'MONEI Official: Unable to delete customer tokenized cards from database';
 $_MODULE['<{monei}prestashop>monei_b088fcc645e47d98ced788fc2f37f808'] = 'MONEI Official: Unable to export customer tokenized cards from database';
 $_MODULE['<{monei}prestashop>monei_76f0ed934de85cc7131910b32ede7714'] = 'Refund';

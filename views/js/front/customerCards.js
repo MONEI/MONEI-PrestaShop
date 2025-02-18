@@ -44,7 +44,7 @@ function ajaxDeleteTokenizedCard(customerCardId, itemCustomerCard) {
         if (data.success) {
             Swal.fire({
                 title: 'Success',
-                text: 'Card deleted successfully.',
+                text: MoneiVars.successfullyRemovedCard,
                 icon: 'success'
             });
 
@@ -52,7 +52,7 @@ function ajaxDeleteTokenizedCard(customerCardId, itemCustomerCard) {
         } else {
             Swal.fire({
                 title: 'Error',
-                text: data.error || 'An error occurred while deleting the card.',
+                text: data.error || MoneiVars.errorRemovingCard,
                 icon: 'error'
             });
         }
