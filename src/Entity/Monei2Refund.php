@@ -7,7 +7,7 @@ use Doctrine\ORM\Mapping as ORM;
  * @ORM\Table()
  * @ORM\Entity(repositoryClass="PsMonei\Repository\MoneiRefundRepository")
  */
-class MoRefund
+class Monei2Refund
 {
     /**
      * @ORM\Id
@@ -17,13 +17,13 @@ class MoRefund
     private $id;
 
     /**
-     * @ORM\ManyToOne(targetEntity="PsMonei\Entity\MoPayment", inversedBy="refund")
+     * @ORM\ManyToOne(targetEntity="PsMonei\Entity\Monei2Payment", inversedBy="refund")
      * @ORM\JoinColumn(name="id_payment", referencedColumnName="id_payment", nullable=false)
      */
     private $payment;
 
     /**
-     * @ORM\OneToOne(targetEntity="PsMonei\Entity\MoHistory", inversedBy="refund")
+     * @ORM\OneToOne(targetEntity="PsMonei\Entity\Monei2History", inversedBy="refund")
      * @ORM\JoinColumn(name="id_history", referencedColumnName="id_history", nullable=false)
      */
     private $history;
@@ -64,7 +64,7 @@ class MoRefund
         return $this->payment;
     }
 
-    public function setPayment(MoPayment $payment): self
+    public function setPayment(Monei2Payment $payment): self
     {
         $this->payment = $payment;
         return $this;
@@ -75,7 +75,7 @@ class MoRefund
         return $this->history;
     }
 
-    public function setHistory(MoHistory $history): self
+    public function setHistory(Monei2History $history): self
     {
         $this->history = $history;
         return $this;

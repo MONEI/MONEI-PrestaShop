@@ -3,20 +3,20 @@ namespace PsMonei\Repository;
 
 use Doctrine\ORM\EntityRepository;
 use Doctrine\ORM\ORMException;
-use PsMonei\Entity\MoPayment;
+use PsMonei\Entity\Monei2Payment;
 
 class MoneiPaymentRepository extends EntityRepository
 {
     /**
-     * @param MoPayment $MoPayment
+     * @param Monei2Payment $Monei2Payment
      * @param bool $flush
      *
      * @return void
      */
-    public function saveMoneiPayment(MoPayment $MoPayment, bool $flush = true): void
+    public function saveMoneiPayment(Monei2Payment $Monei2Payment, bool $flush = true): void
     {
         try {
-            $this->getEntityManager()->persist($MoPayment);
+            $this->getEntityManager()->persist($Monei2Payment);
             if ($flush) {
                 $this->getEntityManager()->flush();
             }
@@ -26,15 +26,15 @@ class MoneiPaymentRepository extends EntityRepository
     }
 
     /**
-     * @param MoPayment $MoPayment
+     * @param Monei2Payment $Monei2Payment
      * @param bool $flush
      *
      * @return void
      */
-    public function removeMoneiPayment(MoPayment $MoPayment, bool $flush = true): void
+    public function removeMoneiPayment(Monei2Payment $Monei2Payment, bool $flush = true): void
     {
         try {
-            $this->getEntityManager()->remove($MoPayment);
+            $this->getEntityManager()->remove($Monei2Payment);
             if ($flush) {
                 $this->getEntityManager()->flush();
             }

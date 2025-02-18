@@ -3,20 +3,20 @@ namespace PsMonei\Repository;
 
 use Doctrine\ORM\EntityRepository;
 use Doctrine\ORM\ORMException;
-use PsMonei\Entity\MoRefund;
+use PsMonei\Entity\Monei2Refund;
 
 class MoneiRefundRepository extends EntityRepository
 {
     /**
-     * @param MoRefund $moRefund
+     * @param Monei2Refund $monei2Refund
      * @param bool $flush
      *
      * @return void
      */
-    public function saveMoneiRefund(MoRefund $moRefund, bool $flush = true): void
+    public function saveMoneiRefund(Monei2Refund $monei2Refund, bool $flush = true): void
     {
         try {
-            $this->getEntityManager()->persist($moRefund);
+            $this->getEntityManager()->persist($monei2Refund);
             if ($flush) {
                 $this->getEntityManager()->flush();
             }
@@ -26,15 +26,15 @@ class MoneiRefundRepository extends EntityRepository
     }
 
     /**
-     * @param MoRefund $moRefund
+     * @param Monei2Refund $monei2Refund
      * @param bool $flush
      *
      * @return void
      */
-    public function removeMoneiRefund(MoRefund $moRefund, bool $flush = true): void
+    public function removeMoneiRefund(Monei2Refund $monei2Refund, bool $flush = true): void
     {
         try {
-            $this->getEntityManager()->remove($moRefund);
+            $this->getEntityManager()->remove($monei2Refund);
             if ($flush) {
                 $this->getEntityManager()->flush();
             }

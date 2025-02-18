@@ -7,7 +7,7 @@ use Doctrine\ORM\Mapping as ORM;
  * @ORM\Table()
  * @ORM\Entity(repositoryClass="PsMonei\Repository\MoneiCustomerCardRepository")
  */
-class MoCustomerCard
+class Monei2CustomerCard
 {
     /**
      * @ORM\Id

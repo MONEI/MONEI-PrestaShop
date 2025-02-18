@@ -1,8 +1,7 @@
 <?php
 $sql = [];
 
-// Create mo_payment table
-$sql[] = 'CREATE TABLE IF NOT EXISTS `' . _DB_PREFIX_ . 'mo_payment` (
+$sql[] = 'CREATE TABLE IF NOT EXISTS `' . _DB_PREFIX_ . 'monei2_payment` (
     `id_payment` VARCHAR(50) NOT NULL,
     `id_cart` INT(11) NOT NULL,
     `id_order` INT(11) DEFAULT NULL,
@@ -23,8 +22,7 @@ $sql[] = 'CREATE TABLE IF NOT EXISTS `' . _DB_PREFIX_ . 'mo_payment` (
     INDEX (`id_cart`, `id_order`, `id_order_monei`)
 ) ENGINE=' . _MYSQL_ENGINE_ . ' DEFAULT CHARSET=utf8;';
 
-// Create mo_history table
-$sql[] = 'CREATE TABLE IF NOT EXISTS `' . _DB_PREFIX_ . 'mo_history` (
+$sql[] = 'CREATE TABLE IF NOT EXISTS `' . _DB_PREFIX_ . 'monei2_history` (
     `id_history` INT(11) NOT NULL AUTO_INCREMENT,
     `id_payment` VARCHAR(50) NOT NULL,
     `status` ENUM("PENDING", "SUCCEEDED", "FAILED", "CANCELED", "REFUNDED", "PARTIALLY_REFUNDED", "AUTHORIZED", "EXPIRED", "UNKNOWN") DEFAULT "PENDING",
@@ -37,8 +35,7 @@ $sql[] = 'CREATE TABLE IF NOT EXISTS `' . _DB_PREFIX_ . 'mo_history` (
     INDEX (`id_payment`, `status_code`)
 ) ENGINE=' . _MYSQL_ENGINE_ . ' DEFAULT CHARSET=utf8;';
 
-// Create mo_token table
-$sql[] = 'CREATE TABLE IF NOT EXISTS `' . _DB_PREFIX_ . 'mo_customer_card` (
+$sql[] = 'CREATE TABLE IF NOT EXISTS `' . _DB_PREFIX_ . 'monei2_customer_card` (
     `id_customer_card` INT(11) NOT NULL AUTO_INCREMENT,
     `id_customer` INT(11) NOT NULL,
     `brand` VARCHAR(50) DEFAULT NULL,
@@ -53,8 +50,7 @@ $sql[] = 'CREATE TABLE IF NOT EXISTS `' . _DB_PREFIX_ . 'mo_customer_card` (
     INDEX (`id_customer`)
 ) ENGINE=' . _MYSQL_ENGINE_ . ' DEFAULT CHARSET=utf8;';
 
-// Create mo_refund table
-$sql[] = 'CREATE TABLE IF NOT EXISTS `' . _DB_PREFIX_ . 'mo_refund` (
+$sql[] = 'CREATE TABLE IF NOT EXISTS `' . _DB_PREFIX_ . 'monei2_refund` (
     `id_refund` INT(11) NOT NULL AUTO_INCREMENT,
     `id_payment` VARCHAR(50) NOT NULL,
     `id_history` INT(11) DEFAULT NULL,

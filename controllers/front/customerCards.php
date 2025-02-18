@@ -3,7 +3,7 @@ if (!defined('_PS_VERSION_')) {
     exit;
 }
 
-use PsMonei\Entity\MoCustomerCard;
+use PsMonei\Entity\Monei2CustomerCard;
 
 class MoneiCustomerCardsModuleFrontController extends ModuleFrontController
 {
@@ -33,7 +33,7 @@ class MoneiCustomerCardsModuleFrontController extends ModuleFrontController
 
     private function getCustomerCards(int $customerId): array
     {
-        $customerCards = $this->module->getRepository(MoCustomerCard::class)->findBy(['id_customer' => $customerId]);
+        $customerCards = $this->module->getRepository(Monei2CustomerCard::class)->findBy(['id_customer' => $customerId]);
         return array_map(fn($card) => $card->toArray(), $customerCards);
     }
 
@@ -41,13 +41,13 @@ class MoneiCustomerCardsModuleFrontController extends ModuleFrontController
     {
         try {
             $customerCardId = (int) Tools::getValue('customerCardId');
-            $customerCard = $this->module->getRepository(MoCustomerCard::class)->findOneBy([
+            $customerCard = $this->module->getRepository(Monei2CustomerCard::class)->findOneBy([
                 'id' => $customerCardId,
                 'id_customer' => (int) $this->context->customer->id
             ]);
 
             if ($customerCard) {
-                $this->module->getRepository(MoCustomerCard::class)->removeMoneiCustomerCard($customerCard);
+                $this->module->getRepository(Monei2CustomerCard::class)->removeMoneiCustomerCard($customerCard);
             }
 
             $this->ajaxResponse(true);
