@@ -2,10 +2,6 @@
 
 require_once dirname(__FILE__).'/vendor/autoload.php';
 
-use OpenAPI\Client\Model\PaymentPaymentMethod;
-use PsMonei\MoneiPaymentMethods;
-
-use PrestaShop\PrestaShop\Adapter\ServiceLocator;
 use PsMonei\Entity\Monei2CustomerCard;
 use PsMonei\Entity\Monei2Payment;
 use Symfony\Polyfill\Mbstring\Mbstring;
@@ -33,7 +29,7 @@ class Monei extends PaymentModule
         $this->version = '2.0.0';
         $this->author = 'MONEI';
         $this->need_instance = 0;
-        $this->ps_versions_compliancy = ['min' => '1.7', 'max' => _PS_VERSION_];
+        $this->ps_versions_compliancy = ['min' => '8', 'max' => _PS_VERSION_];
         $this->bootstrap = true;
 
         $this->controllers = [
