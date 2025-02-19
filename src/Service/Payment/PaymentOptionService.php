@@ -144,8 +144,12 @@ class PaymentOptionService
 
     private function getCustomerCardsPaymentOption()
     {
-        if ($this->configuration->get('MONEI_ALLOW_CARD') && $this->isPaymentMethodAllowed(PaymentPaymentMethod::METHOD_CARD)) {
-            $customer = $this->context->customer;
+        $customer = $this->context->customer;
+        if ($this->configuration->get('MONEI_ALLOW_CARD')
+            && $this->isPaymentMethodAllowed(PaymentPaymentMethod::METHOD_CARD)
+            && Validate::isLoadedObject($customer)
+            && ($customer->isLogged() || $customer->isGuest())
+        ) {
             $link = $this->context->link;
 
             // Get current customer cards (not expired ones)
