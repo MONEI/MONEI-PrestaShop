@@ -240,7 +240,7 @@ class MoneiService
         $monei2HistoryEntity = new Monei2History();
         $monei2HistoryEntity->setStatus($moneiPayment->getStatus());
         $monei2HistoryEntity->setStatusCode($moneiPayment->getStatusCode());
-        $monei2HistoryEntity->setResponse(json_encode($moneiPayment->jsonSerialize()));
+        $monei2HistoryEntity->setResponse($moneiPayment);
         $monei2PaymentEntity->addHistory($monei2HistoryEntity);
 
         if ($moneiPayment->getLastRefundAmount() > 0) {
