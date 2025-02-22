@@ -392,7 +392,7 @@ class MoneiService
         }
     }
 
-    public function createRefund(int $orderId, int $amount, int $employeeId = 0, string $reason)
+    public function createRefund(int $orderId, int $amount, int $employeeId, string $reason)
     {
         $moneiPayment = $this->moneiPaymentRepository->findOneBy(['id_order' => $orderId]);
         if (!$moneiPayment) {
