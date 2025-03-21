@@ -29,7 +29,7 @@ class Monei extends PaymentModule
     protected $config_form = false;
     protected $paymentMethods;
 
-    public const LOG_SEVERITY_LEVELS = [
+    const LOG_SEVERITY_LEVELS = [
         'info' => 1,
         'error' => 2,
         'warning' => 3,
