@@ -58,10 +58,8 @@ class PaymentOptionService
         $this->getBizumPaymentOption();
         $this->getApplePayPaymentOption();
         $this->getGooglePayPaymentOption();
-        $this->getClickToPayPaymentOption();
         $this->getPaypalPaymentOption();
         $this->getCofidisPaymentOption();
-        $this->getKlarnaPaymentOption();
         $this->getMultibancoPaymentOption();
         $this->getMbwayPaymentOption();
 
@@ -209,17 +207,6 @@ class PaymentOptionService
         }
     }
 
-    private function getClickToPayPaymentOption()
-    {
-        if ($this->configuration->get('MONEI_ALLOW_CLICKTOPAY') && $this->isPaymentMethodAllowed('clickToPay')) {
-            $this->paymentOptions[] = [
-                'name' => 'clickToPay',
-                'logo' => Media::getMediaPath(_PS_MODULE_DIR_ . 'monei/views/img/payments/click-to-pay.svg'),
-                'binary' => false,
-            ];
-        }
-    }
-
     private function getPaypalPaymentOption()
     {
         if ($this->configuration->get('MONEI_ALLOW_PAYPAL') && $this->isPaymentMethodAllowed(PaymentPaymentMethod::METHOD_PAYPAL)) {
@@ -237,17 +224,6 @@ class PaymentOptionService
             $this->paymentOptions[] = [
                 'name' => 'cofidis',
                 'logo' => Media::getMediaPath(_PS_MODULE_DIR_ . 'monei/views/img/payments/cofidis.svg'),
-                'binary' => false,
-            ];
-        }
-    }
-
-    private function getKlarnaPaymentOption()
-    {
-        if ($this->configuration->get('MONEI_ALLOW_KLARNA') && $this->isPaymentMethodAllowed(PaymentPaymentMethod::METHOD_KLARNA)) {
-            $this->paymentOptions[] = [
-                'name' => 'klarna',
-                'logo' => Media::getMediaPath(_PS_MODULE_DIR_ . 'monei/views/img/payments/klarna.svg'),
                 'binary' => false,
             ];
         }
