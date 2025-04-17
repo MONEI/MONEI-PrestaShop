@@ -95,6 +95,7 @@ class Monei extends PaymentModule
             && $this->registerHook('displayAdminOrder')
             && $this->registerHook('displayPaymentByBinaries')
             && $this->registerHook('paymentOptions')
+            && $this->registerHook('displayPaymentReturn')
             && $this->registerHook('actionCustomerLogoutAfter');
     }
 
@@ -1220,6 +1221,12 @@ class Monei extends PaymentModule
 
             return $this->fetch('module:monei/views/templates/hook/displayPaymentByBinaries.tpl');
         }
+    }
+
+    public function hookDisplayPaymentReturn($params)
+    {
+        dump($params);
+        die();
     }
 
     /**
