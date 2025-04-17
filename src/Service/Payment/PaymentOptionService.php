@@ -7,7 +7,6 @@ use Media;
 use Monei\Model\PaymentPaymentMethod;
 use PrestaShop\PrestaShop\Adapter\Configuration as ConfigurationLegacy;
 use PrestaShop\PrestaShop\Adapter\LegacyContext;
-use PsMonei\Exception\MoneiException;
 use PsMonei\Repository\MoneiCustomerCardRepository;
 use PsMonei\Service\Monei\MoneiService;
 use Tools;
