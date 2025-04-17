@@ -9,7 +9,7 @@ use Cart;
 use Configuration;
 use Customer;
 use Db;
-use OpenAPI\Client\Model\PaymentStatus;
+use Monei\Model\PaymentStatus;
 use Order;
 use OrderState;
 use PrestaShopLogger;

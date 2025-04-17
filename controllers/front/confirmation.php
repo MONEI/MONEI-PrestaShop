@@ -3,7 +3,7 @@ if (!defined('_PS_VERSION_')) {
     exit;
 }
 
-use OpenAPI\Client\Model\PaymentStatus;
+use Monei\Model\PaymentStatus;
 
 class MoneiConfirmationModuleFrontController extends ModuleFrontController
 {

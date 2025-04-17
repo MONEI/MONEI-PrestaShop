@@ -1,5 +1,5 @@
 <?php
-use OpenAPI\Client\Model\PaymentStatus;
+use Monei\Model\PaymentStatus;
 use PrestaShop\PrestaShop\Adapter\ServiceLocator;
 use PsMonei\Exception\MoneiException;
 
