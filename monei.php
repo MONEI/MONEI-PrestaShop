@@ -2,6 +2,8 @@
 
 require_once dirname(__FILE__) . '/vendor/autoload.php';
 
+use Monei\Model\PaymentPaymentMethod;
+use Monei\Model\PaymentStatus;
 use PsMonei\Entity\Monei2CustomerCard;
 use PsMonei\Entity\Monei2Payment;
 use Symfony\Polyfill\Mbstring\Mbstring;
@@ -1225,8 +1227,23 @@ class Monei extends PaymentModule
 
     public function hookDisplayPaymentReturn($params)
     {
-        dump($params);
-        die();
+        $orderId = (int) $params['order']->id;
+        $monei2PaymentEntity = $this->getRepository(Monei2Payment::class)->findOneBy([
+            'id_order' => $orderId,
+            'status' => PaymentStatus::PENDING,
+        ]);
+        if (!$monei2PaymentEntity) {
+            return;
+        }
+
+        $moneiService = $this->getService('service.monei');
+        $moneiPayment = $moneiService->getMoneiPayment($monei2PaymentEntity->getId());
+        if ($moneiPayment
+            && $moneiPayment->getPaymentMethod()->getMethod() === PaymentPaymentMethod::METHOD_MULTIBANCO
+            && $moneiPayment->getStatus() === PaymentStatus::PENDING
+        ) {
+            return $this->fetch('module:monei/views/templates/hook/displayPaymentReturn.tpl');
+        }
     }
 
     /**

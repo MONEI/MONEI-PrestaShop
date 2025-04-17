@@ -139,6 +139,7 @@ $_MODULE['<{monei}prestashop>displayadminorder_f8c8b903cb2e4f297e4b96d4b9c1e98a'
 $_MODULE['<{monei}prestashop>displayadminorder_666c7479a2e91613d64e012478a2ddcd'] = 'Total refunds:';
 $_MODULE['<{monei}prestashop>displaycustomeraccount_6f1df2e87b29fecbd6159555f426cb65'] = 'My Credit Cards';
 $_MODULE['<{monei}prestashop>displaypaymentbybinaries_99938b17c91170dfb0c2f3f8bc9f2a85'] = 'Pay';
+$_MODULE['<{monei}prestashop>displaypaymentreturn_b3e3075a671f749ea23ad37df758196c'] = 'Your payment may take up to 7 business days to be processed with Multibanco.';
 $_MODULE['<{monei}prestashop>paymentoptions_d053c556b9380c837b64e8fd881d2e31'] = 'Save Card details for future payments';
 $_MODULE['<{monei}prestashop>customercards_01abfc750a0c942167651c40d088531d'] = '#';
 $_MODULE['<{monei}prestashop>customercards_1be6f9eb563f3bf85c78b4219bf09de9'] = 'Brand';
