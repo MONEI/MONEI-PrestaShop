@@ -66,31 +66,29 @@ class MoneiService
         return new MoneiClient($apiKey);
     }
 
-    public function getMoneiAccountInformation()
+    public function getPaymentMethodsAllowed()
     {
-        if ((bool) Configuration::get('MONEI_PRODUCTION_MODE')) {
-            $accountId = Configuration::get('MONEI_ACCOUNT_ID');
-        } else {
-            $accountId = Configuration::get('MONEI_TEST_ACCOUNT_ID');
+        try {
+            $moneiClient = $this->getMoneiClient();
+
+            if ((bool) Configuration::get('MONEI_PRODUCTION_MODE')) {
+                $accountId = Configuration::get('MONEI_ACCOUNT_ID');
+            } else {
+                $accountId = Configuration::get('MONEI_TEST_ACCOUNT_ID');
+            }
+
+            if (!$accountId) {
+                throw new MoneiException('Monei account id is not set.', MoneiException::MONEI_ACCOUNT_ID_IS_EMPTY);
+            }
+
+            $moneiAccountInformation = $moneiClient->paymentMethods->get($accountId);
+
+            return $moneiAccountInformation->getPaymentMethods();
+        } catch (\Exception $e) {
+            PrestaShopLogger::addLog('MONEI - getPaymentMethodsAllowed - Error: ' . $e->getMessage(), PrestaShopLogger::LOG_SEVERITY_LEVEL_WARNING);
+
+            return [];
         }
-
-        if (!$accountId) {
-            throw new MoneiException('Monei account id is not set.', MoneiException::MONEI_ACCOUNT_ID_IS_EMPTY);
-        }
-
-        $endpoint = 'https://api.monei.com/v1/payment-methods?accountId=' . $accountId;
-
-        $response = Tools::file_get_contents($endpoint);
-        if (!$response) {
-            throw new MoneiException('Monei account information not found.', MoneiException::MONEI_ACCOUNT_INFORMATION_NOT_FOUND);
-        }
-
-        $responseJson = json_decode($response, true);
-        if (json_last_error() !== JSON_ERROR_NONE) {
-            throw new MoneiException('Invalid JSON response from Monei.', MoneiException::INVALID_JSON_RESPONSE);
-        }
-
-        return $responseJson;
     }
 
     public function getMoneiPayment($moneiPaymentId)

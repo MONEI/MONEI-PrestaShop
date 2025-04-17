@@ -4,9 +4,10 @@ namespace PsMonei\Service\Payment;
 use Address;
 use Country;
 use Media;
-use OpenAPI\Client\Model\PaymentPaymentMethod;
+use Monei\Model\PaymentPaymentMethod;
 use PrestaShop\PrestaShop\Adapter\Configuration as ConfigurationLegacy;
 use PrestaShop\PrestaShop\Adapter\LegacyContext;
+use PsMonei\Exception\MoneiException;
 use PsMonei\Repository\MoneiCustomerCardRepository;
 use PsMonei\Service\Monei\MoneiService;
 use Tools;
@@ -39,10 +40,7 @@ class PaymentOptionService
 
     public function getPaymentOptions(): array
     {
-        $moneiAccountInformation = $this->moneiService->getMoneiAccountInformation();
-        if (isset($moneiAccountInformation['paymentMethods'])) {
-            $this->paymentMethodsAllowed = $moneiAccountInformation['paymentMethods'];
-        }
+        $this->paymentMethodsAllowed = $this->moneiService->getPaymentMethodsAllowed();
 
         $this->currencyIsoCode = $this->context->currency->iso_code;
         $this->countryIsoCode = $this->context->country->iso_code;
