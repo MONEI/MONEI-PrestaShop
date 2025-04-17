@@ -191,10 +191,8 @@ class MoneiService
             'MONEI_ALLOW_BIZUM' => 'bizum',
             'MONEI_ALLOW_APPLE' => 'applePay',
             'MONEI_ALLOW_GOOGLE' => 'googlePay',
-            'MONEI_ALLOW_CLICKTOPAY' => 'clickToPay',
             'MONEI_ALLOW_PAYPAL' => 'paypal',
             'MONEI_ALLOW_COFIDIS' => 'cofidis',
-            'MONEI_ALLOW_KLARNA' => 'klarna',
             'MONEI_ALLOW_MULTIBANCO' => 'multibanco',
             'MONEI_ALLOW_MBWAY' => 'mbway',
         ];
