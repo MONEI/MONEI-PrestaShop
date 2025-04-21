@@ -9,7 +9,7 @@ use Cart;
 use Configuration;
 use Customer;
 use Db;
-use OpenAPI\Client\Model\PaymentStatus;
+use Monei\Model\PaymentStatus;
 use Order;
 use OrderState;
 use PrestaShopLogger;
@@ -31,10 +31,12 @@ class OrderService
 
     public function createOrUpdateOrder($moneiPaymentId, bool $redirectToConfirmationPage = false)
     {
+        $connection = Db::getInstance();
+
         try {
             // Check if order already exists
-            $query = 'SELECT * FROM ' . _DB_PREFIX_ . 'monei2_order_payment WHERE id_payment = "' . $moneiPaymentId . '"';
-            $orderPaymentExists = Db::getInstance()->getRow($query);
+            $query = 'SELECT * FROM ' . _DB_PREFIX_ . 'monei2_order_payment WHERE id_payment = "' . pSQL($moneiPaymentId) . '"';
+            $orderPaymentExists = $connection->getRow($query);
             if ($orderPaymentExists) {
                 PrestaShopLogger::addLog('MONEI - createOrUpdateOrder - Order: (' . $result['id_order'] . ') already exists. Payment ID: ' . $moneiPaymentId . ' Date: ' . $result['date_add'], PrestaShopLogger::LOG_SEVERITY_LEVEL_WARNING);
             }
@@ -60,8 +62,9 @@ class OrderService
             $this->moneiService->saveMoneiPayment($moneiPayment, $order->id);
 
             // Flag order created or updated
-            $sql = 'INSERT INTO ' . _DB_PREFIX_ . 'monei2_order_payment (id_order, id_payment, date_add) VALUES (' . $order->id . ', "' . $moneiPaymentId . '", NOW())';
-            if (!$orderPaymentExists && Db::getInstance()->execute($sql)) {
+            $sql = 'INSERT IGNORE INTO ' . _DB_PREFIX_ . 'monei2_order_payment (id_order, id_payment, date_add)
+                VALUES (' . (int) $order->id . ', "' . pSQL($moneiPaymentId) . '", NOW())';
+            if ($connection->execute($sql)) {
                 PrestaShopLogger::addLog('MONEI - createOrUpdateOrder - Order (' . $order->id . ') created or updated.', PrestaShopLogger::LOG_SEVERITY_LEVEL_INFORMATIVE);
             }
 
@@ -71,6 +74,8 @@ class OrderService
                 'MONEI - CreateOrderService - ' . $e->getMessage(),
                 PrestaShopLogger::LOG_SEVERITY_LEVEL_WARNING
             );
+
+            throw $e;
         }
     }
 
@@ -85,6 +90,23 @@ class OrderService
         $configKey = $statusMap[$moneiPaymentStatus] ?? 'MONEI_STATUS_FAILED';
 
         return (int) Configuration::get($configKey);
+    }
+
+    private function isValidStateTransition($currentOrderState, $newOrderState)
+    {
+        $validTransitions = [
+            Configuration::get('MONEI_STATUS_PENDING') => [
+                Configuration::get('MONEI_STATUS_SUCCEEDED'),
+                Configuration::get('MONEI_STATUS_FAILED')
+            ],
+            Configuration::get('MONEI_STATUS_SUCCEEDED') => [
+                Configuration::get('MONEI_STATUS_REFUNDED'),
+                Configuration::get('MONEI_STATUS_PARTIALLY_REFUNDED')
+            ],
+        ];
+
+        return isset($validTransitions[$currentOrderState]) &&
+               in_array($newOrderState, $validTransitions[$currentOrderState]);
     }
 
     public function validateCart($cartId)
@@ -137,10 +159,14 @@ class OrderService
     {
         $orderState = new OrderState($orderStateId);
         if (Validate::isLoadedObject($orderState)) {
-            $pendingStates = [(int) Configuration::get('MONEI_STATUS_PENDING')];
-            if (in_array((int) $order->current_state, $pendingStates)) {
+            if ($this->isValidStateTransition($order->current_state, $orderStateId)) {
                 $order->setCurrentState($orderStateId);
                 $this->updateOrderPaymentTransactionId($order, $moneiPayment->getId());
+            } else {
+                PrestaShopLogger::addLog(
+                    'MONEI - Invalid state transition from ' . $order->current_state . ' to ' . $orderStateId,
+                    PrestaShopLogger::LOG_SEVERITY_LEVEL_WARNING
+                );
             }
         }
     }
@@ -197,7 +223,8 @@ class OrderService
                 . '&key=' . $customer->secure_key
             );
         } else {
-            echo 'OK';
+            header('HTTP/1.1 200 OK');
+            echo '<h1>OK</h1>';
         }
     }
 }

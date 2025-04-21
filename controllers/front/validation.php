@@ -1,6 +1,6 @@
 <?php
 
-use OpenAPI\Client\Model\Payment;
+use Monei\Model\Payment;
 use PsMonei\ApiException;
 use PsMonei\MoneiException;
 

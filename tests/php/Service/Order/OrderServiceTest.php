@@ -3,8 +3,8 @@
 namespace Tests\Service\Order;
 
 use Mockery;
-use OpenAPI\Client\Model\Payment as MoneiPayment;
-use OpenAPI\Client\Model\PaymentStatus;
+use Monei\Model\Payment as MoneiPayment;
+use Monei\Model\PaymentStatus;
 use PHPUnit\Framework\TestCase;
 use PsMonei\MoneiClient;
 use PsMonei\Service\Order\OrderService;
