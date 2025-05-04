@@ -75,7 +75,7 @@ class Monei2History
         return $this->status;
     }
 
-    public function setStatus($status): self
+    public function setStatus(string $status): self
     {
         $this->status = $status;
 

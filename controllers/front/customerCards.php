@@ -47,7 +47,7 @@ class MoneiCustomerCardsModuleFrontController extends ModuleFrontController
             ]);
 
             if ($customerCard) {
-                $this->module->getRepository(Monei2CustomerCard::class)->removeMoneiCustomerCard($customerCard);
+                $this->module->getRepository(Monei2CustomerCard::class)->remove($customerCard);
             }
 
             $this->ajaxResponse(true);

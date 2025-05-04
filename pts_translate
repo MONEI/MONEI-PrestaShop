@@ -1,0 +1,312 @@
+#!/usr/bin/env php
+<?php
+/**
+ * Revision: 4
+ * Date: 2025-01-29
+ */
+
+ini_set('display_errors', 1);
+error_reporting(E_ALL);
+
+if (!defined('_PS_VERSION_')) {
+    define('_PS_VERSION_', '8');
+}
+
+$moduleName = 'monei';
+
+// Configuración de la API de Google Translate
+define('_API_KEY_', 'AIzaSyCxzbvktpcoA2qp1Zp4y51ARdpq-c3Fnnw');
+
+// Cambiar a false si no se desean crear subdivisiones
+$createSubdivisions = false;
+
+// Idiomas disponibles (agrega más idiomas según tus necesidades)
+// $availableLanguages = ['es'];
+$availableLanguages = ['es'];
+
+// Subdivisions en inglés
+$englishSubdivisions = [
+    'us', // Estados Unidos
+    'gb', // Reino Unido
+    'au', // Australia
+    'ca', // Canadá
+    'nz', // Nueva Zelanda
+    'ie', // Irlanda
+    'za', // Sudáfrica
+    'in', // India
+    'sg', // Singapur
+    'ph', // Filipinas
+    'hk', // Hong Kong
+    'my', // Malasia
+    'bz', // Belice
+    'tt', // Trinidad y Tobago
+    'jm', // Jamaica
+    'zw', // Zimbabue
+    'ng', // Nigeria
+];
+
+// Subdivisions en español
+$spanishSubdivisions = [
+    'es', // España
+    'mx', // México
+    'ar', // Argentina
+    'co', // Colombia
+    'cl', // Chile
+    'pe', // Perú
+    've', // Venezuela
+    'cu', // Cuba
+    'bo', // Bolivia
+    'cr', // Costa Rica
+    'do', // República Dominicana
+    'ec', // Ecuador
+    'gt', // Guatemala
+    'hn', // Honduras
+    'ni', // Nicaragua
+    'pa', // Panamá
+    'py', // Paraguay
+    'sv', // El Salvador
+    'uy', // Uruguay
+    'pr', // Puerto Rico
+    'gq', // Guinea Ecuatorial
+];
+
+// Subdivisions en portugués
+$portugueseSubdivisions = [
+    'pt', // Portugal
+    'br', // Brasil
+];
+
+// Ruta del módulo de PrestaShop
+$modulePath = dirname(__FILE__) . '/';
+
+/**
+ * Función auxiliar para escapar únicamente las comillas simples.
+ */
+function escapeSingleQuotes($text) {
+    return str_replace("'", "\\'", $text);
+}
+
+/**
+ * Función para generar el archivo de traducción en inglés ignorando carpetas específicas.
+ */
+function generateEnglishTranslationFile($modulePath, $moduleName) {
+    $translationFile = dirname(__FILE__) . '/translations/en.php';
+    $translations = [];
+
+    // Lista de carpetas a ignorar
+    $ignoreFolders = ['_dev', 'dist', 'vendor', 'translations', 'upgrades', 'sql', 'override', 'override_8'];
+
+    // Configuración del iterador recursivo con filtro de carpetas ignoradas
+    $directory = new RecursiveDirectoryIterator($modulePath, RecursiveDirectoryIterator::SKIP_DOTS);
+    $filter = new RecursiveCallbackFilterIterator($directory, function ($current, $key, $iterator) use ($ignoreFolders) {
+        if ($current->isDir() && in_array($current->getFilename(), $ignoreFolders)) {
+            return false;
+        }
+        return true;
+    });
+    $iterator = new RecursiveIteratorIterator($filter);
+    // Expresión regular actualizada para PHP: captura el delimitador y respeta comillas escapadas.
+    $phpPattern = "/(->|::)l\(\s*(['\"])(.*?)(?<!\\\\)\\2\s*(?:,\s*.*?)?\)/s";
+    // Iterador que busca archivos PHP y TPL
+    $regex = new RegexIterator($iterator, '/^.+\.(php|tpl)$/i', RecursiveRegexIterator::GET_MATCH);
+
+    foreach ($regex as $file) {
+        $filePath = $file[0];
+        $content = file_get_contents($filePath);
+        $fileName = strtolower(pathinfo($filePath, PATHINFO_FILENAME));
+
+        // 1. Búsqueda en PHP (->l() y ::l())
+        if (preg_match_all($phpPattern, $content, $matches)) {
+            foreach ($matches[3] as $string) {
+                // Se limpia la cadena eliminando escapes previos de comillas simples
+                $cleanedString = str_replace("\\'", "'", $string);
+
+                $uniqueKey = $fileName . '|' . md5($string);
+                $translations[$uniqueKey] = [
+                    'translation' => $cleanedString,
+                    'file' => $fileName,
+                    'md5' => md5($string)
+                ];
+            }
+        }
+
+        // 2. Búsqueda en TPL ({l ... mod='módulo'})
+        $tplPattern = '/\{l\s+.*?s=(["\'])(.*?)(?<!\\\\)\1.*?mod=(["\'])' . preg_quote($moduleName, '/') . '\3.*?\}/si';
+        if (preg_match_all($tplPattern, $content, $matches)) {
+            foreach ($matches[2] as $string) {
+                $cleanedString = str_replace("\\'", "'", $string);
+
+                $uniqueKey = $fileName . '|' . md5($string);
+                $translations[$uniqueKey] = [
+                    'translation' => $cleanedString,
+                    'file' => $fileName,
+                    'md5' => md5($string)
+                ];
+            }
+        }
+    }
+
+    // Generar el archivo de traducciones sin escapar las comillas dobles
+    $translationContent = "<?php\n\nglobal \$_MODULE;\n\$_MODULE = array();\n\n";
+    foreach ($translations as $entry) {
+        $translationContent .= "\$_MODULE['<{" . $moduleName . "}prestashop>" . $entry['file'] . "_" . $entry['md5'] . "'] = '" . escapeSingleQuotes($entry['translation']) . "';\n";
+    }
+
+    file_put_contents($translationFile, $translationContent);
+    echo "Archivo de traducción generado en: $translationFile\n";
+}
+
+function translateText($text, $targetLanguage, $apiKey) {
+    $url = 'https://translation.googleapis.com/language/translate/v2';
+    $maxRetries = 3;
+    $retryDelay = 1; // Segundos entre reintentos
+
+    for ($attempt = 1; $attempt <= $maxRetries; $attempt++) {
+        try {
+            $data = [
+                'q'      => $text,
+                'target' => $targetLanguage,
+                'key'    => $apiKey,
+                'format' => 'html'
+            ];
+
+            $options = [
+                'http' => [
+                    'method'  => 'POST',
+                    'header'  => "Content-Type: application/x-www-form-urlencoded\r\n",
+                    'content' => http_build_query($data)
+                ]
+            ];
+
+            $context = stream_context_create($options);
+            $response = file_get_contents($url, false, $context);
+
+            if ($response === false) {
+                throw new Exception("Error de conexión");
+            }
+
+            $responseData = json_decode($response, true);
+
+            if (isset($responseData['error'])) {
+                $errorCode = $responseData['error']['code'] ?? 500;
+                $errorMsg  = $responseData['error']['message'] ?? 'Error desconocido';
+
+                if ($errorCode === 403) {
+                    throw new Exception("Acceso denegado: Verifica tu API Key y permisos", 403);
+                }
+
+                throw new Exception("Error $errorCode: $errorMsg");
+            }
+
+            return $responseData['data']['translations'][0]['translatedText'] ?? $text;
+
+        } catch (Exception $e) {
+            if ($e->getCode() === 403) {
+                echo $e->getMessage() . "\n";
+                return false;
+            }
+
+            echo "Intento $attempt/$maxRetries fallido: " . $e->getMessage() . "\n";
+
+            if ($attempt < $maxRetries) {
+                sleep($retryDelay * pow(2, $attempt - 1));
+            }
+        }
+    }
+
+    echo "No se pudo traducir después de $maxRetries intentos\n";
+    return false;
+}
+
+// Función de traducción de archivos mejorada
+function translateLanguageFiles($modulePath, $availableLanguages, $apiKey) {
+    $enFilePath = $modulePath . 'translations/en.php';
+
+    if (!file_exists($enFilePath)) {
+        die("Archivo base en inglés no encontrado en: $enFilePath");
+    }
+
+    // Cargar traducciones base
+    $baseTranslations = [];
+    $content = file_get_contents($enFilePath);
+    preg_match_all('/\$_MODULE\[\'(.*?)\'\]\s*=\s*\'(.*?)\';/s', $content, $matches);
+
+    foreach ($matches[1] as $i => $key) {
+        $baseTranslations[$key] = str_replace("\\'", "'", $matches[2][$i]);
+    }
+
+    foreach ($availableLanguages as $lang) {
+        $filePath = $modulePath . "translations/$lang.php";
+        $existingTranslations = [];
+
+        if (file_exists($filePath)) {
+            $content = file_get_contents($filePath);
+            preg_match_all('/\$_MODULE\[\'(.*?)\'\]\s*=\s*\'(.*?)\';/s', $content, $matches);
+            foreach ($matches[1] as $i => $key) {
+                $existingTranslations[$key] = str_replace("\\'", "'", $matches[2][$i]);
+            }
+        }
+
+        $newContent = "<?php\n\nglobal \$_MODULE;\n\$_MODULE = array();\n";
+        $translationCount = 0;
+
+        foreach ($baseTranslations as $key => $text) {
+            if (!isset($existingTranslations[$key])) {
+                echo "Traduciendo: " . substr($text, 0, 50) . "...\n";
+                $translated = translateText($text, $lang, _API_KEY_);
+                $translated = $translated ?: $text;
+
+                if ($translationCount > 0) {
+                    sleep(1);
+                }
+                $translationCount++;
+            } else {
+                $translated = $existingTranslations[$key];
+            }
+
+            // Escapar únicamente las comillas simples
+            $safeText = str_replace("'", "\\'", htmlspecialchars_decode($translated, ENT_QUOTES));
+            $newContent .= "\$_MODULE['$key'] = '$safeText';\n";
+        }
+
+        if (!file_exists($filePath) || md5($newContent) !== md5_file($filePath)) {
+            file_put_contents($filePath, $newContent);
+            echo "Archivo $lang actualizado\n";
+        } else {
+            echo "Sin cambios para $lang\n";
+        }
+    }
+}
+
+function createSubLanguageFiles($basePath, $subdivisions) {
+    foreach ($subdivisions as $language => $subs) {
+        $baseFilePath = $basePath . "/translations/{$language}.php";
+
+        if (file_exists($baseFilePath)) {
+            $baseContent = file_get_contents($baseFilePath);
+            foreach ($subs as $subdivision) {
+                $subFilePath = $basePath . "/translations/{$subdivision}.php";
+                file_put_contents($subFilePath, $baseContent);
+                echo "Archivo de idioma para '{$language}_{$subdivision}' creado exitosamente en: {$subFilePath}\n";
+            }
+        } else {
+            echo "No se encontró el archivo de idioma base para '{$language}' en: {$baseFilePath}\n";
+        }
+    }
+}
+
+// Generar el archivo de traducción en inglés
+generateEnglishTranslationFile($modulePath, $moduleName);
+
+// Ejecutar la traducción
+translateLanguageFiles($modulePath, $availableLanguages, _API_KEY_);
+
+// Opción para crear archivos de subdivisiones
+if ($createSubdivisions) {
+    createSubLanguageFiles($modulePath, [
+        'en' => $englishSubdivisions,
+        'es' => $spanishSubdivisions,
+        'pt' => $portugueseSubdivisions
+    ]);
+}
+?>

@@ -65,7 +65,8 @@ class PaymentOptionService
 
     public function isSafariBrowser(): bool
     {
-        return strpos(Tools::getUserBrowser(), 'Safari') !== false;
+        return preg_match('/Safari\/[0-9.]+$/', Tools::getUserAgent()) === 1
+            && strpos(Tools::getUserAgent(), 'Chrome') === false;
     }
 
     public function getTransactionId(): string

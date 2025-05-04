@@ -37,7 +37,7 @@ class Monei2Payment
     private $amount;
 
     /**
-     * @ORM\Column(type="integer")
+     * @ORM\Column(type="integer", nullable=true)
      */
     private $refunded_amount;
 
@@ -87,7 +87,8 @@ class Monei2Payment
 
     public function isRefundable(): bool
     {
-        if ($this->getRefundedAmount() < $this->getAmount()) {
+        $refundedAmount = $this->getRefundedAmount() ?? 0;
+        if ($refundedAmount < $this->getAmount()) {
             return true;
         }
 
@@ -214,7 +215,7 @@ class Monei2Payment
 
     public function getDateAddFormatted(): ?string
     {
-        return $this->date_add->format('Y-m-d H:i:s');
+        return $this->date_add ? $this->date_add->format('Y-m-d H:i:s') : null;
     }
 
     public function setDateAdd(?int $timestamp): self
@@ -231,7 +232,7 @@ class Monei2Payment
 
     public function getDateUpdFormatted(): ?string
     {
-        return $this->date_upd->format('Y-m-d H:i:s');
+        return $this->date_upd ? $this->date_upd->format('Y-m-d H:i:s') : null;
     }
 
     public function setDateUpd(?int $timestamp): self

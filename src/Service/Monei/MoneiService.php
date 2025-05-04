@@ -104,7 +104,8 @@ class MoneiService
 
     public function createMoneiOrderId(int $cartId)
     {
-        return str_pad($cartId . 'm' . time() % 1000, 12, '0', STR_PAD_LEFT);
+        $suffix = time() % 1000;
+        return str_pad($cartId . 'm' . $suffix, 12, '0', STR_PAD_LEFT);
     }
 
     public function extractCartIdFromMoneiOrderId($moneiOrderId)
@@ -206,7 +207,7 @@ class MoneiService
 
     public function getTotalRefundedByIdOrder(int $orderId)
     {
-        $refunds = $this->moneiRefundRepository->findOneBy(['id_order' => $orderId]);
+        $refunds = $this->moneiRefundRepository->findBy(['id_order' => $orderId]);
         $totalRefunded = 0;
         foreach ($refunds as $refund) {
             $totalRefunded += $refund->getAmount();
@@ -230,8 +231,8 @@ class MoneiService
         $monei2PaymentEntity->setCurrency($moneiPayment->getCurrency());
         $monei2PaymentEntity->setAuthorizationCode($moneiPayment->getAuthorizationCode());
         $monei2PaymentEntity->setStatus($moneiPayment->getStatus());
-        $monei2PaymentEntity->setDateAdd($moneiPayment->getCreatedAt());
-        $monei2PaymentEntity->setDateUpd($moneiPayment->getUpdatedAt());
+        $monei2PaymentEntity->setDateAdd($moneiPayment->getCreatedAt()->getTimestamp());
+        $monei2PaymentEntity->setDateUpd($moneiPayment->getUpdatedAt()->getTimestamp());
 
         $monei2HistoryEntity = new Monei2History();
         $monei2HistoryEntity->setStatus($moneiPayment->getStatus());
@@ -248,7 +249,7 @@ class MoneiService
             $monei2PaymentEntity->addRefund($monei2Refund);
         }
 
-        $this->moneiPaymentRepository->saveMoneiPayment($monei2PaymentEntity);
+        $this->moneiPaymentRepository->save($monei2PaymentEntity);
 
         return $monei2PaymentEntity;
     }
@@ -273,7 +274,7 @@ class MoneiService
                 $monei2CustomerCard->setExpiration($cardPayment->getExpiration());
                 $monei2CustomerCard->setTokenized($paymentToken);
 
-                $this->moneiCustomerCardRepository->saveMoneiCustomerCard($monei2CustomerCard);
+                $this->moneiCustomerCardRepository->save($monei2CustomerCard);
             }
         }
     }

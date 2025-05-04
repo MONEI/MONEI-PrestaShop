@@ -25,28 +25,39 @@
                     </tr>
                 </thead>
                 <tbody id="credit_card_list">
-                    {foreach from=$customerCardsList item=customerCard}
+                    {if empty($customerCardsList)}
                         <tr>
-                            <td>{$customerCard.id|escape:'html':'UTF-8'}</td>
-                            <td>
-                                <img width="48"
-                                     src="{$modules_dir|escape:'html':'UTF-8'}/monei/views/img/payments/{$customerCard.brand|escape:'html':'UTF-8'}.svg"
-                                     class="img img-responsive" alt="{$customerCard.brand|escape:'html':'UTF-8'}">
-                            </td>
-                            <td>{$customerCard.lastFourWithMask|escape:'html':'UTF-8'}</td>
-                            <td>{$customerCard.expiration|date_format:'%m/%y'|escape:'html':'UTF-8'}</td>
-                            <td>{$customerCard.dateAdd|escape:'html':'UTF-8'}</td>
-                            <td class="action">
-                                <a href="#" class="btn btn-danger btn-sm" data-customer-card-id="{$customerCard.id|escape:'html':'UTF-8'}">
-                                    {if !$isWarehouseInstalled}
-                                        <i class="material-icons">delete</i>
-                                    {else}
-                                        <i class="fa fa-trash"></i>
-                                    {/if}
-                                </a>
+                            <td colspan="6" class="text-center">
+                                {l s='You don\'t have any saved credit cards yet.' mod='monei'}
                             </td>
                         </tr>
-                    {/foreach}
+                    {else}
+                        {foreach from=$customerCardsList item=customerCard}
+                            <tr>
+                                <td>{$customerCard.id|escape:'html':'UTF-8'}</td>
+                                <td>
+                                    <img width="48"
+                                        src="{$modules_dir|escape:'html':'UTF-8'}/monei/views/img/payments/{$customerCard.brand|escape:'html':'UTF-8'}.svg"
+                                        class="img img-responsive" alt="{$customerCard.brand|escape:'html':'UTF-8'}">
+                                </td>
+                                <td>{$customerCard.lastFourWithMask|escape:'html':'UTF-8'}</td>
+                                <td>{$customerCard.expiration|date_format:'%m/%y'|escape:'html':'UTF-8'}</td>
+                                <td>{$customerCard.dateAdd|escape:'html':'UTF-8'}</td>
+                                <td class="action">
+                                <a href="#" class="btn btn-danger btn-sm" data-customer-card-id="{$customerCard.id|escape:'html':'UTF-8'}"
+                                    aria-label="{l s='Delete card ending in %s' mod='monei' sprintf=[$customerCard.lastFourWithMask|escape:'html':'UTF-8']}"
+                                    title="{l s='Delete card' mod='monei'}">
+                                        {if !$isWarehouseInstalled}
+                                            <i class="material-icons" aria-hidden="true">delete</i>
+                                        {else}
+                                            <i class="fa fa-trash" aria-hidden="true"></i>
+                                        {/if}
+                                        <span class="sr-only">{l s='Delete card' mod='monei'}</span>
+                                    </a>
+                                </td>
+                            </tr>
+                        {/foreach}
+                    {/if}
                 </tbody>
             </table>
         </div>
