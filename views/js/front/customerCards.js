@@ -4,12 +4,12 @@ document.addEventListener("DOMContentLoaded", function (event) {
         link.addEventListener('click', function (event) {
             event.preventDefault();
             Swal.fire({
-                title: MoneiVars.titleRemoveCard,
-                text: MoneiVars.textRemoveCard,
+                title: MoneiVars.titleRemoveCard || 'Remove Card',
+                text: MoneiVars.textRemoveCard || 'Are you sure you want to remove this card?',
                 icon: 'warning',
                 showCancelButton: true,
-                confirmButtonText: MoneiVars.confirmRemoveCard,
-                cancelButtonText: MoneiVars.cancelRemoveCard,
+                confirmButtonText: MoneiVars.confirmRemoveCard || 'Remove Card',
+                cancelButtonText: MoneiVars.cancelRemoveCard || 'Cancel',
             }).then((result) => {
                 if (result.isConfirmed) {
                     ajaxDeleteTokenizedCard(this.dataset.customerCardId, this.parentElement.parentElement);
@@ -44,7 +44,7 @@ function ajaxDeleteTokenizedCard(customerCardId, itemCustomerCard) {
         if (data.success) {
             Swal.fire({
                 title: 'Success',
-                text: MoneiVars.successfullyRemovedCard,
+                text: MoneiVars.successfullyRemovedCard || 'Card removed successfully',
                 icon: 'success'
             });
 
@@ -52,7 +52,7 @@ function ajaxDeleteTokenizedCard(customerCardId, itemCustomerCard) {
         } else {
             Swal.fire({
                 title: 'Error',
-                text: data.error || MoneiVars.errorRemovingCard,
+                text: data.error || MoneiVars.errorRemovingCard || 'An error occurred while removing the card',
                 icon: 'error'
             });
         }

@@ -4,7 +4,7 @@ namespace PsMonei\Repository;
 use Doctrine\ORM\EntityRepository;
 use Doctrine\ORM\ORMException;
 use PsMonei\Entity\Monei2History;
-
+use PsMonei\Exception\MoneiException;
 class MoneiHistoryRepository extends EntityRepository
 {
     /**
@@ -13,15 +13,17 @@ class MoneiHistoryRepository extends EntityRepository
      *
      * @return void
      */
-    public function saveMoneiHistory(Monei2History $monei2History, bool $flush = true): void
+    public function save(Monei2History $monei2History, bool $flush = true): Monei2History
     {
         try {
             $this->getEntityManager()->persist($monei2History);
             if ($flush) {
                 $this->getEntityManager()->flush();
             }
+
+            return $monei2History;
         } catch (ORMException $e) {
-            throw new \Exception('Error saving monei history: ' . $e->getMessage());
+            throw new MoneiException('Error saving monei history: ' . $e->getMessage());
         }
     }
 
@@ -31,7 +33,7 @@ class MoneiHistoryRepository extends EntityRepository
      *
      * @return void
      */
-    public function removeMoneiHistory(Monei2History $monei2History, bool $flush = true): void
+    public function remove(Monei2History $monei2History, bool $flush = true): void
     {
         try {
             $this->getEntityManager()->remove($monei2History);
@@ -39,7 +41,7 @@ class MoneiHistoryRepository extends EntityRepository
                 $this->getEntityManager()->flush();
             }
         } catch (ORMException $e) {
-            throw new \Exception('Error removing monei history: ' . $e->getMessage());
+            throw new MoneiException('Error removing monei history: ' . $e->getMessage());
         }
     }
 }

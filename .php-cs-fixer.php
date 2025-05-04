@@ -5,7 +5,7 @@ $finder = PhpCsFixer\Finder::create()
         'build',
         'config',
         'translations',
-        'flies',
+        'files',
         'node_modules',
         'vendor',
     ]);

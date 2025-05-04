@@ -26,12 +26,9 @@ class AdminMoneiController extends ModuleAdminController
         $reason = Tools::getValue('reason');
 
         try {
-            $multiplier = 100;
-            if (Tools::strpos($amount, '.') !== false) {
-                $multiplier = 1;
-                $amount = sprintf('%.2f', $amount);
-            }
-            $amount = str_replace([',', '.'], '', $amount) * $multiplier;
+            // Normalise to a dot, keep two decimals, convert to cents
+            $normalized = str_replace(',', '.', $amount);
+            $amount = (int) round((float) $normalized * 100);
 
             $this->module->getService('service.monei')
                 ->createRefund($orderId, $amount, $this->context->employee->id, $reason);

@@ -75,7 +75,7 @@ class Monei2CustomerCard
 
     public function getBrand(): ?string
     {
-        return strtoupper($this->brand);
+        return $this->brand !== null ? strtoupper($this->brand) : null;
     }
 
     public function setBrand(?string $brand): self

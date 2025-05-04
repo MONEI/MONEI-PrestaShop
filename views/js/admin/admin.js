@@ -49,7 +49,10 @@
         });
 
         $('body').on('change', '#monei_refund_reason, #monei_refund_amount', function () {
-            const isDisabled = $("#monei_refund_reason option:selected").index() == 0 || $('#monei_refund_amount').val() == 0;
+            const isDisabled =
+                $("#monei_refund_reason option:selected").index() === 0 ||
+                parseFloat($('#monei_refund_amount').val()) <= 0;
+
             $('#moneiBtnRefund').attr('disabled', isDisabled).toggleClass('disabled', isDisabled);
         });
 

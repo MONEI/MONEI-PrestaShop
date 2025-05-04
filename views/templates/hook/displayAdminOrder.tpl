@@ -66,7 +66,7 @@
                     <div class="card-body">
                         <div class="alert alert-danger collapse" role="alert" id="moneiAlert">
                             <strong>{l s='Warning' mod='monei'}</strong>
-                            {l s='The amount refunded is higher than the payment done.' mod='monei'}
+                            {l s='The amount refunded is higher than the payment done. Maximum refundable amount: %s %s' sprintf=[$remainingAmountToRefund|escape:'html':'UTF-8', $currencySymbol|escape:'html':'UTF-8'] mod='monei'}
                         </div>
                         {if $orderTotalPaid == 0}
                             <div class="alert alert-danger" role="alert" id="moneiAlertNotPaid">
@@ -93,6 +93,7 @@
                                             <input type="number" min="0" step=".01" id="monei_refund_amount"
                                                 name="monei_refund_amount" required="required"
                                                 class="js-comma-transformer form-control" value="0.00"
+                                                max="{$remainingAmountToRefund|escape:'html':'UTF-8'}"
                                                 data-maxrefund="{$remainingAmountToRefund|escape:'html':'UTF-8'}">
                                         </td>
                                         <td>

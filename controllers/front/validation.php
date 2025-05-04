@@ -1,7 +1,6 @@
 <?php
 
 use Monei\Model\Payment;
-use PsMonei\ApiException;
 use PsMonei\MoneiException;
 
 if (!defined('_PS_VERSION_')) {
@@ -44,7 +43,7 @@ class MoneiValidationModuleFrontController extends ModuleFrontController
             // Check if the data is a valid JSON
             $json_array = json_decode($requestBody, true);
             if (!$json_array) {
-                throw new ApiException('Invalid JSON');
+                throw new MoneiException('Invalid JSON', MoneiException::INVALID_JSON_RESPONSE);
             }
 
             // Log the JSON array for debugging
