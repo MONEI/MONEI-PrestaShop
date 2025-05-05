@@ -66,7 +66,7 @@
                     <div class="card-body">
                         <div class="alert alert-danger collapse" role="alert" id="moneiAlert">
                             <strong>{l s='Warning' mod='monei'}</strong>
-                            {l s='The amount refunded is higher than the payment done. Maximum refundable amount: %s %s' sprintf=[$remainingAmountToRefund|escape:'html':'UTF-8', $currencySymbol|escape:'html':'UTF-8'] mod='monei'}
+                            {l s='The amount refunded is higher than the payment done. Maximum refundable amount: %s %s' sprintf=[$remainingAmountToRefund / 100|escape:'html':'UTF-8', $currencySymbol|escape:'html':'UTF-8'] mod='monei'}
                         </div>
                         {if $orderTotalPaid == 0}
                             <div class="alert alert-danger" role="alert" id="moneiAlertNotPaid">

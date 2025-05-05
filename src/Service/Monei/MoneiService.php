@@ -231,8 +231,8 @@ class MoneiService
         $monei2PaymentEntity->setCurrency($moneiPayment->getCurrency());
         $monei2PaymentEntity->setAuthorizationCode($moneiPayment->getAuthorizationCode());
         $monei2PaymentEntity->setStatus($moneiPayment->getStatus());
-        $monei2PaymentEntity->setDateAdd($moneiPayment->getCreatedAt()->getTimestamp());
-        $monei2PaymentEntity->setDateUpd($moneiPayment->getUpdatedAt()->getTimestamp());
+        $monei2PaymentEntity->setDateAdd($moneiPayment->getCreatedAt());
+        $monei2PaymentEntity->setDateUpd($moneiPayment->getUpdatedAt());
 
         $monei2HistoryEntity = new Monei2History();
         $monei2HistoryEntity->setStatus($moneiPayment->getStatus());
