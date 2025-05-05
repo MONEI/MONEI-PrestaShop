@@ -1433,7 +1433,7 @@ class Monei extends PaymentModule
                 $customerCards = $this->getRepository(Monei2CustomerCard::class)->findBy(['id_customer' => (int) $customer['id']]);
                 if ($customerCards) {
                     foreach ($customerCards as $customerCard) {
-                        $this->getRepository(Monei2CustomerCard::class)->removeMoneiCustomerCard($customerCard);
+                        $this->getRepository(Monei2CustomerCard::class)->remove($customerCard);
                     }
                 }
 
