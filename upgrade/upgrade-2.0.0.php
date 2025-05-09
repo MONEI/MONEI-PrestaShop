@@ -55,7 +55,7 @@ function upgrade_module_2_0_0()
 
             $db->insert('monei2_history', [
                 'id_history' => (int) $history['id_monei_history'],
-                'id_payment' => pSQL($moneiPayment['id']),
+                'id_payment' => isset($moneiPayment['id']) ? pSQL($moneiPayment['id']) : '',
                 'status' => pSQL($history['status']),
                 'status_code' => pSQL($statusCode),
                 'response' => pSQL(json_encode($moneiPayment)),
