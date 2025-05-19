@@ -9,7 +9,7 @@
     var moneiTokenHandler = async (parameters = {}) => {
       const { paymentToken, cardholderName = null, moneiConfirmationButton = null } = parameters;
 
-      const createPayment = async () => {
+      const createMoneiPayment = async () => {
         try {
           const response = await fetch(moneiCreatePaymentUrlController, {
             method: 'POST',
@@ -44,7 +44,7 @@
           Swal.showLoading();
 
           try {
-            params.paymentId = await createPayment();
+            params.paymentId = await createMoneiPayment();
           } catch (error) {
             if (moneiConfirmationButton) moneiEnableButton(moneiConfirmationButton);
             return;
