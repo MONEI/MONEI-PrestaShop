@@ -37,7 +37,7 @@ class PaymentOptionService
         $this->context = $legacyContext->getContext();
     }
 
-    public function getPaymentOptions(): array
+    public function getPaymentOptions(): ?array
     {
         $this->paymentMethodsAllowed = $this->moneiService->getPaymentMethodsAllowed();
 
