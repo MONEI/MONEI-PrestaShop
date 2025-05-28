@@ -144,7 +144,7 @@
         <input type="hidden" name="option" value="binary">
         <div class="{$paymentOptionName|escape:'htmlall':'UTF-8'}_render"></div>
         {if $paymentOptionName eq 'monei-card'}
-          <button class="btn btn-primary btn-block" type="submit">
+          <button class="btn btn-primary btn-block w-100 mt-3" type="submit">
             <i class="material-icons">payment</i>
             {l s='Pay' mod='monei'}&nbsp;&nbsp;{$moneiAmountFormatted|escape:'htmlall':'UTF-8'}
           </button>
