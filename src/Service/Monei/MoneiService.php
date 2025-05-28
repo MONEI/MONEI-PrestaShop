@@ -119,7 +119,7 @@ class MoneiService
 
         $currency = new Currency($currencyId);
         $decimals = is_array($currency) ? (int) $currency['decimals'] : (int) $currency->decimals;
-        $decimals *= _PS_PRICE_DISPLAY_PRECISION_; // _PS_PRICE_DISPLAY_PRECISION_ deprec 1.7.7 TODO
+        $decimals *= 2;
 
         $totalPriceRounded = Tools::ps_round($totalPrice + $cartSummaryDetails['total_shipping_tax_exc'], $decimals);
 
@@ -287,17 +287,17 @@ class MoneiService
 
         $cartAmount = $this->getCartAmount($cart->getSummaryDetails(null, true), $cart->id_currency);
         if (empty($cartAmount)) {
-            throw new MoneiException('The cart amount is empty', MoneiException::CART_AMOUNT_IS_EMPTY);
+            throw new MoneiException('The cart amount is empty', MoneiException::CART_AMOUNT_EMPTY);
         }
 
         $currency = new Currency($cart->id_currency);
         if (!Validate::isLoadedObject($currency)) {
-            throw new MoneiException('The currency could not be loaded correctly', MoneiException::CURRENCY_NOT_LOADED);
+            throw new MoneiException('The currency could not be loaded correctly', MoneiException::CURRENCY_NOT_FOUND);
         }
 
         $customer = new Customer($cart->id_customer);
         if (!Validate::isLoadedObject($customer)) {
-            throw new MoneiException('The customer could not be loaded correctly', MoneiException::CUSTOMER_NOT_LOADED);
+            throw new MoneiException('The customer could not be loaded correctly', MoneiException::CUSTOMER_NOT_FOUND);
         }
 
         $link = $this->legacyContext->getContext()->link;

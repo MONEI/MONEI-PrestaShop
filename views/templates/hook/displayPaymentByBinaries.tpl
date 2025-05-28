@@ -328,7 +328,7 @@
         } else {
           const moneiPaymentOption = document.querySelector('input[name="payment-option"][data-module-name="monei-applePay"]');
           if (moneiPaymentOption) {
-              const moneiPaymentOptionParent = moneiPaymentOption.closest('.payment-option');
+              const moneiPaymentOptionParent = moneiPaymentOption.closest('.payment-option, .payment__option');
               if (moneiPaymentOptionParent) {
                   moneiPaymentOptionParent.style.setProperty('display', 'none', 'important');
               }
