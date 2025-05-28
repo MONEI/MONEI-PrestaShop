@@ -29,3 +29,60 @@ section.checkout-step .payment-option label {
 .monei-tokenize-card {
     display: inline-block !important
 }
+
+#payment-form-monei {
+  margin: 15px auto;
+  padding: 15px;
+  background: #fff;
+  border-radius: 14px;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.08);
+}
+#payment-form-monei .form-group {
+  margin-bottom: 18px;
+}
+#payment-form-monei .form-control, #payment-form-monei .input-form {
+  width: 100%;
+  padding: 12px 14px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  font-size: 16px;
+  background: #f9fafb;
+  transition: border-color 0.2s;
+}
+#payment-form-monei .form-control:focus, #payment-form-monei .input-form:focus {
+  border-color: #0070f3;
+  outline: none;
+  background: #fff;
+}
+#payment-form-monei label.form-control-label {
+  margin-left: 8px;
+  font-size: 15px;
+  color: #333;
+}
+#monei-tokenize-card {
+  accent-color: #0070f3;
+  margin-right: 6px;
+}
+#monei-card-errors {
+  color: #e53e3e;
+  font-size: 14px;
+}
+
+#payment-form-monei .monei-tokenize-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 18px;
+}
+#payment-form-monei .monei-tokenize-row label {
+  margin: 0;
+  font-size: 15px;
+  color: #0070f3;
+  cursor: pointer;
+  line-height: 1.2;
+}
+#payment-form-monei .monei-tokenize-row input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+}

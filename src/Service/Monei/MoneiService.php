@@ -115,13 +115,21 @@ class MoneiService
 
     public function getCartAmount(array $cartSummaryDetails, int $currencyId, bool $withoutFormatting = false)
     {
+        if (empty($cartSummaryDetails)) {
+            throw new MoneiException('Cart summary details cannot be empty', MoneiException::CART_SUMMARY_DETAILS_EMPTY);
+        }
+
         $totalPrice = $cartSummaryDetails['total_price_without_tax'] + $cartSummaryDetails['total_tax'];
 
         $currency = new Currency($currencyId);
-        $decimals = is_array($currency) ? (int) $currency['decimals'] : (int) $currency->decimals;
-        $decimals *= 2;
+        if (!Validate::isLoadedObject($currency)) {
+            throw new MoneiException('Invalid currency ID provided', MoneiException::INVALID_CURRENCY_ID_PROVIDED);
+        }
 
-        $totalPriceRounded = Tools::ps_round($totalPrice + $cartSummaryDetails['total_shipping_tax_exc'], $decimals);
+        $decimals = is_array($currency) ? (int) $currency['decimals'] : (int) $currency->decimals;
+        $precisionMultiplier = $decimals * 2;
+
+        $totalPriceRounded = Tools::ps_round($totalPrice + $cartSummaryDetails['total_shipping_tax_exc'], $precisionMultiplier);
 
         return $withoutFormatting ? $totalPriceRounded : (int) number_format($totalPriceRounded, 2, '', '');
     }
@@ -207,9 +215,13 @@ class MoneiService
 
     public function getTotalRefundedByIdOrder(int $orderId)
     {
-        $refunds = $this->moneiRefundRepository->findBy(['id_order' => $orderId]);
+        $payment = $this->moneiPaymentRepository->findOneBy(['id_order' => $orderId]);
+        if (!$payment) {
+            return 0;
+        }
+
         $totalRefunded = 0;
-        foreach ($refunds as $refund) {
+        foreach ($payment->getRefundList() as $refund) {
             $totalRefunded += $refund->getAmount();
         }
 
@@ -396,11 +408,31 @@ class MoneiService
             throw new MoneiException('The order could not be loaded correctly', MoneiException::ORDER_NOT_FOUND);
         }
 
+        if ($amount <= 0) {
+            throw new MoneiException('Refund amount must be greater than zero', MoneiException::REFUND_AMOUNT_MUST_BE_GREATER_THAN_ZERO);
+        }
+
+        $totalRefunded = $this->getTotalRefundedByIdOrder($orderId);
+        $maxRefundable = $moneiPayment->getAmount() - $totalRefunded;
+
+        if ($amount > $maxRefundable) {
+            throw new MoneiException('Refund amount exceeds available refundable balance', MoneiException::REFUND_AMOUNT_EXCEEDS_AVAILABLE_REFUNDABLE_BALANCE);
+        }
+
         $refundPaymentRequest = new RefundPaymentRequest();
         $refundPaymentRequest->setAmount($amount);
         $refundPaymentRequest->setRefundReason($reason);
 
-        $moneiPayment = $this->getMoneiClient()->payments->refund($moneiPayment->getId(), $refundPaymentRequest);
+        try {
+            $moneiPayment = $this->getMoneiClient()->payments->refund($moneiPayment->getId(), $refundPaymentRequest);
+        } catch (Exception $ex) {
+            PrestaShopLogger::addLog(
+                'MONEI - Exception - MoneiService.php - createRefund: ' . $ex->getMessage(),
+                PrestaShopLogger::LOG_SEVERITY_LEVEL_ERROR
+            );
+
+            throw new MoneiException('Failed to create refund: ' . $ex->getMessage(), MoneiException::REFUND_CREATION_FAILED);
+        }
 
         $this->saveMoneiPayment($moneiPayment, $orderId, $employeeId);
     }
