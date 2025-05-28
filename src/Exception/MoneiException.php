@@ -23,4 +23,5 @@ class MoneiException extends Exception
     const REFUND_CREATION_FAILED = 16;
     const CART_SUMMARY_DETAILS_EMPTY = 17;
     const INVALID_CURRENCY_ID_PROVIDED = 18;
+    const COUNTRY_NOT_FOUND = 19;
 }
