@@ -1,0 +1,27 @@
+<?php
+namespace PsMonei\Exception;
+
+use Exception;
+
+class MoneiException extends Exception
+{
+    const CART_NOT_FOUND = 1;
+    const CART_AMOUNT_EMPTY = 2;
+    const CURRENCY_NOT_FOUND = 3;
+    const CUSTOMER_NOT_FOUND = 4;
+    const ADDRESS_NOT_FOUND = 5;
+    const MONEI_API_KEY_IS_EMPTY = 6;
+    const MONEI_CLIENT_NOT_INITIALIZED = 7;
+    const PAYMENT_REQUEST_NOT_VALID = 8;
+    const ORDER_NOT_FOUND = 9;
+    const MONEI_ACCOUNT_ID_IS_EMPTY = 10;
+    const MONEI_ACCOUNT_INFORMATION_NOT_FOUND = 11;
+    const INVALID_JSON_RESPONSE = 12;
+    const INVALID_CRYPTO_HASH = 13;
+    const REFUND_AMOUNT_MUST_BE_GREATER_THAN_ZERO = 14;
+    const REFUND_AMOUNT_EXCEEDS_AVAILABLE_REFUNDABLE_BALANCE = 15;
+    const REFUND_CREATION_FAILED = 16;
+    const CART_SUMMARY_DETAILS_EMPTY = 17;
+    const INVALID_CURRENCY_ID_PROVIDED = 18;
+    const COUNTRY_NOT_FOUND = 19;
+}

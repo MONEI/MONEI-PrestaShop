@@ -1,4 +1,7 @@
 <?php
+if (!defined('_PS_VERSION_')) {
+    exit;
+}
 class MoneiCreatePaymentModuleFrontController extends ModuleFrontController
 {
     public function postProcess()
@@ -9,7 +12,9 @@ class MoneiCreatePaymentModuleFrontController extends ModuleFrontController
             exit;
         }
 
-        $paymentResponse = $this->module->createPayment();
+        $paymentResponse = $this->module->getService('service.monei')->createMoneiPayment(
+            $this->context->cart
+        );
         if ($paymentResponse) {
             header('Content-Type: application/json');
             echo json_encode(['moneiPaymentId' => $paymentResponse->getId()]);
