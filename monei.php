@@ -1215,7 +1215,10 @@ class Monei extends PaymentModule
                 'paymentMethodsToDisplay' => $paymentMethodsToDisplay,
                 'moneiAccountId' => (bool) Configuration::get('MONEI_PRODUCTION_MODE') ? Configuration::get('MONEI_ACCOUNT_ID') : Configuration::get('MONEI_TEST_ACCOUNT_ID'),
                 'moneiAmount' => $moneiService->getCartAmount($cartSummaryDetails, $this->context->cart->id_currency),
-                'moneiAmountFormatted' => Tools::displayPrice($moneiService->getCartAmount($cartSummaryDetails, $this->context->cart->id_currency, true)),
+                'moneiAmountFormatted' => $this->context->getCurrentLocale()->formatPrice(
+                    $moneiService->getCartAmount($cartSummaryDetails, $this->context->cart->id_currency, true),
+                    $this->context->currency->iso_code
+                ),
                 'moneiCreatePaymentUrlController' => $this->context->link->getModuleLink('monei', 'createPayment'),
                 'moneiToken' => Tools::getToken(false),
                 'moneiCurrency' => $this->context->currency->iso_code,

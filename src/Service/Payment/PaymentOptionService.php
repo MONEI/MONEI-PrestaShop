@@ -177,7 +177,7 @@ class PaymentOptionService
             $this->paymentOptions[] = [
                 'name' => 'bizum',
                 'logo' => Media::getMediaPath(_PS_MODULE_DIR_ . 'monei/views/img/payments/bizum.svg'),
-                'binary' => $this->configuration->get('MONEI_BIZUM_WITH_REDIRECT') ? false : true,
+                'binary' => (bool) !$this->configuration->get('MONEI_BIZUM_WITH_REDIRECT'),
             ];
         }
     }
