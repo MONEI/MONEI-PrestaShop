@@ -137,12 +137,12 @@ class MoneiService
     public function getCustomerData(Customer $customer, int $cartAddressInvoiceId, $returnMoneiCustomerObject = false)
     {
         if (!Validate::isLoadedObject($customer)) {
-            throw new MoneiException('The customer could not be loaded correctly', MoneiException::CUSTOMER_NOT_LOADED);
+            throw new MoneiException('The customer could not be loaded correctly', MoneiException::CUSTOMER_NOT_FOUND);
         }
 
         $addressInvoice = new Address((int) $cartAddressInvoiceId);
         if (!Validate::isLoadedObject($addressInvoice)) {
-            throw new MoneiException('The address could not be loaded correctly', MoneiException::ADDRESS_NOT_LOADED);
+            throw new MoneiException('The address could not be loaded correctly', MoneiException::ADDRESS_NOT_FOUND);
         }
 
         $customer->email = str_replace(':', '', $customer->email);
@@ -160,12 +160,12 @@ class MoneiService
     {
         $address = new Address((int) $addressId);
         if (!Validate::isLoadedObject($address)) {
-            throw new MoneiException('The address could not be loaded correctly', MoneiException::ADDRESS_NOT_LOADED);
+            throw new MoneiException('The address could not be loaded correctly', MoneiException::ADDRESS_NOT_FOUND);
         }
 
         $country = new Country($address->id_country, (int) $this->legacyContext->getLanguage()->id);
         if (!Validate::isLoadedObject($country)) {
-            throw new MoneiException('The country could not be loaded correctly', MoneiException::COUNTRY_NOT_LOADED);
+            throw new MoneiException('The country could not be loaded correctly', MoneiException::COUNTRY_NOT_FOUND);
         }
 
         $state = new State((int) $address->id_state, (int) $this->legacyContext->getLanguage()->id);
