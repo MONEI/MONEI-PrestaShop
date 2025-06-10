@@ -129,7 +129,7 @@ class MoneiService
         $decimals = is_array($currency) ? (int) $currency['decimals'] : (int) $currency->decimals;
         $precisionMultiplier = $decimals * 2;
 
-        $totalPriceRounded = Tools::ps_round($totalPrice + $cartSummaryDetails['total_shipping_tax_exc'], $precisionMultiplier);
+        $totalPriceRounded = Tools::ps_round($totalPrice, $precisionMultiplier);
 
         return $withoutFormatting ? $totalPriceRounded : (int) number_format($totalPriceRounded, 2, '', '');
     }

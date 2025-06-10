@@ -12,7 +12,7 @@ class Monei2CustomerCard
     /**
      * @ORM\Id
      * @ORM\GeneratedValue
-     * @ORM\Column(name="id_customer_card", type="string", length=50)
+     * @ORM\Column(name="id_customer_card", type="integer", length=11)
      */
     private $id;
 
@@ -148,6 +148,11 @@ class Monei2CustomerCard
         return $this->date_add;
     }
 
+    public function getDateAddFormatted(): ?string
+    {
+        return $this->date_add ? $this->date_add->format('Y-m-d H:i:s') : null;
+    }
+
     public function setDateAdd(?int $timestamp): self
     {
         $this->date_add = $timestamp ? (new \DateTime())->setTimestamp($timestamp) : null;
@@ -166,7 +171,7 @@ class Monei2CustomerCard
             'last_four_with_mask' => $this->getLastFourWithMask(),
             'expiration' => $this->expiration,
             'tokenized' => $this->tokenized,
-            'date_add' => $this->date_add->format('Y-m-d H:i:s'),
+            'date_add' => $this->getDateAddFormatted(),
         ];
     }
 
@@ -181,7 +186,7 @@ class Monei2CustomerCard
             'lastFourWithMask' => $this->getLastFourWithMask(),
             'expiration' => $this->expiration,
             'tokenized' => $this->tokenized,
-            'dateAdd' => $this->date_add->format('Y-m-d H:i:s'),
+            'dateAdd' => $this->getDateAddFormatted(),
         ];
     }
 }

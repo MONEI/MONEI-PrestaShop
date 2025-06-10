@@ -126,7 +126,7 @@ class Monei2Refund
 
     public function getDateAddFormatted(): ?string
     {
-        return $this->date_add->format('Y-m-d H:i:s');
+        return $this->date_add ? $this->date_add->format('Y-m-d H:i:s') : null;
     }
 
     public function setDateAdd(?\DateTimeInterface $date_add): self
