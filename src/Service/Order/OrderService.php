@@ -55,6 +55,10 @@ class OrderService
                 $order = $this->createNewOrder($cart, $customer, $orderStateId, $moneiPayment);
             }
 
+            if (!Validate::isLoadedObject($order)) {
+                throw new OrderException('Order not found', OrderException::ORDER_NOT_FOUND);
+            }
+
             if (!$failed) {
                 $this->moneiService->saveMoneiToken($moneiPayment, $customer->id);
             }

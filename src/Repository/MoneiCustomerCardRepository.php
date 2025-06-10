@@ -1,28 +1,19 @@
 <?php
 namespace PsMonei\Repository;
 
-use Doctrine\ORM\EntityRepository;
-use Doctrine\ORM\ORMException;
 use PsMonei\Entity\Monei2CustomerCard;
-use PsMonei\Exception\MoneiException;
-class MoneiCustomerCardRepository extends EntityRepository
+
+class MoneiCustomerCardRepository extends AbstractMoneiRepository
 {
     /**
      * @param Monei2CustomerCard $monei2CustomerCard
      * @param bool $flush
      *
-     * @return void
+     * @return Monei2CustomerCard
      */
-    public function save(Monei2CustomerCard $monei2CustomerCard, bool $flush = true): void
+    public function save(Monei2CustomerCard $monei2CustomerCard, bool $flush = true): Monei2CustomerCard
     {
-        try {
-            $this->getEntityManager()->persist($monei2CustomerCard);
-            if ($flush) {
-                $this->getEntityManager()->flush();
-            }
-        } catch (ORMException $e) {
-            throw new MoneiException('Error saving monei customer card: ' . $e->getMessage());
-        }
+        return $this->saveEntity($monei2CustomerCard, $flush, 'customer card');
     }
 
     /**
@@ -33,14 +24,7 @@ class MoneiCustomerCardRepository extends EntityRepository
      */
     public function remove(Monei2CustomerCard $monei2CustomerCard, bool $flush = true): void
     {
-        try {
-            $this->getEntityManager()->remove($monei2CustomerCard);
-            if ($flush) {
-                $this->getEntityManager()->flush();
-            }
-        } catch (ORMException $e) {
-            throw new MoneiException('Error removing monei customer card: ' . $e->getMessage());
-        }
+        $this->removeEntity($monei2CustomerCard, $flush, 'customer card');
     }
 
     public function getActiveCustomerCards(int $customerId): array

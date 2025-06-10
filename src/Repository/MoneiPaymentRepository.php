@@ -1,30 +1,19 @@
 <?php
 namespace PsMonei\Repository;
 
-use Doctrine\ORM\EntityRepository;
-use Doctrine\ORM\ORMException;
 use PsMonei\Entity\Monei2Payment;
-use PsMonei\Exception\MoneiException;
-class MoneiPaymentRepository extends EntityRepository
+
+class MoneiPaymentRepository extends AbstractMoneiRepository
 {
     /**
      * @param Monei2Payment $monei2Payment
      * @param bool $flush
      *
-     * @return void
+     * @return Monei2Payment
      */
     public function save(Monei2Payment $monei2Payment, bool $flush = true): Monei2Payment
     {
-        try {
-            $this->getEntityManager()->persist($monei2Payment);
-            if ($flush) {
-                $this->getEntityManager()->flush();
-            }
-
-            return $monei2Payment;
-        } catch (ORMException $e) {
-            throw new MoneiException('Error saving monei payment: ' . $e->getMessage());
-        }
+        return $this->saveEntity($monei2Payment, $flush, 'payment');
     }
 
     /**
@@ -35,13 +24,6 @@ class MoneiPaymentRepository extends EntityRepository
      */
     public function remove(Monei2Payment $monei2Payment, bool $flush = true): void
     {
-        try {
-            $this->getEntityManager()->remove($monei2Payment);
-            if ($flush) {
-                $this->getEntityManager()->flush();
-            }
-        } catch (ORMException $e) {
-            throw new MoneiException('Error removing monei payment: ' . $e->getMessage());
-        }
+        $this->removeEntity($monei2Payment, $flush, 'payment');
     }
 }
