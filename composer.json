@@ -1,15 +1,31 @@
 {
   "name": "monei/monei-presta-shop",
-  "autoload": {
-    "psr-4": {
-      "PsCurl\\": "src/PsCurl",
-      "Monei\\": "src/Monei"
-    }
-  },
+  "type": "prestashop-module",
   "authors": [
     {
       "name": "MONEI",
       "email": "admin@monei.com"
     }
-  ]
+  ],
+  "autoload": {
+    "psr-4": {
+      "PsMonei\\": "src/"
+    },
+    "classmap": [
+      "monei.php"
+    ]
+  },
+  "config": {
+    "prepend-autoloader": false,
+    "platform": {
+      "php": "7.4"
+    }
+  },
+  "require": {
+    "monei/monei-php-sdk": "^2.6",
+    "prestashop/module-lib-service-container": "^2.0"
+  },
+  "require-dev": {
+    "friendsofphp/php-cs-fixer": "^3.3"
+  }
 }
