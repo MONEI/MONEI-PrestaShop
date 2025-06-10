@@ -24,4 +24,6 @@ class MoneiException extends Exception
     const CART_SUMMARY_DETAILS_EMPTY = 116;
     const INVALID_CURRENCY_ID_PROVIDED = 117;
     const COUNTRY_NOT_FOUND = 118;
+    const SAVE_ENTITY_ERROR = 119;
+    const REMOVE_ENTITY_ERROR = 120;
 }

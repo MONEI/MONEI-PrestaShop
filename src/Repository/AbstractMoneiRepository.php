@@ -6,7 +6,6 @@ if (!defined('_PS_VERSION_')) {
 }
 
 use Doctrine\ORM\EntityRepository;
-use Doctrine\ORM\ORMException;
 use PsMonei\Exception\MoneiException;
 
 abstract class AbstractMoneiRepository extends EntityRepository
@@ -19,8 +18,8 @@ abstract class AbstractMoneiRepository extends EntityRepository
                 $this->getEntityManager()->flush();
             }
             return $entity;
-        } catch (ORMException $e) {
-            throw new MoneiException("Error saving monei {$entityType}: " . $e->getMessage());
+        } catch (\Throwable $e) {
+            throw new MoneiException("Error saving monei {$entityType}: " . $e->getMessage(), MoneiException::SAVE_ENTITY_ERROR, $e);
         }
     }
 
@@ -31,8 +30,8 @@ abstract class AbstractMoneiRepository extends EntityRepository
             if ($flush) {
                 $this->getEntityManager()->flush();
             }
-        } catch (ORMException $e) {
-            throw new MoneiException("Error removing monei {$entityType}: " . $e->getMessage());
+        } catch (\Throwable $e) {
+            throw new MoneiException("Error removing monei {$entityType}: " . $e->getMessage(), MoneiException::REMOVE_ENTITY_ERROR, $e);
         }
     }
 }
