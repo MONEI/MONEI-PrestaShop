@@ -38,7 +38,7 @@ class OrderService
             $query = 'SELECT * FROM ' . _DB_PREFIX_ . 'monei2_order_payment WHERE id_payment = "' . pSQL($moneiPaymentId) . '"';
             $orderPaymentExists = $connection->getRow($query);
             if ($orderPaymentExists) {
-                PrestaShopLogger::addLog('MONEI - createOrUpdateOrder - Order: (' . $result['id_order'] . ') already exists. Payment ID: ' . $moneiPaymentId . ' Date: ' . $result['date_add'], PrestaShopLogger::LOG_SEVERITY_LEVEL_WARNING);
+                PrestaShopLogger::addLog('MONEI - createOrUpdateOrder - Order: (' . $orderPaymentExists['id_order'] . ') already exists. Payment ID: ' . $moneiPaymentId . ' Date: ' . $orderPaymentExists['date_add'], PrestaShopLogger::LOG_SEVERITY_LEVEL_WARNING);
             }
 
             $moneiPayment = $this->moneiService->getMoneiPayment($moneiPaymentId);
