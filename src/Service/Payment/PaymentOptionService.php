@@ -56,7 +56,6 @@ class PaymentOptionService
         $this->getApplePayPaymentOption();
         $this->getGooglePayPaymentOption();
         $this->getPaypalPaymentOption();
-        $this->getCofidisPaymentOption();
         $this->getMultibancoPaymentOption();
         $this->getMbwayPaymentOption();
 
@@ -91,7 +90,7 @@ class PaymentOptionService
             return false;
         }
 
-        if ($paymentMethod === PaymentPaymentMethod::METHOD_BIZUM || $paymentMethod === PaymentPaymentMethod::METHOD_COFIDIS) {
+        if ($paymentMethod === PaymentPaymentMethod::METHOD_BIZUM) {
             return $this->countryIsoCode === 'ES';
         } elseif ($paymentMethod === PaymentPaymentMethod::METHOD_MULTIBANCO || $paymentMethod === PaymentPaymentMethod::METHOD_MBWAY) {
             return $this->countryIsoCode === 'PT';
@@ -210,17 +209,6 @@ class PaymentOptionService
             $this->paymentOptions[] = [
                 'name' => 'paypal',
                 'logo' => Media::getMediaPath(_PS_MODULE_DIR_ . 'monei/views/img/payments/paypal.svg'),
-                'binary' => false,
-            ];
-        }
-    }
-
-    private function getCofidisPaymentOption()
-    {
-        if ($this->configuration->get('MONEI_ALLOW_COFIDIS') && $this->isPaymentMethodAllowed(PaymentPaymentMethod::METHOD_COFIDIS)) {
-            $this->paymentOptions[] = [
-                'name' => 'cofidis',
-                'logo' => Media::getMediaPath(_PS_MODULE_DIR_ . 'monei/views/img/payments/cofidis.svg'),
                 'binary' => false,
             ];
         }

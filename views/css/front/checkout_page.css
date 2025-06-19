@@ -15,21 +15,12 @@ section.checkout-step .payment-option label {
     width: 89px;
 }
 
-#payment-form-monei {
-  margin: 15px auto;
-  padding: 15px;
-  background: #fff;
-  border-radius: 14px;
-  box-shadow: 0 4px 24px rgba(0,0,0,0.08);
-}
 #payment-form-monei .form-group {
   margin-bottom: 18px;
 }
 #payment-form-monei .form-control, #payment-form-monei .input-form {
   width: 100%;
   padding: 12px 14px;
-  border: 1px solid #d1d5db;
-  border-radius: 8px;
   font-size: 16px;
   background: #f9fafb;
   transition: border-color 0.2s;

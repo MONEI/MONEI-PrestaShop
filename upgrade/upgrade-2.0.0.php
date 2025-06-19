@@ -97,5 +97,7 @@ function upgrade_module_2_0_0()
     }
     // ----------------------------------------------
 
+    Configuration::deleteByName('MONEI_ALLOW_COFIDIS');
+
     return true;
 }
