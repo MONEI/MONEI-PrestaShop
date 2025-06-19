@@ -199,7 +199,6 @@ class MoneiService
             'MONEI_ALLOW_APPLE' => 'applePay',
             'MONEI_ALLOW_GOOGLE' => 'googlePay',
             'MONEI_ALLOW_PAYPAL' => 'paypal',
-            'MONEI_ALLOW_COFIDIS' => 'cofidis',
             'MONEI_ALLOW_MULTIBANCO' => 'multibanco',
             'MONEI_ALLOW_MBWAY' => 'mbway',
         ];

@@ -333,23 +333,23 @@
         },
         {
             "name": "monei/monei-php-sdk",
-            "version": "2.6.14",
+            "version": "2.6.17",
             "source": {
                 "type": "git",
                 "url": "https://github.com/MONEI/monei-php-sdk.git",
-                "reference": "699ae00d600f8435786cfaff93dba72ba5369beb"
+                "reference": "6b7e179a5e857c6028e6bbf6b13fb36e09b3f8cd"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/MONEI/monei-php-sdk/zipball/699ae00d600f8435786cfaff93dba72ba5369beb",
-                "reference": "699ae00d600f8435786cfaff93dba72ba5369beb",
+                "url": "https://api.github.com/repos/MONEI/monei-php-sdk/zipball/6b7e179a5e857c6028e6bbf6b13fb36e09b3f8cd",
+                "reference": "6b7e179a5e857c6028e6bbf6b13fb36e09b3f8cd",
                 "shasum": ""
             },
             "require": {
                 "ext-curl": "*",
                 "ext-json": "*",
                 "ext-mbstring": "*",
-                "guzzlehttp/guzzle": "^7.8.0",
+                "guzzlehttp/guzzle": "^7.0.0",
                 "php": ">=7.4"
             },
             "require-dev": {
@@ -389,9 +389,9 @@
             ],
             "support": {
                 "issues": "https://github.com/MONEI/monei-php-sdk/issues",
-                "source": "https://github.com/MONEI/monei-php-sdk/tree/2.6.14"
+                "source": "https://github.com/MONEI/monei-php-sdk/tree/2.6.17"
             },
-            "time": "2025-04-29T12:06:42+00:00"
+            "time": "2025-06-01T17:17:28+00:00"
         },
         {
             "name": "prestashop/module-lib-cache-directory-provider",

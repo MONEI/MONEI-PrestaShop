@@ -69,7 +69,6 @@ class Monei extends PaymentModule
         Configuration::updateValue('MONEI_ALLOW_APPLE', false);
         Configuration::updateValue('MONEI_ALLOW_GOOGLE', false);
         Configuration::updateValue('MONEI_ALLOW_PAYPAL', false);
-        Configuration::updateValue('MONEI_ALLOW_COFIDIS', false);
         Configuration::updateValue('MONEI_ALLOW_MULTIBANCO', false);
         Configuration::updateValue('MONEI_ALLOW_MBWAY', false);
         // Status
@@ -263,7 +262,6 @@ class Monei extends PaymentModule
         Configuration::deleteByName('MONEI_ALLOW_APPLE');
         Configuration::deleteByName('MONEI_ALLOW_GOOGLE');
         Configuration::deleteByName('MONEI_ALLOW_PAYPAL');
-        Configuration::deleteByName('MONEI_ALLOW_COFIDIS');
         Configuration::deleteByName('MONEI_ALLOW_MULTIBANCO');
         Configuration::deleteByName('MONEI_ALLOW_MBWAY');
         // Status
@@ -415,7 +413,6 @@ class Monei extends PaymentModule
             'MONEI_ALLOW_APPLE' => Configuration::get('MONEI_ALLOW_APPLE', false),
             'MONEI_ALLOW_GOOGLE' => Configuration::get('MONEI_ALLOW_GOOGLE', false),
             'MONEI_ALLOW_PAYPAL' => Configuration::get('MONEI_ALLOW_PAYPAL', false),
-            'MONEI_ALLOW_COFIDIS' => Configuration::get('MONEI_ALLOW_COFIDIS', false),
             'MONEI_ALLOW_MULTIBANCO' => Configuration::get('MONEI_ALLOW_MULTIBANCO', false),
             'MONEI_ALLOW_MBWAY' => Configuration::get('MONEI_ALLOW_MBWAY', false),
         ];
@@ -783,25 +780,6 @@ class Monei extends PaymentModule
                     ],
                     [
                         'type' => 'switch',
-                        'label' => $this->l('Allow COFIDIS'),
-                        'name' => 'MONEI_ALLOW_COFIDIS',
-                        'is_bool' => true,
-                        'hint' => $this->l('The payment must be active and configured on your MONEI Dashboard.'),
-                        'values' => [
-                            [
-                                'id' => 'active_on',
-                                'value' => true,
-                                'label' => $this->l('Enabled'),
-                            ],
-                            [
-                                'id' => 'active_off',
-                                'value' => false,
-                                'label' => $this->l('Disabled'),
-                            ],
-                        ],
-                    ],
-                    [
-                        'type' => 'switch',
                         'label' => $this->l('Allow Multibanco'),
                         'name' => 'MONEI_ALLOW_MULTIBANCO',
                         'is_bool' => true,
@@ -1100,7 +1078,6 @@ class Monei extends PaymentModule
             'applePay' => $this->l('Apple Pay'),
             'googlePay' => $this->l('Google Pay'),
             'paypal' => $this->l('Paypal'),
-            'cofidis' => $this->l('COFIDIS'),
             'multibanco' => $this->l('Multibanco'),
             'mbway' => $this->l('MB Way'),
         ];
