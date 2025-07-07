@@ -79,7 +79,7 @@ class Monei extends PaymentModule
         Configuration::updateValue('MONEI_STATUS_PENDING', Configuration::get('PS_OS_PREPARATION'));
         Configuration::updateValue('MONEI_SWITCH_REFUNDS', false);
         // Styles
-        Configuration::updateValue('MONEI_CARD_INPUT_STYLE', '{"base": {"height": "42px"}}');
+        Configuration::updateValue('MONEI_CARD_INPUT_STYLE', '{"base": {"height": "42px"}, "input": {"background": "none"}}');
         Configuration::updateValue('MONEI_BIZUM_STYLE', '{"height": "42"}');
         Configuration::updateValue('MONEI_PAYMENT_REQUEST_STYLE', '{"height": "42"}');
 
@@ -352,14 +352,9 @@ class Monei extends PaymentModule
                 $form_values = $this->getConfigFormComponentStyleValues();
 
                 // Validate JSON styles
-                foreach ($form_values as $key => $value) {
-                    $value = Tools::getValue($key);
-
-                    if (!json_decode($value)) {
-                        $formattedKey = ucwords(str_replace('_', ' ', str_replace('_STYLE', '', $key)));
-
-                        return $this->displayWarning($this->l('The style of ') . $formattedKey . $this->l(' is not a valid JSON.'));
-                    }
+                $validationResult = $this->validateComponentStyleJson($form_values);
+                if ($validationResult !== true) {
+                    return $validationResult;
                 }
 
                 break;
@@ -439,7 +434,7 @@ class Monei extends PaymentModule
     protected function getConfigFormComponentStyleValues()
     {
         return [
-            'MONEI_CARD_INPUT_STYLE' => Configuration::get('MONEI_CARD_INPUT_STYLE', '{"base": {"height": "42px"}}'),
+            'MONEI_CARD_INPUT_STYLE' => Configuration::get('MONEI_CARD_INPUT_STYLE', '{"base": {"height": "42px"}, "input": {"background": "none"}}'),
             'MONEI_BIZUM_STYLE' => Configuration::get('MONEI_BIZUM_STYLE', '{"height": "42"}'),
             'MONEI_PAYMENT_REQUEST_STYLE' => Configuration::get('MONEI_PAYMENT_REQUEST_STYLE', '{"height": "42"}'),
         ];
@@ -647,7 +642,7 @@ class Monei extends PaymentModule
                         'name' => 'MONEI_ALLOW_CARD',
                         'is_bool' => true,
                         // 'desc' => $this->l('Allow payments with Credit Card.'),
-                        'hint' => $this->l('The payment must be active and configured on your MONEI Dashboard.'),
+                        'hint' => $this->l('The payment must be active and configured on your MONEI dashboard.'),
                         'values' => [
                             [
                                 'id' => 'active_on',
@@ -686,7 +681,7 @@ class Monei extends PaymentModule
                         'name' => 'MONEI_ALLOW_BIZUM',
                         'is_bool' => true,
                         // 'desc' => $this->l('Allow payments with Bizum.'),
-                        'hint' => $this->l('The payment must be active and configured on your MONEI Dashboard.'),
+                        'hint' => $this->l('The payment must be active and configured on your MONEI dashboard.'),
                         'values' => [
                             [
                                 'id' => 'active_on',
@@ -725,7 +720,7 @@ class Monei extends PaymentModule
                         'name' => 'MONEI_ALLOW_APPLE',
                         'is_bool' => true,
                         'desc' => $this->l('Allow payments with Apple Pay. Only displayed in Safari browser.'),
-                        'hint' => $this->l('The payment must be active and configured on your MONEI Dashboard.'),
+                        'hint' => $this->l('The payment must be active and configured on your MONEI dashboard.'),
                         'values' => [
                             [
                                 'id' => 'active_on',
@@ -745,7 +740,7 @@ class Monei extends PaymentModule
                         'name' => 'MONEI_ALLOW_GOOGLE',
                         'is_bool' => true,
                         // 'desc' => $this->l('Allow payments with Google Pay.'),
-                        'hint' => $this->l('The payment must be active and configured on your MONEI Dashboard.'),
+                        'hint' => $this->l('The payment must be active and configured on your MONEI dashboard.'),
                         'values' => [
                             [
                                 'id' => 'active_on',
@@ -764,7 +759,7 @@ class Monei extends PaymentModule
                         'label' => $this->l('Allow PayPal'),
                         'name' => 'MONEI_ALLOW_PAYPAL',
                         'is_bool' => true,
-                        'hint' => $this->l('The payment must be active and configured on your MONEI Dashboard.'),
+                        'hint' => $this->l('The payment must be active and configured on your MONEI dashboard.'),
                         'values' => [
                             [
                                 'id' => 'active_on',
@@ -783,7 +778,7 @@ class Monei extends PaymentModule
                         'label' => $this->l('Allow Multibanco'),
                         'name' => 'MONEI_ALLOW_MULTIBANCO',
                         'is_bool' => true,
-                        'hint' => $this->l('The payment must be active and configured on your MONEI Dashboard.'),
+                        'hint' => $this->l('The payment must be active and configured on your MONEI dashboard.'),
                         'values' => [
                             [
                                 'id' => 'active_on',
@@ -802,7 +797,7 @@ class Monei extends PaymentModule
                         'label' => $this->l('Allow MBWay'),
                         'name' => 'MONEI_ALLOW_MBWAY',
                         'is_bool' => true,
-                        'hint' => $this->l('The payment must be active and configured on your MONEI Dashboard.'),
+                        'hint' => $this->l('The payment must be active and configured on your MONEI dashboard.'),
                         'values' => [
                             [
                                 'id' => 'active_on',
@@ -1514,4 +1509,81 @@ class Monei extends PaymentModule
 
         return $locale->formatPrice($price, $currencyIso);
     }
+
+    /**
+     * Validates JSON configuration for component styles
+     *
+     * @param array $form_values
+     *
+     * @return bool|string Returns true if valid, error message string if invalid
+     */
+    private function validateComponentStyleJson($form_values)
+    {
+        $styleConfigs = [
+            'MONEI_CARD_INPUT_STYLE' => 'Card Input',
+            'MONEI_BIZUM_STYLE' => 'Bizum',
+            'MONEI_PAYMENT_REQUEST_STYLE' => 'Payment Request',
+        ];
+
+        foreach ($form_values as $key => $defaultValue) {
+            $value = Tools::getValue($key);
+            
+            // Skip if field is not a style configuration
+            if (!isset($styleConfigs[$key])) {
+                continue;
+            }
+            
+            $styleName = $styleConfigs[$key];
+            
+            // Allow empty values (they will use defaults)
+            if (empty(trim($value))) {
+                continue;
+            }
+            
+            // Validate JSON syntax only
+            json_decode($value);
+            $jsonError = json_last_error();
+            
+            if ($jsonError !== JSON_ERROR_NONE) {
+                $errorMessage = $this->getJsonErrorMessage($jsonError);
+                return $this->displayError(
+                    sprintf(
+                        $this->l('%s style configuration contains invalid JSON: %s'),
+                        $styleName,
+                        $errorMessage
+                    )
+                );
+            }
+        }
+        
+        return true;
+    }
+
+    /**
+     * Get human-readable JSON error message
+     *
+     * @param int $errorCode
+     *
+     * @return string
+     */
+    private function getJsonErrorMessage($errorCode)
+    {
+        switch ($errorCode) {
+            case JSON_ERROR_NONE:
+                return $this->l('No errors');
+            case JSON_ERROR_DEPTH:
+                return $this->l('Maximum stack depth exceeded');
+            case JSON_ERROR_STATE_MISMATCH:
+                return $this->l('Underflow or mode mismatch');
+            case JSON_ERROR_CTRL_CHAR:
+                return $this->l('Unexpected control character found');
+            case JSON_ERROR_SYNTAX:
+                return $this->l('Syntax error, malformed JSON');
+            case JSON_ERROR_UTF8:
+                return $this->l('Malformed UTF-8 characters');
+            default:
+                return $this->l('Unknown JSON error');
+        }
+    }
+
 }

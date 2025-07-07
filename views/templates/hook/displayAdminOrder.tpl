@@ -40,12 +40,15 @@
                                         <td>{$paymentHistory.date_add|escape:'html':'UTF-8'}</td>
                                         <td>{$paymentHistory.status_code|escape:'html':'UTF-8'}</td>
                                         <td>{$paymentHistory.status|escape:'html':'UTF-8'}</td>
-                                        <td>{if isset($paymentHistory.responseDecoded.statusMessage) and $paymentHistory.responseDecoded.statusMessage}{$paymentHistory.responseDecoded.statusMessage|escape:'html':'UTF-8'}{else}-{/if}</td>
-                                        <td>{if isset($paymentHistory.responseDecoded.traceDetails.ip) and $paymentHistory.responseDecoded.traceDetails.ip}{$paymentHistory.responseDecoded.traceDetails.ip|escape:'html':'UTF-8'}{else}-{/if}</td>
+                                        <td>{if isset($paymentHistory.responseDecoded.statusMessage) and $paymentHistory.responseDecoded.statusMessage}{$paymentHistory.responseDecoded.statusMessage|escape:'html':'UTF-8'}{else}-{/if}
+                                        </td>
+                                        <td>{if isset($paymentHistory.responseDecoded.traceDetails.ip) and $paymentHistory.responseDecoded.traceDetails.ip}{$paymentHistory.responseDecoded.traceDetails.ip|escape:'html':'UTF-8'}{else}-{/if}
+                                        </td>
                                         <td>{if isset($paymentHistory.responseDecoded.livemode) and $paymentHistory.responseDecoded.livemode}Yes{else}No{/if}
                                         </td>
                                         <td class="text-right">
-                                            <a class="fancybox" data-moneijson="{$paymentHistory.responseB64|escape:'html':'UTF-8'}"><span
+                                            <a class="fancybox"
+                                                data-moneijson="{$paymentHistory.responseB64|escape:'html':'UTF-8'}"><span
                                                     class="btn btn-primary">{l s='Details...' mod='monei'}</span></a>
                                         </td>
                                     </tr>
@@ -98,7 +101,7 @@
                                         </td>
                                         <td>
                                             <select name="monei_refund_reason" id="monei_refund_reason" required="required"
-                                                class="form-control" id="monei_refund_reason">
+                                                class="form-control">
                                                 <option default value="">{l s='Select a reason' mod='monei'}</option>
                                                 <option value="requested_by_customer">
                                                     {l s='Requested by customer' mod='monei'}</option>
@@ -138,11 +141,13 @@
                                         <td>{$paymentRefund.date_add|escape:'html':'UTF-8'}</td>
                                         <td>{$paymentRefund.amountFormatted|escape:'html':'UTF-8'}</td>
                                         <td>{$paymentRefund.paymentHistory.status|escape:'html':'UTF-8'}</td>
-                                        <td>{if isset($paymentRefund.paymentHistory.responseDecoded.statusMessage) and $paymentRefund.paymentHistory.responseDecoded.statusMessage}{$paymentRefund.paymentHistory.responseDecoded.statusMessage|escape:'html':'UTF-8'}{else}-{/if}</td>
+                                        <td>{if isset($paymentRefund.paymentHistory.responseDecoded.statusMessage) and $paymentRefund.paymentHistory.responseDecoded.statusMessage}{$paymentRefund.paymentHistory.responseDecoded.statusMessage|escape:'html':'UTF-8'}{else}-{/if}
+                                        </td>
                                         <td>{if isset($paymentRefund.paymentHistory.responseDecoded.livemode) and $paymentRefund.paymentHistory.responseDecoded.livemode}Yes{else}No{/if}
                                         <td>{$paymentRefund.id_employee|escape:'html':'UTF-8'}</td>
                                         <td class="text-right">
-                                            <a class="fancybox" data-moneijson="{$paymentRefund.paymentHistory.responseB64|escape:'html':'UTF-8'}"><span
+                                            <a class="fancybox"
+                                                data-moneijson="{$paymentRefund.paymentHistory.responseB64|escape:'html':'UTF-8'}"><span
                                                     class="btn btn-primary">{l s='Details...' mod='monei'}</span></a>
                                         </td>
                                     </tr>
