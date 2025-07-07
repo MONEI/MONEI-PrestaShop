@@ -5,27 +5,28 @@
             <div class="tabbable" id="tabs-270581">
                 <ul class="nav nav-tabs">
                     <li class="{if !(isset($pbtab))}active{/if}">
-                        <a href="#panel-info" data-toggle="tab"><i class="icon icon-info-circle"></i>
+                        <a class="nav-link" href="#panel-info" data-toggle="tab"><i class="icon icon-info-circle"></i>
                             {l s='Information' mod='monei'}</a>
                     </li>
                     <li>
-                        <a href="#panel-conf-1" data-toggle="tab"><i class="icon icon-cogs"></i>
+                        <a class="nav-link" href="#panel-conf-1" data-toggle="tab"><i class="icon icon-cogs"></i>
                             {l s='Settings' mod='monei'}</a>
                     </li>
                     <li>
-                        <a href="#panel-conf-2" data-toggle="tab"><i class="icon icon-money"></i>
+                        <a class="nav-link" href="#panel-conf-2" data-toggle="tab"><i class="icon icon-money"></i>
                             {l s='Payment methods' mod='monei'}</a>
                     </li>
                     <li>
-                        <a href="#panel-conf-3" data-toggle="tab"><i class="icon icon-shopping-cart"></i>
+                        <a class="nav-link" href="#panel-conf-3" data-toggle="tab"><i
+                                class="icon icon-shopping-cart"></i>
                             {l s='Payment Status' mod='monei'}</a>
                     </li>
                     <li>
-                        <a href="#panel-conf-4" data-toggle="tab"><i class="icon icon-paint-brush"></i>
+                        <a class="nav-link" href="#panel-conf-4" data-toggle="tab"><i class="icon icon-paint-brush"></i>
                             {l s='Component Style' mod='monei'}</a>
                     </li>
                     <li>
-                        <a href="#panel-docs" data-toggle="tab"><i class="icon icon-book"></i>
+                        <a class="nav-link" href="#panel-docs" data-toggle="tab"><i class="icon icon-book"></i>
                             {l s='Documentation' mod='monei'}</a>
                     </li>
                 </ul>
@@ -62,41 +63,35 @@
 
                     <!-- BASIC CONFIGURATION -->
                     <div class="tab-pane" id="panel-conf-1">
-                        <div class="panel">
-                            {$helper_form_1} {* HelperForm, no escaping *}
-                        </div>
+                        {$helper_form_1} {* HelperForm, no escaping *}
                     </div>
 
                     <!-- PAYMENT METHODS CONFIGURATION -->
                     <div class="tab-pane" id="panel-conf-2">
-                        <div class="panel">
-                            <div class="alert alert-warning" role="alert">
-                                <p>
-                                    {l s='Remember to activate your payment methods at your MONEI dashboard first.' mod='monei'}
-                                </p>
-                            </div>
-                            {$helper_form_2} {* HelperForm, no escaping *}
+                        <div class="alert alert-warning" role="alert">
+                            <p>
+                                {l s='Please ensure your payment methods are activated in your MONEI dashboard before configuring them here.' mod='monei'}
+                            </p>
                         </div>
+                        {$helper_form_2} {* HelperForm, no escaping *}
                     </div>
 
                     <!-- STATUS CONFIGURATION -->
                     <div class="tab-pane" id="panel-conf-3">
-                        <div class="panel">
-                            {$helper_form_3} {* HelperForm, no escaping *}
-                        </div>
+                        {$helper_form_3} {* HelperForm, no escaping *}
                     </div>
 
                     <!-- STYLES CONFIGURATION -->
                     <div class="tab-pane" id="panel-conf-4">
-                        <div class="panel">
-                            {$helper_form_4} {* HelperForm, no escaping *}
-                        </div>
+                        {$helper_form_4} {* HelperForm, no escaping *}
                     </div>
 
                     <!-- DOCUMENTATION -->
                     <div class="tab-pane" id="panel-docs">
-                        <div class="panel monei-back">
-                            <h3>{l s='Documentation' mod='monei'}</h3>
+                        <div class="panel">
+                            <div class="panel-heading">
+                                <i class="icon icon-book"></i> {l s='Documentation' mod='monei'}
+                            </div>
                             <p>
                             <p>
                                 {l s='Read the documentation of this module:' mod='monei'} <a
