@@ -71,7 +71,7 @@
                         {if $orderTotalPaid == 0}
                             <div class="alert alert-danger" role="alert" id="moneiAlertNotPaid">
                                 <strong>{l s='Warning' mod='monei'}</strong>
-                                {l s='This order doesn\'t seems to be paid. Be careful with refunds.' mod='monei'}
+                                {l s='This order doesn\'t seem to be paid. Be careful with refunds.' mod='monei'}
                             </div>
                         {/if}
                         {if $isRefundable}
