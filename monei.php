@@ -165,7 +165,7 @@ class Monei extends PaymentModule
                 } elseif (in_array(Tools::strtolower($language['iso_code']), $spanish_isos)) {
                     $order_state->name[$language['id_lang']] = 'MONEI - Pendiente de pago';
                 } else {
-                    $order_state->name[$language['id_lang']] = 'MONEI - Awaiting for payment';
+                    $order_state->name[$language['id_lang']] = 'MONEI - Awaiting payment';
                 }
             }
 
@@ -380,7 +380,7 @@ class Monei extends PaymentModule
             $this->warning[] = $e->getMessage();
         }
 
-        return $this->displayConfirmation($section . ' ' . $this->l('options saved sucessfully.'));
+        return $this->displayConfirmation($section . ' ' . $this->l('options saved successfully.'));
     }
 
     /**
@@ -490,7 +490,7 @@ class Monei extends PaymentModule
                         'label' => $this->l('Real environment'),
                         'name' => 'MONEI_PRODUCTION_MODE',
                         'is_bool' => true,
-                        'desc' => $this->l('Set to OFF/DISABLED to set the test environment.'),
+                        'desc' => $this->l('Set to OFF/DISABLED to use the test environment.'),
                         'values' => [
                             [
                                 'id' => 'active_on',
@@ -579,7 +579,7 @@ class Monei extends PaymentModule
                         'label' => $this->l('Show MONEI logo'),
                         'name' => 'MONEI_SHOW_LOGO',
                         'is_bool' => true,
-                        'desc' => $this->l('Shows the MONEI logo on checkout step.'),
+                        'desc' => $this->l('Shows the MONEI logo on the checkout step.'),
                         'values' => [
                             [
                                 'id' => 'active_on',
@@ -705,7 +705,7 @@ class Monei extends PaymentModule
                         'label' => $this->l('Activate Bizum with Redirect'),
                         'name' => 'MONEI_BIZUM_WITH_REDIRECT',
                         'is_bool' => true,
-                        'hint' => $this->l('It is recommended to enable redirection in cases where bizum payment do not function correctly.'),
+                        'hint' => $this->l('It is recommended to enable redirection in cases where Bizum payments do not function correctly.'),
                         'values' => [
                             [
                                 'id' => 'active_on',
@@ -907,7 +907,7 @@ class Monei extends PaymentModule
                         'label' => $this->l('Change Status for Refunds'),
                         'name' => 'MONEI_SWITCH_REFUNDS',
                         'is_bool' => true,
-                        'desc' => $this->l('Changes the order state to below ones once a refund is done.'),
+                        'desc' => $this->l('Changes the order state to the ones below once a refund is done.'),
                         'values' => [
                             [
                                 'id' => 'active_on',
@@ -926,7 +926,7 @@ class Monei extends PaymentModule
                         'label' => $this->l('Status for refunded payment'),
                         'name' => 'MONEI_STATUS_REFUNDED',
                         'required' => true,
-                        'desc' => $this->l('You must select here the status for fully refunded payment.'),
+                        'desc' => $this->l('You must select here the status for a fully refunded payment.'),
                         'options' => [
                             'query' => $order_statuses,
                             'id' => 'id_order_state',
@@ -938,7 +938,7 @@ class Monei extends PaymentModule
                         'label' => $this->l('Status for partially refunded'),
                         'name' => 'MONEI_STATUS_PARTIALLY_REFUNDED',
                         'required' => true,
-                        'desc' => $this->l('You must select here the status for partially refunded payment.'),
+                        'desc' => $this->l('You must select here the status for a partially refunded payment.'),
                         'options' => [
                             'query' => $order_statuses,
                             'id' => 'id_order_state',
