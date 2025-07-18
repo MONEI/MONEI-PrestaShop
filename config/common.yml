@@ -1,0 +1,75 @@
+services:
+  _defaults:
+    public: true
+
+  monei.module:
+    class: 'Monei'
+    factory: ['Module', 'getInstanceByName']
+    public: true
+    arguments:
+      - 'monei'
+
+  monei.legacy.context:
+    class: 'Monei'
+    factory: ['@monei.module', 'getLegacyContext']
+
+  monei.dbal.connection:
+    class: 'Monei'
+    factory: ['@monei.module', 'getDbalConnection']
+
+  monei.legacy.configuration:
+    class: 'Monei'
+    public: true
+    factory: ['@monei.module', 'getLegacyConfiguration']
+
+  monei.prestashop.core.cache_clearer_chain:
+    class: 'Monei'
+    factory: ['@monei.module', 'getCacheClearerChain']
+
+# REPOSITORIES
+  monei.repository.monei_payment:
+    class: 'PsMonei\Repository\MoneiPaymentRepository'
+    factory: ['@monei.module', 'getRepository']
+    arguments:
+      - 'PsMonei\Entity\Monei2Payment'
+
+  monei.repository.monei_customer_card:
+    class: 'PsMonei\Repository\MoneiCustomerCardRepository'
+    factory: ['@monei.module', 'getRepository']
+    arguments:
+      - 'PsMonei\Entity\Monei2CustomerCard'
+
+  monei.repository.monei_history:
+    class: 'PsMonei\Repository\MoneiHistoryRepository'
+    factory: ['@monei.module', 'getRepository']
+    arguments:
+      - 'PsMonei\Entity\Monei2History'
+
+  monei.repository.monei_refund:
+    class: 'PsMonei\Repository\MoneiRefundRepository'
+    factory: ['@monei.module', 'getRepository']
+    arguments:
+      - 'PsMonei\Entity\Monei2Refund'
+
+# SERVICES
+  monei.service.monei:
+    class: 'PsMonei\Service\Monei\MoneiService'
+    arguments:
+      - '@monei.legacy.context'
+      - '@monei.repository.monei_payment'
+      - '@monei.repository.monei_customer_card'
+      - '@monei.repository.monei_refund'
+
+  monei.service.order:
+    class: 'PsMonei\Service\Order\OrderService'
+    arguments:
+      - '@monei.module'
+      - '@monei.service.monei'
+
+  monei.service.payment.option:
+    class: 'PsMonei\Service\Payment\PaymentOptionService'
+    arguments:
+      - '@monei.service.monei'
+      - '@monei.repository.monei_customer_card'
+      - '@monei.legacy.configuration'
+      - '@monei.legacy.context'
