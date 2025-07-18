@@ -70,6 +70,7 @@ class MoneiService
     {
         try {
             $moneiClient = $this->getMoneiClient();
+            $moneiClient->setUserAgent('MONEI/PrestaShop/' . _PS_VERSION_);
 
             if ((bool) Configuration::get('MONEI_PRODUCTION_MODE')) {
                 $accountId = Configuration::get('MONEI_ACCOUNT_ID');

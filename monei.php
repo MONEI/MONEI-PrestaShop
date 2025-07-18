@@ -365,7 +365,7 @@ class Monei extends PaymentModule
         }
 
         try {
-            // Register domain for Apple Pay only in production mode
+            // Register domain for Apple Pay
             $moneiClient = $this->getService('service.monei')->getMoneiClient();
             if ($moneiClient) {
                 $domain = str_replace(['www.', 'https://', 'http://'], '', Tools::getShopDomainSsl(false, true));
@@ -1527,23 +1527,23 @@ class Monei extends PaymentModule
 
         foreach ($form_values as $key => $defaultValue) {
             $value = Tools::getValue($key);
-            
+
             // Skip if field is not a style configuration
             if (!isset($styleConfigs[$key])) {
                 continue;
             }
-            
+
             $styleName = $styleConfigs[$key];
-            
+
             // Allow empty values (they will use defaults)
             if (empty(trim($value))) {
                 continue;
             }
-            
+
             // Validate JSON syntax only
             json_decode($value);
             $jsonError = json_last_error();
-            
+
             if ($jsonError !== JSON_ERROR_NONE) {
                 $errorMessage = $this->getJsonErrorMessage($jsonError);
                 return $this->displayError(
@@ -1555,7 +1555,7 @@ class Monei extends PaymentModule
                 );
             }
         }
-        
+
         return true;
     }
 
