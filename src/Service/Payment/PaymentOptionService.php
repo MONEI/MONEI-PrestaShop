@@ -98,6 +98,12 @@ class PaymentOptionService
             return in_array($this->countryIsoCode, ['AT', 'BE', 'CH', 'DE', 'DK', 'ES', 'FI', 'FR', 'GB', 'IT', 'NL', 'NO', 'SE']);
         }
 
+        if ($paymentMethod === 'applePay' && !$this->isSafariBrowser()) {
+            return false;
+        } elseif ($paymentMethod === 'googlePay' && $this->isSafariBrowser()) {
+            return false;
+        }
+
         return true;
     }
 
@@ -183,7 +189,7 @@ class PaymentOptionService
 
     private function getApplePayPaymentOption()
     {
-        if ($this->configuration->get('MONEI_ALLOW_APPLE') && $this->isPaymentMethodAllowed('applePay', $this->isSafariBrowser())) {
+        if ($this->configuration->get('MONEI_ALLOW_APPLE') && $this->isPaymentMethodAllowed('applePay')) {
             $this->paymentOptions[] = [
                 'name' => 'applePay',
                 'logo' => Media::getMediaPath(_PS_MODULE_DIR_ . 'monei/views/img/payments/apple-pay.svg'),
@@ -194,7 +200,7 @@ class PaymentOptionService
 
     private function getGooglePayPaymentOption()
     {
-        if ($this->configuration->get('MONEI_ALLOW_GOOGLE') && $this->isPaymentMethodAllowed('googlePay', !$this->isSafariBrowser())) {
+        if ($this->configuration->get('MONEI_ALLOW_GOOGLE') && $this->isPaymentMethodAllowed('googlePay')) {
             $this->paymentOptions[] = [
                 'name' => 'googlePay',
                 'logo' => Media::getMediaPath(_PS_MODULE_DIR_ . 'monei/views/img/payments/google-pay.svg'),
