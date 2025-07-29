@@ -85,7 +85,7 @@ class Monei extends PaymentModule
 
         include dirname(__FILE__) . '/sql/install.php';
 
-        return parent::install()
+        $result = parent::install()
             && $this->installOrderState()
             && $this->installAdminTab('AdminMonei', 'MONEI')
             && $this->registerHook('actionFrontControllerSetMedia')
@@ -99,6 +99,13 @@ class Monei extends PaymentModule
             && $this->registerHook('displayPaymentReturn')
             && $this->registerHook('actionCustomerLogoutAfter')
             && $this->registerHook('moduleRoutes');
+        
+        // Copy Apple Pay domain verification file to .well-known directory
+        if ($result) {
+            $this->copyApplePayDomainVerificationFile();
+        }
+        
+        return $result;
     }
 
     public static function getService($serviceName)
@@ -274,8 +281,39 @@ class Monei extends PaymentModule
         Configuration::deleteByName('MONEI_STATUS_PENDING');
 
         include dirname(__FILE__) . '/sql/uninstall.php';
+        
+        // Remove Apple Pay domain verification file
+        $this->removeApplePayDomainVerificationFile();
 
         return parent::uninstall();
+    }
+
+    /**
+     * Reset module - ensures Apple Pay file is copied
+     */
+    public function reset()
+    {
+        $result = parent::reset();
+        
+        if ($result) {
+            $this->copyApplePayDomainVerificationFile();
+        }
+        
+        return $result;
+    }
+    
+    /**
+     * Enable module - ensures Apple Pay file is copied
+     */
+    public function enable($force_all = false)
+    {
+        $result = parent::enable($force_all);
+        
+        if ($result) {
+            $this->copyApplePayDomainVerificationFile();
+        }
+        
+        return $result;
     }
 
     /**
@@ -361,22 +399,58 @@ class Monei extends PaymentModule
                 break;
         }
 
+        // Store previous Apple Pay state
+        $previousApplePayState = Configuration::get('MONEI_ALLOW_APPLE');
+        
         foreach (array_keys($form_values) as $key) {
             Configuration::updateValue($key, Tools::getValue($key));
         }
-
-        try {
-            // Register domain for Apple Pay
-            $moneiClient = $this->getService('service.monei')->getMoneiClient();
-            if ($moneiClient) {
-                $domain = str_replace(['www.', 'https://', 'http://'], '', Tools::getShopDomainSsl(false, true));
-                $moneiClient->applePayDomain->register($domain);
+        
+        // Check if Apple Pay was just enabled
+        $currentApplePayState = Configuration::get('MONEI_ALLOW_APPLE');
+        
+        // Register domain for Apple Pay if it's enabled (either just enabled or already was enabled)
+        if ($currentApplePayState) {
+            try {
+                // Ensure the domain verification file is accessible
+                $this->copyApplePayDomainVerificationFile();
+                
+                // Register domain with MONEI
+                $moneiClient = $this->getService('service.monei')->getMoneiClient();
+                if ($moneiClient) {
+                    $domain = str_replace(['www.', 'https://', 'http://'], '', Tools::getShopDomainSsl(false, true));
+                    $result = $moneiClient->applePayDomain->register($domain);
+                    
+                    // Add success message if Apple Pay was just enabled
+                    if (!$previousApplePayState && $currentApplePayState) {
+                        $this->confirmations[] = $this->l('Apple Pay domain verification initiated successfully.');
+                    }
+                }
+            } catch (Exception $e) {
+                $this->warning[] = $this->l('Apple Pay domain verification failed: ') . $e->getMessage();
             }
-        } catch (Exception $e) {
-            $this->warning[] = $e->getMessage();
         }
 
-        return $this->displayConfirmation($section . ' ' . $this->l('options saved successfully.'));
+        $output = '';
+        
+        // Display any warnings
+        if (!empty($this->warning)) {
+            foreach ($this->warning as $warning) {
+                $output .= $this->displayWarning($warning);
+            }
+        }
+        
+        // Display any additional confirmations
+        if (!empty($this->confirmations)) {
+            foreach ($this->confirmations as $confirmation) {
+                $output .= $this->displayConfirmation($confirmation);
+            }
+        }
+        
+        // Display main confirmation
+        $output .= $this->displayConfirmation($section . ' ' . $this->l('options saved successfully.'));
+        
+        return $output;
     }
 
     /**
@@ -1601,6 +1675,48 @@ class Monei extends PaymentModule
             default:
                 return $this->l('Unknown JSON error');
         }
+    }
+
+    /**
+     * Copy Apple Pay domain verification file to .well-known directory
+     * 
+     * @return bool
+     */
+    private function copyApplePayDomainVerificationFile()
+    {
+        $sourceFile = _PS_MODULE_DIR_ . $this->name . '/files/apple-developer-merchantid-domain-association';
+        $wellKnownDir = _PS_ROOT_DIR_ . '/.well-known';
+        $destFile = $wellKnownDir . '/apple-developer-merchantid-domain-association';
+        
+        // Create .well-known directory if it doesn't exist
+        if (!is_dir($wellKnownDir)) {
+            if (!@mkdir($wellKnownDir, 0755, true)) {
+                return false;
+            }
+        }
+        
+        // Copy the file
+        if (file_exists($sourceFile)) {
+            return @copy($sourceFile, $destFile);
+        }
+        
+        return false;
+    }
+    
+    /**
+     * Remove Apple Pay domain verification file
+     * 
+     * @return bool
+     */
+    private function removeApplePayDomainVerificationFile()
+    {
+        $file = _PS_ROOT_DIR_ . '/.well-known/apple-developer-merchantid-domain-association';
+        
+        if (file_exists($file)) {
+            return @unlink($file);
+        }
+        
+        return true;
     }
 
 }
