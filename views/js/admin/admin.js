@@ -5,10 +5,10 @@
     const CONFIG = {
         selectors: {
             productionMode: 'input[name="MONEI_PRODUCTION_MODE"]',
-            apiKey: '#MONEI_API_KEY',
             accountId: '#MONEI_ACCOUNT_ID',
-            testApiKey: '#MONEI_TEST_API_KEY',
+            apiKey: '#MONEI_API_KEY',
             testAccountId: '#MONEI_TEST_ACCOUNT_ID',
+            testApiKey: '#MONEI_TEST_API_KEY',
             refundAmount: '#monei_refund_amount',
             refundReason: '#monei_refund_reason',
             refundButton: '#moneiBtnRefund',
@@ -34,10 +34,10 @@
         toggleFields: function() {
             const isProduction = $(this).val() === '1';
 
-            utils.getFormGroup(CONFIG.selectors.apiKey).toggle(isProduction);
             utils.getFormGroup(CONFIG.selectors.accountId).toggle(isProduction);
-            utils.getFormGroup(CONFIG.selectors.testApiKey).toggle(!isProduction);
+            utils.getFormGroup(CONFIG.selectors.apiKey).toggle(isProduction);
             utils.getFormGroup(CONFIG.selectors.testAccountId).toggle(!isProduction);
+            utils.getFormGroup(CONFIG.selectors.testApiKey).toggle(!isProduction);
         }
     };
 

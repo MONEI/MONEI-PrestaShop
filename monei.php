@@ -35,7 +35,7 @@ class Monei extends PaymentModule
         $this->bootstrap = true;
 
         $this->controllers = [
-            'validation', 'confirmation', 'redirect', 'cards', 'errors', 'check',
+            'validation', 'confirmation', 'redirect', 'cards', 'errors', 'check', 'applepay',
         ];
 
         parent::__construct();
@@ -97,7 +97,8 @@ class Monei extends PaymentModule
             && $this->registerHook('displayPaymentByBinaries')
             && $this->registerHook('paymentOptions')
             && $this->registerHook('displayPaymentReturn')
-            && $this->registerHook('actionCustomerLogoutAfter');
+            && $this->registerHook('actionCustomerLogoutAfter')
+            && $this->registerHook('moduleRoutes');
     }
 
     public static function getService($serviceName)
@@ -387,10 +388,10 @@ class Monei extends PaymentModule
             'MONEI_TOKENIZE' => Configuration::get('MONEI_TOKENIZE', false),
             'MONEI_PRODUCTION_MODE' => Configuration::get('MONEI_PRODUCTION_MODE', false),
             'MONEI_SHOW_LOGO' => Configuration::get('MONEI_SHOW_LOGO', true),
-            'MONEI_API_KEY' => Configuration::get('MONEI_API_KEY', ''),
             'MONEI_ACCOUNT_ID' => Configuration::get('MONEI_ACCOUNT_ID', ''),
-            'MONEI_TEST_API_KEY' => Configuration::get('MONEI_TEST_API_KEY', ''),
+            'MONEI_API_KEY' => Configuration::get('MONEI_API_KEY', ''),
             'MONEI_TEST_ACCOUNT_ID' => Configuration::get('MONEI_TEST_ACCOUNT_ID', ''),
+            'MONEI_TEST_API_KEY' => Configuration::get('MONEI_TEST_API_KEY', ''),
             'MONEI_CART_TO_ORDER' => Configuration::get('MONEI_CART_TO_ORDER', true),
         ];
     }
@@ -503,14 +504,6 @@ class Monei extends PaymentModule
                         'col' => 3,
                         'type' => 'text',
                         'prefix' => '<i class="icon icon-key"></i>',
-                        'desc' => $this->l('Your MONEI API Key. Available at your MONEI dashboard.'),
-                        'name' => 'MONEI_API_KEY',
-                        'label' => $this->l('API Key'),
-                    ],
-                    [
-                        'col' => 3,
-                        'type' => 'text',
-                        'prefix' => '<i class="icon icon-key"></i>',
                         'desc' => $this->l('Your MONEI Account ID. Available at your MONEI dashboard.'),
                         'name' => 'MONEI_ACCOUNT_ID',
                         'label' => $this->l('Account ID'),
@@ -519,9 +512,9 @@ class Monei extends PaymentModule
                         'col' => 3,
                         'type' => 'text',
                         'prefix' => '<i class="icon icon-key"></i>',
-                        'desc' => $this->l('Your MONEI Test API Key. Available at your MONEI dashboard.'),
-                        'name' => 'MONEI_TEST_API_KEY',
-                        'label' => $this->l('Test API Key'),
+                        'desc' => $this->l('Your MONEI API Key. Available at your MONEI dashboard.'),
+                        'name' => 'MONEI_API_KEY',
+                        'label' => $this->l('API Key'),
                     ],
                     [
                         'col' => 3,
@@ -530,6 +523,14 @@ class Monei extends PaymentModule
                         'desc' => $this->l('Your MONEI Test Account ID. Available at your MONEI dashboard.'),
                         'name' => 'MONEI_TEST_ACCOUNT_ID',
                         'label' => $this->l('Test Account ID'),
+                    ],
+                    [
+                        'col' => 3,
+                        'type' => 'text',
+                        'prefix' => '<i class="icon icon-key"></i>',
+                        'desc' => $this->l('Your MONEI Test API Key. Available at your MONEI dashboard.'),
+                        'name' => 'MONEI_TEST_API_KEY',
+                        'label' => $this->l('Test API Key'),
                     ],
                     [
                         'type' => 'switch',
@@ -1441,6 +1442,22 @@ class Monei extends PaymentModule
     public function hookActionCustomerLogoutAfter()
     {
         unset($this->context->cookie->monei_error);
+    }
+
+    public function hookModuleRoutes()
+    {
+        return [
+            'module-monei-applepay' => [
+                'controller' => 'applepay',
+                'rule' => '.well-known/apple-developer-merchantid-domain-association',
+                'keywords' => [],
+                'params' => [
+                    'fc' => 'module',
+                    'module' => 'monei',
+                    'controller' => 'applepay',
+                ],
+            ],
+        ];
     }
 
     public function hookDisplayBackOfficeHeader()
