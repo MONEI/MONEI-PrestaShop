@@ -108,6 +108,50 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    // Tab persistence functionality
+    const tabsContainer = document.querySelector('#tabs-270581');
+    const tabLinks = tabsContainer.querySelectorAll('.nav-tabs a');
+    const tabPanes = tabsContainer.querySelectorAll('.tab-pane');
+    
+    // Get active tab from localStorage or from form submission
+    let activeTab = localStorage.getItem('monei_active_tab');
+    
+    // Check if a specific form was submitted to determine which tab should be active
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.has('submitMoneiModule')) {
+        activeTab = '#panel-conf-1';
+    } else if (urlParams.has('submitMoneiModuleGateways')) {
+        activeTab = '#panel-conf-2';
+    } else if (urlParams.has('submitMoneiModuleStatus')) {
+        activeTab = '#panel-conf-3';
+    } else if (urlParams.has('submitMoneiModuleComponentStyle')) {
+        activeTab = '#panel-conf-4';
+    }
+    
+    // Activate the saved tab if exists
+    if (activeTab) {
+        // Remove active class from all tabs and panes
+        tabLinks.forEach(link => link.parentElement.classList.remove('active'));
+        tabPanes.forEach(pane => pane.classList.remove('active'));
+        
+        // Find and activate the saved tab
+        const savedTabLink = document.querySelector('a[href="' + activeTab + '"]');
+        if (savedTabLink) {
+            savedTabLink.parentElement.classList.add('active');
+            const savedTabPane = document.querySelector(activeTab);
+            if (savedTabPane) {
+                savedTabPane.classList.add('active');
+            }
+        }
+    }
+    
+    // Save active tab on click
+    tabLinks.forEach(function(link) {
+        link.addEventListener('click', function() {
+            localStorage.setItem('monei_active_tab', this.getAttribute('href'));
+        });
+    });
+    
     // JSON validation for style configuration fields
     const styleFields = [
         'MONEI_CARD_INPUT_STYLE',

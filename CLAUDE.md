@@ -28,6 +28,21 @@ cd build && yarn release
 - No JavaScript linting configured
 - No test suite implemented (PHPUnit configured but `/tests` directory is empty)
 
+### Cache Clearing (PrestaShop Flashlight)
+When using PrestaShop Flashlight Docker environment, clear cache after module changes:
+```bash
+# Find the container name
+docker ps | grep prestashop
+
+# Clear all caches (replace 'tunnel1-prestashop-1' with your container name)
+docker exec tunnel1-prestashop-1 bash -c "rm -rf /var/www/html/var/cache/*"
+docker exec tunnel1-prestashop-1 bash -c "php /var/www/html/bin/console cache:clear"
+
+# Reset module to force configuration reload
+docker exec tunnel1-prestashop-1 bash -c "php /var/www/html/bin/console prestashop:module reset monei"
+```
+Then hard refresh browser (Ctrl+F5 or Cmd+Shift+R).
+
 ## Architecture
 
 ### Module Structure
