@@ -9,7 +9,7 @@
     var moneiTokenHandler = async (parameters = {}) => {
       const { paymentToken, cardholderName = null, moneiConfirmationButton = null } = parameters;
 
-      const createPayment = async () => {
+      const createMoneiPayment = async () => {
         try {
           const response = await fetch(moneiCreatePaymentUrlController, {
             method: 'POST',
@@ -44,7 +44,7 @@
           Swal.showLoading();
 
           try {
-            params.paymentId = await createPayment();
+            params.paymentId = await createMoneiPayment();
           } catch (error) {
             if (moneiConfirmationButton) moneiEnableButton(moneiConfirmationButton);
             return;
@@ -144,7 +144,7 @@
         <input type="hidden" name="option" value="binary">
         <div class="{$paymentOptionName|escape:'htmlall':'UTF-8'}_render"></div>
         {if $paymentOptionName eq 'monei-card'}
-          <button class="btn btn-primary btn-block" type="submit">
+          <button class="btn btn-primary btn-block w-100 mt-3" type="submit">
             <i class="material-icons">payment</i>
             {l s='Pay' mod='monei'}&nbsp;&nbsp;{$moneiAmountFormatted|escape:'htmlall':'UTF-8'}
           </button>
@@ -328,7 +328,7 @@
         } else {
           const moneiPaymentOption = document.querySelector('input[name="payment-option"][data-module-name="monei-applePay"]');
           if (moneiPaymentOption) {
-              const moneiPaymentOptionParent = moneiPaymentOption.closest('.payment-option');
+              const moneiPaymentOptionParent = moneiPaymentOption.closest('.payment-option, .payment__option');
               if (moneiPaymentOptionParent) {
                   moneiPaymentOptionParent.style.setProperty('display', 'none', 'important');
               }
