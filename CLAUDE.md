@@ -17,70 +17,83 @@ composer install
 ./vendor/bin/php-cs-fixer fix
 
 # Build JavaScript assets (from /build directory)
-cd build && yarn build
+cd build && yarn install && yarn build
 
-# Create release (from /build directory)
+# Create release (from /build directory) - bumps version in monei.php
 cd build && yarn release
 ```
 
 ### Code Quality
-- PHP code style: Uses PHP-CS-Fixer with Symfony standards
-- No linting command configured for JavaScript
-- No test suite implemented (PHPUnit configured but no tests exist)
+- PHP code style: Uses PHP-CS-Fixer with custom Symfony-based configuration (see `.php-cs-fixer.php`)
+- No JavaScript linting configured
+- No test suite implemented (PHPUnit configured but `/tests` directory is empty)
 
 ## Architecture
 
 ### Module Structure
-- **Main Class**: `monei.php` extends PrestaShop's `PaymentModule`
+- **Main Class**: `monei.php` extends PrestaShop's `PaymentModule` (v2.0.0)
 - **Namespace**: `PsMonei` (PSR-4 autoloaded from `/src`)
-- **Service Container**: Uses PrestaShop's dependency injection via YAML configs in `/config`
+- **Service Container**: Uses PrestaShop's dependency injection
+  - Admin services: `/config/admin/services.yml`
+  - Front services: `/config/front/services.yml`
+  - Common services: `/config/common.yml`
 
 ### Key Directories
-- `/src`: Business logic organized by type
-  - `Entity/`: Database models (Monei2Payment, Monei2CustomerCard, etc.)
-  - `Repository/`: Data access layer
-  - `Service/`: Core business services (PaymentService, TokenizationService, etc.)
+- `/src`: Business logic with PSR-4 autoloading
+  - `Entity/`: Database models extending PrestaShop's ObjectModel
+  - `Repository/`: Data access layer (e.g., MoneiPaymentRepository)
+  - `Service/`: Core services (MoneiService, OrderService, PaymentOptionService)
   - `Exception/`: Custom exceptions
-- `/controllers`: PrestaShop controllers (admin and front)
-- `/views`: Frontend assets and Smarty templates
-  - `/js/_dev/`: Development JavaScript files
-  - `/js/`: Minified production JavaScript
+  - `Enum/`: Enumerations for statuses and types
+- `/controllers`: PrestaShop controllers
+  - `/admin`: Admin panel controllers
+  - `/front`: Frontend controllers (redirect, validation, check, cards)
+- `/views`: Frontend resources
+  - `/templates`: Smarty templates
+  - `/js/_dev/`: Development JavaScript (source files)
+  - `/js/`: Minified production JavaScript (generated via uglifyjs-folder)
+  - `/css`: Stylesheets
+- `/build`: Build tooling with Yarn 4.5.0 and release-it configuration
+- `/sql`: Database schema (install.sql, uninstall.sql)
+- `/translations`: Module translations
 
-### Database
-- Custom tables prefixed with `monei2_` (payment, customer_card, admin_order_message)
-- Installation/uninstallation SQL in `/sql` directory
-- Entity classes use PrestaShop's ObjectModel pattern
+### Database Schema
+Tables (prefixed with `monei2_`):
+- `monei2_payment`: Payment records linked to orders
+- `monei2_customer_card`: Tokenized customer cards
+- `monei2_history`: Payment event history
+- `monei2_refund`: Refund records
+- `monei2_admin_order_message`: Admin messages
 
-### Payment Integration Flow
-1. Customer initiates payment → `RedirectModuleFrontController`
-2. Payment processed via MONEI API → `ValidationModuleFrontController`
-3. Status updates handled via webhook → `CheckModuleFrontController`
-4. Admin operations through `AdminMoneiPaymentsController`
+### Payment Flow
+1. **Initiation**: Customer selects MONEI payment → `RedirectModuleFrontController`
+2. **Processing**: Creates payment via MONEI API → redirects to MONEI hosted page
+3. **Validation**: Return from MONEI → `ValidationModuleFrontController`
+4. **Webhook**: Async status updates → `CheckModuleFrontController`
+5. **Completion**: Order status update based on payment result
 
-### Configuration
-- Module settings stored in PrestaShop configuration table
-- Service definitions in `/config/services.yml`
-- Hook subscriptions in `/config/hooks.yml`
-
-## Important Patterns
-
-### Service Usage
-Services are accessed via static container methods:
+### Service Container Pattern
 ```php
-$paymentService = Monei::getService('monei2.payment_service');
+// Access services via static helper
+$paymentService = Monei::getService('monei.service.payment');
+
+// Common services defined in config/common.yml:
+// - monei.service.monei: Core MONEI API integration
+// - monei.service.order: Order management
+// - monei.service.payment.option: Payment method configuration
+// - monei.repository.*: Data repositories
 ```
 
-### MONEI SDK Integration
-- SDK client initialized with API key from configuration
-- Payment methods fetched dynamically from MONEI account
-- Supports tokenization for saved cards
-
-### Frontend JavaScript
-- Development files in `/views/js/_dev/`
-- Production files generated via `uglifyjs-folder` to `/views/js/`
-- Handles payment form interactions and saved card management
+### Frontend JavaScript Architecture
+- Development files in `/views/js/_dev/` use vanilla JavaScript
+- Key files:
+  - `checkout.js`: Payment form handling, Apple/Google Pay detection
+  - `saved-cards.js`: Tokenized card management
+  - `admin.js`: Admin panel functionality
+- Built with uglifyjs-folder (no bundler/transpilation)
 
 ## Version Compatibility
-- PHP: ≥7.4
-- PrestaShop: ≥8.0
+- PHP: ≥7.4 (composer platform configured)
+- PrestaShop: ≥8.0 (minimum supported version)
 - MONEI PHP SDK: ^2.6
+- Build tools: Yarn 4.5.0 (packageManager field enforced)
