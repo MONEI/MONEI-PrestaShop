@@ -411,23 +411,39 @@ class Monei extends PaymentModule
         
         // Register domain for Apple Pay if it's enabled (either just enabled or already was enabled)
         if ($currentApplePayState) {
-            try {
-                // Ensure the domain verification file is accessible
-                $this->copyApplePayDomainVerificationFile();
-                
-                // Register domain with MONEI
-                $moneiClient = $this->getService('service.monei')->getMoneiClient();
-                if ($moneiClient) {
-                    $domain = str_replace(['www.', 'https://', 'http://'], '', Tools::getShopDomainSsl(false, true));
-                    $result = $moneiClient->applePayDomain->register($domain);
-                    
-                    // Add success message if Apple Pay was just enabled
-                    if (!$previousApplePayState && $currentApplePayState) {
-                        $this->confirmations[] = $this->l('Apple Pay domain verification initiated successfully.');
-                    }
+            // First check if API keys are configured
+            $apiKey = (bool) Configuration::get('MONEI_PRODUCTION_MODE') 
+                ? Configuration::get('MONEI_API_KEY') 
+                : Configuration::get('MONEI_TEST_API_KEY');
+            
+            if (!$apiKey) {
+                if (!$previousApplePayState && $currentApplePayState) {
+                    $this->warning[] = $this->l('Apple Pay enabled but cannot verify domain: Please configure your MONEI API keys first.');
                 }
-            } catch (Exception $e) {
-                $this->warning[] = $this->l('Apple Pay domain verification failed: ') . $e->getMessage();
+            } else {
+                try {
+                    // Ensure the domain verification file is accessible
+                    $this->copyApplePayDomainVerificationFile();
+                    
+                    // Register domain with MONEI
+                    $moneiClient = $this->getService('service.monei')->getMoneiClient();
+                    if ($moneiClient) {
+                        $domain = str_replace(['www.', 'https://', 'http://'], '', Tools::getShopDomainSsl(false, true));
+                        
+                        // Create request object as expected by MONEI API
+                        $registerRequest = new \Monei\Model\RegisterApplePayDomainRequest();
+                        $registerRequest->setDomainName($domain);
+                        
+                        $result = $moneiClient->applePayDomain->register($registerRequest);
+                        
+                        // Add success message if Apple Pay was just enabled
+                        if (!$previousApplePayState && $currentApplePayState) {
+                            $this->confirmations[] = $this->l('Apple Pay domain verification initiated successfully.');
+                        }
+                    }
+                } catch (Exception $e) {
+                    $this->warning[] = $this->l('Apple Pay domain verification failed: ') . $e->getMessage();
+                }
             }
         }
 
@@ -1063,7 +1079,7 @@ class Monei extends PaymentModule
                         'desc' => $this->l('Configure in JSON format the style of the Card Input component. Documentation: ')
                             . '<a href="https://docs.monei.com/docs/monei-js/reference/#cardinput-style-object" target="_blank">MONEI Card Input Style</a>',
                         'cols' => 60,
-                        'rows' => 10,
+                        'rows' => 3,
                     ],
                     [
                         'type' => 'textarea',
@@ -1072,7 +1088,7 @@ class Monei extends PaymentModule
                         'desc' => $this->l('Configure in JSON format the style of the Bizum component. Documentation: ')
                             . '<a href="https://docs.monei.com/docs/monei-js/reference/#bizum-options" target="_blank">MONEI Bizum Style</a>',
                         'cols' => 60,
-                        'rows' => 10,
+                        'rows' => 3,
                     ],
                     [
                         'type' => 'textarea',
@@ -1081,7 +1097,7 @@ class Monei extends PaymentModule
                         'desc' => $this->l('Configure in JSON format the style of the Payment Request component. Documentation: ')
                             . '<a href="https://docs.monei.com/docs/monei-js/reference/#paymentrequest-options" target="_blank">MONEI Payment Request Style</a>',
                         'cols' => 60,
-                        'rows' => 10,
+                        'rows' => 3,
                     ],
                 ],
                 'submit' => [

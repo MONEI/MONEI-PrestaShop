@@ -167,13 +167,37 @@ document.addEventListener('DOMContentLoaded', function() {
                 validateJsonField(this, fieldName);
             });
             
+            // Add auto-resize functionality
+            field.addEventListener('input', function() {
+                autoResizeTextarea(this);
+            });
+            
             // Add visual feedback container
             const feedbackDiv = document.createElement('div');
             feedbackDiv.className = 'json-validation-feedback';
             feedbackDiv.style.marginTop = '5px';
             field.parentNode.appendChild(feedbackDiv);
+            
+            // Initial auto-resize
+            autoResizeTextarea(field);
         }
     });
+    
+    function autoResizeTextarea(textarea) {
+        // Reset height to auto to get the correct scrollHeight
+        textarea.style.height = 'auto';
+        
+        // Calculate the new height based on scrollHeight
+        const newHeight = textarea.scrollHeight;
+        
+        // Set minimum height (3 rows * estimated line height)
+        const minHeight = 60; // Approximately 3 rows
+        const maxHeight = 300; // Maximum height to prevent excessive expansion
+        
+        // Apply the new height within bounds
+        textarea.style.height = Math.min(Math.max(newHeight, minHeight), maxHeight) + 'px';
+        textarea.style.overflow = newHeight > maxHeight ? 'auto' : 'hidden';
+    }
     
     function validateJsonField(field, fieldName) {
         const value = field.value.trim();
