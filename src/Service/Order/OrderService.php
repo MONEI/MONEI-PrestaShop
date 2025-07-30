@@ -49,6 +49,9 @@ class OrderService
 
             if (!$order && !$failed) {
                 $order = $this->createNewOrder($cart, $customer, $orderStateId, $moneiPayment);
+                // Update payment method name and details for new orders
+                $this->updateOrderPaymentMethodName($order, $moneiPayment);
+                $this->updateOrderPaymentDetails($order, $moneiPayment);
             }
 
             if (!\Validate::isLoadedObject($order)) {
@@ -200,77 +203,88 @@ class OrderService
     private function updateOrderPaymentMethodName($order, $moneiPayment)
     {
         $paymentMethodName = $this->getPaymentMethodDisplayName($moneiPayment);
-
         // Update the order payment method name
         $order->payment = $paymentMethodName;
-        $order->save();
+        $order->update();
 
+        // Force update in database to ensure it's saved
+        $updated = \Db::getInstance()->update(
+            'orders',
+            ['payment' => pSQL($paymentMethodName)],
+            'id_order = ' . (int) $order->id
+        );
         // Also update in order_payment table if exists
         $orderPayment = $order->getOrderPaymentCollection();
         if (count($orderPayment) > 0) {
             $orderPayment[0]->payment_method = $paymentMethodName;
-            $orderPayment[0]->save();
+            $orderPayment[0]->update();
+
+            // Force update in database
+            \Db::getInstance()->update(
+                'order_payment',
+                ['payment_method' => pSQL($paymentMethodName)],
+                'order_reference = "' . pSQL($order->reference) . '"'
+            );
         }
     }
 
     private function createNewOrder($cart, $customer, $orderStateId, $moneiPayment)
     {
-        // Extract payment details before order creation
-        $paymentMethodData = $moneiPayment->getPaymentMethod() ? $moneiPayment->getPaymentMethod()->jsonSerialize() : [];
-        $flattenedData = $this->flattenPaymentMethodData($paymentMethodData);
-
         // Prepare extra vars with payment details
         $extraVars = ['transaction_id' => $moneiPayment->getId()];
 
-        // Extract payment details based on payment method
-        $paymentMethod = $flattenedData['method'] ?? '';
+        $paymentMethod = $moneiPayment->getPaymentMethod();
+        if ($paymentMethod) {
+            $method = $paymentMethod->getMethod();
 
-        if ($paymentMethod === 'bizum' && !empty($flattenedData['phoneNumber'])) {
-            // Bizum payment
-            $last4 = substr($flattenedData['phoneNumber'], -4);
-            $extraVars['card_number'] = '••••' . $last4;
-            $extraVars['card_brand'] = 'Bizum';
-        } else {
-            // Card payments (including Apple Pay, Google Pay)
-            if (!empty($flattenedData['last4'])) {
-                $extraVars['card_number'] = '•••• ' . $flattenedData['last4'];
-            }
-
-            // Determine card brand
-            if (isset($flattenedData['tokenizationMethod']) && !empty($flattenedData['tokenizationMethod'])) {
-                switch ($flattenedData['tokenizationMethod']) {
-                    case 'applePay':
-                        $extraVars['card_brand'] = 'Apple Pay';
-
-                        break;
-                    case 'googlePay':
-                        $extraVars['card_brand'] = 'Google Pay';
-
-                        break;
-                    default:
-                        if (!empty($flattenedData['brand'])) {
-                            $extraVars['card_brand'] = ucfirst(strtolower($flattenedData['brand']));
-                        }
-
-                        break;
+            if ($method === 'bizum' && $paymentMethod->getBizum()) {
+                // Bizum payment
+                $bizum = $paymentMethod->getBizum();
+                if ($bizum->getPhoneNumber()) {
+                    $last4 = substr($bizum->getPhoneNumber(), -4);
+                    $extraVars['card_number'] = '••••' . $last4;
+                    $extraVars['card_brand'] = 'Bizum';
                 }
-            } elseif (!empty($flattenedData['brand'])) {
-                $extraVars['card_brand'] = ucfirst(strtolower($flattenedData['brand']));
-            }
+            } elseif ($method === 'card' && $paymentMethod->getCard()) {
+                // Card payments (including Apple Pay, Google Pay)
+                $card = $paymentMethod->getCard();
 
-            // Card expiration
-            if (!empty($flattenedData['expiration'])) {
-                $expiration = $flattenedData['expiration'];
-                if (strlen($expiration) === 4) {
-                    $extraVars['card_expiration'] = substr($expiration, 0, 2) . '/' . substr($expiration, 2, 2);
-                } else {
-                    $extraVars['card_expiration'] = $expiration;
+                if ($card->getLast4()) {
+                    $extraVars['card_number'] = '•••• ' . $card->getLast4();
                 }
-            }
 
-            // Cardholder name
-            if (!empty($flattenedData['cardholderName'])) {
-                $extraVars['card_holder'] = $flattenedData['cardholderName'];
+                // Determine card brand or wallet type
+                if ($card->getTokenizationMethod()) {
+                    switch ($card->getTokenizationMethod()) {
+                        case 'applePay':
+                            $extraVars['card_brand'] = 'Apple Pay';
+
+                            break;
+                        case 'googlePay':
+                            $extraVars['card_brand'] = 'Google Pay';
+
+                            break;
+                        default:
+                            if ($card->getBrand()) {
+                                $extraVars['card_brand'] = ucfirst(strtolower($card->getBrand()));
+                            }
+
+                            break;
+                    }
+                } elseif ($card->getBrand()) {
+                    $extraVars['card_brand'] = ucfirst(strtolower($card->getBrand()));
+                }
+
+                // Card expiration
+                if ($card->getExpiration()) {
+                    // Convert timestamp to MM/YY format
+                    $extraVars['card_expiration'] = date('m/y', $card->getExpiration());
+                }
+
+                // Cardholder name
+                if ($card->getCardholderName()) {
+                    $extraVars['card_holder'] = $card->getCardholderName();
+                }
             }
         }
 
@@ -310,18 +324,63 @@ class OrderService
      */
     private function getPaymentMethodDisplayName($moneiPayment)
     {
-        // Extract payment method data
-        $paymentMethodData = $moneiPayment->getPaymentMethod() ? $moneiPayment->getPaymentMethod()->jsonSerialize() : [];
+        $paymentMethodName = 'Card';
 
-        // Flatten the payment method data (like Magento does)
-        $flattenedData = $this->flattenPaymentMethodData($paymentMethodData);
+        $paymentMethod = $moneiPayment->getPaymentMethod();
+        if (!$paymentMethod) {
+            return $paymentMethodName;
+        }
 
+        // Build flattened data array using SDK methods
+        $flattenedData = [
+            'method' => $paymentMethod->getMethod(),
+        ];
+
+        // Handle card payments
+        if ($paymentMethod->getMethod() === 'card' && $paymentMethod->getCard()) {
+            $card = $paymentMethod->getCard();
+
+            // Add card details
+            if ($card->getLast4()) {
+                $flattenedData['last4'] = $card->getLast4();
+            }
+            if ($card->getBrand()) {
+                $flattenedData['brand'] = $card->getBrand();
+            }
+            if ($card->getType()) {
+                $flattenedData['type'] = $card->getType();
+            }
+            if ($card->getExpiration()) {
+                $flattenedData['expiration'] = $card->getExpiration();
+            }
+            if ($card->getCardholderName()) {
+                $flattenedData['cardholderName'] = $card->getCardholderName();
+            }
+
+            // IMPORTANT: Check for tokenizationMethod for wallet payments
+            if ($card->getTokenizationMethod()) {
+                $flattenedData['tokenizationMethod'] = $card->getTokenizationMethod();
+            }
+        }
+        // Handle Bizum payments
+        elseif ($paymentMethod->getMethod() === 'bizum' && $paymentMethod->getBizum()) {
+            $bizum = $paymentMethod->getBizum();
+            if ($bizum->getPhoneNumber()) {
+                $flattenedData['phoneNumber'] = $bizum->getPhoneNumber();
+            }
+        }
+        // Handle PayPal payments
+        elseif ($paymentMethod->getMethod() === 'paypal' && $paymentMethod->getPaypal()) {
+            $paypal = $paymentMethod->getPaypal();
+            if ($paypal->getEmail()) {
+                $flattenedData['email'] = $paypal->getEmail();
+            }
+        }
         // Format the payment method display name
-        $paymentMethodName = 'MONEI';
         if (!empty($flattenedData)) {
             $displayName = $this->paymentMethodFormatter->formatPaymentMethodDisplay($flattenedData);
             if ($displayName) {
-                $paymentMethodName = 'MONEI ' . $displayName;
+                $paymentMethodName = $displayName;
             }
         }
 
@@ -334,7 +393,6 @@ class OrderService
     private function flattenPaymentMethodData($paymentMethodData)
     {
         $result = [];
-
         foreach ($paymentMethodData as $key => $value) {
             if (!is_array($value)) {
                 $result[$key] = $value;
@@ -342,10 +400,35 @@ class OrderService
                 continue;
             }
 
-            // Flatten nested arrays (like 'card', 'paypal', 'bizum', etc.)
-            foreach ($value as $nestedKey => $nestedValue) {
-                $result[$nestedKey] = $nestedValue;
+            // Special handling for method-specific data (card, paypal, bizum, etc.)
+            if ($key === 'card' || $key === 'paypal' || $key === 'bizum') {
+                // Flatten the nested payment method data
+                foreach ($value as $nestedKey => $nestedValue) {
+                    if (!is_array($nestedValue)) {
+                        $result[$nestedKey] = $nestedValue;
+                    }
+                }
+            } else {
+                // For other arrays, try to flatten them
+                foreach ($value as $nestedKey => $nestedValue) {
+                    if (is_array($nestedValue)) {
+                        foreach ($nestedValue as $deepKey => $deepValue) {
+                            $result[$deepKey] = $deepValue;
+                        }
+                    } else {
+                        $result[$nestedKey] = $nestedValue;
+                    }
+                }
             }
+        }
+
+        // No need to map tokenizationMethod as it's already in camelCase in the API response
+        // But keep the mapping for other fields that might be in snake_case
+        if (isset($result['cardholder_name'])) {
+            $result['cardholderName'] = $result['cardholder_name'];
+        }
+        if (isset($result['cardholder_email'])) {
+            $result['cardholderEmail'] = $result['cardholder_email'];
         }
 
         return $result;
@@ -361,81 +444,70 @@ class OrderService
     {
         $orderPayment = $order->getOrderPaymentCollection();
         if (count($orderPayment) > 0) {
-            // Get payment method data
-            $paymentMethodData = $moneiPayment->getPaymentMethod() ? $moneiPayment->getPaymentMethod()->jsonSerialize() : [];
-            $flattenedData = $this->flattenPaymentMethodData($paymentMethodData);
+            $payment = $orderPayment[0];
 
-            // Extract payment details
+            // Extract payment details using SDK methods
             $cardNumber = null;
             $cardBrand = null;
             $cardExpiration = null;
             $cardHolder = null;
 
-            // Check payment method type
-            $paymentMethod = $flattenedData['method'] ?? '';
+            $paymentMethod = $moneiPayment->getPaymentMethod();
+            if ($paymentMethod) {
+                $method = $paymentMethod->getMethod();
 
-            // Handle Bizum payments
-            if ($paymentMethod === 'bizum') {
-                $cardBrand = 'Bizum';
-
-                // Get phone number and format last 4 digits
-                if (isset($flattenedData['phoneNumber']) && !empty($flattenedData['phoneNumber'])) {
-                    $last4 = substr($flattenedData['phoneNumber'], -4);
-                    $cardNumber = '••••' . $last4;
-                }
-            } else {
-                // Get last 4 digits and format as •••• XXXX for card payments
-                if (isset($flattenedData['last4']) && !empty($flattenedData['last4'])) {
-                    $cardNumber = '•••• ' . $flattenedData['last4'];
-                }
-            }
-
-            // Determine card brand or wallet type (only for non-Bizum payments)
-            if ($paymentMethod !== 'bizum') {
-                if (isset($flattenedData['tokenizationMethod']) && !empty($flattenedData['tokenizationMethod'])) {
-                    // For wallet payments, use the wallet type as brand
-                    switch ($flattenedData['tokenizationMethod']) {
-                        case 'applePay':
-                            $cardBrand = 'Apple Pay';
-
-                            break;
-                        case 'googlePay':
-                            $cardBrand = 'Google Pay';
-
-                            break;
-                        default:
-                            // For other tokenization methods, use the card brand if available
-                            if (isset($flattenedData['brand']) && !empty($flattenedData['brand'])) {
-                                $cardBrand = ucfirst(strtolower($flattenedData['brand']));
-                            }
-
-                            break;
+                if ($method === 'bizum' && $paymentMethod->getBizum()) {
+                    // Bizum payment
+                    $cardBrand = 'Bizum';
+                    $bizum = $paymentMethod->getBizum();
+                    if ($bizum->getPhoneNumber()) {
+                        $last4 = substr($bizum->getPhoneNumber(), -4);
+                        $cardNumber = '••••' . $last4;
                     }
-                } elseif (isset($flattenedData['brand']) && !empty($flattenedData['brand'])) {
-                    // Regular card payment - use the card brand
-                    $cardBrand = ucfirst(strtolower($flattenedData['brand']));
-                }
-            }
+                } elseif ($method === 'card' && $paymentMethod->getCard()) {
+                    // Card payments (including Apple Pay, Google Pay)
+                    $card = $paymentMethod->getCard();
 
-            // Get expiration date
-            if (isset($flattenedData['expiration']) && !empty($flattenedData['expiration'])) {
-                // Format as MM/YY
-                $expiration = $flattenedData['expiration'];
-                if (strlen($expiration) === 4) {
-                    $cardExpiration = substr($expiration, 0, 2) . '/' . substr($expiration, 2, 2);
-                } else {
-                    $cardExpiration = $expiration;
-                }
-            }
+                    // Card number
+                    if ($card->getLast4()) {
+                        $cardNumber = '•••• ' . $card->getLast4();
+                    }
 
-            // Get cardholder name
-            if (isset($flattenedData['cardholderName']) && !empty($flattenedData['cardholderName'])) {
-                $cardHolder = $flattenedData['cardholderName'];
+                    // Determine card brand or wallet type
+                    if ($card->getTokenizationMethod()) {
+                        switch ($card->getTokenizationMethod()) {
+                            case 'applePay':
+                                $cardBrand = 'Apple Pay';
+
+                                break;
+                            case 'googlePay':
+                                $cardBrand = 'Google Pay';
+
+                                break;
+                            default:
+                                if ($card->getBrand()) {
+                                    $cardBrand = ucfirst(strtolower($card->getBrand()));
+                                }
+
+                                break;
+                        }
+                    } elseif ($card->getBrand()) {
+                        $cardBrand = ucfirst(strtolower($card->getBrand()));
+                    }
+
+                    // Expiration
+                    if ($card->getExpiration()) {
+                        $cardExpiration = date('m/y', $card->getExpiration());
+                    }
+
+                    // Cardholder
+                    if ($card->getCardholderName()) {
+                        $cardHolder = $card->getCardholderName();
+                    }
+                }
             }
 
             // Update the order payment object
-            $payment = $orderPayment[0];
-
             if ($cardNumber !== null) {
                 $payment->card_number = $cardNumber;
             }

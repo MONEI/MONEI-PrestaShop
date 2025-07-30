@@ -240,7 +240,7 @@ class MoneiService
         $monei2HistoryEntity = new Monei2History();
         $monei2HistoryEntity->setStatus($moneiPayment->getStatus());
         $monei2HistoryEntity->setStatusCode($moneiPayment->getStatusCode());
-        
+
         // Build payment response data array
         $paymentData = [
             'id' => $moneiPayment->getId(),
@@ -252,17 +252,17 @@ class MoneiService
             'currency' => $moneiPayment->getCurrency(),
             'livemode' => $moneiPayment->getLivemode(),
         ];
-        
+
         // Add payment method details if available
         if ($moneiPayment->getPaymentMethod()) {
             $paymentData['paymentMethod'] = $moneiPayment->getPaymentMethod()->jsonSerialize();
         }
-        
+
         // Add trace details if available
         if ($moneiPayment->getTraceDetails()) {
             $paymentData['traceDetails'] = $moneiPayment->getTraceDetails()->jsonSerialize();
         }
-        
+
         $monei2HistoryEntity->setResponse(json_encode($paymentData));
         $monei2PaymentEntity->addHistory($monei2HistoryEntity);
 

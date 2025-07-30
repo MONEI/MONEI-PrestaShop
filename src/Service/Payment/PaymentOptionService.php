@@ -1,16 +1,12 @@
 <?php
+
 namespace PsMonei\Service\Payment;
 
-use Address;
-use Country;
-use Media;
 use Monei\Model\PaymentPaymentMethod;
 use PrestaShop\PrestaShop\Adapter\Configuration as ConfigurationLegacy;
 use PrestaShop\PrestaShop\Adapter\LegacyContext;
 use PsMonei\Repository\MoneiCustomerCardRepository;
 use PsMonei\Service\Monei\MoneiService;
-use Tools;
-use Validate;
 
 class PaymentOptionService
 {
@@ -28,7 +24,7 @@ class PaymentOptionService
         MoneiService $moneiService,
         MoneiCustomerCardRepository $moneiCustomerCardRepository,
         ConfigurationLegacy $configuration,
-        LegacyContext $legacyContext
+        LegacyContext $legacyContext,
     ) {
         $this->moneiService = $moneiService;
         $this->moneiCustomerCardRepository = $moneiCustomerCardRepository;
@@ -44,9 +40,9 @@ class PaymentOptionService
         $this->currencyIsoCode = $this->context->currency->iso_code;
         $this->countryIsoCode = $this->context->country->iso_code;
 
-        $addressInvoice = new Address($this->context->cart->id_address_invoice);
-        if (Validate::isLoadedObject($addressInvoice)) {
-            $countryInvoice = new Country($addressInvoice->id_country);
+        $addressInvoice = new \Address($this->context->cart->id_address_invoice);
+        if (\Validate::isLoadedObject($addressInvoice)) {
+            $countryInvoice = new \Country($addressInvoice->id_country);
             $this->countryIsoCode = $countryInvoice->iso_code;
         }
 
@@ -64,7 +60,7 @@ class PaymentOptionService
 
     public function isSafariBrowser(): bool
     {
-        return strpos(Tools::getUserBrowser(), 'Safari') !== false;
+        return strpos(\Tools::getUserBrowser(), 'Safari') !== false;
     }
 
     public function getTransactionId(): string
@@ -115,7 +111,7 @@ class PaymentOptionService
 
             $paymentOption = [
                 'name' => 'card',
-                'logo' => Media::getMediaPath(_PS_MODULE_DIR_ . 'monei/views/img/payments/cards.svg'),
+                'logo' => \Media::getMediaPath(_PS_MODULE_DIR_ . 'monei/views/img/payments/cards.svg'),
                 'binary' => false,
             ];
 
@@ -131,7 +127,7 @@ class PaymentOptionService
                 }
             } else {
                 $smarty->assign([
-                    'isCustomerLogged' => Validate::isLoadedObject($customer),
+                    'isCustomerLogged' => \Validate::isLoadedObject($customer),
                     'tokenize' => (bool) $this->configuration->get('MONEI_TOKENIZE'),
                 ]);
                 $paymentOption['additionalInformation'] = $smarty->fetch('module:monei/views/templates/front/onsite_card.tpl');
@@ -147,7 +143,7 @@ class PaymentOptionService
         $customer = $this->context->customer;
         if ($this->configuration->get('MONEI_ALLOW_CARD')
             && $this->isPaymentMethodAllowed(PaymentPaymentMethod::METHOD_CARD)
-            && Validate::isLoadedObject($customer)
+            && \Validate::isLoadedObject($customer)
             && ($customer->isLogged() || $customer->isGuest())
         ) {
             $link = $this->context->link;
@@ -168,7 +164,7 @@ class PaymentOptionService
                     $this->paymentOptions[] = [
                         'name' => 'tokenized_card',
                         'title' => $optionTitle,
-                        'logo' => Media::getMediaPath(_PS_MODULE_DIR_ . 'monei/views/img/payments/' . strtolower($customerCard->getBrand()) . '.svg'),
+                        'logo' => \Media::getMediaPath(_PS_MODULE_DIR_ . 'monei/views/img/payments/' . strtolower($customerCard->getBrand()) . '.svg'),
                         'action' => $redirectUrl,
                     ];
                 }
@@ -181,7 +177,7 @@ class PaymentOptionService
         if ($this->configuration->get('MONEI_ALLOW_BIZUM') && $this->isPaymentMethodAllowed(PaymentPaymentMethod::METHOD_BIZUM)) {
             $this->paymentOptions[] = [
                 'name' => 'bizum',
-                'logo' => Media::getMediaPath(_PS_MODULE_DIR_ . 'monei/views/img/payments/bizum.svg'),
+                'logo' => \Media::getMediaPath(_PS_MODULE_DIR_ . 'monei/views/img/payments/bizum.svg'),
                 'binary' => (bool) !$this->configuration->get('MONEI_BIZUM_WITH_REDIRECT'),
             ];
         }
@@ -192,7 +188,7 @@ class PaymentOptionService
         if ($this->configuration->get('MONEI_ALLOW_APPLE') && $this->isPaymentMethodAllowed('applePay')) {
             $this->paymentOptions[] = [
                 'name' => 'applePay',
-                'logo' => Media::getMediaPath(_PS_MODULE_DIR_ . 'monei/views/img/payments/apple-pay.svg'),
+                'logo' => \Media::getMediaPath(_PS_MODULE_DIR_ . 'monei/views/img/payments/apple-pay.svg'),
                 'binary' => true,
             ];
         }
@@ -203,7 +199,7 @@ class PaymentOptionService
         if ($this->configuration->get('MONEI_ALLOW_GOOGLE') && $this->isPaymentMethodAllowed('googlePay')) {
             $this->paymentOptions[] = [
                 'name' => 'googlePay',
-                'logo' => Media::getMediaPath(_PS_MODULE_DIR_ . 'monei/views/img/payments/google-pay.svg'),
+                'logo' => \Media::getMediaPath(_PS_MODULE_DIR_ . 'monei/views/img/payments/google-pay.svg'),
                 'binary' => true,
             ];
         }
@@ -214,7 +210,7 @@ class PaymentOptionService
         if ($this->configuration->get('MONEI_ALLOW_PAYPAL') && $this->isPaymentMethodAllowed(PaymentPaymentMethod::METHOD_PAYPAL)) {
             $this->paymentOptions[] = [
                 'name' => 'paypal',
-                'logo' => Media::getMediaPath(_PS_MODULE_DIR_ . 'monei/views/img/payments/paypal.svg'),
+                'logo' => \Media::getMediaPath(_PS_MODULE_DIR_ . 'monei/views/img/payments/paypal.svg'),
                 'binary' => false,
             ];
         }
@@ -225,7 +221,7 @@ class PaymentOptionService
         if ($this->configuration->get('MONEI_ALLOW_MULTIBANCO') && $this->isPaymentMethodAllowed(PaymentPaymentMethod::METHOD_MULTIBANCO)) {
             $this->paymentOptions[] = [
                 'name' => 'multibanco',
-                'logo' => Media::getMediaPath(_PS_MODULE_DIR_ . 'monei/views/img/payments/multibanco.svg'),
+                'logo' => \Media::getMediaPath(_PS_MODULE_DIR_ . 'monei/views/img/payments/multibanco.svg'),
                 'binary' => false,
             ];
         }
@@ -236,7 +232,7 @@ class PaymentOptionService
         if ($this->configuration->get('MONEI_ALLOW_MBWAY') && $this->isPaymentMethodAllowed(PaymentPaymentMethod::METHOD_MBWAY)) {
             $this->paymentOptions[] = [
                 'name' => 'mbway',
-                'logo' => Media::getMediaPath(_PS_MODULE_DIR_ . 'monei/views/img/payments/mbway.svg'),
+                'logo' => \Media::getMediaPath(_PS_MODULE_DIR_ . 'monei/views/img/payments/mbway.svg'),
                 'binary' => false,
             ];
         }
