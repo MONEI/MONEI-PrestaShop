@@ -11,23 +11,47 @@ use Order;
 use PsMonei\Exception\OrderException;
 use PsMonei\Helper\PaymentMethodFormatter;
 use PsMonei\Service\Monei\MoneiService;
+use PsMonei\Service\LockService;
+use PrestaShop\PrestaShop\Adapter\LegacyContext;
 
 class OrderService
 {
     private $moneiInstance;
     private $moneiService;
     private $paymentMethodFormatter;
+    private $lockService;
+    private $legacyContext;
 
-    public function __construct($moneiInstance, MoneiService $moneiService, PaymentMethodFormatter $paymentMethodFormatter)
-    {
+    public function __construct(
+        $moneiInstance, 
+        MoneiService $moneiService, 
+        PaymentMethodFormatter $paymentMethodFormatter, 
+        LockService $lockService,
+        LegacyContext $legacyContext
+    ) {
         $this->moneiInstance = $moneiInstance;
         $this->moneiService = $moneiService;
         $this->paymentMethodFormatter = $paymentMethodFormatter;
+        $this->lockService = $lockService;
+        $this->legacyContext = $legacyContext;
     }
 
     public function createOrUpdateOrder($moneiPaymentId, bool $redirectToConfirmationPage = false)
     {
         $connection = \Db::getInstance();
+        
+        // Get shop ID for multi-shop support
+        $shopId = $this->legacyContext->getContext()->shop->id;
+        
+        // Acquire lock for this payment to prevent concurrent processing
+        // Include shop ID in lock name for multi-shop compatibility
+        $lockName = 'payment_' . $moneiPaymentId . '_shop_' . $shopId;
+        
+        if (!$this->lockService->acquireLock($lockName, 30)) {
+            \PrestaShopLogger::addLog('MONEI - createOrUpdateOrder - Could not acquire lock for payment: ' . $moneiPaymentId, \PrestaShopLogger::LOG_SEVERITY_LEVEL_WARNING);
+            // Another process is handling this payment, so we can safely return
+            return;
+        }
 
         try {
             // Check if order already exists
@@ -35,6 +59,8 @@ class OrderService
             $orderPaymentExists = $connection->getRow($query);
             if ($orderPaymentExists) {
                 \PrestaShopLogger::addLog('MONEI - createOrUpdateOrder - Order: (' . $orderPaymentExists['id_order'] . ') already exists. Payment ID: ' . $moneiPaymentId . ' Date: ' . $orderPaymentExists['date_add'], \PrestaShopLogger::LOG_SEVERITY_LEVEL_WARNING);
+                // If order already exists and was processed, we can return early
+                return;
             }
 
             $moneiPayment = $this->moneiService->getMoneiPayment($moneiPaymentId);
@@ -79,6 +105,9 @@ class OrderService
             );
 
             throw $e;
+        } finally {
+            // Always release the lock
+            $this->lockService->releaseLock($lockName);
         }
     }
 

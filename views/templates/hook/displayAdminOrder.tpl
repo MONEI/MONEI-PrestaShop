@@ -19,68 +19,7 @@
                     {l s='MONEI' mod='monei'}
                 </div>
                 <div class="card-body">
-                    {* Payment Method Details Info Block *}
-                    <div class="row">
-                        {if $paymentHistoryLogs && $paymentHistoryLogs[0].paymentDetails}
-                            {assign var="latestPayment" value=$paymentHistoryLogs[0]}
-                            <div class="col-md-4">
-                                <h3 class="mt-4 mb-3">{l s='Payment Details' mod='monei'}</h3>
-                                <div class="info-block">
-                                    <div class="row mb-1">
-                                        <div class="col-6 font-weight-bold">{l s='Payment Method' mod='monei'}</div>
-                                        <div class="col-6">
-                                            {$latestPayment.paymentDetails.method_display|escape:'html':'UTF-8'}</div>
-                                    </div>
-                                    {if $latestPayment.paymentDetails.details.brand}
-                                        <div class="row mb-1">
-                                            <div class="col-6 font-weight-bold">{l s='Card Brand' mod='monei'}</div>
-                                            <div class="col-6">
-                                                {$latestPayment.paymentDetails.details.brand|escape:'html':'UTF-8'}</div>
-                                        </div>
-                                    {/if}
-                                    {if $latestPayment.paymentDetails.details.card_number}
-                                        <div class="row mb-1">
-                                            <div class="col-6 font-weight-bold">{l s='Card Number' mod='monei'}</div>
-                                            <div class="col-6">
-                                                {$latestPayment.paymentDetails.details.card_number|escape:'html':'UTF-8'}</div>
-                                        </div>
-                                    {/if}
-                                    {if $latestPayment.paymentDetails.details.cardholder}
-                                        <div class="row mb-1">
-                                            <div class="col-6 font-weight-bold">{l s='Cardholder' mod='monei'}</div>
-                                            <div class="col-6">
-                                                {$latestPayment.paymentDetails.details.cardholder|escape:'html':'UTF-8'}</div>
-                                        </div>
-                                    {/if}
-                                    {if $latestPayment.paymentDetails.details.auth_code}
-                                        <div class="row mb-1">
-                                            <div class="col-6 font-weight-bold">{l s='Authorization Code' mod='monei'}</div>
-                                            <div class="col-6">
-                                                {$latestPayment.paymentDetails.details.auth_code|escape:'html':'UTF-8'}</div>
-                                        </div>
-                                    {/if}
-                                    {if $latestPayment.paymentDetails.details.paypal_email}
-                                        <div class="row mb-1">
-                                            <div class="col-6 font-weight-bold">{l s='PayPal Email' mod='monei'}</div>
-                                            <div class="col-6">
-                                                {$latestPayment.paymentDetails.details.paypal_email|escape:'html':'UTF-8'}</div>
-                                        </div>
-                                    {/if}
-                                    {if $latestPayment.paymentDetails.details.bizum_phone}
-                                        <div class="row mb-1">
-                                            <div class="col-6 font-weight-bold">{l s='Bizum Phone' mod='monei'}</div>
-                                            <div class="col-6">
-                                                {$latestPayment.paymentDetails.details.bizum_phone|escape:'html':'UTF-8'}</div>
-                                        </div>
-                                    {/if}
-                                </div>
-                            </div>
-                        {/if}
-                    </div>
-
-
                     {* Payment History Table *}
-                    <h3 class="mt-4 mb-3">{l s='Payment History' mod='monei'}</h3>
                     <table class="table">
                         <thead>
                             <tr>

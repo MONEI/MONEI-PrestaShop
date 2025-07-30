@@ -23,8 +23,6 @@ class MoneiValidationModuleFrontController extends ModuleFrontController
         $requestBody = Tools::file_get_contents('php://input');
         $sigHeader = $_SERVER['HTTP_MONEI_SIGNATURE'];
 
-        sleep(3); // Adding a delay to prevent processing too quickly and potentially generating duplicate orders.
-
         try {
             $this->module->getMoneiClient()->verifySignature($requestBody, $sigHeader);
         } catch (MoneiException $e) {
