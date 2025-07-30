@@ -36,11 +36,9 @@
                             <tr>
                                 <td>{$customerCard.id|escape:'html':'UTF-8'}</td>
                                 <td>
-                                    <img width="48"
-                                        src="{$modules_dir|escape:'html':'UTF-8'}/monei/views/img/payments/{$customerCard.brand|escape:'html':'UTF-8'}.svg"
-                                        class="img img-responsive" alt="{$customerCard.brand|escape:'html':'UTF-8'}">
+                                    {$customerCard.iconHtml nofilter}
                                 </td>
-                                <td>{$customerCard.lastFourWithMask|escape:'html':'UTF-8'}</td>
+                                <td>{$customerCard.displayName|escape:'html':'UTF-8'}</td>
                                 <td>{$customerCard.expiration|date_format:'%m/%y'|escape:'html':'UTF-8'}</td>
                                 <td>{$customerCard.dateAdd|escape:'html':'UTF-8'}</td>
                                 <td class="action">

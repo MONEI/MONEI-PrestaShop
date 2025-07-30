@@ -34,7 +34,22 @@ class MoneiCustomerCardsModuleFrontController extends ModuleFrontController
     private function getCustomerCards(int $customerId): array
     {
         $customerCards = $this->module->getRepository(Monei2CustomerCard::class)->findBy(['id_customer' => $customerId]);
-        return array_map(fn($card) => $card->toArray(), $customerCards);
+        $paymentMethodFormatter = $this->module->getService('helper.payment_method_formatter');
+
+        return array_map(function ($card) use ($paymentMethodFormatter) {
+            $cardData = $card->toArray();
+            $cardBrand = strtolower($card->getBrand());
+
+            // Add formatted display and icon
+            $cardData['displayName'] = $paymentMethodFormatter->formatPaymentDisplay('card', $cardBrand, $card->getLastFour());
+            $cardData['iconHtml'] = $paymentMethodFormatter->renderPaymentMethodIcon('card', $cardBrand, [
+                'width' => 48,
+                'height' => 32,
+                'class' => 'img img-responsive',
+            ]);
+
+            return $cardData;
+        }, $customerCards);
     }
 
     public function displayAjaxDeleteCustomerCard()
@@ -43,7 +58,7 @@ class MoneiCustomerCardsModuleFrontController extends ModuleFrontController
             $customerCardId = (int) Tools::getValue('customerCardId');
             $customerCard = $this->module->getRepository(Monei2CustomerCard::class)->findOneBy([
                 'id' => $customerCardId,
-                'id_customer' => (int) $this->context->customer->id
+                'id_customer' => (int) $this->context->customer->id,
             ]);
 
             if ($customerCard) {
@@ -60,7 +75,7 @@ class MoneiCustomerCardsModuleFrontController extends ModuleFrontController
     {
         die(json_encode([
             'success' => $success,
-            'error' => $success ? null : $errorMessage
+            'error' => $success ? null : $errorMessage,
         ]));
     }
 
@@ -70,7 +85,7 @@ class MoneiCustomerCardsModuleFrontController extends ModuleFrontController
         $breadcrumb['links'][] = $this->addMyAccountToBreadcrumb();
         $breadcrumb['links'][] = [
             'title' => $this->module->l('My Credit Cards', basename(__FILE__, '.php')),
-            'url' => $this->context->link->getModuleLink('monei', 'customerCards')
+            'url' => $this->context->link->getModuleLink('monei', 'customerCards'),
         ];
 
         return $breadcrumb;

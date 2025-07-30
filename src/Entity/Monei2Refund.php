@@ -1,29 +1,35 @@
 <?php
+
 namespace PsMonei\Entity;
 
 use Doctrine\ORM\Mapping as ORM;
 
 /**
  * @ORM\Table()
+ *
  * @ORM\Entity(repositoryClass="PsMonei\Repository\MoneiRefundRepository")
  */
 class Monei2Refund
 {
     /**
      * @ORM\Id
+     *
      * @ORM\GeneratedValue
+     *
      * @ORM\Column(name="id_refund", type="integer", length=10)
      */
     private $id;
 
     /**
      * @ORM\ManyToOne(targetEntity="PsMonei\Entity\Monei2Payment", inversedBy="refund")
+     *
      * @ORM\JoinColumn(name="id_payment", referencedColumnName="id_payment", nullable=false)
      */
     private $payment;
 
     /**
      * @ORM\OneToOne(targetEntity="PsMonei\Entity\Monei2History", inversedBy="refund")
+     *
      * @ORM\JoinColumn(name="id_history", referencedColumnName="id_history", nullable=false)
      */
     private $history;

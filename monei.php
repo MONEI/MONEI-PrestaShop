@@ -99,12 +99,12 @@ class Monei extends PaymentModule
             && $this->registerHook('displayPaymentReturn')
             && $this->registerHook('actionCustomerLogoutAfter')
             && $this->registerHook('moduleRoutes');
-        
+
         // Copy Apple Pay domain verification file to .well-known directory
         if ($result) {
             $this->copyApplePayDomainVerificationFile();
         }
-        
+
         return $result;
     }
 
@@ -115,7 +115,7 @@ class Monei extends PaymentModule
         if (is_null(self::$serviceContainer)) {
             $localPath = _PS_MODULE_DIR_ . self::NAME . '/';
 
-            self::$serviceContainer = new \PrestaShop\ModuleLibServiceContainer\DependencyInjection\ServiceContainer(
+            self::$serviceContainer = new PrestaShop\ModuleLibServiceContainer\DependencyInjection\ServiceContainer(
                 self::NAME . str_replace('.', '', self::VERSION),
                 $localPath
             );
@@ -281,7 +281,7 @@ class Monei extends PaymentModule
         Configuration::deleteByName('MONEI_STATUS_PENDING');
 
         include dirname(__FILE__) . '/sql/uninstall.php';
-        
+
         // Remove Apple Pay domain verification file
         $this->removeApplePayDomainVerificationFile();
 
@@ -294,25 +294,25 @@ class Monei extends PaymentModule
     public function reset()
     {
         $result = parent::reset();
-        
+
         if ($result) {
             $this->copyApplePayDomainVerificationFile();
         }
-        
+
         return $result;
     }
-    
+
     /**
      * Enable module - ensures Apple Pay file is copied
      */
     public function enable($force_all = false)
     {
         $result = parent::enable($force_all);
-        
+
         if ($result) {
             $this->copyApplePayDomainVerificationFile();
         }
-        
+
         return $result;
     }
 
@@ -401,21 +401,21 @@ class Monei extends PaymentModule
 
         // Store previous Apple Pay state
         $previousApplePayState = Configuration::get('MONEI_ALLOW_APPLE');
-        
+
         foreach (array_keys($form_values) as $key) {
             Configuration::updateValue($key, Tools::getValue($key));
         }
-        
+
         // Check if Apple Pay was just enabled
         $currentApplePayState = Configuration::get('MONEI_ALLOW_APPLE');
-        
+
         // Register domain for Apple Pay if it's enabled (either just enabled or already was enabled)
         if ($currentApplePayState) {
             // First check if API keys are configured
-            $apiKey = (bool) Configuration::get('MONEI_PRODUCTION_MODE') 
-                ? Configuration::get('MONEI_API_KEY') 
+            $apiKey = (bool) Configuration::get('MONEI_PRODUCTION_MODE')
+                ? Configuration::get('MONEI_API_KEY')
                 : Configuration::get('MONEI_TEST_API_KEY');
-            
+
             if (!$apiKey) {
                 if (!$previousApplePayState && $currentApplePayState) {
                     $this->warning[] = $this->l('Apple Pay enabled but cannot verify domain: Please configure your MONEI API keys first.');
@@ -424,18 +424,18 @@ class Monei extends PaymentModule
                 try {
                     // Ensure the domain verification file is accessible
                     $this->copyApplePayDomainVerificationFile();
-                    
+
                     // Register domain with MONEI
                     $moneiClient = $this->getService('service.monei')->getMoneiClient();
                     if ($moneiClient) {
                         $domain = str_replace(['www.', 'https://', 'http://'], '', Tools::getShopDomainSsl(false, true));
-                        
+
                         // Create request object as expected by MONEI API
-                        $registerRequest = new \Monei\Model\RegisterApplePayDomainRequest();
+                        $registerRequest = new Monei\Model\RegisterApplePayDomainRequest();
                         $registerRequest->setDomainName($domain);
-                        
+
                         $result = $moneiClient->applePayDomain->register($registerRequest);
-                        
+
                         // Add success message if Apple Pay was just enabled
                         if (!$previousApplePayState && $currentApplePayState) {
                             $this->confirmations[] = $this->l('Apple Pay domain verification initiated successfully.');
@@ -448,24 +448,24 @@ class Monei extends PaymentModule
         }
 
         $output = '';
-        
+
         // Display any warnings
         if (!empty($this->warning)) {
             foreach ($this->warning as $warning) {
                 $output .= $this->displayWarning($warning);
             }
         }
-        
+
         // Display any additional confirmations
         if (!empty($this->confirmations)) {
             foreach ($this->confirmations as $confirmation) {
                 $output .= $this->displayConfirmation($confirmation);
             }
         }
-        
+
         // Display main confirmation
         $output .= $this->displayConfirmation($section . ' ' . $this->l('options saved successfully.'));
-        
+
         return $output;
     }
 
@@ -1169,7 +1169,7 @@ class Monei extends PaymentModule
         ];
 
         foreach ($paymentOptions as $paymentOption) {
-            $option = new \PrestaShop\PrestaShop\Core\Payment\PaymentOption();
+            $option = new PrestaShop\PrestaShop\Core\Payment\PaymentOption();
             $option->setModuleName($this->name . '-' . $paymentOption['name']);
 
             $testModeText = '';
@@ -1337,12 +1337,27 @@ class Monei extends PaymentModule
         $paymentHistoryLogs = [];
         $paymentRefundLogs = [];
 
+        // Get payment method formatter service
+        $paymentMethodFormatter = $this->getService('helper.payment_method_formatter');
+
         $paymentHistory = $monei2PaymentEntity->getHistoryList();
         if (!$paymentHistory->isEmpty()) {
             foreach ($paymentHistory as $history) {
                 $paymentHistoryLog = $history->toArrayLegacy();
                 $paymentHistoryLog['responseDecoded'] = $history->getResponseDecoded();
                 $paymentHistoryLog['responseB64'] = Mbstring::mb_convert_encoding($history->getResponse(), 'BASE64');
+
+                // Extract payment method details from response
+                $response = $history->getResponseDecoded();
+                if ($response && isset($response['paymentMethod'])) {
+                    // Flatten the payment method data structure like Magento does
+                    $paymentInfo = $this->flattenPaymentMethodData($response['paymentMethod']);
+
+                    // Add additional fields from the response
+                    $paymentInfo['authorizationCode'] = $response['authorizationCode'] ?? null;
+
+                    $paymentHistoryLog['paymentDetails'] = $paymentMethodFormatter->formatAdminPaymentDetails($paymentInfo);
+                }
 
                 $paymentHistoryLogs[] = $paymentHistoryLog;
 
@@ -1653,6 +1668,7 @@ class Monei extends PaymentModule
 
             if ($jsonError !== JSON_ERROR_NONE) {
                 $errorMessage = $this->getJsonErrorMessage($jsonError);
+
                 return $this->displayError(
                     sprintf(
                         $this->l('%s style configuration contains invalid JSON: %s'),
@@ -1695,7 +1711,7 @@ class Monei extends PaymentModule
 
     /**
      * Copy Apple Pay domain verification file to .well-known directory
-     * 
+     *
      * @return bool
      */
     private function copyApplePayDomainVerificationFile()
@@ -1703,36 +1719,63 @@ class Monei extends PaymentModule
         $sourceFile = _PS_MODULE_DIR_ . $this->name . '/files/apple-developer-merchantid-domain-association';
         $wellKnownDir = _PS_ROOT_DIR_ . '/.well-known';
         $destFile = $wellKnownDir . '/apple-developer-merchantid-domain-association';
-        
+
         // Create .well-known directory if it doesn't exist
         if (!is_dir($wellKnownDir)) {
             if (!@mkdir($wellKnownDir, 0755, true)) {
                 return false;
             }
         }
-        
+
         // Copy the file
         if (file_exists($sourceFile)) {
             return @copy($sourceFile, $destFile);
         }
-        
+
         return false;
     }
-    
+
     /**
      * Remove Apple Pay domain verification file
-     * 
+     *
      * @return bool
      */
     private function removeApplePayDomainVerificationFile()
     {
         $file = _PS_ROOT_DIR_ . '/.well-known/apple-developer-merchantid-domain-association';
-        
+
         if (file_exists($file)) {
             return @unlink($file);
         }
-        
+
         return true;
     }
 
+    /**
+     * Flatten payment method data structure from MONEI API response
+     * This follows the same approach as Magento to extract nested payment details
+     *
+     * @param array $paymentMethodData Nested payment method data from API
+     *
+     * @return array Flattened payment method data
+     */
+    private function flattenPaymentMethodData($paymentMethodData)
+    {
+        $result = [];
+
+        foreach ($paymentMethodData as $key => $value) {
+            if (!is_array($value)) {
+                $result[$key] = $value;
+
+                continue;
+            }
+
+            // Flatten nested arrays (like 'card', 'paypal', 'bizum', etc.)
+            foreach ($value as $nestedKey => $nestedValue) {
+                $result[$nestedKey] = $nestedValue;
+            }
+        }
+
+        return $result;
+    }
 }

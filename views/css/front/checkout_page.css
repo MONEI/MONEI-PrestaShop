@@ -67,3 +67,22 @@ section.checkout-step .payment-option label {
   height: 15px;
   margin: 0;
 }
+
+/* Payment method icons */
+.payment-method-icon {
+  max-width: 100%;
+  height: auto;
+  object-fit: contain;
+}
+
+.payment-option .payment-method-icon {
+  height: 1.25rem;
+  width: auto;
+}
+
+/* Payment options responsive */
+@media (max-width: 768px) {
+  .payment-option .payment-method-icon {
+    height: 1rem;
+  }
+}

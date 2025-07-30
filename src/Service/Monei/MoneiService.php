@@ -1,25 +1,18 @@
 <?php
+
 namespace PsMonei\Service\Monei;
 
 if (!defined('_PS_VERSION_')) {
     exit;
 }
 
-use Address;
-use Cart;
-use Configuration;
-use Country;
-use Currency;
-use Customer;
-use Exception;
-use Monei\MoneiClient;
 use Monei\Model\CreatePaymentRequest;
 use Monei\Model\Payment;
 use Monei\Model\PaymentBillingDetails;
 use Monei\Model\PaymentCustomer;
 use Monei\Model\RefundPaymentRequest;
+use Monei\MoneiClient;
 use PrestaShop\PrestaShop\Adapter\LegacyContext;
-use PrestaShopLogger;
 use PsMonei\Entity\Monei2CustomerCard;
 use PsMonei\Entity\Monei2History;
 use PsMonei\Entity\Monei2Payment;
@@ -28,9 +21,6 @@ use PsMonei\Exception\MoneiException;
 use PsMonei\Repository\MoneiCustomerCardRepository;
 use PsMonei\Repository\MoneiPaymentRepository;
 use PsMonei\Repository\MoneiRefundRepository;
-use State;
-use Tools;
-use Validate;
 
 class MoneiService
 {
@@ -43,7 +33,7 @@ class MoneiService
         LegacyContext $legacyContext,
         MoneiPaymentRepository $moneiPaymentRepository,
         MoneiCustomerCardRepository $moneiCustomerCardRepository,
-        MoneiRefundRepository $moneiRefundRepository
+        MoneiRefundRepository $moneiRefundRepository,
     ) {
         $this->legacyContext = $legacyContext;
         $this->moneiPaymentRepository = $moneiPaymentRepository;
@@ -53,10 +43,10 @@ class MoneiService
 
     public function getMoneiClient()
     {
-        if ((bool) Configuration::get('MONEI_PRODUCTION_MODE')) {
-            $apiKey = Configuration::get('MONEI_API_KEY');
+        if ((bool) \Configuration::get('MONEI_PRODUCTION_MODE')) {
+            $apiKey = \Configuration::get('MONEI_API_KEY');
         } else {
-            $apiKey = Configuration::get('MONEI_TEST_API_KEY');
+            $apiKey = \Configuration::get('MONEI_TEST_API_KEY');
         }
 
         if (!$apiKey) {
@@ -72,10 +62,10 @@ class MoneiService
             $moneiClient = $this->getMoneiClient();
             $moneiClient->setUserAgent('MONEI/PrestaShop/' . _PS_VERSION_);
 
-            if ((bool) Configuration::get('MONEI_PRODUCTION_MODE')) {
-                $accountId = Configuration::get('MONEI_ACCOUNT_ID');
+            if ((bool) \Configuration::get('MONEI_PRODUCTION_MODE')) {
+                $accountId = \Configuration::get('MONEI_ACCOUNT_ID');
             } else {
-                $accountId = Configuration::get('MONEI_TEST_ACCOUNT_ID');
+                $accountId = \Configuration::get('MONEI_TEST_ACCOUNT_ID');
             }
 
             if (!$accountId) {
@@ -86,7 +76,7 @@ class MoneiService
 
             return $moneiAccountInformation->getPaymentMethods();
         } catch (\Exception $e) {
-            PrestaShopLogger::addLog('MONEI - getPaymentMethodsAllowed - Error: ' . $e->getMessage(), PrestaShopLogger::LOG_SEVERITY_LEVEL_WARNING);
+            \PrestaShopLogger::addLog('MONEI - getPaymentMethodsAllowed - Error: ' . $e->getMessage(), \PrestaShopLogger::LOG_SEVERITY_LEVEL_WARNING);
 
             return [];
         }
@@ -106,6 +96,7 @@ class MoneiService
     public function createMoneiOrderId(int $cartId)
     {
         $suffix = time() % 1000;
+
         return str_pad($cartId . 'm' . $suffix, 12, '0', STR_PAD_LEFT);
     }
 
@@ -122,27 +113,27 @@ class MoneiService
 
         $totalPrice = $cartSummaryDetails['total_price_without_tax'] + $cartSummaryDetails['total_tax'];
 
-        $currency = new Currency($currencyId);
-        if (!Validate::isLoadedObject($currency)) {
+        $currency = new \Currency($currencyId);
+        if (!\Validate::isLoadedObject($currency)) {
             throw new MoneiException('Invalid currency ID provided', MoneiException::INVALID_CURRENCY_ID_PROVIDED);
         }
 
         $decimals = is_array($currency) ? (int) $currency['decimals'] : (int) $currency->decimals;
         $precisionMultiplier = $decimals * 2;
 
-        $totalPriceRounded = Tools::ps_round($totalPrice, $precisionMultiplier);
+        $totalPriceRounded = \Tools::ps_round($totalPrice, $precisionMultiplier);
 
         return $withoutFormatting ? $totalPriceRounded : (int) number_format($totalPriceRounded, 2, '', '');
     }
 
-    public function getCustomerData(Customer $customer, int $cartAddressInvoiceId, $returnMoneiCustomerObject = false)
+    public function getCustomerData(\Customer $customer, int $cartAddressInvoiceId, $returnMoneiCustomerObject = false)
     {
-        if (!Validate::isLoadedObject($customer)) {
+        if (!\Validate::isLoadedObject($customer)) {
             throw new MoneiException('The customer could not be loaded correctly', MoneiException::CUSTOMER_NOT_FOUND);
         }
 
-        $addressInvoice = new Address((int) $cartAddressInvoiceId);
-        if (!Validate::isLoadedObject($addressInvoice)) {
+        $addressInvoice = new \Address((int) $cartAddressInvoiceId);
+        if (!\Validate::isLoadedObject($addressInvoice)) {
             throw new MoneiException('The address could not be loaded correctly', MoneiException::ADDRESS_NOT_FOUND);
         }
 
@@ -159,17 +150,17 @@ class MoneiService
 
     public function getAddressData(int $addressId, string $customerEmail, bool $returnMoneiBillingObject = false)
     {
-        $address = new Address((int) $addressId);
-        if (!Validate::isLoadedObject($address)) {
+        $address = new \Address((int) $addressId);
+        if (!\Validate::isLoadedObject($address)) {
             throw new MoneiException('The address could not be loaded correctly', MoneiException::ADDRESS_NOT_FOUND);
         }
 
-        $country = new Country($address->id_country, (int) $this->legacyContext->getLanguage()->id);
-        if (!Validate::isLoadedObject($country)) {
+        $country = new \Country($address->id_country, (int) $this->legacyContext->getLanguage()->id);
+        if (!\Validate::isLoadedObject($country)) {
             throw new MoneiException('The country could not be loaded correctly', MoneiException::COUNTRY_NOT_FOUND);
         }
 
-        $state = new State((int) $address->id_state, (int) $this->legacyContext->getLanguage()->id);
+        $state = new \State((int) $address->id_state, (int) $this->legacyContext->getLanguage()->id);
         $stateName = $state->name ?: '';
 
         $billingData = [
@@ -205,7 +196,7 @@ class MoneiService
         ];
 
         foreach ($allowedMethods as $configKey => $method) {
-            if (Configuration::get($configKey)) {
+            if (\Configuration::get($configKey)) {
                 $paymentMethods[] = $method;
             }
         }
@@ -249,7 +240,30 @@ class MoneiService
         $monei2HistoryEntity = new Monei2History();
         $monei2HistoryEntity->setStatus($moneiPayment->getStatus());
         $monei2HistoryEntity->setStatusCode($moneiPayment->getStatusCode());
-        $monei2HistoryEntity->setResponse($moneiPayment);
+        
+        // Build payment response data array
+        $paymentData = [
+            'id' => $moneiPayment->getId(),
+            'status' => $moneiPayment->getStatus(),
+            'statusCode' => $moneiPayment->getStatusCode(),
+            'statusMessage' => $moneiPayment->getStatusMessage(),
+            'authorizationCode' => $moneiPayment->getAuthorizationCode(),
+            'amount' => $moneiPayment->getAmount(),
+            'currency' => $moneiPayment->getCurrency(),
+            'livemode' => $moneiPayment->getLivemode(),
+        ];
+        
+        // Add payment method details if available
+        if ($moneiPayment->getPaymentMethod()) {
+            $paymentData['paymentMethod'] = $moneiPayment->getPaymentMethod()->jsonSerialize();
+        }
+        
+        // Add trace details if available
+        if ($moneiPayment->getTraceDetails()) {
+            $paymentData['traceDetails'] = $moneiPayment->getTraceDetails()->jsonSerialize();
+        }
+        
+        $monei2HistoryEntity->setResponse(json_encode($paymentData));
         $monei2PaymentEntity->addHistory($monei2HistoryEntity);
 
         if ($moneiPayment->getLastRefundAmount() > 0) {
@@ -291,7 +305,7 @@ class MoneiService
         }
     }
 
-    public function createMoneiPayment(Cart $cart, bool $tokenizeCard = false, int $cardTokenId = 0)
+    public function createMoneiPayment(\Cart $cart, bool $tokenizeCard = false, int $cardTokenId = 0)
     {
         if (!$cart) {
             throw new MoneiException('The cart could not be loaded correctly');
@@ -302,13 +316,13 @@ class MoneiService
             throw new MoneiException('The cart amount is empty', MoneiException::CART_AMOUNT_EMPTY);
         }
 
-        $currency = new Currency($cart->id_currency);
-        if (!Validate::isLoadedObject($currency)) {
+        $currency = new \Currency($cart->id_currency);
+        if (!\Validate::isLoadedObject($currency)) {
             throw new MoneiException('The currency could not be loaded correctly', MoneiException::CURRENCY_NOT_FOUND);
         }
 
-        $customer = new Customer($cart->id_customer);
-        if (!Validate::isLoadedObject($customer)) {
+        $customer = new \Customer($cart->id_customer);
+        if (!\Validate::isLoadedObject($customer)) {
             throw new MoneiException('The customer could not be loaded correctly', MoneiException::CUSTOMER_NOT_FOUND);
         }
 
@@ -391,10 +405,10 @@ class MoneiService
             $this->saveMoneiPayment($moneiPaymentResponse);
 
             return $moneiPaymentResponse;
-        } catch (Exception $ex) {
-            PrestaShopLogger::addLog(
+        } catch (\Exception $ex) {
+            \PrestaShopLogger::addLog(
                 'MONEI - Exception - MoneiService.php - createMoneiPayment: ' . $ex->getMessage() . ' - ' . $ex->getFile(),
-                PrestaShopLogger::LOG_SEVERITY_LEVEL_ERROR
+                \PrestaShopLogger::LOG_SEVERITY_LEVEL_ERROR
             );
 
             return false;
@@ -425,10 +439,10 @@ class MoneiService
 
         try {
             $moneiPayment = $this->getMoneiClient()->payments->refund($moneiPayment->getId(), $refundPaymentRequest);
-        } catch (Exception $ex) {
-            PrestaShopLogger::addLog(
+        } catch (\Exception $ex) {
+            \PrestaShopLogger::addLog(
                 'MONEI - Exception - MoneiService.php - createRefund: ' . $ex->getMessage(),
-                PrestaShopLogger::LOG_SEVERITY_LEVEL_ERROR
+                \PrestaShopLogger::LOG_SEVERITY_LEVEL_ERROR
             );
 
             throw new MoneiException('Failed to create refund: ' . $ex->getMessage(), MoneiException::REFUND_CREATION_FAILED);

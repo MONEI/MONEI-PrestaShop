@@ -1,17 +1,21 @@
 <?php
+
 namespace PsMonei\Entity;
 
 use Doctrine\ORM\Mapping as ORM;
 
 /**
  * @ORM\Table()
+ *
  * @ORM\Entity(repositoryClass="PsMonei\Repository\MoneiCustomerCardRepository")
  */
 class Monei2CustomerCard
 {
     /**
      * @ORM\Id
+     *
      * @ORM\GeneratedValue
+     *
      * @ORM\Column(name="id_customer_card", type="integer", length=11)
      */
     private $id;

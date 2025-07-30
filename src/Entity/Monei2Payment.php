@@ -1,4 +1,5 @@
 <?php
+
 namespace PsMonei\Entity;
 
 use Doctrine\Common\Collections\ArrayCollection;
@@ -6,12 +7,14 @@ use Doctrine\ORM\Mapping as ORM;
 
 /**
  * @ORM\Table()
+ *
  * @ORM\Entity(repositoryClass="PsMonei\Repository\MoneiPaymentRepository")
  */
 class Monei2Payment
 {
     /**
      * @ORM\Id
+     *
      * @ORM\Column(name="id_payment", type="string", length=50)
      */
     private $id;

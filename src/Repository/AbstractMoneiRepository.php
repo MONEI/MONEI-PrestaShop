@@ -1,8 +1,9 @@
 <?php
+
 namespace PsMonei\Repository;
 
 if (!defined('_PS_VERSION_')) {
-  exit;
+    exit;
 }
 
 use Doctrine\ORM\EntityRepository;
@@ -17,6 +18,7 @@ abstract class AbstractMoneiRepository extends EntityRepository
             if ($flush) {
                 $this->getEntityManager()->flush();
             }
+
             return $entity;
         } catch (\Throwable $e) {
             throw new MoneiException("Error saving monei {$entityType}: " . $e->getMessage(), MoneiException::SAVE_ENTITY_ERROR, $e);

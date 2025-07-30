@@ -2,9 +2,7 @@
 
 namespace PsMonei\Exception;
 
-use Exception;
-
-class OrderException extends Exception
+class OrderException extends \Exception
 {
     const MONEI_CLIENT_PAYMENTS_NOT_INITIALIZED = 200;
     const CART_NOT_VALID = 201;
