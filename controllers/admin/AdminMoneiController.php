@@ -37,7 +37,7 @@ class AdminMoneiController extends ModuleAdminController
 
             $this->ajaxRenderJson([
                 'code' => 200,
-                'message' => $this->l('Refunded successfully'),
+                'message' => $this->module->l('Refunded successfully', 'AdminMoneiController'),
             ]);
         } catch (Exception $e) {
             $this->ajaxRenderJson([
