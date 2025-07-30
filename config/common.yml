@@ -66,6 +66,8 @@ services:
       - '@monei.module'
       - '@monei.service.monei'
       - '@monei.helper.payment_method_formatter'
+      - '@monei.service.lock'
+      - '@monei.legacy.context'
 
   monei.service.payment.option:
     class: 'PsMonei\Service\Payment\PaymentOptionService'
@@ -75,6 +77,9 @@ services:
       - '@monei.legacy.configuration'
       - '@monei.legacy.context'
       - '@monei.helper.payment_method_formatter'
+
+  monei.service.lock:
+    class: 'PsMonei\Service\LockService'
 
 # HELPERS
   monei.helper.payment_method_formatter:

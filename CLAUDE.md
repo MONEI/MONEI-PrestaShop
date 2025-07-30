@@ -43,6 +43,27 @@ docker exec tunnel1-prestashop-1 bash -c "php /var/www/html/bin/console prestash
 ```
 Then hard refresh browser (Ctrl+F5 or Cmd+Shift+R).
 
+### Checking Logs (PrestaShop Flashlight)
+When debugging errors in the Docker environment:
+```bash
+# View recent PrestaShop application logs
+docker exec tunnel1-prestashop-1 bash -c "tail -100 /var/www/html/var/logs/prod-$(date +%Y-%m-%d).log"
+
+# Search for MONEI-specific errors
+docker exec tunnel1-prestashop-1 bash -c "grep -i 'monei' /var/www/html/var/logs/prod-$(date +%Y-%m-%d).log | tail -50"
+
+# Check PHP error logs
+docker exec tunnel1-prestashop-1 bash -c "tail -100 /var/log/php/error.log"
+
+# Live monitoring of logs
+docker exec tunnel1-prestashop-1 bash -c "tail -f /var/www/html/var/logs/prod-$(date +%Y-%m-%d).log"
+```
+
+Log locations inside the container:
+- PrestaShop app logs: `/var/www/html/var/logs/`
+- PHP error logs: `/var/log/php/error.log`
+- Cache logs: `/var/www/html/var/cache/dev/admin/AdminKernelDevDebugContainerDeprecations.log`
+
 ## Architecture
 
 ### Module Structure

@@ -237,36 +237,60 @@ class MoneiService
         $monei2PaymentEntity->setDateAdd($moneiPayment->getCreatedAt());
         $monei2PaymentEntity->setDateUpd($moneiPayment->getUpdatedAt());
 
-        $monei2HistoryEntity = new Monei2History();
-        $monei2HistoryEntity->setStatus($moneiPayment->getStatus());
-        $monei2HistoryEntity->setStatusCode($moneiPayment->getStatusCode());
+        // Check if we should add a new history entry
+        $shouldAddHistory = true;
+        $currentStatus = $moneiPayment->getStatus();
+        $currentStatusCode = $moneiPayment->getStatusCode();
+        
+        // Get existing history entries
+        $historyList = $monei2PaymentEntity->getHistoryList();
+        if ($historyList && count($historyList) > 0) {
+            // Get the last history entry efficiently using Doctrine's last() method
+            $lastHistory = $historyList->last();
+            
+            // Only add new history if status has changed
+            if ($lastHistory && $lastHistory->getStatus() === $currentStatus && $lastHistory->getStatusCode() === $currentStatusCode) {
+                $shouldAddHistory = false;
+                \PrestaShopLogger::addLog(
+                    'MONEI - saveMoneiPayment - Skipping duplicate history entry for payment: ' . $moneiPayment->getId() . 
+                    ' with status: ' . $currentStatus,
+                    \PrestaShopLogger::LOG_SEVERITY_LEVEL_INFORMATIVE
+                );
+            }
+        }
+        
+        if ($shouldAddHistory) {
+            $monei2HistoryEntity = new Monei2History();
+            $monei2HistoryEntity->setStatus($currentStatus);
+            $monei2HistoryEntity->setStatusCode($currentStatusCode);
 
-        // Build payment response data array
-        $paymentData = [
-            'id' => $moneiPayment->getId(),
-            'status' => $moneiPayment->getStatus(),
-            'statusCode' => $moneiPayment->getStatusCode(),
-            'statusMessage' => $moneiPayment->getStatusMessage(),
-            'authorizationCode' => $moneiPayment->getAuthorizationCode(),
-            'amount' => $moneiPayment->getAmount(),
-            'currency' => $moneiPayment->getCurrency(),
-            'livemode' => $moneiPayment->getLivemode(),
-        ];
+            // Build payment response data array
+            $paymentData = [
+                'id' => $moneiPayment->getId(),
+                'status' => $moneiPayment->getStatus(),
+                'statusCode' => $moneiPayment->getStatusCode(),
+                'statusMessage' => $moneiPayment->getStatusMessage(),
+                'authorizationCode' => $moneiPayment->getAuthorizationCode(),
+                'amount' => $moneiPayment->getAmount(),
+                'currency' => $moneiPayment->getCurrency(),
+                'livemode' => $moneiPayment->getLivemode(),
+            ];
 
-        // Add payment method details if available
-        if ($moneiPayment->getPaymentMethod()) {
-            $paymentData['paymentMethod'] = $moneiPayment->getPaymentMethod()->jsonSerialize();
+            // Add payment method details if available
+            if ($moneiPayment->getPaymentMethod()) {
+                $paymentData['paymentMethod'] = $moneiPayment->getPaymentMethod()->jsonSerialize();
+            }
+
+            // Add trace details if available
+            if ($moneiPayment->getTraceDetails()) {
+                $paymentData['traceDetails'] = $moneiPayment->getTraceDetails()->jsonSerialize();
+            }
+
+            $monei2HistoryEntity->setResponse(json_encode($paymentData));
+            $monei2PaymentEntity->addHistory($monei2HistoryEntity);
         }
 
-        // Add trace details if available
-        if ($moneiPayment->getTraceDetails()) {
-            $paymentData['traceDetails'] = $moneiPayment->getTraceDetails()->jsonSerialize();
-        }
-
-        $monei2HistoryEntity->setResponse(json_encode($paymentData));
-        $monei2PaymentEntity->addHistory($monei2HistoryEntity);
-
-        if ($moneiPayment->getLastRefundAmount() > 0) {
+        if ($moneiPayment->getLastRefundAmount() > 0 && $shouldAddHistory && isset($monei2HistoryEntity)) {
             $monei2Refund = new Monei2Refund();
             $monei2Refund->setHistory($monei2HistoryEntity);
             $monei2Refund->setEmployeeId($employeeId);
