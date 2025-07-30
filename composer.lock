@@ -333,16 +333,16 @@
         },
         {
             "name": "monei/monei-php-sdk",
-            "version": "2.6.17",
+            "version": "2.6.18",
             "source": {
                 "type": "git",
                 "url": "https://github.com/MONEI/monei-php-sdk.git",
-                "reference": "6b7e179a5e857c6028e6bbf6b13fb36e09b3f8cd"
+                "reference": "e64abc9bdfb59d6512f1314e7bde88c66237501c"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/MONEI/monei-php-sdk/zipball/6b7e179a5e857c6028e6bbf6b13fb36e09b3f8cd",
-                "reference": "6b7e179a5e857c6028e6bbf6b13fb36e09b3f8cd",
+                "url": "https://api.github.com/repos/MONEI/monei-php-sdk/zipball/e64abc9bdfb59d6512f1314e7bde88c66237501c",
+                "reference": "e64abc9bdfb59d6512f1314e7bde88c66237501c",
                 "shasum": ""
             },
             "require": {
@@ -389,9 +389,9 @@
             ],
             "support": {
                 "issues": "https://github.com/MONEI/monei-php-sdk/issues",
-                "source": "https://github.com/MONEI/monei-php-sdk/tree/2.6.17"
+                "source": "https://github.com/MONEI/monei-php-sdk/tree/2.6.18"
             },
-            "time": "2025-06-01T17:17:28+00:00"
+            "time": "2025-07-02T10:03:13+00:00"
         },
         {
             "name": "prestashop/module-lib-cache-directory-provider",
@@ -3322,13 +3322,13 @@
     ],
     "aliases": [],
     "minimum-stability": "stable",
-    "stability-flags": [],
+    "stability-flags": {},
     "prefer-stable": false,
     "prefer-lowest": false,
-    "platform": [],
-    "platform-dev": [],
+    "platform": {},
+    "platform-dev": {},
     "platform-overrides": {
         "php": "7.4"
     },
-    "plugin-api-version": "2.2.0"
+    "plugin-api-version": "2.6.0"
 }
