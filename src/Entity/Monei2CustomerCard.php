@@ -108,7 +108,7 @@ class Monei2CustomerCard
 
     public function getLastFourWithMask(): string
     {
-        return '**** **** **** ' . $this->last_four;
+        return '•••• ' . $this->last_four;
     }
 
     public function setLastFour(string $last_four): self
