@@ -221,6 +221,16 @@ class MoneiService
 
     public function saveMoneiPayment(Payment $moneiPayment, int $orderId = 0, int $employeeId = 0)
     {
+        // Skip saving pending payments to history
+        if ($moneiPayment->getStatus() === \Monei\Model\PaymentStatus::PENDING) {
+            \PrestaShopLogger::addLog(
+                'MONEI - saveMoneiPayment - Skipping pending payment: ' . $moneiPayment->getId(),
+                \PrestaShopLogger::LOG_SEVERITY_LEVEL_INFORMATIVE
+            );
+
+            return;
+        }
+
         $cartId = $this->extractCartIdFromMoneiOrderId($moneiPayment->getOrderId());
 
         $monei2PaymentEntity = $this->moneiPaymentRepository->findOneById($moneiPayment->getId()) ?? new Monei2Payment();
