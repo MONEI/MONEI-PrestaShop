@@ -1,9 +1,8 @@
 <?php
+
 namespace PsMonei\Exception;
 
-use Exception;
-
-class MoneiException extends Exception
+class MoneiException extends \Exception
 {
     const CART_NOT_FOUND = 100;
     const CART_AMOUNT_EMPTY = 101;

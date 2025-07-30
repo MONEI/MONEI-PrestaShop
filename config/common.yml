@@ -65,6 +65,7 @@ services:
     arguments:
       - '@monei.module'
       - '@monei.service.monei'
+      - '@monei.helper.payment_method_formatter'
 
   monei.service.payment.option:
     class: 'PsMonei\Service\Payment\PaymentOptionService'
@@ -73,3 +74,8 @@ services:
       - '@monei.repository.monei_customer_card'
       - '@monei.legacy.configuration'
       - '@monei.legacy.context'
+      - '@monei.helper.payment_method_formatter'
+
+# HELPERS
+  monei.helper.payment_method_formatter:
+    class: 'PsMonei\Helper\PaymentMethodFormatter'

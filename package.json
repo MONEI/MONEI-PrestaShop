@@ -1,3 +1,7 @@
 {
-  "packageManager": "yarn@4.7.0"
+  "packageManager": "yarn@4.9.2",
+  "devDependencies": {
+    "@playwright/test": "^1.54.1",
+    "playwright": "^1.54.1"
+  }
 }

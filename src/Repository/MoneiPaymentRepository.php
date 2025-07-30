@@ -1,4 +1,5 @@
 <?php
+
 namespace PsMonei\Repository;
 
 use PsMonei\Entity\Monei2Payment;
