@@ -241,24 +241,24 @@ class MoneiService
         $shouldAddHistory = true;
         $currentStatus = $moneiPayment->getStatus();
         $currentStatusCode = $moneiPayment->getStatusCode();
-        
+
         // Get existing history entries
         $historyList = $monei2PaymentEntity->getHistoryList();
         if ($historyList && count($historyList) > 0) {
             // Get the last history entry efficiently using Doctrine's last() method
             $lastHistory = $historyList->last();
-            
+
             // Only add new history if status has changed
             if ($lastHistory && $lastHistory->getStatus() === $currentStatus && $lastHistory->getStatusCode() === $currentStatusCode) {
                 $shouldAddHistory = false;
                 \PrestaShopLogger::addLog(
-                    'MONEI - saveMoneiPayment - Skipping duplicate history entry for payment: ' . $moneiPayment->getId() . 
-                    ' with status: ' . $currentStatus,
+                    'MONEI - saveMoneiPayment - Skipping duplicate history entry for payment: ' . $moneiPayment->getId()
+                    . ' with status: ' . $currentStatus,
                     \PrestaShopLogger::LOG_SEVERITY_LEVEL_INFORMATIVE
                 );
             }
         }
-        
+
         if ($shouldAddHistory) {
             $monei2HistoryEntity = new Monei2History();
             $monei2HistoryEntity->setStatus($currentStatus);

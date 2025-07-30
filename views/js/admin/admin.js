@@ -9,10 +9,6 @@
             apiKey: '#MONEI_API_KEY',
             testAccountId: '#MONEI_TEST_ACCOUNT_ID',
             testApiKey: '#MONEI_TEST_API_KEY',
-            refundAmount: '#monei_refund_amount',
-            refundReason: '#monei_refund_reason',
-            refundButton: '#moneiBtnRefund',
-            alertBox: '#moneiAlert',
             jsonLog: '#json_log'
         }
     };
@@ -41,95 +37,6 @@
         }
     };
 
-    // Manejador de reembolsos
-    const refundHandler = {
-        init: function() {
-            this.bindEvents();
-        },
-
-        bindEvents: function() {
-            $(document).on('change', CONFIG.selectors.refundAmount, this.handleAmountChange.bind(this));
-            $(document).on('change', CONFIG.selectors.refundReason, this.updateButtonState.bind(this));
-            $(document).on('click', CONFIG.selectors.refundButton, this.handleRefundClick.bind(this));
-        },
-
-        getRefundValues: function() {
-            const maxRefund = utils.formatAmount($(CONFIG.selectors.refundAmount).data('maxrefund'));
-            const refundAmount = utils.parseAmount($(CONFIG.selectors.refundAmount).val());
-            const hasValidReason = $(CONFIG.selectors.refundReason + " option:selected").index() !== 0;
-
-            return {
-                maxRefund,
-                refundAmount,
-                hasValidReason,
-                isValidAmount: refundAmount > 0 && refundAmount <= maxRefund
-            };
-        },
-
-        updateButtonState: function() {
-            const { hasValidReason, isValidAmount } = this.getRefundValues();
-            const isDisabled = !hasValidReason || !isValidAmount;
-
-            $(CONFIG.selectors.refundButton)
-                .attr('disabled', isDisabled)
-                .toggleClass('disabled', isDisabled);
-        },
-
-        handleAmountChange: function() {
-            const { isValidAmount } = this.getRefundValues();
-            $(CONFIG.selectors.alertBox).toggleClass('collapse', isValidAmount);
-            this.updateButtonState();
-        },
-
-        handleRefundClick: function() {
-            Swal.fire({
-                title: MoneiVars.titleRefund,
-                text: MoneiVars.textRefund,
-                icon: 'warning',
-                showCancelButton: true,
-                confirmButtonText: MoneiVars.confirmRefund,
-                cancelButtonText: MoneiVars.cancelRefund,
-            }).then((result) => {
-                if (result.isConfirmed) {
-                    this.processRefund();
-                }
-            });
-        },
-
-        processRefund: function() {
-            const $button = $(CONFIG.selectors.refundButton);
-            const $body = $('body');
-
-            $button.attr('disabled', 'disabled').addClass('disabled');
-            $body.css('opacity', '0.5');
-
-            $.ajax({
-                type: 'POST',
-                url: MoneiVars.adminMoneiControllerUrl,
-                data: {
-                    controller: 'AdminMonei',
-                    action: 'refund',
-                    ajax: true,
-                    token: MoneiVars.adminMoneiToken,
-                    id_order: $('#monei_order_id').val(),
-                    amount: $(CONFIG.selectors.refundAmount).val(),
-                    reason: $(CONFIG.selectors.refundReason).val(),
-                },
-                dataType: 'json',
-                success: (response) => {
-                    Swal.fire(MoneiVars.titleRefund, response.message, 'success')
-                        .then(() => location.reload());
-                },
-                error: (xhr) => {
-                    Swal.fire(MoneiVars.titleRefund, xhr.responseJSON.message, 'error');
-                },
-                complete: () => {
-                    $body.css('opacity', '1');
-                    $button.attr('disabled', '').removeClass('disabled');
-                }
-            });
-        }
-    };
 
     // Manejador de visualización JSON
     const jsonViewerHandler = {
@@ -161,11 +68,132 @@
         }
     };
 
+    // Credit slip refund reason handler
+    const creditSlipHandler = {
+        refundReasons: [
+            { value: 'requested_by_customer', label: 'Requested by customer' },
+            { value: 'duplicate', label: 'Duplicate' },
+            { value: 'fraudulent', label: 'Fraudulent' },
+            { value: 'other', label: 'Other' }
+        ],
+
+        init: function() {
+            // Watch for credit slip form appearance in PrestaShop 8
+            this.observeCreditSlipForm();
+            
+            // Also handle legacy form if present
+            this.handleLegacyForm();
+        },
+
+        observeCreditSlipForm: function() {
+            // Use MutationObserver to detect when credit slip form is added to DOM
+            const observer = new MutationObserver((mutations) => {
+                mutations.forEach((mutation) => {
+                    mutation.addedNodes.forEach((node) => {
+                        if (node.nodeType === 1) { // Element node
+                            // Check for credit slip form elements
+                            const creditSlipForm = $(node).find('#order_credit_slip_form, [name="cancel_product"]').length > 0 ||
+                                                 $(node).is('#order_credit_slip_form, [name="cancel_product"]');
+                            
+                            if (creditSlipForm) {
+                                setTimeout(() => this.injectRefundReasonField(), 100);
+                            }
+                        }
+                    });
+                });
+            });
+
+            // Start observing
+            observer.observe(document.body, {
+                childList: true,
+                subtree: true
+            });
+        },
+
+        handleLegacyForm: function() {
+            // For immediate injection if form is already present
+            if ($('#order_credit_slip_form, [name="cancel_product"]').length > 0) {
+                this.injectRefundReasonField();
+            }
+        },
+
+        injectRefundReasonField: function() {
+            // Don't inject if already exists
+            if ($('#monei_credit_slip_reason').length > 0) {
+                return;
+            }
+
+            // Build the select field HTML
+            const selectHtml = this.buildRefundReasonSelect();
+            
+            // Find suitable injection points for PrestaShop 8 order page
+            const injectionPoints = [
+                '.cancel-product-element:last', // New order page
+                '.standard-refund-fields:last', // Standard refund
+                '.partial-refund-fields:last', // Partial refund
+                '[name="cancel_product_credit_slip"]:last', // Credit slip checkbox
+                '.form-group:has([name="cancel_product_credit_slip"])', // Form group containing credit slip
+            ];
+
+            let injected = false;
+            for (const selector of injectionPoints) {
+                const $element = $(selector);
+                if ($element.length > 0) {
+                    $element.after(selectHtml);
+                    injected = true;
+                    break;
+                }
+            }
+
+            // If no suitable injection point found, try to append to form
+            if (!injected) {
+                const $form = $('#order_credit_slip_form, form[name="cancel_product"]');
+                if ($form.length > 0) {
+                    $form.append(selectHtml);
+                }
+            }
+
+            // Add data to form submission
+            this.interceptFormSubmission();
+        },
+
+        buildRefundReasonSelect: function() {
+            let optionsHtml = '<option value="">-- Select refund reason --</option>';
+            this.refundReasons.forEach(reason => {
+                optionsHtml += `<option value="${reason.value}">${reason.label}</option>`;
+            });
+
+            return `
+                <div class="form-group" id="monei_refund_reason_group">
+                    <label class="control-label">MONEI Refund Reason</label>
+                    <select id="monei_credit_slip_reason" name="monei_refund_reason" class="form-control">
+                        ${optionsHtml}
+                    </select>
+                </div>
+            `;
+        },
+
+        interceptFormSubmission: function() {
+            // Intercept form submission to include refund reason
+            $(document).off('submit.monei').on('submit.monei', '#order_credit_slip_form, form[name="cancel_product"]', function(e) {
+                const $form = $(this);
+                const refundReason = $('#monei_credit_slip_reason').val() || 'requested_by_customer';
+                
+                // Add hidden input with refund reason if not exists
+                if ($form.find('input[name="monei_refund_reason"]').length === 0) {
+                    $form.append(`<input type="hidden" name="monei_refund_reason" value="${refundReason}" />`);
+                } else {
+                    $form.find('input[name="monei_refund_reason"]').val(refundReason);
+                }
+            });
+        }
+    };
+
     // Inicialización
     $(document).ready(function() {
         productionModeHandler.init();
-        refundHandler.init();
         jsonViewerHandler.init();
+        creditSlipHandler.init();
     });
 
 })(jQuery);

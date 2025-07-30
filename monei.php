@@ -98,7 +98,8 @@ class Monei extends PaymentModule
             && $this->registerHook('paymentOptions')
             && $this->registerHook('displayPaymentReturn')
             && $this->registerHook('actionCustomerLogoutAfter')
-            && $this->registerHook('moduleRoutes');
+            && $this->registerHook('moduleRoutes')
+            && $this->registerHook('actionOrderSlipAdd');
 
         // Copy Apple Pay domain verification file to .well-known directory
         if ($result) {
@@ -1577,10 +1578,6 @@ class Monei extends PaymentModule
 
         Media::addJsDef([
             'MoneiVars' => [
-                'titleRefund' => $this->l('Refund'),
-                'textRefund' => $this->l('Are you sure you want to refund this order?'),
-                'confirmRefund' => $this->l('Yes, make the refund'),
-                'cancelRefund' => $this->l('Cancel'),
                 'adminMoneiControllerUrl' => $this->context->link->getAdminLink('AdminMonei'),
             ],
         ]);
@@ -1589,6 +1586,66 @@ class Monei extends PaymentModule
 
         $this->context->controller->addJS($this->_path . 'views/js/jquery.json-viewer.js');
         $this->context->controller->addJS($this->_path . 'views/js/admin/admin.js');
+    }
+
+    /**
+     * Process refund when a credit slip is created
+     *
+     * @param array $params
+     *
+     * @return void
+     */
+    public function hookActionOrderSlipAdd($params)
+    {
+        try {
+            $order = $params['order'];
+            $productList = $params['productList'];
+            $qtyList = $params['qtyList'];
+
+            // Get MONEI payment ID from order
+            $paymentId = $order->id_monei_payment_id;
+            if (empty($paymentId)) {
+                // Try to get from payment entity
+                $moneiPayment = $this->getRepository(Monei2Payment::class)->findOneBy(['id_order' => $order->id]);
+                if (!$moneiPayment) {
+                    return; // Not a MONEI order, skip
+                }
+                $paymentId = $moneiPayment->getId();
+            }
+
+            // Get the order slip that was just created
+            $orderSlips = OrderSlip::getOrdersSlip($order->id_customer, $order->id);
+            $currentSlip = end($orderSlips); // Get the most recent one
+
+            if (!$currentSlip) {
+                return;
+            }
+
+            // Calculate refund amount from the order slip
+            $refundAmount = (int) round($currentSlip['amount'] * 100); // Convert to cents
+
+            // Get refund reason from POST data or default to requested_by_customer
+            $refundReason = Tools::getValue('monei_refund_reason', 'requested_by_customer');
+
+            // Process the refund through MONEI
+            $moneiService = $this->getService('service.monei');
+            $employeeId = $this->context->employee ? $this->context->employee->id : 0;
+
+            $moneiService->createRefund((int) $order->id, $refundAmount, $employeeId, $refundReason);
+
+            // Update order status if needed
+            $orderService = $this->getService('service.order');
+            $orderService->updateOrderStateAfterRefund((int) $order->id);
+        } catch (Exception $e) {
+            // Log the error but don't interrupt the credit slip creation
+            PrestaShopLogger::addLog(
+                'MONEI - Failed to process refund on credit slip creation: ' . $e->getMessage(),
+                3, // Error severity
+                null,
+                'Order',
+                (int) $order->id
+            );
+        }
     }
 
     /**
