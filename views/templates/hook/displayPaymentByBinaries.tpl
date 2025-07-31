@@ -229,7 +229,22 @@
 
           const moneiCardInput = monei.CardInput({
             accountId: moneiAccountId,
-            onChange: () => { moneiCardErrors.innerHTML = ''; },
+            onFocus: () => {
+              moneiCardRenderContainer.classList.add('is-focused');
+            },
+            onBlur: () => {
+              moneiCardRenderContainer.classList.remove('is-focused');
+            },
+            onChange: (event) => {
+              // Handle real-time validation errors
+              if (event.isTouched && event.error) {
+                moneiCardRenderContainer.classList.add('is-invalid');
+                moneiCardErrors.innerHTML = `<div class="alert alert-warning">${event.error}</div>`;
+              } else {
+                moneiCardRenderContainer.classList.remove('is-invalid');
+                moneiCardErrors.innerHTML = '';
+              }
+            },
             onEnter: () => { moneiConfirmationButton.click(); },
             language: prestashop.language.iso_code,
             style: moneiCardInputStyle || {},
@@ -254,14 +269,17 @@
             try {
               const { token, error } = await monei.createToken(moneiCardInput);
               if (!token) {
+                moneiCardRenderContainer.classList.add('is-invalid');
                 moneiCardErrors.innerHTML = `<div class="alert alert-warning">${error}</div>`;
                 moneiEnableButton(moneiConfirmationButton);
                 return;
               }
 
+              moneiCardRenderContainer.classList.remove('is-invalid');
               moneiCardErrors.innerHTML = '';
               await moneiTokenHandler({ paymentToken: token, cardholderName: moneiCardHolderName.value, moneiConfirmationButton });
             } catch (error) {
+              moneiCardRenderContainer.classList.add('is-invalid');
               moneiCardErrors.innerHTML = `<div class="alert alert-warning">${error.message}</div>`;
               moneiEnableButton(moneiConfirmationButton);
               console.log('createToken - Card Input - error', error);

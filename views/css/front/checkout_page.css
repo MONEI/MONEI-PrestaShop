@@ -38,10 +38,17 @@ section.checkout-step .payment-option label {
 #payment-form-monei #monei-card_container {
   padding: 0 14px;
 }
+#payment-form-monei #monei-card_container.is-focused {
+  border-color: #0070f3;
+  outline: none;
+  background: #fff;
+}
+#payment-form-monei #monei-card_container.is-invalid {
+  border-color: #e53e3e;
+}
 
 #monei-tokenize-card {
   display: inline-block !important;
-  accent-color: #0070f3;
   margin-right: 6px;
 }
 #payment-form-monei #monei-card-errors {
@@ -58,7 +65,6 @@ section.checkout-step .payment-option label {
 #payment-form-monei .monei-tokenize-row label {
   margin: 0;
   padding: 0;
-  color: #0070f3;
   cursor: pointer;
   line-height: 1.2;
 }
@@ -78,6 +84,14 @@ section.checkout-step .payment-option label {
 .payment-option .payment-method-icon {
   height: 1.25rem;
   width: auto;
+}
+
+/* MONEI card brands specific styling */
+.payment-option img[src*="/monei/cardlogos"] {
+  height: 1.6rem !important;
+  width: auto;
+  max-width: 300px;
+  vertical-align: middle;
 }
 
 /* Payment options responsive */
