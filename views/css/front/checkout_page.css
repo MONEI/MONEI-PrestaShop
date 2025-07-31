@@ -47,31 +47,19 @@ section.checkout-step .payment-option label {
   border-color: #e53e3e;
 }
 
-#monei-tokenize-card {
-  display: inline-block !important;
-  margin-right: 6px;
-}
 #payment-form-monei #monei-card-errors {
   color: #e53e3e;
   font-size: 14px;
 }
 
 #payment-form-monei .monei-tokenize-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
   margin-top: 18px;
 }
-#payment-form-monei .monei-tokenize-row label {
+#payment-form-monei .monei-tokenize-row .condition-label label {
   margin: 0;
   padding: 0;
   cursor: pointer;
   line-height: 1.2;
-}
-#payment-form-monei .monei-tokenize-row input[type="checkbox"] {
-  width: 15px;
-  height: 15px;
-  margin: 0;
 }
 
 /* Payment method icons */

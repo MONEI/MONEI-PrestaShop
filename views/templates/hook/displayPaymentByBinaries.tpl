@@ -220,6 +220,24 @@
           moneiAddChangeEventToCheckboxes(moneiConfirmationButton);
           moneiValidConditions() ? moneiEnableButton(moneiConfirmationButton) : moneiDisableButton(moneiConfirmationButton);
 
+          // Handle custom checkbox clicks for monei-tokenize-card
+          const moneiTokenizeCheckbox = document.getElementById('monei-tokenize-card');
+          if (moneiTokenizeCheckbox) {
+            const customCheckboxContainer = moneiTokenizeCheckbox.closest('.custom-checkbox');
+            const label = document.querySelector('label[for="monei-tokenize-card"]');
+            
+            // Handle clicks on the custom checkbox container and label
+            [customCheckboxContainer, label].forEach(element => {
+              if (element) {
+                element.addEventListener('click', (e) => {
+                  e.preventDefault();
+                  moneiTokenizeCheckbox.checked = !moneiTokenizeCheckbox.checked;
+                  moneiTokenizeCheckbox.dispatchEvent(new Event('change', { bubbles: true }));
+                });
+              }
+            });
+          }
+
           const validateMoneiCardHolderName = (name) => {
             const patternCardHolderName = /^[A-Za-zÀ-ú- ]{5,50}$/;
             const isValid = patternCardHolderName.test(name);
