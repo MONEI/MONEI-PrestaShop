@@ -84,3 +84,8 @@ services:
 # HELPERS
   monei.helper.payment_method_formatter:
     class: 'PsMonei\Helper\PaymentMethodFormatter'
+
+  monei.service.status_code_handler:
+    class: 'PsMonei\Service\Monei\StatusCodeHandler'
+    arguments:
+      - '@monei.module'
