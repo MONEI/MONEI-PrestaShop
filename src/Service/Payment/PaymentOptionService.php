@@ -16,9 +16,51 @@ class PaymentOptionService
     private $context;
 
     private $paymentMethodsAllowed = [];
+    private $availableCardBrands = [];
     private $currencyIsoCode;
     private $countryIsoCode;
     private $paymentOptions;
+
+    /**
+     * Payment method icon configuration
+     */
+    private const PAYMENT_METHOD_ICONS = [
+        'card' => [
+            'path' => 'cards.svg',
+            'width' => '40',
+            'height' => '24',
+        ],
+        'bizum' => [
+            'path' => 'bizum.svg',
+            'width' => '70',
+            'height' => '22',
+        ],
+        'applePay' => [
+            'path' => 'apple-pay.svg',
+            'width' => '50',
+            'height' => '22',
+        ],
+        'googlePay' => [
+            'path' => 'google-pay.svg',
+            'width' => '50',
+            'height' => '22',
+        ],
+        'paypal' => [
+            'path' => 'paypal.svg',
+            'width' => '70',
+            'height' => '45',
+        ],
+        'multibanco' => [
+            'path' => 'multibanco.svg',
+            'width' => '105',
+            'height' => '22',
+        ],
+        'mbway' => [
+            'path' => 'mbway.svg',
+            'width' => '45',
+            'height' => '22',
+        ],
+    ];
 
     public function __construct(
         MoneiService $moneiService,
@@ -36,6 +78,7 @@ class PaymentOptionService
     public function getPaymentOptions(): ?array
     {
         $this->paymentMethodsAllowed = $this->moneiService->getPaymentMethodsAllowed();
+        $this->availableCardBrands = $this->moneiService->getAvailableCardBrands();
 
         $this->currencyIsoCode = $this->context->currency->iso_code;
         $this->countryIsoCode = $this->context->country->iso_code;
@@ -109,10 +152,19 @@ class PaymentOptionService
             $customer = $this->context->customer;
             $smarty = $this->context->smarty;
 
+            // Use dynamic cardlogos controller to show multiple brand icons
+            $logoUrl = $this->getIconPath('card'); // Default fallback
+            if (!empty($this->availableCardBrands)) {
+                $logoUrl = $this->context->link->getModuleLink('monei', 'cardlogos', [
+                    'brands' => implode(',', $this->availableCardBrands),
+                ]);
+            }
+
             $paymentOption = [
                 'name' => 'card',
-                'logo' => \Media::getMediaPath(_PS_MODULE_DIR_ . 'monei/views/img/payments/cards.svg'),
+                'logo' => $logoUrl,
                 'binary' => false,
+                'availableCardBrands' => $this->availableCardBrands,
             ];
 
             if ($this->configuration->get('MONEI_CARD_WITH_REDIRECT')) {
@@ -121,7 +173,10 @@ class PaymentOptionService
                         'method' => 'card',
                         'transaction_id' => $this->getTransactionId(),
                     ]);
-                    $smarty->assign('link_create_payment', $redirectUrl);
+                    $smarty->assign([
+                        'link_create_payment' => $redirectUrl,
+                        'module_dir' => _MODULE_DIR_ . 'monei/',
+                    ]);
 
                     $paymentOption['form'] = $smarty->fetch('module:monei/views/templates/hook/paymentOptions.tpl');
                 }
@@ -129,6 +184,7 @@ class PaymentOptionService
                 $smarty->assign([
                     'isCustomerLogged' => \Validate::isLoadedObject($customer),
                     'tokenize' => (bool) $this->configuration->get('MONEI_TOKENIZE'),
+                    'module_dir' => _MODULE_DIR_ . 'monei/',
                 ]);
                 $paymentOption['additionalInformation'] = $smarty->fetch('module:monei/views/templates/front/onsite_card.tpl');
                 $paymentOption['binary'] = true;
@@ -152,6 +208,18 @@ class PaymentOptionService
             $activeCustomerCards = $this->moneiCustomerCardRepository->getActiveCustomerCards($customer->id);
             if ($activeCustomerCards) {
                 foreach ($activeCustomerCards as $customerCard) {
+                    $cardBrand = strtolower($customerCard->getBrand());
+
+                    // Skip cards with brands that are no longer supported
+                    if (!in_array($cardBrand, $this->availableCardBrands)) {
+                        \PrestaShopLogger::addLog(
+                            'MONEI - Skipping saved card with unsupported brand: ' . $cardBrand,
+                            \PrestaShopLogger::LOG_SEVERITY_LEVEL_INFORMATIVE
+                        );
+
+                        continue;
+                    }
+
                     $optionTitle = $customerCard->getBrand() . ' ' . $customerCard->getLastFourWithMask();
                     $optionTitle .= ' (' . $customerCard->getExpirationFormatted() . ')';
 
@@ -164,7 +232,7 @@ class PaymentOptionService
                     $this->paymentOptions[] = [
                         'name' => 'tokenized_card',
                         'title' => $optionTitle,
-                        'logo' => \Media::getMediaPath(_PS_MODULE_DIR_ . 'monei/views/img/payments/' . strtolower($customerCard->getBrand()) . '.svg'),
+                        'logo' => $this->getCardBrandIconPath($customerCard->getBrand()),
                         'action' => $redirectUrl,
                     ];
                 }
@@ -177,7 +245,7 @@ class PaymentOptionService
         if ($this->configuration->get('MONEI_ALLOW_BIZUM') && $this->isPaymentMethodAllowed(PaymentPaymentMethod::METHOD_BIZUM)) {
             $this->paymentOptions[] = [
                 'name' => 'bizum',
-                'logo' => \Media::getMediaPath(_PS_MODULE_DIR_ . 'monei/views/img/payments/bizum.svg'),
+                'logo' => $this->getIconPath('bizum'),
                 'binary' => (bool) !$this->configuration->get('MONEI_BIZUM_WITH_REDIRECT'),
             ];
         }
@@ -188,7 +256,7 @@ class PaymentOptionService
         if ($this->configuration->get('MONEI_ALLOW_APPLE') && $this->isPaymentMethodAllowed('applePay')) {
             $this->paymentOptions[] = [
                 'name' => 'applePay',
-                'logo' => \Media::getMediaPath(_PS_MODULE_DIR_ . 'monei/views/img/payments/apple-pay.svg'),
+                'logo' => $this->getIconPath('applePay'),
                 'binary' => true,
             ];
         }
@@ -199,7 +267,7 @@ class PaymentOptionService
         if ($this->configuration->get('MONEI_ALLOW_GOOGLE') && $this->isPaymentMethodAllowed('googlePay')) {
             $this->paymentOptions[] = [
                 'name' => 'googlePay',
-                'logo' => \Media::getMediaPath(_PS_MODULE_DIR_ . 'monei/views/img/payments/google-pay.svg'),
+                'logo' => $this->getIconPath('googlePay'),
                 'binary' => true,
             ];
         }
@@ -210,7 +278,7 @@ class PaymentOptionService
         if ($this->configuration->get('MONEI_ALLOW_PAYPAL') && $this->isPaymentMethodAllowed(PaymentPaymentMethod::METHOD_PAYPAL)) {
             $this->paymentOptions[] = [
                 'name' => 'paypal',
-                'logo' => \Media::getMediaPath(_PS_MODULE_DIR_ . 'monei/views/img/payments/paypal.svg'),
+                'logo' => $this->getIconPath('paypal'),
                 'binary' => false,
             ];
         }
@@ -221,7 +289,7 @@ class PaymentOptionService
         if ($this->configuration->get('MONEI_ALLOW_MULTIBANCO') && $this->isPaymentMethodAllowed(PaymentPaymentMethod::METHOD_MULTIBANCO)) {
             $this->paymentOptions[] = [
                 'name' => 'multibanco',
-                'logo' => \Media::getMediaPath(_PS_MODULE_DIR_ . 'monei/views/img/payments/multibanco.svg'),
+                'logo' => $this->getIconPath('multibanco'),
                 'binary' => false,
             ];
         }
@@ -232,9 +300,125 @@ class PaymentOptionService
         if ($this->configuration->get('MONEI_ALLOW_MBWAY') && $this->isPaymentMethodAllowed(PaymentPaymentMethod::METHOD_MBWAY)) {
             $this->paymentOptions[] = [
                 'name' => 'mbway',
-                'logo' => \Media::getMediaPath(_PS_MODULE_DIR_ . 'monei/views/img/payments/mbway.svg'),
+                'logo' => $this->getIconPath('mbway'),
                 'binary' => false,
             ];
         }
+    }
+
+    /**
+     * Get icon configuration for a payment method
+     *
+     * @param string $paymentMethod Payment method name
+     *
+     * @return array Icon configuration with path, width, and height
+     */
+    private function getIconConfiguration(string $paymentMethod): array
+    {
+        if (isset(self::PAYMENT_METHOD_ICONS[$paymentMethod])) {
+            $config = self::PAYMENT_METHOD_ICONS[$paymentMethod];
+
+            return [
+                'path' => \Media::getMediaPath(_PS_MODULE_DIR_ . 'monei/views/img/payments/' . $config['path']),
+                'width' => $config['width'],
+                'height' => $config['height'],
+            ];
+        }
+
+        // Default icon configuration
+        return [
+            'path' => \Media::getMediaPath(_PS_MODULE_DIR_ . 'monei/views/img/payments/unknown.svg'),
+            'width' => '40',
+            'height' => '24',
+        ];
+    }
+
+    /**
+     * Get icon path for a payment method
+     *
+     * @param string $paymentMethod Payment method name
+     *
+     * @return string Icon path
+     */
+    private function getIconPath(string $paymentMethod): string
+    {
+        $config = $this->getIconConfiguration($paymentMethod);
+
+        return $config['path'];
+    }
+
+    /**
+     * Get icon path for a card brand
+     *
+     * @param string $brand Card brand name
+     *
+     * @return string Icon path
+     */
+    private function getCardBrandIconPath(string $brand): string
+    {
+        $brandLower = strtolower($brand);
+
+        // Check if brand is available in the merchant's account
+        if (!in_array($brandLower, $this->availableCardBrands)) {
+            // Return generic card icon if brand is not available
+            return \Media::getMediaPath(_PS_MODULE_DIR_ . 'monei/views/img/payments/cards.svg');
+        }
+
+        $iconFile = $brandLower . '.svg';
+        $iconPath = _PS_MODULE_DIR_ . 'monei/views/img/payments/' . $iconFile;
+
+        if (file_exists($iconPath)) {
+            return \Media::getMediaPath($iconPath);
+        }
+
+        // Fallback to unknown card icon
+        return \Media::getMediaPath(_PS_MODULE_DIR_ . 'monei/views/img/payments/unknown.svg');
+    }
+
+    /**
+     * Get HTML for all available card brand icons
+     *
+     * @return string HTML string with all card brand icons
+     */
+    public function getCardBrandsHtml(): string
+    {
+        $html = '';
+        foreach ($this->availableCardBrands as $brand) {
+            $iconPath = $this->getCardBrandIconPath($brand);
+            $brandName = ucfirst($brand);
+            $html .= '<img src="' . $iconPath . '" alt="' . $brandName . '" style="height: 24px; margin-right: 5px;" loading="lazy" />';
+        }
+
+        return $html;
+    }
+
+    /**
+     * Get dynamic card brands logo path
+     * Creates or returns a combined SVG with all available brands
+     *
+     * @return string Path to the combined card brands logo
+     */
+    private function getDynamicCardBrandsLogo(): string
+    {
+        // If we have specific brands, try to use a pre-made combined SVG
+        // For now, we'll use the generic cards.svg as it's the most reliable
+        // In a future enhancement, we could generate SVGs on the fly
+
+        // Check if we have all the common brands (Visa, Mastercard)
+        $hasVisa = in_array('visa', $this->availableCardBrands);
+        $hasMastercard = in_array('mastercard', $this->availableCardBrands);
+
+        // If we have the two most common brands, use the generic logo
+        if ($hasVisa && $hasMastercard) {
+            return $this->getIconPath('card');
+        }
+
+        // Otherwise, try to use the first available brand's icon
+        if (!empty($this->availableCardBrands)) {
+            return $this->getCardBrandIconPath($this->availableCardBrands[0]);
+        }
+
+        // Fallback to generic card icon
+        return $this->getIconPath('card');
     }
 }

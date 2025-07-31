@@ -29,6 +29,18 @@ class MoneiService
     private $moneiCustomerCardRepository;
     private $moneiRefundRepository;
 
+    /**
+     * Static cache of payment methods to avoid repeated API calls within a single request
+     *
+     * @var array<string, array{data: array, timestamp: int}>
+     */
+    private static $paymentMethodsCache = [];
+
+    /**
+     * Cache lifetime in seconds (1 minute)
+     */
+    private const CACHE_LIFETIME = 60;
+
     public function __construct(
         LegacyContext $legacyContext,
         MoneiPaymentRepository $moneiPaymentRepository,
@@ -56,7 +68,12 @@ class MoneiService
         return new MoneiClient($apiKey);
     }
 
-    public function getPaymentMethodsAllowed()
+    /**
+     * Get full payment methods response from MONEI API
+     *
+     * @return \Monei\Model\PaymentMethods|null
+     */
+    public function getPaymentMethodsResponse()
     {
         try {
             $moneiClient = $this->getMoneiClient();
@@ -72,14 +89,89 @@ class MoneiService
                 throw new MoneiException('Monei account id is not set.', MoneiException::MONEI_ACCOUNT_ID_IS_EMPTY);
             }
 
+            // Create cache key based on account ID
+            $cacheKey = $accountId . '_response';
+            $currentTime = time();
+
+            // Return from static cache if already fetched and not expired
+            if (isset(self::$paymentMethodsCache[$cacheKey])
+                    && ($currentTime - self::$paymentMethodsCache[$cacheKey]['timestamp'] < self::CACHE_LIFETIME)) {
+                \PrestaShopLogger::addLog('[MONEI] Using cached payment methods response', \PrestaShopLogger::LOG_SEVERITY_LEVEL_INFORMATIVE);
+
+                return self::$paymentMethodsCache[$cacheKey]['data'];
+            }
+
             $moneiAccountInformation = $moneiClient->paymentMethods->get($accountId);
 
-            return $moneiAccountInformation->getPaymentMethods();
-        } catch (\Exception $e) {
-            \PrestaShopLogger::addLog('MONEI - getPaymentMethodsAllowed - Error: ' . $e->getMessage(), \PrestaShopLogger::LOG_SEVERITY_LEVEL_WARNING);
+            // Store in static cache with timestamp
+            self::$paymentMethodsCache[$cacheKey] = [
+                'data' => $moneiAccountInformation,
+                'timestamp' => $currentTime,
+            ];
 
-            return [];
+            return $moneiAccountInformation;
+        } catch (\Exception $e) {
+            \PrestaShopLogger::addLog('MONEI - getPaymentMethodsResponse - Error: ' . $e->getMessage(), \PrestaShopLogger::LOG_SEVERITY_LEVEL_WARNING);
+
+            return null;
         }
+    }
+
+    public function getPaymentMethodsAllowed()
+    {
+        $response = $this->getPaymentMethodsResponse();
+        if ($response) {
+            return $response->getPaymentMethods();
+        }
+
+        return [];
+    }
+
+    /**
+     * Get available card brands from MONEI API
+     *
+     * @return array List of available card brands
+     */
+    public function getAvailableCardBrands(): array
+    {
+        try {
+            $response = $this->getPaymentMethodsResponse();
+            if (!$response) {
+                return $this->getDefaultCardBrands();
+            }
+
+            $metadata = $response->getMetadata();
+            if (!$metadata) {
+                return $this->getDefaultCardBrands();
+            }
+
+            $card = $metadata->getCard();
+            if (!$card) {
+                return $this->getDefaultCardBrands();
+            }
+
+            $brands = $card->getBrands();
+            if (!$brands || empty($brands)) {
+                return $this->getDefaultCardBrands();
+            }
+
+            // Normalize brands to lowercase for consistency
+            return array_map('strtolower', $brands);
+        } catch (\Exception $e) {
+            \PrestaShopLogger::addLog('MONEI - getAvailableCardBrands - Error: ' . $e->getMessage(), \PrestaShopLogger::LOG_SEVERITY_LEVEL_WARNING);
+
+            return $this->getDefaultCardBrands();
+        }
+    }
+
+    /**
+     * Get default card brands as fallback
+     *
+     * @return array Default card brands
+     */
+    private function getDefaultCardBrands(): array
+    {
+        return ['visa', 'mastercard', 'amex', 'discover', 'diners', 'jcb', 'unionpay', 'maestro'];
     }
 
     public function getMoneiPayment($moneiPaymentId)

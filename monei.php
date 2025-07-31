@@ -341,13 +341,13 @@ class Monei extends PaymentModule
          * If values have been submitted in the form, process.
          */
         if ((bool) Tools::isSubmit('submitMoneiModule')) {
-            \PrestaShopLogger::addLog('MONEI - submitMoneiModule detected, calling postProcess(1)', 1);
+            PrestaShopLogger::addLog('MONEI - submitMoneiModule detected, calling postProcess(1)', 1);
             $message = $this->postProcess(1);
         } elseif (Tools::isSubmit('submitMoneiModuleGateways')) {
-            \PrestaShopLogger::addLog('MONEI - submitMoneiModuleGateways detected, calling postProcess(2)', 1);
+            PrestaShopLogger::addLog('MONEI - submitMoneiModuleGateways detected, calling postProcess(2)', 1);
             $message = $this->postProcess(2);
         } elseif (Tools::isSubmit('submitMoneiModuleStatus')) {
-            \PrestaShopLogger::addLog('MONEI - submitMoneiModuleStatus detected, calling postProcess(3)', 1);
+            PrestaShopLogger::addLog('MONEI - submitMoneiModuleStatus detected, calling postProcess(3)', 1);
             $message = $this->postProcess(3);
         } elseif (Tools::isSubmit('submitMoneiModuleComponentStyle')) {
             $message = $this->postProcess(4);
@@ -374,11 +374,11 @@ class Monei extends PaymentModule
     protected function postProcess($which)
     {
         // Debug: Log which section is being processed
-        \PrestaShopLogger::addLog("MONEI - postProcess called with section: {$which}", 1);
-        
+        PrestaShopLogger::addLog("MONEI - postProcess called with section: {$which}", 1);
+
         $section = '';
         $validatedValues = null;
-        
+
         switch ($which) {
             case 1:
                 $section = $this->l('General');
@@ -388,10 +388,10 @@ class Monei extends PaymentModule
             case 2:
                 $section = $this->l('Payment Methods');
                 $form_values = $this->getConfigFormGatewaysValues();
-                
+
                 // Validate payment methods against MONEI API
                 $validatedValues = $this->validatePaymentMethods($form_values);
-                
+
                 // Override form values with validated ones
                 $form_values = $validatedValues;
 
@@ -416,7 +416,6 @@ class Monei extends PaymentModule
 
         // Store previous Apple Pay state
         $previousApplePayState = Configuration::get('MONEI_ALLOW_APPLE');
-        
 
         foreach (array_keys($form_values) as $key) {
             // For validated payment methods, use the validated value
@@ -494,8 +493,9 @@ class Monei extends PaymentModule
 
     /**
      * Validate payment methods against MONEI API
-     * 
+     *
      * @param array $form_values Form values to validate
+     *
      * @return array Modified form values with disabled unavailable methods
      */
     protected function validatePaymentMethods($form_values)
@@ -505,17 +505,19 @@ class Monei extends PaymentModule
             $moneiService = $this->getService('service.monei');
             if (!$moneiService) {
                 $this->warning[] = $this->l('Unable to access MONEI service.');
+
                 return $form_values;
             }
-            
+
             $availablePaymentMethods = $moneiService->getPaymentMethodsAllowed();
-            
+
             // If API call fails, allow saving but show warning
             if (empty($availablePaymentMethods)) {
                 $this->warning[] = $this->l('Unable to validate payment methods with MONEI API. Please ensure your API credentials are correct and the methods are configured in your MONEI dashboard.');
+
                 return $form_values;
             }
-            
+
             // Map form fields to MONEI payment method codes
             $paymentMethodMap = [
                 'MONEI_ALLOW_CARD' => 'card',
@@ -524,19 +526,19 @@ class Monei extends PaymentModule
                 'MONEI_ALLOW_GOOGLE' => 'googlePay',
                 'MONEI_ALLOW_PAYPAL' => 'paypal',
                 'MONEI_ALLOW_MULTIBANCO' => 'multibanco',
-                'MONEI_ALLOW_MBWAY' => 'mbway'
+                'MONEI_ALLOW_MBWAY' => 'mbway',
             ];
-            
+
             $unavailableMethods = [];
-            
+
             // Check each enabled payment method
             foreach ($paymentMethodMap as $configKey => $methodCode) {
                 $isEnabled = Tools::getValue($configKey);
                 $isAvailable = in_array($methodCode, $availablePaymentMethods);
-                
+
                 // Update form_values with the actual submitted value
                 $form_values[$configKey] = $isEnabled;
-                
+
                 // If method is enabled but not available, disable it and add to warning
                 if ($isEnabled && !$isAvailable) {
                     $methodName = $this->getPaymentMethodName($methodCode);
@@ -545,7 +547,7 @@ class Monei extends PaymentModule
                     $form_values[$configKey] = 0;
                 }
             }
-            
+
             // If any methods are unavailable, show error
             if (!empty($unavailableMethods)) {
                 $this->warning[] = sprintf(
@@ -553,22 +555,23 @@ class Monei extends PaymentModule
                     implode(', ', $unavailableMethods)
                 );
             }
-            
+
             // Return the potentially modified form values
             return $form_values;
-            
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             // Log error and allow saving
-            \PrestaShopLogger::addLog('MONEI - validatePaymentMethods - Error: ' . $e->getMessage(), \PrestaShopLogger::LOG_SEVERITY_LEVEL_WARNING);
+            PrestaShopLogger::addLog('MONEI - validatePaymentMethods - Error: ' . $e->getMessage(), PrestaShopLogger::LOG_SEVERITY_LEVEL_WARNING);
             $this->warning[] = $this->l('Unable to validate payment methods. Please check your API credentials.');
+
             return $form_values;
         }
     }
-    
+
     /**
      * Get human-readable payment method name
-     * 
+     *
      * @param string $methodCode
+     *
      * @return string
      */
     protected function getPaymentMethodName($methodCode)
@@ -580,9 +583,9 @@ class Monei extends PaymentModule
             'googlePay' => $this->l('Google Pay'),
             'paypal' => $this->l('PayPal'),
             'multibanco' => $this->l('Multibanco'),
-            'mbway' => $this->l('MB Way')
+            'mbway' => $this->l('MB Way'),
         ];
-        
+
         return isset($names[$methodCode]) ? $names[$methodCode] : $methodCode;
     }
 
@@ -1292,8 +1295,13 @@ class Monei extends PaymentModule
                     $paymentOption['title'] . $testModeText
                 );
             } else {
+                $baseTitle = $paymentNames[$paymentOption['name']];
+                // Add custom title suffix if available (e.g., supported card brands)
+                if (isset($paymentOption['customTitle'])) {
+                    $baseTitle .= $paymentOption['customTitle'];
+                }
                 $option->setCallToActionText(
-                    $paymentNames[$paymentOption['name']] . $testModeText
+                    $baseTitle . $testModeText
                 );
             }
 
