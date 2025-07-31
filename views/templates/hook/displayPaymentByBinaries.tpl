@@ -63,38 +63,44 @@
     var handleMoneiTokenResult = (result, moneiConfirmationButton) => {
       if (result.nextAction?.mustRedirect) {
         location.assign(result.nextAction.redirectUrl);
+      } else if (result.nextAction?.redirectUrl) {
+        // Always redirect to complete URL for unified flow - let confirmation controller handle success/failure
+        location.assign(result.nextAction.redirectUrl);
       } else {
+        // Fallback for cases without redirectUrl (shouldn't happen with single complete URL approach)
         const icon = result.status === 'SUCCEEDED' ? 'success' : 'error';
-        if (result.status === 'SUCCEEDED') {
-          location.assign(result.nextAction.redirectUrl);
-        } else {
-          Swal.fire({
-            title: result.status,
-            text: result.statusMessage,
-            icon,
-            allowOutsideClick: false,
-            allowEscapeKey: false,
-            confirmButtonText: moneiMsgRetry,
-            willClose: () => {
-              if (moneiConfirmationButton) moneiEnableButton(moneiConfirmationButton);
-            },
-          });
-        }
+        Swal.fire({
+          title: result.status,
+          text: result.statusMessage || 'Payment processed',
+          icon,
+          allowOutsideClick: false,
+          allowEscapeKey: false,
+          confirmButtonText: moneiMsgRetry,
+          willClose: () => {
+            if (moneiConfirmationButton) moneiEnableButton(moneiConfirmationButton);
+          },
+        });
       }
     };
 
     var handleMoneiTokenError = (error, params, moneiConfirmationButton) => {
-      Swal.fire({
-        title: `${error.status} (${error.statusCode})`,
-        text: error.message,
-        icon: 'error',
-        allowOutsideClick: false,
-        allowEscapeKey: false,
-        confirmButtonText: moneiMsgRetry,
-        willClose: () => {
-          if (moneiConfirmationButton) moneiEnableButton(moneiConfirmationButton);
-        },
-      });
+      // Check if error response has redirectUrl for unified flow
+      if (error.nextAction?.redirectUrl) {
+        location.assign(error.nextAction.redirectUrl);
+      } else {
+        // Fallback to showing error popup
+        Swal.fire({
+          title: `${error.status} (${error.statusCode})`,
+          text: error.message,
+          icon: 'error',
+          allowOutsideClick: false,
+          allowEscapeKey: false,
+          confirmButtonText: moneiMsgRetry,
+          willClose: () => {
+            if (moneiConfirmationButton) moneiEnableButton(moneiConfirmationButton);
+          },
+        });
+      }
       console.log('moneiTokenHandler - error', params, error);
     };
 

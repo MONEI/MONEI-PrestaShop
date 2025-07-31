@@ -1553,6 +1553,18 @@ class Monei extends PaymentModule
 
         // Checkout
         if ($pageName == 'checkout') {
+            // Load SweetAlert2 for error popups
+            $sweetalert2 = 'https://cdn.jsdelivr.net/npm/sweetalert2@11';
+            $this->context->controller->registerJavascript(
+                sha1($sweetalert2),
+                $sweetalert2,
+                [
+                    'server' => 'remote',
+                    'priority' => 40,
+                    'attribute' => 'defer',
+                ]
+            );
+            
             $moneiv2 = 'https://js.monei.com/v2/monei.js';
             $this->context->controller->registerJavascript(
                 sha1($moneiv2),
@@ -1584,6 +1596,16 @@ class Monei extends PaymentModule
                 ]
             );
 
+            // Check if there's a MONEI error message to display
+            $moneiCheckoutError = '';
+            if (!empty($this->context->cookie->monei_checkout_error)) {
+                $moneiCheckoutError = $this->context->cookie->monei_checkout_error;
+                
+                // Clear the error from cookie after reading
+                unset($this->context->cookie->monei_checkout_error);
+                $this->context->cookie->write();
+            }
+
             Media::addJsDef([
                 'moneiProcessing' => $this->l('Processing payment...'),
                 'moneiCardHolderNameNotValid' => $this->l('Card holder name is not valid'),
@@ -1592,6 +1614,8 @@ class Monei extends PaymentModule
                 'moneiBizumStyle' => json_decode(Configuration::get('MONEI_BIZUM_STYLE')),
                 'moneiPaymentRequestStyle' => json_decode(Configuration::get('MONEI_PAYMENT_REQUEST_STYLE')),
                 'moneiPayPalStyle' => json_decode(Configuration::get('MONEI_PAYPAL_STYLE')) ?: json_decode('{"height":"42"}'),
+                'moneiCheckoutError' => $moneiCheckoutError,
+                'moneiErrorTitle' => $this->l('Payment Error'),
             ]);
         }
 

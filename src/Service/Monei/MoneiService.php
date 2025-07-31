@@ -431,7 +431,7 @@ class MoneiService
         }
     }
 
-    public function createMoneiPayment(\Cart $cart, bool $tokenizeCard = false, int $cardTokenId = 0)
+    public function createMoneiPayment(\Cart $cart, bool $tokenizeCard = false, int $cardTokenId = 0, string $paymentMethod = '')
     {
         if (!$cart) {
             throw new MoneiException('The cart could not be loaded correctly');
@@ -463,14 +463,6 @@ class MoneiService
             ->setCurrency($currency->iso_code)
             ->setCompleteUrl(
                 $link->getModuleLink('monei', 'confirmation', [
-                    'success' => 1,
-                    'cart_id' => $cart->id,
-                    'order_id' => $orderId,
-                ])
-            )
-            ->setFailUrl(
-                $link->getModuleLink('monei', 'confirmation', [
-                    'success' => 0,
                     'cart_id' => $cart->id,
                     'order_id' => $orderId,
                 ])
@@ -497,8 +489,30 @@ class MoneiService
             $createPaymentRequest->setShippingDetails($shippingDetails);
         }
 
-        // Set the allowed payment methods
-        $createPaymentRequest->setAllowedPaymentMethods($this->getPaymentMethodsAvailable());
+        // Set the allowed payment methods based on the selected payment method
+        if (!empty($paymentMethod)) {
+            // Map the payment method names to MONEI API values
+            $paymentMethodMap = [
+                'multibanco' => 'multibanco',
+                'mbway' => 'mbway',
+                'paypal' => 'paypal',
+                'card' => 'card',
+                'bizum' => 'bizum',
+                'applePay' => 'applePay',
+                'googlePay' => 'googlePay',
+            ];
+            
+            // Only set allowedPaymentMethods for specific redirect payment methods
+            if (in_array($paymentMethod, ['multibanco', 'mbway', 'paypal'])) {
+                $mappedMethod = $paymentMethodMap[$paymentMethod] ?? null;
+                if ($mappedMethod) {
+                    $createPaymentRequest->setAllowedPaymentMethods([$mappedMethod]);
+                }
+            }
+        } else {
+            // Fallback to all available methods if no specific method is provided (legacy behavior)
+            $createPaymentRequest->setAllowedPaymentMethods($this->getPaymentMethodsAvailable());
+        }
 
         // Set the payment token
         if ($tokenizeCard) {
