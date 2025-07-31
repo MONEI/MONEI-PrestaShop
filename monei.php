@@ -487,7 +487,7 @@ class Monei extends PaymentModule
         }
 
         // Display main confirmation
-        $output .= $this->displayConfirmation($section . ' ' . $this->l('options saved successfully.'));
+        $output .= $this->displayConfirmation($this->l('Settings saved successfully.'));
 
         return $output;
     }
