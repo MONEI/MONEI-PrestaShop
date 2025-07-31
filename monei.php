@@ -82,6 +82,7 @@ class Monei extends PaymentModule
         Configuration::updateValue('MONEI_CARD_INPUT_STYLE', '{"base": {"height": "42px"}, "input": {"background": "none"}}');
         Configuration::updateValue('MONEI_BIZUM_STYLE', '{"height": "42"}');
         Configuration::updateValue('MONEI_PAYMENT_REQUEST_STYLE', '{"height": "42"}');
+        Configuration::updateValue('MONEI_PAYPAL_STYLE', '{"height": "45px"}');
 
         include dirname(__FILE__) . '/sql/install.php';
 
@@ -648,6 +649,7 @@ class Monei extends PaymentModule
             'MONEI_CARD_INPUT_STYLE' => Configuration::get('MONEI_CARD_INPUT_STYLE', '{"base": {"height": "42px"}, "input": {"background": "none"}}'),
             'MONEI_BIZUM_STYLE' => Configuration::get('MONEI_BIZUM_STYLE', '{"height": "42"}'),
             'MONEI_PAYMENT_REQUEST_STYLE' => Configuration::get('MONEI_PAYMENT_REQUEST_STYLE', '{"height": "42"}'),
+            'MONEI_PAYPAL_STYLE' => Configuration::get('MONEI_PAYPAL_STYLE', '{"height": "45px"}'),
         ];
     }
 
@@ -1212,6 +1214,15 @@ class Monei extends PaymentModule
                         'cols' => 60,
                         'rows' => 3,
                     ],
+                    [
+                        'type' => 'textarea',
+                        'label' => $this->l('PayPal style'),
+                        'name' => 'MONEI_PAYPAL_STYLE',
+                        'desc' => $this->l('Configure in JSON format the style of the PayPal component. Documentation: ')
+                            . '<a href="https://docs.monei.com/docs/monei-js/reference/#paypal-options" target="_blank">MONEI PayPal Style</a>',
+                        'cols' => 60,
+                        'rows' => 3,
+                    ],
                 ],
                 'submit' => [
                     'title' => $this->l('Save'),
@@ -1580,6 +1591,7 @@ class Monei extends PaymentModule
                 'moneiCardInputStyle' => json_decode(Configuration::get('MONEI_CARD_INPUT_STYLE')),
                 'moneiBizumStyle' => json_decode(Configuration::get('MONEI_BIZUM_STYLE')),
                 'moneiPaymentRequestStyle' => json_decode(Configuration::get('MONEI_PAYMENT_REQUEST_STYLE')),
+                'moneiPayPalStyle' => json_decode(Configuration::get('MONEI_PAYPAL_STYLE')) ?: json_decode('{"height":"45px"}'),
             ]);
         }
 
@@ -1819,6 +1831,7 @@ class Monei extends PaymentModule
             'MONEI_CARD_INPUT_STYLE' => 'Card Input',
             'MONEI_BIZUM_STYLE' => 'Bizum',
             'MONEI_PAYMENT_REQUEST_STYLE' => 'Payment Request',
+            'MONEI_PAYPAL_STYLE' => 'PayPal',
         ];
 
         foreach ($form_values as $key => $defaultValue) {
