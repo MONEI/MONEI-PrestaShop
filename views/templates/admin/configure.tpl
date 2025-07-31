@@ -69,11 +69,6 @@
 
                     <!-- PAYMENT METHODS CONFIGURATION -->
                     <div class="tab-pane" id="panel-conf-2">
-                        <div class="alert alert-warning" role="alert">
-                            <p>
-                                {l s='Please ensure your payment methods are activated in your'} <a href="https://dashboard.monei.com/settings/payment-methods" target="_blank">{l s='MONEI dashboard' mod='monei'}</a> {l s='before configuring them here.' mod='monei'}
-                            </p>
-                        </div>
                         {$helper_form_2} {* HelperForm, no escaping *}
                     </div>
 

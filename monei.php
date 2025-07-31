@@ -341,10 +341,13 @@ class Monei extends PaymentModule
          * If values have been submitted in the form, process.
          */
         if ((bool) Tools::isSubmit('submitMoneiModule')) {
+            \PrestaShopLogger::addLog('MONEI - submitMoneiModule detected, calling postProcess(1)', 1);
             $message = $this->postProcess(1);
         } elseif (Tools::isSubmit('submitMoneiModuleGateways')) {
+            \PrestaShopLogger::addLog('MONEI - submitMoneiModuleGateways detected, calling postProcess(2)', 1);
             $message = $this->postProcess(2);
         } elseif (Tools::isSubmit('submitMoneiModuleStatus')) {
+            \PrestaShopLogger::addLog('MONEI - submitMoneiModuleStatus detected, calling postProcess(3)', 1);
             $message = $this->postProcess(3);
         } elseif (Tools::isSubmit('submitMoneiModuleComponentStyle')) {
             $message = $this->postProcess(4);
@@ -370,7 +373,12 @@ class Monei extends PaymentModule
      */
     protected function postProcess($which)
     {
+        // Debug: Log which section is being processed
+        \PrestaShopLogger::addLog("MONEI - postProcess called with section: {$which}", 1);
+        
         $section = '';
+        $validatedValues = null;
+        
         switch ($which) {
             case 1:
                 $section = $this->l('General');
@@ -380,6 +388,12 @@ class Monei extends PaymentModule
             case 2:
                 $section = $this->l('Payment Methods');
                 $form_values = $this->getConfigFormGatewaysValues();
+                
+                // Validate payment methods against MONEI API
+                $validatedValues = $this->validatePaymentMethods($form_values);
+                
+                // Override form values with validated ones
+                $form_values = $validatedValues;
 
                 break;
             case 3:
@@ -402,9 +416,17 @@ class Monei extends PaymentModule
 
         // Store previous Apple Pay state
         $previousApplePayState = Configuration::get('MONEI_ALLOW_APPLE');
+        
 
         foreach (array_keys($form_values) as $key) {
-            Configuration::updateValue($key, Tools::getValue($key));
+            // For validated payment methods, use the validated value
+            if ($which === 2 && isset($validatedValues) && array_key_exists($key, $validatedValues)) {
+                $value = $validatedValues[$key];
+                Configuration::updateValue($key, $value);
+            } else {
+                $value = Tools::getValue($key);
+                Configuration::updateValue($key, $value);
+            }
         }
 
         // Check if Apple Pay was just enabled
@@ -468,6 +490,100 @@ class Monei extends PaymentModule
         $output .= $this->displayConfirmation($section . ' ' . $this->l('options saved successfully.'));
 
         return $output;
+    }
+
+    /**
+     * Validate payment methods against MONEI API
+     * 
+     * @param array $form_values Form values to validate
+     * @return array Modified form values with disabled unavailable methods
+     */
+    protected function validatePaymentMethods($form_values)
+    {
+        try {
+            // Get available payment methods from MONEI API
+            $moneiService = $this->getService('service.monei');
+            if (!$moneiService) {
+                $this->warning[] = $this->l('Unable to access MONEI service.');
+                return $form_values;
+            }
+            
+            $availablePaymentMethods = $moneiService->getPaymentMethodsAllowed();
+            
+            // If API call fails, allow saving but show warning
+            if (empty($availablePaymentMethods)) {
+                $this->warning[] = $this->l('Unable to validate payment methods with MONEI API. Please ensure your API credentials are correct and the methods are configured in your MONEI dashboard.');
+                return $form_values;
+            }
+            
+            // Map form fields to MONEI payment method codes
+            $paymentMethodMap = [
+                'MONEI_ALLOW_CARD' => 'card',
+                'MONEI_ALLOW_BIZUM' => 'bizum',
+                'MONEI_ALLOW_APPLE' => 'applePay',
+                'MONEI_ALLOW_GOOGLE' => 'googlePay',
+                'MONEI_ALLOW_PAYPAL' => 'paypal',
+                'MONEI_ALLOW_MULTIBANCO' => 'multibanco',
+                'MONEI_ALLOW_MBWAY' => 'mbway'
+            ];
+            
+            $unavailableMethods = [];
+            
+            // Check each enabled payment method
+            foreach ($paymentMethodMap as $configKey => $methodCode) {
+                $isEnabled = Tools::getValue($configKey);
+                $isAvailable = in_array($methodCode, $availablePaymentMethods);
+                
+                // Update form_values with the actual submitted value
+                $form_values[$configKey] = $isEnabled;
+                
+                // If method is enabled but not available, disable it and add to warning
+                if ($isEnabled && !$isAvailable) {
+                    $methodName = $this->getPaymentMethodName($methodCode);
+                    $unavailableMethods[] = $methodName;
+                    // Override with disabled value
+                    $form_values[$configKey] = 0;
+                }
+            }
+            
+            // If any methods are unavailable, show error
+            if (!empty($unavailableMethods)) {
+                $this->warning[] = sprintf(
+                    $this->l('The following payment methods are not available in your MONEI account and have been disabled: %s. Please enable them in your MONEI dashboard first.'),
+                    implode(', ', $unavailableMethods)
+                );
+            }
+            
+            // Return the potentially modified form values
+            return $form_values;
+            
+        } catch (\Exception $e) {
+            // Log error and allow saving
+            \PrestaShopLogger::addLog('MONEI - validatePaymentMethods - Error: ' . $e->getMessage(), \PrestaShopLogger::LOG_SEVERITY_LEVEL_WARNING);
+            $this->warning[] = $this->l('Unable to validate payment methods. Please check your API credentials.');
+            return $form_values;
+        }
+    }
+    
+    /**
+     * Get human-readable payment method name
+     * 
+     * @param string $methodCode
+     * @return string
+     */
+    protected function getPaymentMethodName($methodCode)
+    {
+        $names = [
+            'card' => $this->l('Credit Card'),
+            'bizum' => $this->l('Bizum'),
+            'applePay' => $this->l('Apple Pay'),
+            'googlePay' => $this->l('Google Pay'),
+            'paypal' => $this->l('PayPal'),
+            'multibanco' => $this->l('Multibanco'),
+            'mbway' => $this->l('MB Way')
+        ];
+        
+        return isset($names[$methodCode]) ? $names[$methodCode] : $methodCode;
     }
 
     /**
@@ -734,7 +850,6 @@ class Monei extends PaymentModule
                         'name' => 'MONEI_ALLOW_CARD',
                         'is_bool' => true,
                         // 'desc' => $this->l('Allow payments with Credit Card.'),
-                        'hint' => $this->l('The payment must be active and configured on your MONEI dashboard.'),
                         'values' => [
                             [
                                 'id' => 'active_on',
@@ -773,7 +888,6 @@ class Monei extends PaymentModule
                         'name' => 'MONEI_ALLOW_BIZUM',
                         'is_bool' => true,
                         // 'desc' => $this->l('Allow payments with Bizum.'),
-                        'hint' => $this->l('The payment must be active and configured on your MONEI dashboard.'),
                         'values' => [
                             [
                                 'id' => 'active_on',
@@ -812,7 +926,6 @@ class Monei extends PaymentModule
                         'name' => 'MONEI_ALLOW_APPLE',
                         'is_bool' => true,
                         'desc' => $this->l('Allow payments with Apple Pay. Only displayed in Safari browser.'),
-                        'hint' => $this->l('The payment must be active and configured on your MONEI dashboard.'),
                         'values' => [
                             [
                                 'id' => 'active_on',
@@ -832,7 +945,6 @@ class Monei extends PaymentModule
                         'name' => 'MONEI_ALLOW_GOOGLE',
                         'is_bool' => true,
                         // 'desc' => $this->l('Allow payments with Google Pay.'),
-                        'hint' => $this->l('The payment must be active and configured on your MONEI dashboard.'),
                         'values' => [
                             [
                                 'id' => 'active_on',
@@ -851,7 +963,6 @@ class Monei extends PaymentModule
                         'label' => $this->l('Allow PayPal'),
                         'name' => 'MONEI_ALLOW_PAYPAL',
                         'is_bool' => true,
-                        'hint' => $this->l('The payment must be active and configured on your MONEI dashboard.'),
                         'values' => [
                             [
                                 'id' => 'active_on',
@@ -870,7 +981,6 @@ class Monei extends PaymentModule
                         'label' => $this->l('Allow Multibanco'),
                         'name' => 'MONEI_ALLOW_MULTIBANCO',
                         'is_bool' => true,
-                        'hint' => $this->l('The payment must be active and configured on your MONEI dashboard.'),
                         'values' => [
                             [
                                 'id' => 'active_on',
@@ -889,7 +999,6 @@ class Monei extends PaymentModule
                         'label' => $this->l('Allow MBWay'),
                         'name' => 'MONEI_ALLOW_MBWAY',
                         'is_bool' => true,
-                        'hint' => $this->l('The payment must be active and configured on your MONEI dashboard.'),
                         'values' => [
                             [
                                 'id' => 'active_on',
