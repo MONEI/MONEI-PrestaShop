@@ -354,5 +354,59 @@
         }
       </script>
     {/literal}
+  {elseif $paymentOptionName eq 'monei-paypal'}
+    {literal}
+      <script>
+        var processingMoneiPayPalPayment = false;
+
+        function initMoneiPayPal() {
+          const moneiPayPalButtonsContainer = document.getElementById('monei-paypal-buttons-container');
+          if (!moneiPayPalButtonsContainer) return;
+
+          const moneiPayPalRenderContainer = moneiPayPalButtonsContainer.querySelector('.monei-paypal_render');
+          if (!moneiPayPalRenderContainer) return;
+
+          monei.PayPal({
+            accountId: moneiAccountId,
+            language: prestashop.language.iso_code,
+            style: moneiPayPalStyle || {},
+            amount: moneiAmount,
+            currency: moneiCurrency,
+            onLoad() {
+              processingMoneiPayPalPayment = false;
+            },
+            onBeforeOpen() {
+              if (!moneiValidConditions() || processingMoneiPayPalPayment) {
+                return false;
+              }
+              processingMoneiPayPalPayment = true;
+              return true;
+            },
+            onSubmit(result) {
+              if (result.error) {
+                Swal.fire({
+                  title: 'PayPal Error',
+                  text: result.error.message || 'An error occurred with PayPal',
+                  icon: 'error'
+                });
+                console.error('PayPal Error', result.error);
+                processingMoneiPayPalPayment = false;
+              } else if (result.token) {
+                moneiTokenHandler({ paymentToken: result.token });
+              }
+            },
+            onError(error) {
+              Swal.fire({
+                title: `${error.status || 'Error'} ${error.statusCode ? `(${error.statusCode})` : ''}`,
+                text: error.message || 'An error occurred with PayPal',
+                icon: 'error'
+              });
+              console.error('onError - PayPal', error);
+              processingMoneiPayPalPayment = false;
+            }
+          }).render(moneiPayPalRenderContainer);
+        }
+      </script>
+    {/literal}
   {/if}
 {/foreach}

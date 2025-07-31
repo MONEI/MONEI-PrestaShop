@@ -279,7 +279,7 @@ class PaymentOptionService
             $this->paymentOptions[] = [
                 'name' => 'paypal',
                 'logo' => $this->getIconPath('paypal'),
-                'binary' => false,
+                'binary' => true,
             ];
         }
     }
