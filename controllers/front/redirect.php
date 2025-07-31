@@ -16,6 +16,7 @@ class MoneiRedirectModuleFrontController extends ModuleFrontController
         $transactionId = Tools::getValue('transaction_id');
         $tokenizeCard = (bool) Tools::getValue('tokenize_card', false);
         $moneiCardId = (int) Tools::getValue('id_monei_card', 0);
+        $paymentMethod = Tools::getValue('method', '');
 
         $crypto = ServiceLocator::get('\\PrestaShop\\PrestaShop\\Core\\Crypto\\Hashing');
         $cart = $this->context->cart;
@@ -36,7 +37,7 @@ class MoneiRedirectModuleFrontController extends ModuleFrontController
 
             $moneiService = $this->module->getService('service.monei');
 
-            $moneiPayment = $moneiService->createMoneiPayment($cart, $tokenizeCard, $moneiCardId);
+            $moneiPayment = $moneiService->createMoneiPayment($cart, $tokenizeCard, $moneiCardId, $paymentMethod);
             if (!$moneiPayment) {
                 Tools::redirect($this->context->link->getPageLink('order'));
             }

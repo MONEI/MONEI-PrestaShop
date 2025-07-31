@@ -10,7 +10,7 @@ class MoneiErrorsModuleFrontController extends ModuleFrontController
         
         // Check if we have a status code to translate
         if (!empty($this->context->cookie->monei_error_code)) {
-            $statusCodeHandler = $this->module->getService('monei.service.status_code_handler');
+            $statusCodeHandler = $this->module->getService('service.status_code_handler');
             $statusCode = $this->context->cookie->monei_error_code;
             
             // Get the localized error message
