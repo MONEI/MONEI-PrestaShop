@@ -50,13 +50,27 @@ class MoneiRedirectModuleFrontController extends ModuleFrontController
 
             if ($redirectURL = $moneiPayment->getNextAction()->getRedirectUrl()) {
                 if ($moneiPayment->getStatus() === PaymentStatus::FAILED) {
+                    // Store status code for failed payments before redirect
+                    if ($moneiPayment->getStatusCode()) {
+                        $this->context->cookie->monei_error_code = $moneiPayment->getStatusCode();
+                    }
                     $redirectURL .= '&message=' . $moneiPayment->getStatusMessage();
                 }
 
                 Tools::redirect($redirectURL);
             }
         } catch (Exception $ex) {
+            // Store the exception message for technical errors
             $this->context->cookie->monei_error = $ex->getMessage();
+            
+            // If it's a MoneiException with a payment response, try to extract status code
+            if ($ex instanceof \PsMonei\Exception\MoneiException && method_exists($ex, 'getPaymentData')) {
+                $paymentData = $ex->getPaymentData();
+                if ($paymentData && isset($paymentData['statusCode'])) {
+                    $this->context->cookie->monei_error_code = $paymentData['statusCode'];
+                }
+            }
+            
             Tools::redirect($this->context->link->getModuleLink($this->module->name, 'errors'));
         }
 
