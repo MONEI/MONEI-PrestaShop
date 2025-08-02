@@ -60,6 +60,16 @@ class Monei2Payment
     private $status;
 
     /**
+     * @ORM\Column(type="boolean", options={"default": false})
+     */
+    private $is_captured = false;
+
+    /**
+     * @ORM\Column(type="string", length=10, nullable=true)
+     */
+    private $status_code;
+
+    /**
      * @ORM\Column(type="datetime", nullable=true)
      */
     private $date_add;
@@ -207,6 +217,30 @@ class Monei2Payment
     public function setStatus(?string $status): self
     {
         $this->status = $status;
+
+        return $this;
+    }
+
+    public function getIsCaptured(): bool
+    {
+        return $this->is_captured;
+    }
+
+    public function setIsCaptured(bool $is_captured): self
+    {
+        $this->is_captured = $is_captured;
+
+        return $this;
+    }
+
+    public function getStatusCode(): ?string
+    {
+        return $this->status_code;
+    }
+
+    public function setStatusCode(?string $status_code): self
+    {
+        $this->status_code = $status_code;
 
         return $this;
     }
