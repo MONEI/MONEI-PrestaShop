@@ -1,5 +1,3 @@
-<script src="{$sweetalert2}"></script>
-
 <div class="row">
     <div class="col-lg-12">
         <div class="card">
@@ -12,14 +10,18 @@
                     {if $isCapturable}
                         <div class="alert alert-warning mb-3">
                             <p class="mb-2"><strong>{l s='Payment Authorized' mod='monei'}</strong></p>
+                            <p class="mb-2">{l s='The payment has been authorized but not yet captured. The funds are reserved on the customer\'s card but have not been transferred to your account.' mod='monei'}</p>
+                            <p class="mb-3">{l s='You must capture the payment within 7 days or the authorization will expire and the funds will be released back to the customer.' mod='monei'}</p>
                             <p class="mb-3">{l s='Authorized amount:' mod='monei'} <strong>{$authorizedAmountFormatted}</strong></p>
                             {if isset($capturedAmount) && $capturedAmount > 0}
                                 <p class="mb-3">{l s='Already captured:' mod='monei'} <strong>{$capturedAmountFormatted}</strong></p>
                                 <p class="mb-3">{l s='Remaining capturable:' mod='monei'} <strong>{$remainingAmountFormatted}</strong></p>
                             {/if}
-                            <button type="button" class="btn btn-primary" id="monei-capture-payment-btn" data-order-id="{$orderId|escape:'html':'UTF-8'}" data-max-amount="{$remainingAmount|escape:'html':'UTF-8'}" data-currency-sign="{$currencySign|escape:'html':'UTF-8'}">
-                                <i class="material-icons">payment</i> {l s='Capture Payment' mod='monei'}
-                            </button>
+                            <div>
+                                <button type="button" class="btn btn-primary" id="monei-capture-payment-btn" data-order-id="{$orderId|escape:'html':'UTF-8'}" data-max-amount="{$remainingAmount|escape:'html':'UTF-8'}" data-currency-sign="{$currencySign|escape:'html':'UTF-8'}" data-toggle="modal" data-target="#moneiCaptureModal">
+                                    <i class="material-icons">payment</i> {l s='Capture Payment' mod='monei'}
+                                </button>
+                            </div>
                         </div>
                     {/if}
                     {* Payment History Table *}
@@ -76,109 +78,113 @@
 </div>
 
 {if $isCapturable}
-<style>
-    .swal2-popup .input-group {
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        margin: 10px auto;
-    }
-    .swal2-popup .input-group-append {
-        display: flex;
-    }
-    .swal2-popup .input-group-text {
-        padding: 0.375rem 0.75rem;
-        background-color: #e9ecef;
-        border: 1px solid #ced4da;
-        border-left: 0;
-        border-radius: 0 0.25rem 0.25rem 0;
-        height: 38px;
-        display: flex;
-        align-items: center;
-    }
-    .swal2-popup #swal-capture-amount {
-        border-radius: 0.25rem 0 0 0.25rem !important;
-        margin-right: 0 !important;
-    }
-</style>
+{* Bootstrap Modal for Capture Payment *}
+<div class="modal fade" id="moneiCaptureModal" tabindex="-1" role="dialog" aria-labelledby="moneiCaptureModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-sm" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="moneiCaptureModalLabel">{l s='Capture Payment' mod='monei'}</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <form id="monei-capture-form">
+                    <div class="form-group">
+                        <label for="capture-amount">{l s='Amount to capture' mod='monei'}</label>
+                        <div class="input-group">
+                            <input type="number" 
+                                   class="form-control" 
+                                   id="capture-amount" 
+                                   name="amount"
+                                   value="{$remainingAmount|string_format:"%.2f"}" 
+                                   min="0.01" 
+                                   max="{$remainingAmount|string_format:"%.2f"}" 
+                                   step="0.01"
+                                   required>
+                            <div class="input-group-append">
+                                <span class="input-group-text">{$currencySign}</span>
+                            </div>
+                        </div>
+                        <small class="form-text text-muted">
+                            {l s='Maximum:' mod='monei'} {$remainingAmountFormatted}
+                        </small>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary btn-outline-secondary" data-dismiss="modal">{l s='Cancel' mod='monei'}</button>
+                <button type="button" class="btn btn-primary" id="confirm-capture-btn">
+                    {l s='Capture payment' mod='monei'}
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
     $(document).ready(function() {
-        $('#monei-capture-payment-btn').on('click', function() {
+        var orderId = $('#monei-capture-payment-btn').data('order-id');
+        var maxAmount = parseFloat($('#monei-capture-payment-btn').data('max-amount'));
+        
+        // Handle capture confirmation
+        $('#confirm-capture-btn').on('click', function() {
             var $btn = $(this);
-            var orderId = $btn.data('order-id');
-            var maxAmount = parseFloat($btn.data('max-amount'));
-            var currencySign = $btn.data('currency-sign');
+            var captureAmount = parseFloat($('#capture-amount').val());
             
-            Swal.fire({
-                title: '{l s='Capture Payment' mod='monei' js=1}',
-                html: '<div class="form-group">' +
-                      '<label for="swal-capture-amount">{l s='Amount to capture:' mod='monei' js=1}</label>' +
-                      '<div class="input-group">' +
-                      '<input type="number" id="swal-capture-amount" class="form-control swal2-input" ' +
-                      'value="' + maxAmount.toFixed(2) + '" ' +
-                      'min="0.01" max="' + maxAmount.toFixed(2) + '" step="0.01" ' +
-                      'style="max-width: 200px; margin: 0 auto;">' +
-                      '<div class="input-group-append">' +
-                      '<span class="input-group-text">' + currencySign + '</span>' +
-                      '</div>' +
-                      '</div>' +
-                      '<small class="form-text text-muted">{l s='Maximum:' mod='monei' js=1} ' + 
-                      new Intl.NumberFormat('{$locale|escape:'javascript':'UTF-8'}', {
-                          style: 'currency',
-                          currency: '{$currencyCode|escape:'javascript':'UTF-8'}'
-                      }).format(maxAmount) + '</small>' +
-                      '</div>',
-                icon: 'question',
-                showCancelButton: true,
-                confirmButtonText: '{l s='Capture payment' mod='monei' js=1}',
-                cancelButtonText: '{l s='Cancel' mod='monei' js=1}',
-                showLoaderOnConfirm: true,
-                preConfirm: function() {
-                    var captureAmount = parseFloat($('#swal-capture-amount').val());
-                    
-                    // Validate amount
-                    if (isNaN(captureAmount) || captureAmount <= 0) {
-                        Swal.showValidationMessage('{l s='Please enter a valid amount to capture.' mod='monei' js=1}');
-                        return false;
-                    }
-                    
-                    if (captureAmount > maxAmount) {
-                        Swal.showValidationMessage('{l s='The amount cannot exceed the remaining capturable amount.' mod='monei' js=1}');
-                        return false;
-                    }
-                    
-                    return $.ajax({
-                        url: '{$captureLinkController|escape:'javascript':'UTF-8'}',
-                        type: 'POST',
-                        data: {
-                            ajax: 1,
-                            action: 'capturePayment',
-                            id_order: orderId,
-                            amount: captureAmount
-                        },
-                        dataType: 'json'
-                    }).then(function(response) {
-                        if (!response.success) {
-                            throw new Error(response.message || '{l s='An error occurred while capturing the payment' mod='monei' js=1}');
-                        }
-                        return response;
-                    }).catch(function(error) {
-                        Swal.showValidationMessage(error.message || '{l s='Request failed' mod='monei' js=1}');
-                    });
+            // Validate amount
+            if (isNaN(captureAmount) || captureAmount <= 0) {
+                alert('{l s='Please enter a valid amount to capture.' mod='monei' js=1}');
+                return;
+            }
+            
+            if (captureAmount > maxAmount) {
+                alert('{l s='The amount cannot exceed the remaining capturable amount.' mod='monei' js=1}');
+                return;
+            }
+            
+            // Disable button and show loading
+            $btn.prop('disabled', true).html('<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> {l s='Processing...' mod='monei' js=1}');
+            
+            // Make AJAX request
+            $.ajax({
+                url: '{$captureLinkController|escape:'javascript':'UTF-8'}',
+                type: 'POST',
+                data: {
+                    ajax: 1,
+                    action: 'capturePayment',
+                    id_order: orderId,
+                    amount: captureAmount
                 },
-                allowOutsideClick: function() { return !Swal.isLoading(); }
-            }).then(function(result) {
-                if (result.isConfirmed) {
-                    Swal.fire({
-                        title: '{l s='Success!' mod='monei' js=1}',
-                        text: '{l s='Payment has been captured successfully.' mod='monei' js=1}',
-                        icon: 'success'
-                    }).then(function() {
-                        location.reload();
-                    });
+                dataType: 'json',
+                success: function(response) {
+                    if (response.success) {
+                        $('#moneiCaptureModal').modal('hide');
+                        // Show success message using PrestaShop's native growl notification
+                        if (typeof showSuccessMessage === 'function') {
+                            showSuccessMessage('{l s='Payment has been captured successfully.' mod='monei' js=1}');
+                        }
+                        // Reload page after a short delay
+                        setTimeout(function() {
+                            location.reload();
+                        }, 1500);
+                    } else {
+                        alert(response.message || '{l s='An error occurred while capturing the payment' mod='monei' js=1}');
+                        $btn.prop('disabled', false).html('{l s='Capture payment' mod='monei' js=1}');
+                    }
+                },
+                error: function() {
+                    alert('{l s='An unexpected error occurred. Please try again.' mod='monei' js=1}');
+                    $btn.prop('disabled', false).html('{l s='Capture payment' mod='monei' js=1}');
                 }
             });
         });
+        
+        // Reset button state when modal is closed
+        $('#moneiCaptureModal').on('hidden.bs.modal', function() {
+            $('#confirm-capture-btn').prop('disabled', false).html('{l s='Capture payment' mod='monei' js=1}');
+        });
+        
     });
 </script>
 {/if}
