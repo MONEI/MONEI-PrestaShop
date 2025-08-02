@@ -9,6 +9,19 @@
                 </h3>
             </div>
             <div class="card-body">
+                    {if $isCapturable}
+                        <div class="alert alert-warning mb-3">
+                            <p class="mb-2"><strong>{l s='Payment Authorized' mod='monei'}</strong></p>
+                            <p class="mb-3">{l s='Authorized amount:' mod='monei'} <strong>{$authorizedAmountFormatted}</strong></p>
+                            {if isset($capturedAmount) && $capturedAmount > 0}
+                                <p class="mb-3">{l s='Already captured:' mod='monei'} <strong>{$capturedAmountFormatted}</strong></p>
+                                <p class="mb-3">{l s='Remaining capturable:' mod='monei'} <strong>{$remainingAmountFormatted}</strong></p>
+                            {/if}
+                            <button type="button" class="btn btn-primary" id="monei-capture-payment-btn" data-order-id="{$orderId|escape:'html':'UTF-8'}" data-max-amount="{$remainingAmount|escape:'html':'UTF-8'}" data-currency-sign="{$currencySign|escape:'html':'UTF-8'}">
+                                <i class="material-icons">payment</i> {l s='Capture Payment' mod='monei'}
+                            </button>
+                        </div>
+                    {/if}
                     {* Payment History Table *}
                     <table class="table">
                         <thead>
@@ -61,3 +74,111 @@
             </div>
         </div>
 </div>
+
+{if $isCapturable}
+<style>
+    .swal2-popup .input-group {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        margin: 10px auto;
+    }
+    .swal2-popup .input-group-append {
+        display: flex;
+    }
+    .swal2-popup .input-group-text {
+        padding: 0.375rem 0.75rem;
+        background-color: #e9ecef;
+        border: 1px solid #ced4da;
+        border-left: 0;
+        border-radius: 0 0.25rem 0.25rem 0;
+        height: 38px;
+        display: flex;
+        align-items: center;
+    }
+    .swal2-popup #swal-capture-amount {
+        border-radius: 0.25rem 0 0 0.25rem !important;
+        margin-right: 0 !important;
+    }
+</style>
+<script>
+    $(document).ready(function() {
+        $('#monei-capture-payment-btn').on('click', function() {
+            var $btn = $(this);
+            var orderId = $btn.data('order-id');
+            var maxAmount = parseFloat($btn.data('max-amount'));
+            var currencySign = $btn.data('currency-sign');
+            
+            Swal.fire({
+                title: '{l s='Capture Payment' mod='monei' js=1}',
+                html: '<div class="form-group">' +
+                      '<label for="swal-capture-amount">{l s='Amount to capture:' mod='monei' js=1}</label>' +
+                      '<div class="input-group">' +
+                      '<input type="number" id="swal-capture-amount" class="form-control swal2-input" ' +
+                      'value="' + maxAmount.toFixed(2) + '" ' +
+                      'min="0.01" max="' + maxAmount.toFixed(2) + '" step="0.01" ' +
+                      'style="max-width: 200px; margin: 0 auto;">' +
+                      '<div class="input-group-append">' +
+                      '<span class="input-group-text">' + currencySign + '</span>' +
+                      '</div>' +
+                      '</div>' +
+                      '<small class="form-text text-muted">{l s='Maximum:' mod='monei' js=1} ' + 
+                      new Intl.NumberFormat('{$locale|escape:'javascript':'UTF-8'}', {
+                          style: 'currency',
+                          currency: '{$currencyCode|escape:'javascript':'UTF-8'}'
+                      }).format(maxAmount) + '</small>' +
+                      '</div>',
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonText: '{l s='Capture payment' mod='monei' js=1}',
+                cancelButtonText: '{l s='Cancel' mod='monei' js=1}',
+                showLoaderOnConfirm: true,
+                preConfirm: function() {
+                    var captureAmount = parseFloat($('#swal-capture-amount').val());
+                    
+                    // Validate amount
+                    if (isNaN(captureAmount) || captureAmount <= 0) {
+                        Swal.showValidationMessage('{l s='Please enter a valid amount to capture.' mod='monei' js=1}');
+                        return false;
+                    }
+                    
+                    if (captureAmount > maxAmount) {
+                        Swal.showValidationMessage('{l s='The amount cannot exceed the remaining capturable amount.' mod='monei' js=1}');
+                        return false;
+                    }
+                    
+                    return $.ajax({
+                        url: '{$captureLinkController|escape:'javascript':'UTF-8'}',
+                        type: 'POST',
+                        data: {
+                            ajax: 1,
+                            action: 'capturePayment',
+                            id_order: orderId,
+                            amount: captureAmount
+                        },
+                        dataType: 'json'
+                    }).then(function(response) {
+                        if (!response.success) {
+                            throw new Error(response.message || '{l s='An error occurred while capturing the payment' mod='monei' js=1}');
+                        }
+                        return response;
+                    }).catch(function(error) {
+                        Swal.showValidationMessage(error.message || '{l s='Request failed' mod='monei' js=1}');
+                    });
+                },
+                allowOutsideClick: function() { return !Swal.isLoading(); }
+            }).then(function(result) {
+                if (result.isConfirmed) {
+                    Swal.fire({
+                        title: '{l s='Success!' mod='monei' js=1}',
+                        text: '{l s='Payment has been captured successfully.' mod='monei' js=1}',
+                        icon: 'success'
+                    }).then(function() {
+                        location.reload();
+                    });
+                }
+            });
+        });
+    });
+</script>
+{/if}

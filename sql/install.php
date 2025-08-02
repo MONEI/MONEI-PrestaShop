@@ -11,6 +11,8 @@ $sql[] = 'CREATE TABLE IF NOT EXISTS `' . _DB_PREFIX_ . 'monei2_payment` (
     `currency` VARCHAR(3) DEFAULT NULL,
     `authorization_code` VARCHAR(50) DEFAULT NULL,
     `status` ENUM("PENDING", "SUCCEEDED", "FAILED", "CANCELED", "REFUNDED", "PARTIALLY_REFUNDED", "AUTHORIZED", "EXPIRED", "UNKNOWN") DEFAULT "PENDING",
+    `is_captured` TINYINT(1) DEFAULT 0,
+    `status_code` VARCHAR(10) DEFAULT NULL,
     `date_add` DATETIME,
     `date_upd` DATETIME,
     PRIMARY KEY (`id_payment`),

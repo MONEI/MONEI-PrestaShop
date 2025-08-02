@@ -35,7 +35,7 @@ class MoneiRedirectModuleFrontController extends ModuleFrontController
                 throw new MoneiException('Invalid crypto hash', MoneiException::INVALID_CRYPTO_HASH);
             }
 
-            $moneiService = $this->module->getService('service.monei');
+            $moneiService = Monei::getService('service.monei');
 
             $moneiPayment = $moneiService->createMoneiPayment($cart, $tokenizeCard, $moneiCardId, $paymentMethod);
             if (!$moneiPayment) {
@@ -45,7 +45,7 @@ class MoneiRedirectModuleFrontController extends ModuleFrontController
             // Convert the cart to order
             $orderState = new OrderState(Configuration::get('MONEI_STATUS_PENDING'));
             if (Configuration::get('MONEI_CART_TO_ORDER') && Validate::isLoadedObject($orderState)) {
-                $orderService = $this->module->getService('service.order');
+                $orderService = Monei::getService('service.order');
                 $orderService->createOrUpdateOrder($moneiPayment->getId());
             }
 

@@ -42,7 +42,7 @@ class MoneiConfirmationModuleFrontController extends ModuleFrontController
                 PrestaShopLogger::LOG_SEVERITY_LEVEL_INFORMATIVE
             );
             
-            $moneiService = $this->module->getService('service.monei');
+            $moneiService = Monei::getService('service.monei');
             $payment = null;
             
             try {
@@ -110,8 +110,27 @@ class MoneiConfirmationModuleFrontController extends ModuleFrontController
             PrestaShopLogger::LOG_SEVERITY_LEVEL_INFORMATIVE
         );
 
-        // Process the order through the order service
-        $this->module->getService('service.order')->createOrUpdateOrder($moneiPaymentId, true);
+        try {
+            // Process the order through the order service
+            $orderService = Monei::getService('service.order');
+            PrestaShopLogger::addLog(
+                'MONEI - confirmation.php - Got order service, calling createOrUpdateOrder',
+                PrestaShopLogger::LOG_SEVERITY_LEVEL_INFORMATIVE
+            );
+            
+            $orderService->createOrUpdateOrder($moneiPaymentId, true);
+            
+            PrestaShopLogger::addLog(
+                'MONEI - confirmation.php - Order creation/update completed successfully',
+                PrestaShopLogger::LOG_SEVERITY_LEVEL_INFORMATIVE
+            );
+        } catch (Exception $e) {
+            PrestaShopLogger::addLog(
+                'MONEI - confirmation.php - ERROR in handleSuccessfulPayment: ' . $e->getMessage() . ' - File: ' . $e->getFile() . ' - Line: ' . $e->getLine() . ' - Trace: ' . $e->getTraceAsString(),
+                PrestaShopLogger::LOG_SEVERITY_LEVEL_ERROR
+            );
+            throw $e; // Re-throw to be caught by outer try-catch
+        }
     }
 
     /**
@@ -132,7 +151,7 @@ class MoneiConfirmationModuleFrontController extends ModuleFrontController
         
         if ($isMultibanco) {
             // For Multibanco, create the order and show success page with pending message
-            $this->module->getService('service.order')->createOrUpdateOrder($paymentId, true);
+            Monei::getService('service.order')->createOrUpdateOrder($paymentId, true);
         } else {
             // For other pending payments (like MBWAY), redirect to a loading page
             // that will periodically check payment status
@@ -155,7 +174,7 @@ class MoneiConfirmationModuleFrontController extends ModuleFrontController
 
         // Get localized error message based on status code
         $errorMessage = '';
-        $statusCodeHandler = $this->module->getService('service.status_code_handler');
+        $statusCodeHandler = Monei::getService('service.status_code_handler');
         
         if ($statusCode) {
             $errorMessage = $statusCodeHandler->getStatusMessage($statusCode);

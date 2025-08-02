@@ -27,7 +27,7 @@ class OrderService
         MoneiService $moneiService,
         PaymentMethodFormatter $paymentMethodFormatter,
         LockService $lockService,
-        LegacyContext $legacyContext,
+        LegacyContext $legacyContext
     ) {
         $this->moneiInstance = $moneiInstance;
         $this->moneiService = $moneiService;
@@ -120,6 +120,7 @@ class OrderService
             PaymentStatus::PARTIALLY_REFUNDED => 'MONEI_STATUS_REFUNDED',
             PaymentStatus::PENDING => 'MONEI_STATUS_PENDING',
             PaymentStatus::SUCCEEDED => 'MONEI_STATUS_SUCCEEDED',
+            PaymentStatus::AUTHORIZED => 'MONEI_STATUS_AUTHORIZED',
         ];
         $configKey = $statusMap[$moneiPaymentStatus] ?? 'MONEI_STATUS_FAILED';
 
@@ -130,6 +131,11 @@ class OrderService
     {
         $validTransitions = [
             \Configuration::get('MONEI_STATUS_PENDING') => [
+                \Configuration::get('MONEI_STATUS_SUCCEEDED'),
+                \Configuration::get('MONEI_STATUS_FAILED'),
+                \Configuration::get('MONEI_STATUS_AUTHORIZED'),
+            ],
+            \Configuration::get('MONEI_STATUS_AUTHORIZED') => [
                 \Configuration::get('MONEI_STATUS_SUCCEEDED'),
                 \Configuration::get('MONEI_STATUS_FAILED'),
             ],
@@ -231,7 +237,7 @@ class OrderService
         }
     }
 
-    private function updateOrderPaymentMethodName($order, $moneiPayment)
+    public function updateOrderPaymentMethodName($order, $moneiPayment)
     {
         $paymentMethodName = $this->getPaymentMethodDisplayName($moneiPayment);
         // Update the order payment method name
@@ -471,7 +477,7 @@ class OrderService
      * @param \Order $order
      * @param Payment $moneiPayment
      */
-    private function updateOrderPaymentDetails($order, $moneiPayment)
+    public function updateOrderPaymentDetails($order, $moneiPayment)
     {
         $orderPayment = $order->getOrderPaymentCollection();
         if (count($orderPayment) > 0) {
