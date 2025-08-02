@@ -1,17 +1,4 @@
 document.addEventListener('DOMContentLoaded', () => {
-    // Check if there's a MONEI error to display
-    if (typeof moneiCheckoutError !== 'undefined' && moneiCheckoutError) {
-        // Show SweetAlert with the error message
-        if (typeof Swal !== 'undefined') {
-            Swal.fire({
-                title: typeof moneiErrorTitle !== 'undefined' ? moneiErrorTitle : 'Payment Error',
-                text: moneiCheckoutError,
-                icon: 'error',
-                confirmButtonText: typeof moneiMsgRetry !== 'undefined' ? moneiMsgRetry : 'OK'
-            });
-        }
-    }
-    
     // support module: onepagecheckoutps - v5 - PresTeamShop
     if (typeof OPC !== typeof undefined) {
         prestashop.on('opc-payment-getPaymentList-complete', (params) => {

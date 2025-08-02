@@ -1643,7 +1643,6 @@ class Monei extends PaymentModule
             'orderTotalPaid' => $order->getTotalPaid() * 100,
             'currencySymbol' => $currency->getSign('right'),
             'currencyIso' => $currency->iso_code,
-            'sweetalert2' => 'https://cdn.jsdelivr.net/npm/sweetalert2@11',
         ]);
 
         return $this->display(__FILE__, 'views/templates/hook/displayAdminOrder.tpl');
@@ -1660,33 +1659,9 @@ class Monei extends PaymentModule
 
         $pageName = $this->context->controller->page_name;
 
-        if ($pageName == 'module-monei-customerCards' || $pageName == 'checkout') {
-            $sweetalert2 = 'https://cdn.jsdelivr.net/npm/sweetalert2@11';
-            $this->context->controller->registerJavascript(
-                sha1($sweetalert2),
-                $sweetalert2,
-                [
-                    'server' => 'remote',
-                    'priority' => 50,
-                    'attribute' => 'defer',
-                ]
-            );
-        }
 
         // Checkout
         if ($pageName == 'checkout') {
-            // Load SweetAlert2 for error popups
-            $sweetalert2 = 'https://cdn.jsdelivr.net/npm/sweetalert2@11';
-            $this->context->controller->registerJavascript(
-                sha1($sweetalert2),
-                $sweetalert2,
-                [
-                    'server' => 'remote',
-                    'priority' => 40,
-                    'attribute' => 'defer',
-                ]
-            );
-            
             $moneiv2 = 'https://js.monei.com/v2/monei.js';
             $this->context->controller->registerJavascript(
                 sha1($moneiv2),
@@ -1702,8 +1677,8 @@ class Monei extends PaymentModule
                 'module-' . $this->name . '-front',
                 'modules/' . $this->name . '/views/js/front/front.js',
                 [
-                    'priority' => 300,
-                    'attribute' => 'async',
+                    'priority' => 100,
+                    'attribute' => 'defer',
                     'position' => 'bottom',
                 ]
             );
@@ -1719,9 +1694,11 @@ class Monei extends PaymentModule
             );
 
             // Check if there's a MONEI error message to display
-            $moneiCheckoutError = '';
             if (!empty($this->context->cookie->monei_checkout_error)) {
                 $moneiCheckoutError = $this->context->cookie->monei_checkout_error;
+                
+                // Use PrestaShop's native error display as primary method
+                $this->context->controller->errors[] = $moneiCheckoutError;
                 
                 // Clear the error from cookie after reading
                 unset($this->context->cookie->monei_checkout_error);
@@ -1730,13 +1707,13 @@ class Monei extends PaymentModule
 
             Media::addJsDef([
                 'moneiProcessing' => $this->l('Processing payment...'),
+                'moneiProcessingPayment' => $this->l('Processing payment...'),
                 'moneiCardHolderNameNotValid' => $this->l('Card holder name is not valid'),
                 'moneiMsgRetry' => $this->l('Retry'),
                 'moneiCardInputStyle' => json_decode(Configuration::get('MONEI_CARD_INPUT_STYLE')),
                 'moneiBizumStyle' => json_decode(Configuration::get('MONEI_BIZUM_STYLE')),
                 'moneiPaymentRequestStyle' => json_decode(Configuration::get('MONEI_PAYMENT_REQUEST_STYLE')),
                 'moneiPayPalStyle' => json_decode(Configuration::get('MONEI_PAYPAL_STYLE')) ?: json_decode('{"height":"42"}'),
-                'moneiCheckoutError' => $moneiCheckoutError,
                 'moneiErrorTitle' => $this->l('Payment Error'),
             ]);
         }
