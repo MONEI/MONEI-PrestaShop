@@ -100,3 +100,8 @@ section.checkout-step .payment-option label {
     height: 1rem;
   }
 }
+
+/* Loading state for payment processing */
+.payment-options.processing {
+  position: relative;
+}

@@ -10,6 +10,7 @@ use Monei\Model\CreatePaymentRequest;
 use Monei\Model\Payment;
 use Monei\Model\PaymentBillingDetails;
 use Monei\Model\PaymentCustomer;
+use Monei\Model\PaymentTransactionType;
 use Monei\Model\RefundPaymentRequest;
 use Monei\MoneiClient;
 use PrestaShop\PrestaShop\Adapter\LegacyContext;
@@ -24,6 +25,9 @@ use PsMonei\Repository\MoneiRefundRepository;
 
 class MoneiService
 {
+    // Payment methods that do not support AUTH transaction type
+    const UNSUPPORTED_AUTH_METHODS = ['mbway', 'multibanco'];
+    
     private $legacyContext;
     private $moneiPaymentRepository;
     private $moneiCustomerCardRepository;
@@ -336,6 +340,7 @@ class MoneiService
         $monei2PaymentEntity->setCurrency($moneiPayment->getCurrency());
         $monei2PaymentEntity->setAuthorizationCode($moneiPayment->getAuthorizationCode());
         $monei2PaymentEntity->setStatus($moneiPayment->getStatus());
+        $monei2PaymentEntity->setStatusCode($moneiPayment->getStatusCode());
         $monei2PaymentEntity->setDateAdd($moneiPayment->getCreatedAt());
         $monei2PaymentEntity->setDateUpd($moneiPayment->getUpdatedAt());
 
@@ -526,6 +531,29 @@ class MoneiService
             if ($monei2CustomerCard) {
                 $createPaymentRequest->setPaymentToken($monei2CustomerCard->getTokenized());
                 $createPaymentRequest->setGeneratePaymentToken(false);
+            }
+        }
+
+        // Set transaction type based on payment action configuration
+        $paymentAction = \Configuration::get('MONEI_PAYMENT_ACTION');
+        if ($paymentAction === 'auth') {
+            // Check if the payment method supports AUTH
+            // MBWay and Multibanco do not support pre-authorization
+            $allowedMethods = $createPaymentRequest->getAllowedPaymentMethods();
+            
+            $hasUnsupportedMethod = false;
+            if (!empty($allowedMethods) && is_array($allowedMethods)) {
+                foreach ($allowedMethods as $method) {
+                    if (in_array($method, self::UNSUPPORTED_AUTH_METHODS)) {
+                        $hasUnsupportedMethod = true;
+                        break;
+                    }
+                }
+            }
+            
+            // Only set AUTH if payment method supports it
+            if (!$hasUnsupportedMethod) {
+                $createPaymentRequest->setTransactionType(PaymentTransactionType::AUTH);
             }
         }
 

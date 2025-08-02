@@ -54,7 +54,7 @@ class MoneiValidationModuleFrontController extends ModuleFrontController
             $moneiPayment = new Payment($json_array);
 
             // Create or update the order
-            $this->module->getService('service.order')->createOrUpdateOrder($moneiPayment->getId());
+            Monei::getService('service.order')->createOrUpdateOrder($moneiPayment->getId());
         } catch (MoneiException $ex) {
             PrestaShopLogger::addLog(
                 'MONEI - Exception - validation.php - postProcess: ' . $ex->getMessage() . ' - ' . $ex->getFile(),

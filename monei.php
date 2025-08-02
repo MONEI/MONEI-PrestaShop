@@ -71,12 +71,15 @@ class Monei extends PaymentModule
         Configuration::updateValue('MONEI_ALLOW_PAYPAL', false);
         Configuration::updateValue('MONEI_ALLOW_MULTIBANCO', false);
         Configuration::updateValue('MONEI_ALLOW_MBWAY', false);
+        // Payment Action
+        Configuration::updateValue('MONEI_PAYMENT_ACTION', 'sale');
         // Status
         Configuration::updateValue('MONEI_STATUS_SUCCEEDED', Configuration::get('PS_OS_PAYMENT'));
         Configuration::updateValue('MONEI_STATUS_FAILED', Configuration::get('PS_OS_ERROR'));
         Configuration::updateValue('MONEI_STATUS_REFUNDED', Configuration::get('PS_OS_REFUND'));
         Configuration::updateValue('MONEI_STATUS_PARTIALLY_REFUNDED', Configuration::get('PS_OS_REFUND'));
         Configuration::updateValue('MONEI_STATUS_PENDING', Configuration::get('PS_OS_PREPARATION'));
+        Configuration::updateValue('MONEI_STATUS_AUTHORIZED', 0);
         Configuration::updateValue('MONEI_SWITCH_REFUNDS', false);
         // Styles
         Configuration::updateValue('MONEI_CARD_INPUT_STYLE', '{"base": {"height": "42px"}, "input": {"background": "none"}}');
@@ -89,6 +92,7 @@ class Monei extends PaymentModule
         $result = parent::install()
             && $this->installOrderState()
             && $this->installAdminTab('AdminMonei', 'MONEI')
+            && $this->installAdminTab('AdminMoneiCapturePayment', 'MONEI Capture Payment')
             && $this->registerHook('actionFrontControllerSetMedia')
             && $this->registerHook('displayCustomerAccount')
             && $this->registerHook('actionDeleteGDPRCustomer')
@@ -171,11 +175,11 @@ class Monei extends PaymentModule
 
             foreach (Language::getLanguages() as $language) {
                 if (Tools::strtolower($language['iso_code']) == 'fr') {
-                    $order_state->name[$language['id_lang']] = 'MONEI - En attente de paiement';
+                    $order_state->name[$language['id_lang']] = 'En attente de paiement';
                 } elseif (in_array(Tools::strtolower($language['iso_code']), $spanish_isos)) {
-                    $order_state->name[$language['id_lang']] = 'MONEI - Pendiente de pago';
+                    $order_state->name[$language['id_lang']] = 'Pendiente de pago';
                 } else {
-                    $order_state->name[$language['id_lang']] = 'MONEI - Awaiting payment';
+                    $order_state->name[$language['id_lang']] = 'Awaiting payment';
                 }
             }
 
@@ -205,6 +209,54 @@ class Monei extends PaymentModule
                     }
                 } else {
                     Configuration::updateValue('MONEI_STATUS_PENDING', (int) $order_state->id);
+                }
+            } else {
+                return false;
+            }
+        }
+
+        // Install authorized order state
+        if ((int) Configuration::get('MONEI_STATUS_AUTHORIZED') === 0) {
+            $order_state = new OrderState();
+            $order_state->name = [];
+            $spanish_isos = ['es', 'mx', 'co', 'pe', 'ar', 'cl', 've', 'py', 'uy', 'bo', 've', 'ag', 'cb'];
+
+            foreach (Language::getLanguages() as $language) {
+                if (Tools::strtolower($language['iso_code']) == 'fr') {
+                    $order_state->name[$language['id_lang']] = 'Paiement autorisé';
+                } elseif (in_array(Tools::strtolower($language['iso_code']), $spanish_isos)) {
+                    $order_state->name[$language['id_lang']] = 'Pago autorizado';
+                } else {
+                    $order_state->name[$language['id_lang']] = 'Payment authorized';
+                }
+            }
+
+            $order_state->send_email = false;
+            $order_state->color = '#4169E1';
+            $order_state->hidden = false;
+            $order_state->delivery = false;
+            $order_state->logable = false;
+            $order_state->invoice = false;
+            $order_state->module_name = $this->name;
+
+            if ($order_state->add()) {
+                $source = _PS_MODULE_DIR_ . $this->name . '/views/img/mini_monei.gif';
+                $destination = _PS_ROOT_DIR_ . '/img/os/' . (int) $order_state->id . '.gif';
+                @copy($source, $destination);
+
+                if (Shop::isFeatureActive()) {
+                    $shops = Shop::getShops();
+                    foreach ($shops as $shop) {
+                        Configuration::updateValue(
+                            'MONEI_STATUS_AUTHORIZED',
+                            (int) $order_state->id,
+                            false,
+                            null,
+                            (int) $shop['id_shop']
+                        );
+                    }
+                } else {
+                    Configuration::updateValue('MONEI_STATUS_AUTHORIZED', (int) $order_state->id);
                 }
             } else {
                 return false;
@@ -274,6 +326,8 @@ class Monei extends PaymentModule
         Configuration::deleteByName('MONEI_ALLOW_PAYPAL');
         Configuration::deleteByName('MONEI_ALLOW_MULTIBANCO');
         Configuration::deleteByName('MONEI_ALLOW_MBWAY');
+        // Payment Action
+        Configuration::deleteByName('MONEI_PAYMENT_ACTION');
         // Status
         Configuration::deleteByName('MONEI_STATUS_SUCCEEDED');
         Configuration::deleteByName('MONEI_STATUS_FAILED');
@@ -281,6 +335,7 @@ class Monei extends PaymentModule
         Configuration::deleteByName('MONEI_STATUS_REFUNDED');
         Configuration::deleteByName('MONEI_STATUS_PARTIALLY_REFUNDED');
         Configuration::deleteByName('MONEI_STATUS_PENDING');
+        Configuration::deleteByName('MONEI_STATUS_AUTHORIZED');
 
         include dirname(__FILE__) . '/sql/uninstall.php';
 
@@ -449,7 +504,7 @@ class Monei extends PaymentModule
                     $this->copyApplePayDomainVerificationFile();
 
                     // Register domain with MONEI
-                    $moneiClient = $this->getService('service.monei')->getMoneiClient();
+                    $moneiClient = self::getService('service.monei')->getMoneiClient();
                     if ($moneiClient) {
                         $domain = str_replace(['www.', 'https://', 'http://'], '', Tools::getShopDomainSsl(false, true));
 
@@ -503,7 +558,7 @@ class Monei extends PaymentModule
     {
         try {
             // Get available payment methods from MONEI API
-            $moneiService = $this->getService('service.monei');
+            $moneiService = self::getService('service.monei');
             if (!$moneiService) {
                 $this->warning[] = $this->l('Unable to access MONEI service.');
 
@@ -604,6 +659,7 @@ class Monei extends PaymentModule
             'MONEI_TEST_ACCOUNT_ID' => Configuration::get('MONEI_TEST_ACCOUNT_ID', ''),
             'MONEI_TEST_API_KEY' => Configuration::get('MONEI_TEST_API_KEY', ''),
             'MONEI_CART_TO_ORDER' => Configuration::get('MONEI_CART_TO_ORDER', true),
+            'MONEI_PAYMENT_ACTION' => Configuration::get('MONEI_PAYMENT_ACTION', 'sale'),
         ];
     }
 
@@ -634,6 +690,7 @@ class Monei extends PaymentModule
             'MONEI_STATUS_PENDING' => Configuration::get('MONEI_STATUS_PENDING', Configuration::get('PS_OS_WS_PAYMENT')),
             'MONEI_STATUS_SUCCEEDED' => Configuration::get('MONEI_STATUS_SUCCEEDED', Configuration::get('PS_OS_PAYMENT')),
             'MONEI_STATUS_FAILED' => Configuration::get('MONEI_STATUS_FAILED', Configuration::get('PS_OS_ERROR')),
+            'MONEI_STATUS_AUTHORIZED' => Configuration::get('MONEI_STATUS_AUTHORIZED', 0),
             'MONEI_SWITCH_REFUNDS' => Configuration::get('MONEI_SWITCH_REFUNDS', false),
             'MONEI_STATUS_REFUNDED' => Configuration::get('MONEI_STATUS_REFUNDED', Configuration::get('PS_OS_REFUND')),
             'MONEI_STATUS_PARTIALLY_REFUNDED' => Configuration::get('MONEI_STATUS_PARTIALLY_REFUNDED', Configuration::get('PS_OS_REFUND')),
@@ -761,6 +818,26 @@ class Monei extends PaymentModule
                                 'value' => false,
                                 'label' => $this->l('Disabled'),
                             ],
+                        ],
+                    ],
+                    [
+                        'type' => 'select',
+                        'label' => $this->l('Payment Action'),
+                        'name' => 'MONEI_PAYMENT_ACTION',
+                        'desc' => $this->l('Choose payment flow: Immediate charge (sale) or Pre-authorization (auth). Pre-authorization is supported for: Card, Apple Pay, Google Pay, PayPal. Not supported for: MBWay, Multibanco.'),
+                        'options' => [
+                            'query' => [
+                                [
+                                    'id' => 'sale',
+                                    'name' => $this->l('Sale (Immediate charge)'),
+                                ],
+                                [
+                                    'id' => 'auth',
+                                    'name' => $this->l('Authorization (Pre-authorization)'),
+                                ],
+                            ],
+                            'id' => 'id',
+                            'name' => 'name',
                         ],
                     ],
                     [
@@ -1104,6 +1181,18 @@ class Monei extends PaymentModule
                         ],
                     ],
                     [
+                        'type' => 'select',
+                        'label' => $this->l('Status for authorized payment'),
+                        'name' => 'MONEI_STATUS_AUTHORIZED',
+                        'required' => true,
+                        'desc' => $this->l('You must select here the status for an authorized (pre-authorized) payment that is not yet captured.'),
+                        'options' => [
+                            'query' => $order_statuses,
+                            'id' => 'id_order_state',
+                            'name' => 'name',
+                        ],
+                    ],
+                    [
                         'type' => 'switch',
                         'label' => $this->l('Change Status for Refunds'),
                         'name' => 'MONEI_SWITCH_REFUNDS',
@@ -1241,7 +1330,7 @@ class Monei extends PaymentModule
         }
 
         try {
-            $this->getService('service.monei')->getMoneiClient();
+            self::getService('service.monei')->getMoneiClient();
         } catch (Exception $e) {
             PrestaShopLogger::addLog(
                 'MONEI - Exception - monei.php - isMoneiAvailable: ' . $e->getMessage() . ' - ' . $e->getFile(),
@@ -1273,7 +1362,7 @@ class Monei extends PaymentModule
             $additionalInformation = $this->fetch('module:monei/views/templates/front/additional_info.tpl');
         }
 
-        $paymentOptionService = $this->getService('service.payment.option');
+        $paymentOptionService = self::getService('service.payment.option');
 
         $paymentOptions = $paymentOptionService->getPaymentOptions();
         if (empty($paymentOptions)) {
@@ -1399,7 +1488,7 @@ class Monei extends PaymentModule
             }
         }
 
-        $moneiService = $this->getService('service.monei');
+        $moneiService = self::getService('service.monei');
         $cartSummaryDetails = $this->context->cart->getSummaryDetails(null, true);
 
         if ($paymentMethodsToDisplay) {
@@ -1431,7 +1520,7 @@ class Monei extends PaymentModule
             return;
         }
 
-        $moneiService = $this->getService('service.monei');
+        $moneiService = self::getService('service.monei');
         $moneiPayment = $moneiService->getMoneiPayment($monei2PaymentEntity->getId());
         if ($moneiPayment
             && $moneiPayment->getPaymentMethod()->getMethod() === PaymentPaymentMethod::METHOD_MULTIBANCO
@@ -1467,7 +1556,7 @@ class Monei extends PaymentModule
         $paymentRefundLogs = [];
 
         // Get payment method formatter service
-        $paymentMethodFormatter = $this->getService('helper.payment_method_formatter');
+        $paymentMethodFormatter = self::getService('helper.payment_method_formatter');
 
         $paymentHistory = $monei2PaymentEntity->getHistoryList();
         if (!$paymentHistory->isEmpty()) {
@@ -1509,9 +1598,42 @@ class Monei extends PaymentModule
             }
         }
 
+        // Check if payment is capturable (AUTHORIZED status and not captured)
+        $isCapturable = $monei2PaymentEntity->getStatus() === 'AUTHORIZED' && !$monei2PaymentEntity->getIsCaptured();
+        $authorizedAmount = $monei2PaymentEntity->getAmount();
+        $authorizedAmountFormatted = $this->formatPrice($authorizedAmount / 100, $currency->iso_code);
+        
+        // Calculate captured and remaining amounts for partial capture
+        $capturedAmount = 0;
+        $remainingAmount = $authorizedAmount / 100; // Convert to currency units
+        
+        // Check if there have been any partial captures
+        if ($monei2PaymentEntity->getIsCaptured() && $monei2PaymentEntity->getStatus() === 'SUCCEEDED') {
+            // If payment is marked as captured and succeeded, it's fully captured
+            $capturedAmount = $authorizedAmount;
+            $remainingAmount = 0;
+        }
+        
+        $capturedAmountFormatted = $this->formatPrice($capturedAmount / 100, $currency->iso_code);
+        $remainingAmountFormatted = $this->formatPrice($remainingAmount, $currency->iso_code);
+        
+        // Generate capture controller link
+        $captureLinkController = $this->context->link->getAdminLink('AdminMoneiCapturePayment');
+
         $this->context->smarty->assign([
             'moneiPayment' => $monei2PaymentEntity->toArrayLegacy(),
             'isRefundable' => $monei2PaymentEntity->isRefundable(),
+            'isCapturable' => $isCapturable,
+            'authorizedAmount' => $authorizedAmount,
+            'authorizedAmountFormatted' => $authorizedAmountFormatted,
+            'capturedAmount' => $capturedAmount,
+            'capturedAmountFormatted' => $capturedAmountFormatted,
+            'remainingAmount' => $remainingAmount,
+            'remainingAmountFormatted' => $remainingAmountFormatted,
+            'captureLinkController' => $captureLinkController,
+            'currencySign' => $currency->getSign('right'),
+            'currencyCode' => $currency->iso_code,
+            'locale' => $this->context->language->locale,
             'remainingAmountToRefund' => $monei2PaymentEntity->getRemainingAmountToRefund(),
             'totalRefundedAmount' => $monei2PaymentEntity->getRefundedAmount(),
             'totalRefundedAmountFormatted' => $this->formatPrice($monei2PaymentEntity->getRefundedAmount(true), $currency->iso_code),
@@ -1521,14 +1643,13 @@ class Monei extends PaymentModule
             'orderTotalPaid' => $order->getTotalPaid() * 100,
             'currencySymbol' => $currency->getSign('right'),
             'currencyIso' => $currency->iso_code,
-            'sweetalert2' => 'https://cdn.jsdelivr.net/npm/sweetalert2@11',
         ]);
 
         return $this->display(__FILE__, 'views/templates/hook/displayAdminOrder.tpl');
     }
 
     /**
-     * Hook to load SweetAlerts on payment return
+     * Hook to display content on payment return
      */
     public function hookActionFrontControllerSetMedia()
     {
@@ -1538,33 +1659,9 @@ class Monei extends PaymentModule
 
         $pageName = $this->context->controller->page_name;
 
-        if ($pageName == 'module-monei-customerCards' || $pageName == 'checkout') {
-            $sweetalert2 = 'https://cdn.jsdelivr.net/npm/sweetalert2@11';
-            $this->context->controller->registerJavascript(
-                sha1($sweetalert2),
-                $sweetalert2,
-                [
-                    'server' => 'remote',
-                    'priority' => 50,
-                    'attribute' => 'defer',
-                ]
-            );
-        }
 
         // Checkout
         if ($pageName == 'checkout') {
-            // Load SweetAlert2 for error popups
-            $sweetalert2 = 'https://cdn.jsdelivr.net/npm/sweetalert2@11';
-            $this->context->controller->registerJavascript(
-                sha1($sweetalert2),
-                $sweetalert2,
-                [
-                    'server' => 'remote',
-                    'priority' => 40,
-                    'attribute' => 'defer',
-                ]
-            );
-            
             $moneiv2 = 'https://js.monei.com/v2/monei.js';
             $this->context->controller->registerJavascript(
                 sha1($moneiv2),
@@ -1580,8 +1677,8 @@ class Monei extends PaymentModule
                 'module-' . $this->name . '-front',
                 'modules/' . $this->name . '/views/js/front/front.js',
                 [
-                    'priority' => 300,
-                    'attribute' => 'async',
+                    'priority' => 100,
+                    'attribute' => 'defer',
                     'position' => 'bottom',
                 ]
             );
@@ -1597,9 +1694,11 @@ class Monei extends PaymentModule
             );
 
             // Check if there's a MONEI error message to display
-            $moneiCheckoutError = '';
             if (!empty($this->context->cookie->monei_checkout_error)) {
                 $moneiCheckoutError = $this->context->cookie->monei_checkout_error;
+                
+                // Use PrestaShop's native error display as primary method
+                $this->context->controller->errors[] = $moneiCheckoutError;
                 
                 // Clear the error from cookie after reading
                 unset($this->context->cookie->monei_checkout_error);
@@ -1608,14 +1707,18 @@ class Monei extends PaymentModule
 
             Media::addJsDef([
                 'moneiProcessing' => $this->l('Processing payment...'),
+                'moneiProcessingPayment' => $this->l('Processing payment...'),
                 'moneiCardHolderNameNotValid' => $this->l('Card holder name is not valid'),
                 'moneiMsgRetry' => $this->l('Retry'),
                 'moneiCardInputStyle' => json_decode(Configuration::get('MONEI_CARD_INPUT_STYLE')),
                 'moneiBizumStyle' => json_decode(Configuration::get('MONEI_BIZUM_STYLE')),
                 'moneiPaymentRequestStyle' => json_decode(Configuration::get('MONEI_PAYMENT_REQUEST_STYLE')),
                 'moneiPayPalStyle' => json_decode(Configuration::get('MONEI_PAYPAL_STYLE')) ?: json_decode('{"height":"42"}'),
-                'moneiCheckoutError' => $moneiCheckoutError,
                 'moneiErrorTitle' => $this->l('Payment Error'),
+                'moneiPaymentCreationFailed' => $this->l('Payment creation failed'),
+                'moneiPaymentProcessed' => $this->l('Payment processed'),
+                'moneiErrorOccurred' => $this->l('An error occurred'),
+                'moneiErrorOccurredWithPayPal' => $this->l('An error occurred with PayPal'),
             ]);
         }
 
@@ -1781,13 +1884,13 @@ class Monei extends PaymentModule
             $refundReason = Tools::getValue('monei_refund_reason', 'requested_by_customer');
 
             // Process the refund through MONEI
-            $moneiService = $this->getService('service.monei');
+            $moneiService = self::getService('service.monei');
             $employeeId = $this->context->employee ? $this->context->employee->id : 0;
 
             $moneiService->createRefund((int) $order->id, $refundAmount, $employeeId, $refundReason);
 
             // Update order status if needed
-            $orderService = $this->getService('service.order');
+            $orderService = self::getService('service.order');
             $orderService->updateOrderStateAfterRefund((int) $order->id);
         } catch (Exception $e) {
             // Log the error but don't interrupt the credit slip creation

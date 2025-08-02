@@ -34,7 +34,7 @@ class MoneiCustomerCardsModuleFrontController extends ModuleFrontController
     private function getCustomerCards(int $customerId): array
     {
         $customerCards = $this->module->getRepository(Monei2CustomerCard::class)->findBy(['id_customer' => $customerId]);
-        $paymentMethodFormatter = $this->module->getService('helper.payment_method_formatter');
+        $paymentMethodFormatter = Monei::getService('helper.payment_method_formatter');
 
         return array_map(function ($card) use ($paymentMethodFormatter) {
             $cardData = $card->toArray();
