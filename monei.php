@@ -1649,7 +1649,7 @@ class Monei extends PaymentModule
     }
 
     /**
-     * Hook to load SweetAlerts on payment return
+     * Hook to display content on payment return
      */
     public function hookActionFrontControllerSetMedia()
     {
@@ -1715,6 +1715,10 @@ class Monei extends PaymentModule
                 'moneiPaymentRequestStyle' => json_decode(Configuration::get('MONEI_PAYMENT_REQUEST_STYLE')),
                 'moneiPayPalStyle' => json_decode(Configuration::get('MONEI_PAYPAL_STYLE')) ?: json_decode('{"height":"42"}'),
                 'moneiErrorTitle' => $this->l('Payment Error'),
+                'moneiPaymentCreationFailed' => $this->l('Payment creation failed'),
+                'moneiPaymentProcessed' => $this->l('Payment processed'),
+                'moneiErrorOccurred' => $this->l('An error occurred'),
+                'moneiErrorOccurredWithPayPal' => $this->l('An error occurred with PayPal'),
             ]);
         }
 
