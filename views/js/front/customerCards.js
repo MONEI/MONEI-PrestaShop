@@ -94,7 +94,13 @@ function ajaxDeleteTokenizedCard(customerCardId, itemCustomerCard) {
             $('#deleteCardModal').modal('hide');
         }
         showNotification('error', MoneiVars.unexpectedError || 'An unexpected error occurred.');
-        console.error('Error:', error);
+        // Only log in development/test environments
+        if (window.location.hostname === 'localhost' || 
+            window.location.hostname.includes('test') || 
+            window.location.hostname.includes('dev') ||
+            window.location.search.includes('debug=1')) {
+            console.error('[MONEI CustomerCards] Failed to delete card:', error);
+        }
     });
 }
 

@@ -6,6 +6,24 @@
   var moneiAmount = {$moneiAmount|intval};
 
   {literal}
+    // Debug logging helper - only logs in development/test mode
+    var moneiLog = function(level, component, message, data) {
+      // Only log if not in production (check for debug mode, test environment, etc.)
+      if (window.location.hostname === 'localhost' || 
+          window.location.hostname.includes('test') || 
+          window.location.hostname.includes('dev') ||
+          window.location.search.includes('debug=1')) {
+        const timestamp = new Date().toISOString();
+        const logMessage = `[MONEI ${timestamp}] [${component}] ${message}`;
+        
+        if (level === 'error') {
+          console.error(logMessage, data || '');
+        } else {
+          console.log(logMessage, data || '');
+        }
+      }
+    };
+    
     // Show loading overlay
     var showMoneiLoading = function() {
       // Create loading overlay
@@ -78,7 +96,7 @@
             body: JSON.stringify({ token: moneiToken }),
           });
 
-          if (!response.ok) throw new Error('Payment creation failed');
+          if (!response.ok) throw new Error(typeof moneiPaymentCreationFailed !== 'undefined' ? moneiPaymentCreationFailed : 'Payment creation failed');
 
           const { moneiPaymentId } = await response.json();
           return moneiPaymentId;
@@ -122,7 +140,7 @@
       } else {
         // Fallback for cases without redirectUrl (shouldn't happen with single complete URL approach)
         hideMoneiLoading();
-        showMoneiError(result.statusMessage || 'Payment processed');
+        showMoneiError(result.statusMessage || (typeof moneiPaymentProcessed !== 'undefined' ? moneiPaymentProcessed : 'Payment processed'));
         if (moneiConfirmationButton) moneiEnableButton(moneiConfirmationButton);
       }
     };
@@ -137,7 +155,7 @@
         showMoneiError(`${error.status} (${error.statusCode}): ${error.message}`);
         if (moneiConfirmationButton) moneiEnableButton(moneiConfirmationButton);
       }
-      console.log('moneiTokenHandler - error', params, error);
+      moneiLog('error', 'TokenHandler', 'Payment error occurred', { params, error });
     };
 
     var moneiValidConditions = () => {
@@ -227,7 +245,7 @@
             },
             onError({status, statusCode, message}) {
               showMoneiError(`${status} (${statusCode}): ${message}`);
-              console.log('onError - Bizum', {status, statusCode, message});
+              moneiLog('error', 'Bizum', `Payment error: ${status} (${statusCode})`, { status, statusCode, message });
             }
           }).render(moneiBizumRenderContainer);
         }
@@ -320,7 +338,7 @@
               moneiCardRenderContainer.classList.add('is-invalid');
               moneiCardErrors.innerHTML = `<div class="alert alert-warning">${error.message}</div>`;
               moneiEnableButton(moneiConfirmationButton);
-              console.log('createToken - Card Input - error', error);
+              moneiLog('error', 'CardInput', 'Failed to create token', error);
             }
           });
         }
@@ -348,7 +366,7 @@
               },
               onError(error) {
                 showMoneiError(`${error.status} (${error.statusCode}): ${error.message}`);
-                console.log('onError - Google Pay', error);
+                moneiLog('error', 'GooglePay', `Payment error: ${error.status} (${error.statusCode})`, error);
               }
             }).render(moneiPaymentRequestRenderContainer);
           }
@@ -377,7 +395,7 @@
               },
               onError(error) {
                 showMoneiError(`${error.status} (${error.statusCode}): ${error.message}`);
-                console.log('onError - Apple Pay', error);
+                moneiLog('error', 'ApplePay', `Payment error: ${error.status} (${error.statusCode})`, error);
               }
             }).render(moneiPaymentRequestRenderContainer);
           }
@@ -422,16 +440,16 @@
             },
             onSubmit(result) {
               if (result.error) {
-                showMoneiError(result.error.message || 'An error occurred with PayPal');
-                console.error('PayPal Error', result.error);
+                showMoneiError(result.error.message || (typeof moneiErrorOccurredWithPayPal !== 'undefined' ? moneiErrorOccurredWithPayPal : 'An error occurred with PayPal'));
+                moneiLog('error', 'PayPal', 'Payment submission error', result.error);
                 processingMoneiPayPalPayment = false;
               } else if (result.token) {
                 moneiTokenHandler({ paymentToken: result.token });
               }
             },
             onError(error) {
-              showMoneiError(`${error.status || 'Error'} ${error.statusCode ? `(${error.statusCode})` : ''}: ${error.message || 'An error occurred with PayPal'}`);
-              console.error('onError - PayPal', error);
+              showMoneiError(`${error.status || (typeof moneiErrorOccurred !== 'undefined' ? moneiErrorOccurred : 'Error')} ${error.statusCode ? `(${error.statusCode})` : ''}: ${error.message || (typeof moneiErrorOccurredWithPayPal !== 'undefined' ? moneiErrorOccurredWithPayPal : 'An error occurred with PayPal')}`);
+              moneiLog('error', 'PayPal', `Payment error: ${error.status || 'Unknown'} ${error.statusCode ? `(${error.statusCode})` : ''}`, error);
               processingMoneiPayPalPayment = false;
             }
           }).render(moneiPayPalRenderContainer);
