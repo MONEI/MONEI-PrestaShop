@@ -12,7 +12,7 @@ class MoneiCreatePaymentModuleFrontController extends ModuleFrontController
             exit;
         }
 
-        $paymentResponse = $this->module->getService('service.monei')->createMoneiPayment(
+        $paymentResponse = Monei::getService('service.monei')->createMoneiPayment(
             $this->context->cart
         );
         if ($paymentResponse) {

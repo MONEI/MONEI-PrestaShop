@@ -42,7 +42,10 @@
                                 <td>{$customerCard.expiration|date_format:'%m/%y'|escape:'html':'UTF-8'}</td>
                                 <td>{$customerCard.dateAdd|escape:'html':'UTF-8'}</td>
                                 <td class="action">
-                                <a href="#" class="btn btn-danger btn-sm" data-customer-card-id="{$customerCard.id|escape:'html':'UTF-8'}"
+                                <a href="#" class="btn btn-danger btn-sm delete-card-btn" 
+                                    data-customer-card-id="{$customerCard.id|escape:'html':'UTF-8'}"
+                                    data-toggle="modal" 
+                                    data-target="#deleteCardModal"
                                     aria-label="{l s='Delete card ending in %s' mod='monei' sprintf=[$customerCard.lastFourWithMask|escape:'html':'UTF-8']}"
                                     title="{l s='Delete card' mod='monei'}">
                                         {if !$isWarehouseInstalled}
@@ -58,6 +61,29 @@
                     {/if}
                 </tbody>
             </table>
+        </div>
+    </div>
+    
+    {* Bootstrap Modal for Delete Confirmation *}
+    <div class="modal fade" id="deleteCardModal" tabindex="-1" role="dialog" aria-labelledby="deleteCardModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-sm modal-dialog-centered" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="deleteCardModalLabel">{l s='Remove Card' mod='monei'}</h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <p>{l s='Are you sure you want to remove this card?' mod='monei'}</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">{l s='Cancel' mod='monei'}</button>
+                    <button type="button" class="btn btn-danger" id="confirmDeleteCard">
+                        {l s='Yes, remove it' mod='monei'}
+                    </button>
+                </div>
+            </div>
         </div>
     </div>
 {/block}

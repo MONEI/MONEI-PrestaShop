@@ -89,3 +89,12 @@ services:
     class: 'PsMonei\Service\Monei\StatusCodeHandler'
     arguments:
       - '@monei.module'
+
+  monei.service.capture:
+    class: 'PsMonei\Service\Monei\CaptureService'
+    arguments:
+      - '@monei.repository.monei_payment'
+      - '@monei.repository.monei_history'
+
+  monei.service.capture_rate_limiter:
+    class: 'PsMonei\Service\Monei\CaptureRateLimiter'

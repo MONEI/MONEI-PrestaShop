@@ -25,4 +25,11 @@ class MoneiException extends \Exception
     const COUNTRY_NOT_FOUND = 118;
     const SAVE_ENTITY_ERROR = 119;
     const REMOVE_ENTITY_ERROR = 120;
+    const PAYMENT_ID_EMPTY = 121;
+    const PAYMENT_ALREADY_CAPTURED = 122;
+    const PAYMENT_NOT_AUTHORIZED = 123;
+    const INVALID_CAPTURE_AMOUNT = 124;
+    const CAPTURE_AMOUNT_EXCEEDS_AUTHORIZED = 125;
+    const CAPTURE_FAILED = 126;
+    const API_KEY_NOT_CONFIGURED = 127;
 }
