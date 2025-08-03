@@ -58,9 +58,8 @@ class MoneiCardlogosModuleFrontController extends ModuleFrontController
 
         // Output SVG
         header('Content-Type: image/svg+xml');
-        header('Cache-Control: no-cache, no-store, must-revalidate');
-        header('Pragma: no-cache');
-        header('Expires: 0');
+        header('Cache-Control: public, max-age=' . self::CACHE_TTL);
+        header('ETag: "' . $cacheKey . '"');
         echo $svgContent;
         exit;
     }
