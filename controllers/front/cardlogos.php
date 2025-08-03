@@ -15,6 +15,16 @@ class MoneiCardlogosModuleFrontController extends ModuleFrontController
         $brands = Tools::getValue('brands', '');
         $brandsArray = array_filter(explode(',', $brands));
 
+        // Validate brand names to prevent directory traversal
+        $allowedBrands = ['visa', 'mastercard', 'amex', 'discover', 'jcb', 'diners', 'unionpay', 
+                         'apple-pay', 'google-pay', 'paypal', 'bizum', 'multibanco', 'mbway'];
+        $brandsArray = array_filter($brandsArray, function($brand) use ($allowedBrands) {
+            return in_array(strtolower(trim($brand)), $allowedBrands);
+        });
+        
+        // Limit number of brands to prevent DoS
+        $brandsArray = array_slice($brandsArray, 0, 10);
+
         if (empty($brandsArray)) {
             // Default to common brands
             $brandsArray = ['visa', 'mastercard'];
@@ -23,8 +33,6 @@ class MoneiCardlogosModuleFrontController extends ModuleFrontController
         // Generate cache key
         sort($brandsArray); // Ensure consistent cache key
         $cacheKey = md5(implode('_', $brandsArray));
-        $cacheDir = $this->getCacheDir();
-        $cacheFile = $cacheDir . $cacheKey . '.svg';
 
         // Check if cached version exists and is fresh
         // Temporarily disabled for testing
