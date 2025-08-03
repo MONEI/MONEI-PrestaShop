@@ -36,12 +36,12 @@ class MoneiCustomerCardsModuleFrontController extends ModuleFrontController
         $customerCards = $this->module->getRepository(Monei2CustomerCard::class)->findBy(['id_customer' => $customerId]);
         $paymentMethodFormatter = Monei::getService('helper.payment_method_formatter');
 
-        return array_map(function ($card) use ($paymentMethodFormatter) {
-            $cardData = $card->toArray();
-            $cardBrand = strtolower($card->getBrand());
+        return array_map(function ($customerCard) use ($paymentMethodFormatter) {
+            $cardData = $customerCard->toArray();
+            $cardBrand = strtolower($customerCard->getBrand());
 
             // Add formatted display and icon
-            $cardData['displayName'] = $paymentMethodFormatter->formatPaymentDisplay('card', $cardBrand, $card->getLastFour());
+            $cardData['displayName'] = $paymentMethodFormatter->formatPaymentDisplay('card', $cardBrand, $customerCard->getLastFour());
             $cardData['iconHtml'] = $paymentMethodFormatter->renderPaymentMethodIcon('card', $cardBrand, [
                 'width' => 48,
                 'height' => 32,

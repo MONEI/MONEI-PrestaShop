@@ -16,12 +16,12 @@ class MoneiCardlogosModuleFrontController extends ModuleFrontController
         $brandsArray = array_filter(explode(',', $brands));
 
         // Validate brand names to prevent directory traversal
-        $allowedBrands = ['visa', 'mastercard', 'amex', 'discover', 'jcb', 'diners', 'unionpay', 
-                         'apple-pay', 'google-pay', 'paypal', 'bizum', 'multibanco', 'mbway'];
-        $brandsArray = array_filter($brandsArray, function($brand) use ($allowedBrands) {
+        $allowedBrands = ['visa', 'mastercard', 'amex', 'discover', 'jcb', 'diners', 'unionpay',
+            'apple-pay', 'google-pay', 'paypal', 'bizum', 'multibanco', 'mbway'];
+        $brandsArray = array_filter($brandsArray, function ($brand) use ($allowedBrands) {
             return in_array(strtolower(trim($brand)), $allowedBrands);
         });
-        
+
         // Limit number of brands to prevent DoS
         $brandsArray = array_slice($brandsArray, 0, 10);
 
