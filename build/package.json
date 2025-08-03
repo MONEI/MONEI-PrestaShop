@@ -32,8 +32,8 @@
     }
   },
   "devDependencies": {
-    "@release-it/bumper": "^3.0.1",
-    "release-it": "^14.12.4",
+    "@release-it/bumper": "^7.0.5",
+    "release-it": "^19.0.4",
     "uglifyjs-folder": "^3.3.0"
   },
   "packageManager": "yarn@4.9.2"
