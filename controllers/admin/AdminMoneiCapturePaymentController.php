@@ -160,7 +160,6 @@ class AdminMoneiCapturePaymentController extends ModuleAdminController
                     $orderService->updateOrderPaymentMethodName($order, $fullPayment);
                     $orderService->updateOrderPaymentDetails($order, $fullPayment);
                 } catch (Exception $e) {
-                } catch (Exception $e) {
                     // Log error but don't fail the capture
                     PrestaShopLogger::addLog(
                         'MONEI - Failed to update payment method details: ' . $e->getMessage(),
