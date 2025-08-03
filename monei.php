@@ -104,7 +104,8 @@ class Monei extends PaymentModule
             && $this->registerHook('displayPaymentReturn')
             && $this->registerHook('actionCustomerLogoutAfter')
             && $this->registerHook('moduleRoutes')
-            && $this->registerHook('actionOrderSlipAdd');
+            && $this->registerHook('actionOrderSlipAdd')
+            && $this->registerHook('actionGetAdminOrderButtons');
 
         // Copy Apple Pay domain verification file to .well-known directory
         if ($result) {
@@ -216,7 +217,8 @@ class Monei extends PaymentModule
         }
 
         // Install authorized order state
-        if ((int) Configuration::get('MONEI_STATUS_AUTHORIZED') === 0) {
+        $authorizedStateId = (int) Configuration::get('MONEI_STATUS_AUTHORIZED');
+        if ($authorizedStateId === 0 || !Validate::isLoadedObject(new OrderState($authorizedStateId))) {
             $order_state = new OrderState();
             $order_state->name = [];
             $spanish_isos = ['es', 'mx', 'co', 'pe', 'ar', 'cl', 've', 'py', 'uy', 'bo', 've', 'ag', 'cb'];
@@ -238,6 +240,11 @@ class Monei extends PaymentModule
             $order_state->logable = false;
             $order_state->invoice = false;
             $order_state->module_name = $this->name;
+
+            // For PrestaShop 8+ compatibility - ensure color is properly formatted
+            if (property_exists($order_state, 'template')) {
+                $order_state->template = '';
+            }
 
             if ($order_state->add()) {
                 $source = _PS_MODULE_DIR_ . $this->name . '/views/img/mini_monei.gif';
@@ -293,16 +300,20 @@ class Monei extends PaymentModule
 
     public function uninstall()
     {
-        // We need to remove the MONEI OrderState
-        if (
-            !Configuration::get('MONEI_STATUS_PENDING')
-            || !Validate::isLoadedObject(new OrderState(Configuration::get('MONEI_STATUS_PENDING')))
-        ) {
-            // Check if some order has this state, then it shouldnt be deleted
-            if (!$this->isMoneiStateUsed()) {
-                $order_state = new OrderState(Configuration::get('MONEI_STATUS_PENDING'));
-                $order_state->delete();
-                Configuration::deleteByName('MONEI_STATUS_PENDING');
+        // Remove MONEI OrderStates
+        $moneiOrderStates = [
+            'MONEI_STATUS_PENDING',
+            'MONEI_STATUS_AUTHORIZED',
+        ];
+
+        foreach ($moneiOrderStates as $stateConfig) {
+            $stateId = Configuration::get($stateConfig);
+            if ($stateId && Validate::isLoadedObject(new OrderState($stateId))) {
+                // Check if some order has this state, then it shouldn't be deleted
+                if (!$this->isMoneiStateUsed($stateId)) {
+                    $order_state = new OrderState($stateId);
+                    $order_state->delete();
+                }
             }
         }
 
@@ -378,10 +389,13 @@ class Monei extends PaymentModule
      *
      * @return bool
      */
-    private function isMoneiStateUsed()
+    private function isMoneiStateUsed($stateId = null)
     {
-        $sql = 'SELECT COUNT(*) FROM ' . _DB_PREFIX_ . 'order_state WHERE id_order_state = '
-            . (int) Configuration::get('MONEI_STATUS_PENDING');
+        if ($stateId === null) {
+            $stateId = Configuration::get('MONEI_STATUS_PENDING');
+        }
+
+        $sql = 'SELECT COUNT(*) FROM ' . _DB_PREFIX_ . 'orders WHERE current_state = ' . (int) $stateId;
 
         return Db::getInstance()->getValue($sql) > 0 ? true : false;
     }
@@ -1346,8 +1360,9 @@ class Monei extends PaymentModule
     /**
      * Get MONEI client instance
      *
-     * @return \Monei\MoneiClient
-     * @throws \PsMonei\Exception\MoneiException
+     * @return Monei\MoneiClient
+     *
+     * @throws PsMonei\Exception\MoneiException
      */
     public function getMoneiClient()
     {
@@ -1613,21 +1628,21 @@ class Monei extends PaymentModule
         $isCapturable = $monei2PaymentEntity->getStatus() === 'AUTHORIZED' && !$monei2PaymentEntity->getIsCaptured();
         $authorizedAmount = $monei2PaymentEntity->getAmount();
         $authorizedAmountFormatted = $this->formatPrice($authorizedAmount / 100, $currency->iso_code);
-        
+
         // Calculate captured and remaining amounts for partial capture
         $capturedAmount = 0;
         $remainingAmount = $authorizedAmount / 100; // Convert to currency units
-        
+
         // Check if there have been any partial captures
         if ($monei2PaymentEntity->getIsCaptured() && $monei2PaymentEntity->getStatus() === 'SUCCEEDED') {
             // If payment is marked as captured and succeeded, it's fully captured
             $capturedAmount = $authorizedAmount;
             $remainingAmount = 0;
         }
-        
+
         $capturedAmountFormatted = $this->formatPrice($capturedAmount / 100, $currency->iso_code);
         $remainingAmountFormatted = $this->formatPrice($remainingAmount, $currency->iso_code);
-        
+
         // Generate capture controller link
         $captureLinkController = $this->context->link->getAdminLink('AdminMoneiCapturePayment');
 
@@ -1670,7 +1685,6 @@ class Monei extends PaymentModule
 
         $pageName = $this->context->controller->page_name;
 
-
         // Checkout
         if ($pageName == 'checkout') {
             $moneiv2 = 'https://js.monei.com/v2/monei.js';
@@ -1707,10 +1721,10 @@ class Monei extends PaymentModule
             // Check if there's a MONEI error message to display
             if (!empty($this->context->cookie->monei_checkout_error)) {
                 $moneiCheckoutError = $this->context->cookie->monei_checkout_error;
-                
+
                 // Use PrestaShop's native error display as primary method
                 $this->context->controller->errors[] = $moneiCheckoutError;
-                
+
                 // Clear the error from cookie after reading
                 unset($this->context->cookie->monei_checkout_error);
                 $this->context->cookie->write();
@@ -2102,5 +2116,50 @@ class Monei extends PaymentModule
         }
 
         return $result;
+    }
+
+    /**
+     * Hook to add capture payment button to order actions
+     *
+     * @param array $params Hook parameters containing order information
+     */
+    public function hookActionGetAdminOrderButtons(array $params)
+    {
+        if (!isset($params['id_order']) || !isset($params['actions_bar_buttons_collection'])) {
+            return;
+        }
+
+        $orderId = (int) $params['id_order'];
+        $bar = $params['actions_bar_buttons_collection'];
+
+        // Check if this order has a MONEI payment
+        $monei2PaymentEntity = $this->getRepository(Monei2Payment::class)->findOneBy(['id_order' => $orderId]);
+        if (!$monei2PaymentEntity) {
+            return;
+        }
+
+        // Check if payment is authorized and not yet captured
+        if ($monei2PaymentEntity->getStatus() !== 'AUTHORIZED' || $monei2PaymentEntity->getIsCaptured()) {
+            return;
+        }
+
+        // Get order currency for amount formatting
+        $order = new Order($orderId);
+        if (!Validate::isLoadedObject($order)) {
+            return;
+        }
+
+        // Create a link to the MONEI payment section
+        $bar->add(
+            new \PrestaShop\PrestaShop\Core\Action\ActionsBarButton(
+                'btn-primary',
+                [
+                    'href' => '#monei-capture-payment-btn',
+                    'onclick' => 'document.getElementById(\'monei-capture-payment-btn\').click(); return false;',
+                    'title' => $this->l('Capture the authorized payment'),
+                ],
+                $this->l('Capture Payment')
+            )
+        );
     }
 }

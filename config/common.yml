@@ -59,6 +59,7 @@ services:
       - '@monei.repository.monei_payment'
       - '@monei.repository.monei_customer_card'
       - '@monei.repository.monei_refund'
+      - '@monei.repository.monei_history'
 
   monei.service.order:
     class: 'PsMonei\Service\Order\OrderService'
@@ -90,11 +91,4 @@ services:
     arguments:
       - '@monei.module'
 
-  monei.service.capture:
-    class: 'PsMonei\Service\Monei\CaptureService'
-    arguments:
-      - '@monei.repository.monei_payment'
-      - '@monei.repository.monei_history'
 
-  monei.service.capture_rate_limiter:
-    class: 'PsMonei\Service\Monei\CaptureRateLimiter'

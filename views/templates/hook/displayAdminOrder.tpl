@@ -19,7 +19,7 @@
                             {/if}
                             <div>
                                 <button type="button" class="btn btn-primary" id="monei-capture-payment-btn" data-order-id="{$orderId|escape:'html':'UTF-8'}" data-max-amount="{$remainingAmount|escape:'html':'UTF-8'}" data-currency-sign="{$currencySign|escape:'html':'UTF-8'}" data-toggle="modal" data-target="#moneiCaptureModal">
-                                    <i class="material-icons">payment</i> {l s='Capture Payment' mod='monei'}
+                                    {l s='Capture Payment' mod='monei'}
                                 </button>
                             </div>
                         </div>
