@@ -6,10 +6,89 @@
   var moneiAmount = {$moneiAmount|intval};
 
   {literal}
+    // Debug logging helper - only logs in development/test mode
+    var moneiLog = function(level, component, message, data) {
+      // Only log if not in production (check for debug mode, test environment, etc.)
+      if (window.location.hostname === 'localhost' || 
+          window.location.hostname.includes('test') || 
+          window.location.hostname.includes('dev') ||
+          window.location.search.includes('debug=1')) {
+        const timestamp = new Date().toISOString();
+        const logMessage = `[MONEI ${timestamp}] [${component}] ${message}`;
+        
+        if (level === 'error') {
+          console.error(logMessage, data || '');
+        } else {
+          console.log(logMessage, data || '');
+        }
+      }
+    };
+    
+    // Show loading overlay
+    var showMoneiLoading = function() {
+      // Create loading overlay
+      const overlay = document.createElement('div');
+      overlay.id = 'monei-loading-overlay';
+      overlay.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 9999; display: flex; align-items: center; justify-content: center;';
+      overlay.innerHTML = '<div style="background: white; padding: 30px; border-radius: 8px; text-align: center; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">' +
+                         '<div style="margin-bottom: 15px;">' +
+                         '<div style="display: inline-block; width: 40px; height: 40px; border: 4px solid #f3f3f3; border-top: 4px solid #007bff; border-radius: 50%; animation: spin 1s linear infinite;"></div>' +
+                         '</div>' +
+                         '<div style="font-size: 16px; color: #333;">' + 
+                         (typeof moneiProcessingPayment !== 'undefined' ? moneiProcessingPayment : 'Processing payment...') + 
+                         '</div></div>';
+      
+      // Add CSS animation
+      const style = document.createElement('style');
+      style.textContent = '@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }';
+      document.head.appendChild(style);
+      
+      document.body.appendChild(overlay);
+      
+      // Also disable payment confirmation button
+      const confirmButton = document.querySelector('#payment-confirmation button[type="submit"]');
+      if (confirmButton) {
+        confirmButton.disabled = true;
+        confirmButton.classList.add('disabled');
+      }
+    };
+    
+    // Hide loading state
+    var hideMoneiLoading = function() {
+      // Remove loading overlay
+      const overlay = document.getElementById('monei-loading-overlay');
+      if (overlay) {
+        overlay.remove();
+      }
+      
+      // Re-enable payment confirmation button
+      const confirmButton = document.querySelector('#payment-confirmation button[type="submit"]');
+      if (confirmButton) {
+        confirmButton.disabled = false;
+        confirmButton.classList.remove('disabled');
+      }
+    };
+    
+    // Show error using PrestaShop's native system
+    var showMoneiError = function(message) {
+      hideMoneiLoading();
+      
+      // Use PrestaShop's notification system if available
+      if (typeof prestashop !== 'undefined' && prestashop.emit) {
+        prestashop.emit('showNotification', {
+          type: 'error',
+          message: message
+        });
+      } else {
+        // Fallback to alert
+        alert(message);
+      }
+    };
+
     var moneiTokenHandler = async (parameters = {}) => {
       const { paymentToken, cardholderName = null, moneiConfirmationButton = null } = parameters;
 
-      const createPayment = async () => {
+      const createMoneiPayment = async () => {
         try {
           const response = await fetch(moneiCreatePaymentUrlController, {
             method: 'POST',
@@ -17,12 +96,12 @@
             body: JSON.stringify({ token: moneiToken }),
           });
 
-          if (!response.ok) throw new Error('Payment creation failed');
+          if (!response.ok) throw new Error(typeof moneiPaymentCreationFailed !== 'undefined' ? moneiPaymentCreationFailed : 'Payment creation failed');
 
           const { moneiPaymentId } = await response.json();
           return moneiPaymentId;
         } catch (error) {
-          Swal.fire({ title: 'Error', text: error.message, icon: 'error' });
+          showMoneiError(error.message);
           throw error;
         }
       };
@@ -35,67 +114,48 @@
       const saveCard = document.getElementById('monei-tokenize-card');
       if (saveCard?.checked) params.generatePaymentToken = true;
 
-      Swal.fire({
-        allowOutsideClick: false,
-        allowEscapeKey: false,
-        showConfirmButton: false,
-        background: 'none',
-        didOpen: async () => {
-          Swal.showLoading();
+      showMoneiLoading();
 
-          try {
-            params.paymentId = await createPayment();
-          } catch (error) {
-            if (moneiConfirmationButton) moneiEnableButton(moneiConfirmationButton);
-            return;
-          }
+      try {
+        params.paymentId = await createMoneiPayment();
+      } catch (error) {
+        if (moneiConfirmationButton) moneiEnableButton(moneiConfirmationButton);
+        return;
+      }
 
-          try {
-            const result = await monei.confirmPayment(params);
-            handleMoneiTokenResult(result, moneiConfirmationButton);
-          } catch (error) {
-            handleMoneiTokenError(error, params, moneiConfirmationButton);
-          }
-        },
-      });
+      try {
+        const result = await monei.confirmPayment(params);
+        handleMoneiTokenResult(result, moneiConfirmationButton);
+      } catch (error) {
+        handleMoneiTokenError(error, params, moneiConfirmationButton);
+      }
     };
 
     var handleMoneiTokenResult = (result, moneiConfirmationButton) => {
       if (result.nextAction?.mustRedirect) {
         location.assign(result.nextAction.redirectUrl);
+      } else if (result.nextAction?.redirectUrl) {
+        // Always redirect to complete URL for unified flow - let confirmation controller handle success/failure
+        location.assign(result.nextAction.redirectUrl);
       } else {
-        const icon = result.status === 'SUCCEEDED' ? 'success' : 'error';
-        if (result.status === 'SUCCEEDED') {
-          location.assign(result.nextAction.redirectUrl);
-        } else {
-          Swal.fire({
-            title: result.status,
-            text: result.statusMessage,
-            icon,
-            allowOutsideClick: false,
-            allowEscapeKey: false,
-            confirmButtonText: moneiMsgRetry,
-            willClose: () => {
-              if (moneiConfirmationButton) moneiEnableButton(moneiConfirmationButton);
-            },
-          });
-        }
+        // Fallback for cases without redirectUrl (shouldn't happen with single complete URL approach)
+        hideMoneiLoading();
+        showMoneiError(result.statusMessage || (typeof moneiPaymentProcessed !== 'undefined' ? moneiPaymentProcessed : 'Payment processed'));
+        if (moneiConfirmationButton) moneiEnableButton(moneiConfirmationButton);
       }
     };
 
     var handleMoneiTokenError = (error, params, moneiConfirmationButton) => {
-      Swal.fire({
-        title: `${error.status} (${error.statusCode})`,
-        text: error.message,
-        icon: 'error',
-        allowOutsideClick: false,
-        allowEscapeKey: false,
-        confirmButtonText: moneiMsgRetry,
-        willClose: () => {
-          if (moneiConfirmationButton) moneiEnableButton(moneiConfirmationButton);
-        },
-      });
-      console.log('moneiTokenHandler - error', params, error);
+      // Check if error response has redirectUrl for unified flow
+      if (error.nextAction?.redirectUrl) {
+        location.assign(error.nextAction.redirectUrl);
+      } else {
+        // Fallback to showing error
+        hideMoneiLoading();
+        showMoneiError(`${error.status} (${error.statusCode}): ${error.message}`);
+        if (moneiConfirmationButton) moneiEnableButton(moneiConfirmationButton);
+      }
+      moneiLog('error', 'TokenHandler', 'Payment error occurred', { params, error });
     };
 
     var moneiValidConditions = () => {
@@ -144,7 +204,7 @@
         <input type="hidden" name="option" value="binary">
         <div class="{$paymentOptionName|escape:'htmlall':'UTF-8'}_render"></div>
         {if $paymentOptionName eq 'monei-card'}
-          <button class="btn btn-primary btn-block" type="submit">
+          <button class="btn btn-primary btn-block w-100 mt-3" type="submit">
             <i class="material-icons">payment</i>
             {l s='Pay' mod='monei'}&nbsp;&nbsp;{$moneiAmountFormatted|escape:'htmlall':'UTF-8'}
           </button>
@@ -184,12 +244,8 @@
               }
             },
             onError({status, statusCode, message}) {
-              Swal.fire({
-                title: `${status} (${statusCode})`,
-                text: message,
-                icon: 'error'
-              });
-              console.log('onError - Bizum', {status, statusCode, message});
+              showMoneiError(`${status} (${statusCode}): ${message}`);
+              moneiLog('error', 'Bizum', `Payment error: ${status} (${statusCode})`, { status, statusCode, message });
             }
           }).render(moneiBizumRenderContainer);
         }
@@ -229,7 +285,22 @@
 
           const moneiCardInput = monei.CardInput({
             accountId: moneiAccountId,
-            onChange: () => { moneiCardErrors.innerHTML = ''; },
+            onFocus: () => {
+              moneiCardRenderContainer.classList.add('is-focused');
+            },
+            onBlur: () => {
+              moneiCardRenderContainer.classList.remove('is-focused');
+            },
+            onChange: (event) => {
+              // Handle real-time validation errors
+              if (event.isTouched && event.error) {
+                moneiCardRenderContainer.classList.add('is-invalid');
+                moneiCardErrors.innerHTML = `<div class="alert alert-warning">${event.error}</div>`;
+              } else {
+                moneiCardRenderContainer.classList.remove('is-invalid');
+                moneiCardErrors.innerHTML = '';
+              }
+            },
             onEnter: () => { moneiConfirmationButton.click(); },
             language: prestashop.language.iso_code,
             style: moneiCardInputStyle || {},
@@ -254,17 +325,20 @@
             try {
               const { token, error } = await monei.createToken(moneiCardInput);
               if (!token) {
+                moneiCardRenderContainer.classList.add('is-invalid');
                 moneiCardErrors.innerHTML = `<div class="alert alert-warning">${error}</div>`;
                 moneiEnableButton(moneiConfirmationButton);
                 return;
               }
 
+              moneiCardRenderContainer.classList.remove('is-invalid');
               moneiCardErrors.innerHTML = '';
               await moneiTokenHandler({ paymentToken: token, cardholderName: moneiCardHolderName.value, moneiConfirmationButton });
             } catch (error) {
+              moneiCardRenderContainer.classList.add('is-invalid');
               moneiCardErrors.innerHTML = `<div class="alert alert-warning">${error.message}</div>`;
               moneiEnableButton(moneiConfirmationButton);
-              console.log('createToken - Card Input - error', error);
+              moneiLog('error', 'CardInput', 'Failed to create token', error);
             }
           });
         }
@@ -291,8 +365,8 @@
                 if (result.token) moneiTokenHandler({ paymentToken: result.token });
               },
               onError(error) {
-                Swal.fire({ title: `${error.status} (${error.statusCode})`, text: error.message, icon: 'error' });
-                console.log('onError - Google Pay', error);
+                showMoneiError(`${error.status} (${error.statusCode}): ${error.message}`);
+                moneiLog('error', 'GooglePay', `Payment error: ${error.status} (${error.statusCode})`, error);
               }
             }).render(moneiPaymentRequestRenderContainer);
           }
@@ -320,19 +394,65 @@
                 if (result.token) moneiTokenHandler({ paymentToken: result.token });
               },
               onError(error) {
-                Swal.fire({ title: `${error.status} (${error.statusCode})`, text: error.message, icon: 'error' });
-                console.log('onError - Apple Pay', error);
+                showMoneiError(`${error.status} (${error.statusCode}): ${error.message}`);
+                moneiLog('error', 'ApplePay', `Payment error: ${error.status} (${error.statusCode})`, error);
               }
             }).render(moneiPaymentRequestRenderContainer);
           }
         } else {
           const moneiPaymentOption = document.querySelector('input[name="payment-option"][data-module-name="monei-applePay"]');
           if (moneiPaymentOption) {
-              const moneiPaymentOptionParent = moneiPaymentOption.closest('.payment-option');
+              const moneiPaymentOptionParent = moneiPaymentOption.closest('.payment-option, .payment__option');
               if (moneiPaymentOptionParent) {
                   moneiPaymentOptionParent.style.setProperty('display', 'none', 'important');
               }
           }
+        }
+      </script>
+    {/literal}
+  {elseif $paymentOptionName eq 'monei-paypal'}
+    {literal}
+      <script>
+        var processingMoneiPayPalPayment = false;
+
+        function initMoneiPayPal() {
+          const moneiPayPalButtonsContainer = document.getElementById('monei-paypal-buttons-container');
+          if (!moneiPayPalButtonsContainer) return;
+
+          const moneiPayPalRenderContainer = moneiPayPalButtonsContainer.querySelector('.monei-paypal_render');
+          if (!moneiPayPalRenderContainer) return;
+
+          monei.PayPal({
+            accountId: moneiAccountId,
+            language: prestashop.language.iso_code,
+            style: moneiPayPalStyle || {},
+            amount: moneiAmount,
+            currency: moneiCurrency,
+            onLoad() {
+              processingMoneiPayPalPayment = false;
+            },
+            onBeforeOpen() {
+              if (!moneiValidConditions() || processingMoneiPayPalPayment) {
+                return false;
+              }
+              processingMoneiPayPalPayment = true;
+              return true;
+            },
+            onSubmit(result) {
+              if (result.error) {
+                showMoneiError(result.error.message || (typeof moneiErrorOccurredWithPayPal !== 'undefined' ? moneiErrorOccurredWithPayPal : 'An error occurred with PayPal'));
+                moneiLog('error', 'PayPal', 'Payment submission error', result.error);
+                processingMoneiPayPalPayment = false;
+              } else if (result.token) {
+                moneiTokenHandler({ paymentToken: result.token });
+              }
+            },
+            onError(error) {
+              showMoneiError(`${error.status || (typeof moneiErrorOccurred !== 'undefined' ? moneiErrorOccurred : 'Error')} ${error.statusCode ? `(${error.statusCode})` : ''}: ${error.message || (typeof moneiErrorOccurredWithPayPal !== 'undefined' ? moneiErrorOccurredWithPayPal : 'An error occurred with PayPal')}`);
+              moneiLog('error', 'PayPal', `Payment error: ${error.status || 'Unknown'} ${error.statusCode ? `(${error.statusCode})` : ''}`, error);
+              processingMoneiPayPalPayment = false;
+            }
+          }).render(moneiPayPalRenderContainer);
         }
       </script>
     {/literal}
