@@ -62,8 +62,7 @@ class MoneiConfirmationModuleFrontController extends ModuleFrontController
                 $this->context->cookie->write();
 
                 Tools::redirect($this->context->link->getPageLink('order'));
-
-                return;
+                exit;
             }
 
             // Route based on payment status
@@ -100,6 +99,7 @@ class MoneiConfirmationModuleFrontController extends ModuleFrontController
             $this->context->cookie->write();
 
             Tools::redirect($this->context->link->getPageLink('order'));
+            exit;
         }
     }
 
