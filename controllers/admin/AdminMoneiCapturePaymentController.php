@@ -4,7 +4,6 @@ if (!defined('_PS_VERSION_')) {
     exit;
 }
 
-use PrestaShop\PrestaShop\Adapter\ServiceLocator;
 use PsMonei\Exception\MoneiException;
 
 class AdminMoneiCapturePaymentController extends ModuleAdminController
@@ -14,9 +13,9 @@ class AdminMoneiCapturePaymentController extends ModuleAdminController
         $this->module = 'monei';
         $this->table = false;
         $this->className = '';
-        
+
         parent::__construct();
-        
+
         $this->bootstrap = true;
         $this->ajax = true;
         $this->display = 'ajax';
@@ -29,15 +28,16 @@ class AdminMoneiCapturePaymentController extends ModuleAdminController
         }
         parent::initContent();
     }
-    
+
     public function postProcess()
     {
         if (Tools::getValue('ajax')) {
             $action = Tools::getValue('action');
-            
+
             switch ($action) {
                 case 'capturePayment':
                     $this->ajaxProcessCapturePayment();
+
                     break;
                 default:
                     die(json_encode([
@@ -47,7 +47,7 @@ class AdminMoneiCapturePaymentController extends ModuleAdminController
             }
         }
     }
-    
+
     public function renderView()
     {
         // This controller is only meant for AJAX requests
@@ -61,7 +61,7 @@ class AdminMoneiCapturePaymentController extends ModuleAdminController
         if (!$this->module) {
             $this->module = Module::getInstanceByName('monei');
         }
-        
+
         // Check permissions
         if (!$this->access('edit')) {
             die(json_encode([
@@ -110,7 +110,7 @@ class AdminMoneiCapturePaymentController extends ModuleAdminController
             $orderService = Monei::getService('service.order');
             $moneiService = Monei::getService('service.monei');
             $rateLimiter = Monei::getService('service.capture_rate_limiter');
-            
+
             // Check rate limiting
             if (!$rateLimiter->isAllowed($orderId)) {
                 $remainingAttempts = $rateLimiter->getRemainingAttempts($orderId);
@@ -120,16 +120,16 @@ class AdminMoneiCapturePaymentController extends ModuleAdminController
                     'remaining_attempts' => $remainingAttempts,
                 ]));
             }
-            
+
             // Record the attempt
             $rateLimiter->recordAttempt($orderId);
-            
+
             // Convert amount to cents for MONEI API
             $amountInCents = (int) round($amount * 100);
-            
+
             // Capture the payment
             $capturedPayment = $captureService->capturePayment($orderId, $amountInCents);
-            
+
             // Update order status to payment accepted and update payment details
             $order = new Order($orderId);
             if (Validate::isLoadedObject($order)) {
@@ -138,7 +138,7 @@ class AdminMoneiCapturePaymentController extends ModuleAdminController
                     $order->setCurrentState($newOrderStatus);
                     $order->save();
                 }
-                
+
                 // Update order payment amount to reflect actual captured amount
                 $orderPayments = $order->getOrderPaymentCollection();
                 if (count($orderPayments) > 0) {
@@ -146,14 +146,14 @@ class AdminMoneiCapturePaymentController extends ModuleAdminController
                     $orderPayment->amount = $amount; // Update to captured amount
                     $orderPayment->update();
                 }
-                
+
                 // Fetch full payment details from MONEI to get payment method information
                 try {
                     $fullPayment = $moneiService->getMoneiPayment($capturedPayment->getId());
                     // Update payment method details from MONEI payment
                     $orderService->updateOrderPaymentMethodName($order, $fullPayment);
                     $orderService->updateOrderPaymentDetails($order, $fullPayment);
-                } catch (\Exception $e) {
+                } catch (Exception $e) {
                     // Log error but don't fail the capture
                     PrestaShopLogger::addLog(
                         'MONEI - Failed to update payment method details: ' . $e->getMessage(),
@@ -161,7 +161,7 @@ class AdminMoneiCapturePaymentController extends ModuleAdminController
                     );
                 }
             }
-            
+
             die(json_encode([
                 'success' => true,
                 'message' => $this->module->l('Payment captured successfully'),
@@ -176,7 +176,7 @@ class AdminMoneiCapturePaymentController extends ModuleAdminController
                 'MoneiCapturePaymentController',
                 $orderId
             );
-            
+
             die(json_encode([
                 'success' => false,
                 'message' => $this->getErrorMessage($e),
@@ -189,7 +189,7 @@ class AdminMoneiCapturePaymentController extends ModuleAdminController
                 'MoneiCapturePaymentController',
                 $orderId
             );
-            
+
             die(json_encode([
                 'success' => false,
                 'message' => $this->module->l('An unexpected error occurred while capturing the payment'),
@@ -201,6 +201,7 @@ class AdminMoneiCapturePaymentController extends ModuleAdminController
      * Get user-friendly error message based on exception
      *
      * @param MoneiException $exception
+     *
      * @return string
      */
     private function getErrorMessage(MoneiException $exception)
