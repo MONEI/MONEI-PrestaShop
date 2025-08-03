@@ -12,6 +12,7 @@ use Monei\Model\PaymentBillingDetails;
 use Monei\Model\PaymentCustomer;
 use Monei\Model\PaymentTransactionType;
 use Monei\Model\RefundPaymentRequest;
+use Monei\Model\CapturePaymentRequest;
 use Monei\MoneiClient;
 use PrestaShop\PrestaShop\Adapter\LegacyContext;
 use PsMonei\Entity\Monei2CustomerCard;
@@ -22,6 +23,7 @@ use PsMonei\Exception\MoneiException;
 use PsMonei\Repository\MoneiCustomerCardRepository;
 use PsMonei\Repository\MoneiPaymentRepository;
 use PsMonei\Repository\MoneiRefundRepository;
+use PsMonei\Repository\MoneiHistoryRepository;
 
 class MoneiService
 {
@@ -32,6 +34,7 @@ class MoneiService
     private $moneiPaymentRepository;
     private $moneiCustomerCardRepository;
     private $moneiRefundRepository;
+    private $moneiHistoryRepository;
 
     /**
      * Static cache of payment methods to avoid repeated API calls within a single request
@@ -50,11 +53,13 @@ class MoneiService
         MoneiPaymentRepository $moneiPaymentRepository,
         MoneiCustomerCardRepository $moneiCustomerCardRepository,
         MoneiRefundRepository $moneiRefundRepository,
+        MoneiHistoryRepository $moneiHistoryRepository
     ) {
         $this->legacyContext = $legacyContext;
         $this->moneiPaymentRepository = $moneiPaymentRepository;
         $this->moneiCustomerCardRepository = $moneiCustomerCardRepository;
         $this->moneiRefundRepository = $moneiRefundRepository;
+        $this->moneiHistoryRepository = $moneiHistoryRepository;
     }
 
     public function getMoneiClient()
@@ -516,10 +521,9 @@ class MoneiService
                     $createPaymentRequest->setAllowedPaymentMethods([$mappedMethod]);
                 }
             }
-        } else {
-            // Fallback to all available methods if no specific method is provided (legacy behavior)
-            $createPaymentRequest->setAllowedPaymentMethods($this->getPaymentMethodsAvailable());
         }
+        // Note: When no specific payment method is provided, we don't set allowedPaymentMethods
+        // This allows MONEI to handle all available methods on their end
 
         // Set the payment token
         if ($tokenizeCard) {
@@ -536,27 +540,25 @@ class MoneiService
             }
         }
 
-        // Set transaction type based on payment action configuration
+        // Set transaction type based on payment action configuration (matching Magento logic)
         $paymentAction = \Configuration::get('MONEI_PAYMENT_ACTION');
+        
         if ($paymentAction === 'auth') {
-            // Check if the payment method supports AUTH
-            // MBWay and Multibanco do not support pre-authorization
             $allowedMethods = $createPaymentRequest->getAllowedPaymentMethods();
             
-            $hasUnsupportedMethod = false;
-            if (!empty($allowedMethods) && is_array($allowedMethods)) {
-                foreach ($allowedMethods as $method) {
-                    if (in_array($method, self::UNSUPPORTED_AUTH_METHODS)) {
-                        $hasUnsupportedMethod = true;
-                        break;
-                    }
-                }
-            }
+            // Only check for unsupported methods if allowed methods are explicitly set
+            // If no methods are specified (null/empty), all methods are available so use AUTH
+            $hasUnsupportedMethod = $allowedMethods && 
+                is_array($allowedMethods) && 
+                !empty(array_intersect($allowedMethods, self::UNSUPPORTED_AUTH_METHODS));
             
-            // Only set AUTH if payment method supports it
             if (!$hasUnsupportedMethod) {
                 $createPaymentRequest->setTransactionType(PaymentTransactionType::AUTH);
             }
+            // Note: If unsupported methods are found, transaction type remains default (SALE)
+        } else {
+            // Default to SALE for immediate charge
+            $createPaymentRequest->setTransactionType(PaymentTransactionType::SALE);
         }
 
         try {
@@ -619,5 +621,67 @@ class MoneiService
         }
 
         $this->saveMoneiPayment($moneiPayment, $orderId, $employeeId);
+    }
+
+    public function capturePayment(int $orderId, int $amount)
+    {
+        $moneiPayment = $this->moneiPaymentRepository->findOneBy(['id_order' => $orderId]);
+        if (!$moneiPayment) {
+            throw new MoneiException('Payment record not found for order', MoneiException::ORDER_NOT_FOUND);
+        }
+
+        $paymentId = $moneiPayment->getId();
+        if (empty($paymentId)) {
+            throw new MoneiException('Payment ID is empty', MoneiException::PAYMENT_ID_EMPTY);
+        }
+
+        if ($moneiPayment->getStatus() === 'SUCCEEDED' || $moneiPayment->getIsCaptured()) {
+            throw new MoneiException('Payment is already captured', MoneiException::PAYMENT_ALREADY_CAPTURED);
+        }
+
+        if ($moneiPayment->getStatus() !== 'AUTHORIZED') {
+            throw new MoneiException('Payment is not in authorized state', MoneiException::PAYMENT_NOT_AUTHORIZED);
+        }
+
+        if ($amount <= 0) {
+            throw new MoneiException('Capture amount must be greater than zero', MoneiException::INVALID_CAPTURE_AMOUNT);
+        }
+
+        if ($amount > $moneiPayment->getAmount()) {
+            throw new MoneiException('Capture amount exceeds authorized amount', MoneiException::CAPTURE_AMOUNT_EXCEEDS_AUTHORIZED);
+        }
+
+        $captureRequest = new CapturePaymentRequest();
+        $captureRequest->setAmount($amount);
+
+        try {
+            $capturedPayment = $this->getMoneiClient()->payments->capture($paymentId, $captureRequest);
+        } catch (\Exception $ex) {
+            \PrestaShopLogger::addLog(
+                'MONEI - Exception - MoneiService.php - capturePayment: ' . $ex->getMessage(),
+                \PrestaShopLogger::LOG_SEVERITY_LEVEL_ERROR
+            );
+
+            throw new MoneiException('Failed to capture payment: ' . $ex->getMessage(), MoneiException::CAPTURE_FAILED);
+        }
+
+        $moneiPayment->setStatus($capturedPayment->getStatus());
+        $moneiPayment->setStatusCode($capturedPayment->getStatusCode());
+        $moneiPayment->setAuthorizationCode($capturedPayment->getAuthorizationCode());
+        $moneiPayment->setIsCaptured(true);
+        $moneiPayment->setDateUpd(time());
+
+        $this->moneiPaymentRepository->save($moneiPayment);
+
+        $monei2History = new \PsMonei\Entity\Monei2History();
+        $monei2History->setPayment($moneiPayment);
+        $monei2History->setStatus($capturedPayment->getStatus());
+        $monei2History->setStatusCode($capturedPayment->getStatusCode());
+        $monei2History->setResponse(json_encode($capturedPayment));
+        $monei2History->setDateAdd(new \DateTime());
+
+        $this->moneiHistoryRepository->save($monei2History);
+
+        return $capturedPayment;
     }
 }

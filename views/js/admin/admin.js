@@ -189,11 +189,94 @@
         }
     };
 
+    // Capture payment handler
+    const capturePaymentHandler = {
+        init: function() {
+            $(document).on('click', '.monei-capture-payment-btn', this.handleCaptureClick);
+        },
+
+        handleCaptureClick: function(e) {
+            e.preventDefault();
+            
+            const $btn = $(this);
+            const orderId = $btn.data('order-id');
+            const amount = $btn.data('amount');
+            const amountFormatted = $btn.data('amount-formatted');
+            const captureUrl = $btn.data('capture-url');
+
+            if (!orderId || !amount || !captureUrl) {
+                alert('Missing required data for capture operation');
+                return;
+            }
+
+            // Confirm the capture action
+            if (!confirm(`Are you sure you want to capture this payment?\n\nAmount: ${amountFormatted}\nOrder ID: ${orderId}`)) {
+                return;
+            }
+
+            // Disable button and show loading state
+            const originalText = $btn.html();
+            $btn.prop('disabled', true).html('<i class="icon-spinner icon-spin"></i> Capturing...');
+
+            // Make AJAX request to capture the payment
+            $.ajax({
+                url: captureUrl,
+                type: 'POST',
+                data: {
+                    ajax: true,
+                    action: 'capturePayment',
+                    id_order: orderId,
+                    amount: amount
+                },
+                success: function(response) {
+                    try {
+                        const result = typeof response === 'string' ? JSON.parse(response) : response;
+                        
+                        if (result.success) {
+                            // Show success message
+                            if (typeof showSuccessMessage === 'function') {
+                                showSuccessMessage(result.message);
+                            } else {
+                                alert('Success: ' + result.message);
+                            }
+                            
+                            // Remove the capture button as payment is now captured
+                            $btn.closest('.btn-group').fadeOut();
+                            
+                            // Optionally reload the page to show updated status
+                            setTimeout(function() {
+                                window.location.reload();
+                            }, 1500);
+                        } else {
+                            // Show error message
+                            if (typeof showErrorMessage === 'function') {
+                                showErrorMessage(result.message);
+                            } else {
+                                alert('Error: ' + result.message);
+                            }
+                            
+                            // Restore button
+                            $btn.prop('disabled', false).html(originalText);
+                        }
+                    } catch (e) {
+                        alert('Error processing response: ' + e.message);
+                        $btn.prop('disabled', false).html(originalText);
+                    }
+                },
+                error: function(xhr, status, error) {
+                    alert('AJAX Error: ' + error);
+                    $btn.prop('disabled', false).html(originalText);
+                }
+            });
+        }
+    };
+
     // Inicialización
     $(document).ready(function() {
         productionModeHandler.init();
         jsonViewerHandler.init();
         creditSlipHandler.init();
+        capturePaymentHandler.init();
     });
 
 })(jQuery);
