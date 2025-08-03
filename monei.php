@@ -2151,7 +2151,7 @@ class Monei extends PaymentModule
 
         // Create a link to the MONEI payment section
         $bar->add(
-            new \PrestaShop\PrestaShop\Core\Action\ActionsBarButton(
+            new PrestaShop\PrestaShop\Core\Action\ActionsBarButton(
                 'btn-primary',
                 [
                     'href' => '#monei-capture-payment-btn',
