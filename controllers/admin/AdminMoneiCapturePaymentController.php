@@ -32,6 +32,14 @@ class AdminMoneiCapturePaymentController extends ModuleAdminController
     public function postProcess()
     {
         if (Tools::getValue('ajax')) {
+            // Validate admin token for CSRF protection
+            if (!$this->checkToken()) {
+                die(json_encode([
+                    'success' => false,
+                    'message' => $this->module->l('Invalid security token'),
+                ]));
+            }
+
             $action = Tools::getValue('action');
 
             switch ($action) {
