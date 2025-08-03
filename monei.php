@@ -163,13 +163,80 @@ class Monei extends PaymentModule
     }
 
     /**
+     * Find existing order state by name in default language
+     *
+     * @param string $name Name to search for in default language
+     * @return int|false Order state ID if found, false otherwise
+     */
+    private function findOrderStateByName($name)
+    {
+        try {
+            $defaultLangId = (int) Configuration::get('PS_LANG_DEFAULT');
+            
+            // Map of English names to their translations
+            $nameMap = [
+                'Awaiting payment' => ['en' => 'Awaiting payment', 'es' => 'Pendiente de pago', 'fr' => 'En attente de paiement'],
+                'Payment authorized' => ['en' => 'Payment authorized', 'es' => 'Pago autorizado', 'fr' => 'Paiement autorisé'],
+            ];
+            
+            // Build query to search for any of the translated names
+            $names = [];
+            if (isset($nameMap[$name])) {
+                $names = array_values($nameMap[$name]);
+            } else {
+                $names = [$name];
+            }
+            
+            $sql = 'SELECT DISTINCT os.`id_order_state` 
+                    FROM `' . _DB_PREFIX_ . 'order_state` os
+                    LEFT JOIN `' . _DB_PREFIX_ . 'order_state_lang` osl 
+                        ON (os.`id_order_state` = osl.`id_order_state`)
+                    WHERE osl.`name` IN (' . implode(',', array_map(function($n) { return '\'' . pSQL($n) . '\''; }, $names)) . ')
+                        AND os.`module_name` = \'' . pSQL($this->name) . '\'
+                    ORDER BY os.`id_order_state` ASC
+                    LIMIT 1';
+            
+            PrestaShopLogger::addLog(
+                'MONEI - findOrderStateByName - SQL: ' . $sql,
+                PrestaShopLogger::LOG_SEVERITY_LEVEL_INFORMATIVE
+            );
+            
+            return Db::getInstance()->getValue($sql);
+        } catch (\Exception $e) {
+            PrestaShopLogger::addLog(
+                'MONEI - findOrderStateByName - Error: ' . $e->getMessage(),
+                PrestaShopLogger::LOG_SEVERITY_LEVEL_ERROR
+            );
+            return false;
+        }
+    }
+
+    /**
      * Create order state
      *
      * @return bool
      */
     private function installOrderState()
     {
-        if ((int) Configuration::get('MONEI_STATUS_PENDING') === 0) {
+        PrestaShopLogger::addLog(
+            'MONEI - installOrderState - Starting order state installation',
+            PrestaShopLogger::LOG_SEVERITY_LEVEL_INFORMATIVE
+        );
+        
+        // Check for existing "Awaiting payment" state
+        $existingPendingStateId = $this->findOrderStateByName('Awaiting payment');
+        PrestaShopLogger::addLog(
+            'MONEI - installOrderState - Existing pending state ID: ' . ($existingPendingStateId ?: 'none'),
+            PrestaShopLogger::LOG_SEVERITY_LEVEL_INFORMATIVE
+        );
+        
+        if ($existingPendingStateId) {
+            Configuration::updateValue('MONEI_STATUS_PENDING', (int) $existingPendingStateId);
+            PrestaShopLogger::addLog(
+                'MONEI - Using existing pending order state ID: ' . $existingPendingStateId,
+                PrestaShopLogger::LOG_SEVERITY_LEVEL_INFORMATIVE
+            );
+        } elseif ((int) Configuration::get('MONEI_STATUS_PENDING') === 0) {
             $order_state = new OrderState();
             $order_state->name = [];
             $spanish_isos = ['es', 'mx', 'co', 'pe', 'ar', 'cl', 've', 'py', 'uy', 'bo', 've', 'ag', 'cb'];
@@ -217,8 +284,21 @@ class Monei extends PaymentModule
         }
 
         // Install authorized order state
-        $authorizedStateId = (int) Configuration::get('MONEI_STATUS_AUTHORIZED');
-        if ($authorizedStateId === 0 || !Validate::isLoadedObject(new OrderState($authorizedStateId))) {
+        $existingAuthorizedStateId = $this->findOrderStateByName('Payment authorized');
+        PrestaShopLogger::addLog(
+            'MONEI - installOrderState - Existing authorized state ID: ' . ($existingAuthorizedStateId ?: 'none'),
+            PrestaShopLogger::LOG_SEVERITY_LEVEL_INFORMATIVE
+        );
+        
+        if ($existingAuthorizedStateId) {
+            Configuration::updateValue('MONEI_STATUS_AUTHORIZED', (int) $existingAuthorizedStateId);
+            PrestaShopLogger::addLog(
+                'MONEI - Using existing authorized order state ID: ' . $existingAuthorizedStateId,
+                PrestaShopLogger::LOG_SEVERITY_LEVEL_INFORMATIVE
+            );
+        } else {
+            $authorizedStateId = (int) Configuration::get('MONEI_STATUS_AUTHORIZED');
+            if ($authorizedStateId === 0 || !Validate::isLoadedObject(new OrderState($authorizedStateId))) {
             $order_state = new OrderState();
             $order_state->name = [];
             $spanish_isos = ['es', 'mx', 'co', 'pe', 'ar', 'cl', 've', 'py', 'uy', 'bo', 've', 'ag', 'cb'];
@@ -267,6 +347,7 @@ class Monei extends PaymentModule
                 }
             } else {
                 return false;
+            }
             }
         }
 
@@ -1883,16 +1964,16 @@ class Monei extends PaymentModule
             $productList = $params['productList'];
             $qtyList = $params['qtyList'];
 
-            // Get MONEI payment ID from order
-            $paymentId = $order->id_monei_payment_id;
-            if (empty($paymentId)) {
-                // Try to get from payment entity
-                $moneiPayment = $this->getRepository(Monei2Payment::class)->findOneBy(['id_order' => $order->id]);
-                if (!$moneiPayment) {
-                    return; // Not a MONEI order, skip
-                }
-                $paymentId = $moneiPayment->getId();
+            // Get MONEI payment from repository
+            $moneiPayment = $this->getRepository(Monei2Payment::class)->findOneBy(['id_order' => $order->id]);
+            if (!$moneiPayment) {
+                PrestaShopLogger::addLog(
+                    'MONEI - hookActionOrderSlipAdd - No MONEI payment found for order ID: ' . $order->id,
+                    PrestaShopLogger::LOG_SEVERITY_LEVEL_INFORMATIVE
+                );
+                return; // Not a MONEI order, skip
             }
+            $paymentId = $moneiPayment->getId();
 
             // Get the order slip that was just created
             $orderSlips = OrderSlip::getOrdersSlip($order->id_customer, $order->id);
@@ -1905,6 +1986,13 @@ class Monei extends PaymentModule
             // Calculate refund amount from the order slip
             $refundAmount = (int) round($currentSlip['amount'] * 100); // Convert to cents
 
+            PrestaShopLogger::addLog(
+                'MONEI - hookActionOrderSlipAdd - Processing refund for order ID: ' . $order->id 
+                . ', Payment ID: ' . $paymentId 
+                . ', Amount: ' . $refundAmount . ' cents',
+                PrestaShopLogger::LOG_SEVERITY_LEVEL_INFORMATIVE
+            );
+
             // Get refund reason from POST data or default to requested_by_customer
             $refundReason = Tools::getValue('monei_refund_reason', 'requested_by_customer');
 
@@ -1913,6 +2001,11 @@ class Monei extends PaymentModule
             $employeeId = $this->context->employee ? $this->context->employee->id : 0;
 
             $moneiService->createRefund((int) $order->id, $refundAmount, $employeeId, $refundReason);
+            
+            PrestaShopLogger::addLog(
+                'MONEI - hookActionOrderSlipAdd - Refund processed successfully for order ID: ' . $order->id,
+                PrestaShopLogger::LOG_SEVERITY_LEVEL_INFORMATIVE
+            );
 
             // Update order status if needed
             $orderService = self::getService('service.order');
