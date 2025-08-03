@@ -1,8 +1,7 @@
 <?php
-use Monei\ApiException;
-use Monei\CoreClasses\Monei;
-use Monei\Model\MoneiPaymentStatus;
+use Monei\Model\PaymentStatus;
 use PrestaShop\PrestaShop\Adapter\ServiceLocator;
+use PsMonei\Exception\MoneiException;
 
 if (!defined('_PS_VERSION_')) {
     exit;
@@ -14,99 +13,68 @@ class MoneiRedirectModuleFrontController extends ModuleFrontController
 
     public function postProcess()
     {
-        if (Tools::getValue('action') === 'error') {
-            return $this->displayError();
-        }
-
         $transactionId = Tools::getValue('transaction_id');
         $tokenizeCard = (bool) Tools::getValue('tokenize_card', false);
         $moneiCardId = (int) Tools::getValue('id_monei_card', 0);
+        $paymentMethod = Tools::getValue('method', '');
 
         $crypto = ServiceLocator::get('\\PrestaShop\\PrestaShop\\Core\\Crypto\\Hashing');
         $cart = $this->context->cart;
         $check_encrypt = $crypto->checkHash((int) $cart->id . (int) $cart->id_customer, $transactionId);
 
-        if ($cart->id_customer == 0 ||
-            $cart->id_address_delivery == 0 ||
-            $cart->id_address_invoice == 0 ||
-            !$this->module->active
+        if ($cart->id_customer == 0
+            || $cart->id_address_delivery == 0
+            || $cart->id_address_invoice == 0
+            || !$this->module->active
         ) {
             Tools::redirect($this->context->link->getPageLink('index'));
         }
 
         try {
             if (!$check_encrypt) {
-                throw new ApiException('Invalid crypto hash');
+                throw new MoneiException('Invalid crypto hash', MoneiException::INVALID_CRYPTO_HASH);
             }
 
-            $moneiPayment = $this->module->createPayment($tokenizeCard, $moneiCardId);
+            $moneiService = Monei::getService('service.monei');
+
+            $moneiPayment = $moneiService->createMoneiPayment($cart, $tokenizeCard, $moneiCardId, $paymentMethod);
             if (!$moneiPayment) {
                 Tools::redirect($this->context->link->getPageLink('order'));
             }
 
-            $moneiOrderId = $moneiPayment->getOrderId();
-            $moneiId = Monei::getIdByInternalOrder($moneiOrderId);
-
             // Convert the cart to order
             $orderState = new OrderState(Configuration::get('MONEI_STATUS_PENDING'));
             if (Configuration::get('MONEI_CART_TO_ORDER') && Validate::isLoadedObject($orderState)) {
-                $customer = new Customer($cart->id_customer);
-                $currency = new Currency($this->context->cart->id_currency);
-                $currency_decimals = is_array($currency) ?
-                    (int)$currency['decimals'] : (int) $currency->decimals;
-                $cart_details = $this->context->cart->getSummaryDetails(null, true);
-                $decimals = $currency_decimals * _PS_PRICE_DISPLAY_PRECISION_;
-                $shipping = $cart_details['total_shipping_tax_exc'];
-                $subtotal = $cart_details['total_price_without_tax'] -
-                    $cart_details['total_shipping_tax_exc'];
-                $total_tax = $cart_details['total_tax'];
-                $total_price = Tools::ps_round($shipping + $subtotal + $total_tax, $decimals);
-                $amount = (int) number_format($total_price, 2, '', '');
-
-                $paymentMethod = Tools::getValue('method', 'card');
-
-                $this->module->validateOrder(
-                    $cart->id,
-                    $orderState->id,
-                    $amount / 100,
-                    'MONEI ' . $paymentMethod,
-                    null,
-                    array(),
-                    $cart->id_currency,
-                    false,
-                    $customer->secure_key
-                );
-
-                // Check id_order and save it
-                $orderId = (int) Order::getIdByCartId($cart->id);
-                if ($orderId) {
-                    $monei = new Monei($moneiId);
-                    $monei->id_order = $orderId;
-                    $monei->save();
-                }
+                $orderService = Monei::getService('service.order');
+                $orderService->createOrUpdateOrder($moneiPayment->getId());
             }
 
-            if ($moneiPayment->getNextAction()->getMustRedirect()) {
-                $redirectURL = $moneiPayment->getNextAction()->getRedirectUrl();
-                if ($moneiPayment->getStatus() === MoneiPaymentStatus::FAILED) {
+            if ($redirectURL = $moneiPayment->getNextAction()->getRedirectUrl()) {
+                if ($moneiPayment->getStatus() === PaymentStatus::FAILED) {
+                    // Store status code for failed payments before redirect
+                    if ($moneiPayment->getStatusCode()) {
+                        $this->context->cookie->monei_error_code = $moneiPayment->getStatusCode();
+                    }
                     $redirectURL .= '&message=' . $moneiPayment->getStatusMessage();
                 }
 
                 Tools::redirect($redirectURL);
             }
-        } catch (ApiException $ex) {
-            $this->context->cookie->monei_error = 'API: ' . $ex->getMessage();
-            Tools::redirect($this->context->link->getModuleLink($this->module->name, 'errors'));
         } catch (Exception $ex) {
+            // Store the exception message for technical errors
             $this->context->cookie->monei_error = $ex->getMessage();
+
+            // If it's a MoneiException with a payment response, try to extract status code
+            if ($ex instanceof MoneiException && method_exists($ex, 'getPaymentData')) {
+                $paymentData = $ex->getPaymentData();
+                if ($paymentData && isset($paymentData['statusCode'])) {
+                    $this->context->cookie->monei_error_code = $paymentData['statusCode'];
+                }
+            }
+
             Tools::redirect($this->context->link->getModuleLink($this->module->name, 'errors'));
         }
 
         exit;
-    }
-
-    protected function displayError()
-    {
-        return $this->setTemplate('error.tpl');
     }
 }
