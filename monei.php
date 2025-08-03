@@ -587,6 +587,11 @@ class Monei extends PaymentModule
 
             $unavailableMethods = [];
 
+            // First, preserve all form values including redirect settings
+            foreach (array_keys($form_values) as $configKey) {
+                $form_values[$configKey] = Tools::getValue($configKey);
+            }
+
             // Check each enabled payment method
             foreach ($paymentMethodMap as $configKey => $methodCode) {
                 $isEnabled = Tools::getValue($configKey);
@@ -1346,8 +1351,9 @@ class Monei extends PaymentModule
     /**
      * Get MONEI client instance
      *
-     * @return \Monei\MoneiClient
-     * @throws \PsMonei\Exception\MoneiException
+     * @return Monei\MoneiClient
+     *
+     * @throws PsMonei\Exception\MoneiException
      */
     public function getMoneiClient()
     {
@@ -1613,21 +1619,21 @@ class Monei extends PaymentModule
         $isCapturable = $monei2PaymentEntity->getStatus() === 'AUTHORIZED' && !$monei2PaymentEntity->getIsCaptured();
         $authorizedAmount = $monei2PaymentEntity->getAmount();
         $authorizedAmountFormatted = $this->formatPrice($authorizedAmount / 100, $currency->iso_code);
-        
+
         // Calculate captured and remaining amounts for partial capture
         $capturedAmount = 0;
         $remainingAmount = $authorizedAmount / 100; // Convert to currency units
-        
+
         // Check if there have been any partial captures
         if ($monei2PaymentEntity->getIsCaptured() && $monei2PaymentEntity->getStatus() === 'SUCCEEDED') {
             // If payment is marked as captured and succeeded, it's fully captured
             $capturedAmount = $authorizedAmount;
             $remainingAmount = 0;
         }
-        
+
         $capturedAmountFormatted = $this->formatPrice($capturedAmount / 100, $currency->iso_code);
         $remainingAmountFormatted = $this->formatPrice($remainingAmount, $currency->iso_code);
-        
+
         // Generate capture controller link
         $captureLinkController = $this->context->link->getAdminLink('AdminMoneiCapturePayment');
 
@@ -1670,7 +1676,6 @@ class Monei extends PaymentModule
 
         $pageName = $this->context->controller->page_name;
 
-
         // Checkout
         if ($pageName == 'checkout') {
             $moneiv2 = 'https://js.monei.com/v2/monei.js';
@@ -1707,10 +1712,10 @@ class Monei extends PaymentModule
             // Check if there's a MONEI error message to display
             if (!empty($this->context->cookie->monei_checkout_error)) {
                 $moneiCheckoutError = $this->context->cookie->monei_checkout_error;
-                
+
                 // Use PrestaShop's native error display as primary method
                 $this->context->controller->errors[] = $moneiCheckoutError;
-                
+
                 // Clear the error from cookie after reading
                 unset($this->context->cookie->monei_checkout_error);
                 $this->context->cookie->write();

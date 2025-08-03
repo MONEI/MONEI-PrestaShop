@@ -9,8 +9,8 @@ if (!defined('_PS_VERSION_')) {
 use Monei\Model\CapturePaymentRequest;
 use Monei\Model\Payment;
 use PsMonei\Exception\MoneiException;
-use PsMonei\Repository\MoneiPaymentRepository;
 use PsMonei\Repository\MoneiHistoryRepository;
+use PsMonei\Repository\MoneiPaymentRepository;
 
 class CaptureService extends AbstractApiService
 {
@@ -19,7 +19,7 @@ class CaptureService extends AbstractApiService
 
     public function __construct(
         MoneiPaymentRepository $moneiPaymentRepository,
-        MoneiHistoryRepository $moneiHistoryRepository
+        MoneiHistoryRepository $moneiHistoryRepository,
     ) {
         $this->moneiPaymentRepository = $moneiPaymentRepository;
         $this->moneiHistoryRepository = $moneiHistoryRepository;
@@ -30,7 +30,9 @@ class CaptureService extends AbstractApiService
      *
      * @param int $orderId The PrestaShop order ID
      * @param int|null $amount Amount to capture in cents (null for full amount)
+     *
      * @return Payment The captured payment
+     *
      * @throws MoneiException
      */
     public function capturePayment(int $orderId, ?int $amount = null)
@@ -47,6 +49,7 @@ class CaptureService extends AbstractApiService
                 '[Capture] Payment record not found for order: ' . $orderId,
                 \PrestaShopLogger::LOG_SEVERITY_LEVEL_ERROR
             );
+
             throw new MoneiException('Payment record not found for order', MoneiException::ORDER_NOT_FOUND);
         }
 
@@ -56,6 +59,7 @@ class CaptureService extends AbstractApiService
                 '[Capture] Payment ID is empty for order: ' . $orderId,
                 \PrestaShopLogger::LOG_SEVERITY_LEVEL_ERROR
             );
+
             throw new MoneiException('Payment ID is empty', MoneiException::PAYMENT_ID_EMPTY);
         }
 
@@ -67,10 +71,11 @@ class CaptureService extends AbstractApiService
         // Check if payment is already captured (both by status and is_captured flag)
         if ($moneiPayment->getStatus() === 'SUCCEEDED' || $moneiPayment->getIsCaptured()) {
             \PrestaShopLogger::addLog(
-                '[Capture] Payment already captured - Order: ' . $orderId . ', Payment ID: ' . $paymentId . 
-                ', Status: ' . $moneiPayment->getStatus() . ', IsCaptured: ' . ($moneiPayment->getIsCaptured() ? 'true' : 'false'),
+                '[Capture] Payment already captured - Order: ' . $orderId . ', Payment ID: ' . $paymentId
+                . ', Status: ' . $moneiPayment->getStatus() . ', IsCaptured: ' . ($moneiPayment->getIsCaptured() ? 'true' : 'false'),
                 \PrestaShopLogger::LOG_SEVERITY_LEVEL_INFORMATIVE
             );
+
             throw new MoneiException('Payment is already captured', MoneiException::PAYMENT_ALREADY_CAPTURED);
         }
 
@@ -80,6 +85,7 @@ class CaptureService extends AbstractApiService
                 '[Capture] Payment not in authorized state - Order: ' . $orderId . ', Status: ' . $moneiPayment->getStatus(),
                 \PrestaShopLogger::LOG_SEVERITY_LEVEL_WARNING
             );
+
             throw new MoneiException('Payment is not in authorized state', MoneiException::PAYMENT_NOT_AUTHORIZED);
         }
 
@@ -111,12 +117,13 @@ class CaptureService extends AbstractApiService
             'Capture',
             function () use ($paymentId, $captureRequest) {
                 $moneiClient = $this->getMoneiClient();
+
                 return $moneiClient->payments->capture($paymentId, $captureRequest);
             },
             [
                 'order_id' => $orderId,
                 'payment_id' => $paymentId,
-                'amount' => $amount
+                'amount' => $amount,
             ]
         );
 
@@ -135,7 +142,6 @@ class CaptureService extends AbstractApiService
 
         return $capturedPayment;
     }
-
 
     /**
      * Update payment record after capture

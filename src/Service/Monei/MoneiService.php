@@ -27,7 +27,7 @@ class MoneiService
 {
     // Payment methods that do not support AUTH transaction type
     const UNSUPPORTED_AUTH_METHODS = ['mbway', 'multibanco'];
-    
+
     private $legacyContext;
     private $moneiPaymentRepository;
     private $moneiCustomerCardRepository;
@@ -70,8 +70,8 @@ class MoneiService
         }
 
         $client = new MoneiClient($apiKey);
-        $client->setUserAgent('MONEI/PrestaShop/' . _PS_VERSION_);
-        
+        $client->setUserAgent('MONEI/PrestaShop/' . \Module::getInstanceByName('monei')->version);
+
         return $client;
     }
 
@@ -293,8 +293,14 @@ class MoneiService
             'MONEI_ALLOW_MBWAY' => 'mbway',
         ];
 
+        $paymentAction = \Configuration::get('MONEI_PAYMENT_ACTION');
+
         foreach ($allowedMethods as $configKey => $method) {
             if (\Configuration::get($configKey)) {
+                // If payment action is 'auth', exclude methods that don't support AUTH
+                if ($paymentAction === 'auth' && in_array($method, self::UNSUPPORTED_AUTH_METHODS)) {
+                    continue; // Skip unsupported AUTH methods
+                }
                 $paymentMethods[] = $method;
             }
         }
@@ -508,9 +514,9 @@ class MoneiService
                 'applePay' => 'applePay',
                 'googlePay' => 'googlePay',
             ];
-            
-            // Only set allowedPaymentMethods for specific redirect payment methods
-            if (in_array($paymentMethod, ['multibanco', 'mbway', 'paypal'])) {
+
+            // Only set allowedPaymentMethods for redirect payment methods
+            if (in_array($paymentMethod, ['multibanco', 'mbway', 'paypal', 'card', 'bizum'])) {
                 $mappedMethod = $paymentMethodMap[$paymentMethod] ?? null;
                 if ($mappedMethod) {
                     $createPaymentRequest->setAllowedPaymentMethods([$mappedMethod]);
@@ -538,21 +544,23 @@ class MoneiService
 
         // Set transaction type based on payment action configuration
         $paymentAction = \Configuration::get('MONEI_PAYMENT_ACTION');
+
         if ($paymentAction === 'auth') {
             // Check if the payment method supports AUTH
             // MBWay and Multibanco do not support pre-authorization
             $allowedMethods = $createPaymentRequest->getAllowedPaymentMethods();
-            
+
             $hasUnsupportedMethod = false;
             if (!empty($allowedMethods) && is_array($allowedMethods)) {
                 foreach ($allowedMethods as $method) {
                     if (in_array($method, self::UNSUPPORTED_AUTH_METHODS)) {
                         $hasUnsupportedMethod = true;
+
                         break;
                     }
                 }
             }
-            
+
             // Only set AUTH if payment method supports it
             if (!$hasUnsupportedMethod) {
                 $createPaymentRequest->setTransactionType(PaymentTransactionType::AUTH);

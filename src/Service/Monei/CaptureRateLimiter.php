@@ -19,13 +19,14 @@ class CaptureRateLimiter
      * Check if capture attempt is allowed
      *
      * @param int $orderId
+     *
      * @return bool
      */
     public function isAllowed(int $orderId): bool
     {
         $key = self::CACHE_KEY_PREFIX . $orderId;
         $attempts = $this->getAttempts($key);
-        
+
         return $attempts < self::MAX_ATTEMPTS;
     }
 
@@ -38,7 +39,7 @@ class CaptureRateLimiter
     {
         $key = self::CACHE_KEY_PREFIX . $orderId;
         $attempts = $this->getAttempts($key);
-        
+
         $this->setAttempts($key, $attempts + 1);
     }
 
@@ -46,13 +47,14 @@ class CaptureRateLimiter
      * Get remaining attempts
      *
      * @param int $orderId
+     *
      * @return int
      */
     public function getRemainingAttempts(int $orderId): int
     {
         $key = self::CACHE_KEY_PREFIX . $orderId;
         $attempts = $this->getAttempts($key);
-        
+
         return max(0, self::MAX_ATTEMPTS - $attempts);
     }
 
@@ -60,6 +62,7 @@ class CaptureRateLimiter
      * Get attempts from cache
      *
      * @param string $key
+     *
      * @return int
      */
     private function getAttempts(string $key): int
@@ -69,14 +72,14 @@ class CaptureRateLimiter
             $cached = \Cache::getInstance()->get($key);
             if ($cached !== false) {
                 $data = json_decode($cached, true);
-                if ($data && isset($data['attempts']) && isset($data['expires'])) {
+                if ($data && isset($data['attempts'], $data['expires'])) {
                     if ($data['expires'] > time()) {
                         return (int) $data['attempts'];
                     }
                 }
             }
         }
-        
+
         return 0;
     }
 
@@ -91,9 +94,9 @@ class CaptureRateLimiter
         if (class_exists('Cache')) {
             $data = [
                 'attempts' => $attempts,
-                'expires' => time() + self::WINDOW_SECONDS
+                'expires' => time() + self::WINDOW_SECONDS,
             ];
-            
+
             \Cache::getInstance()->set($key, json_encode($data));
         }
     }

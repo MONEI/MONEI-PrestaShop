@@ -21,14 +21,16 @@ abstract class AbstractApiService
      * Get MONEI client instance
      *
      * @param bool|null $forceMode Optional: true for production, false for test, null for configured mode
+     *
      * @return MoneiClient
+     *
      * @throws MoneiException
      */
     protected function getMoneiClient(?bool $forceMode = null)
     {
         $isLiveMode = $forceMode ?? (bool) \Configuration::get('MONEI_PRODUCTION_MODE');
-        $apiKey = $isLiveMode 
-            ? \Configuration::get('MONEI_API_KEY') 
+        $apiKey = $isLiveMode
+            ? \Configuration::get('MONEI_API_KEY')
             : \Configuration::get('MONEI_TEST_API_KEY');
 
         if (empty($apiKey)) {
@@ -37,7 +39,7 @@ abstract class AbstractApiService
 
         $client = new MoneiClient($apiKey);
         $client->setUserAgent('MONEI/PrestaShop/' . _PS_VERSION_);
-        
+
         return $client;
     }
 
@@ -47,13 +49,15 @@ abstract class AbstractApiService
      * @param string $operation Name of the operation (for logging)
      * @param callable $apiCall Callable that performs the API call
      * @param array $logContext Additional context data for logging
+     *
      * @return mixed Response from the API call
+     *
      * @throws MoneiException
      */
     protected function executeApiCall(string $operation, callable $apiCall, array $logContext = [])
     {
         $startTime = microtime(true);
-        
+
         // Log the API request
         \PrestaShopLogger::addLog(
             sprintf('[%s] API Request - Context: %s', $operation, json_encode($logContext)),
@@ -62,19 +66,19 @@ abstract class AbstractApiService
 
         try {
             $result = $apiCall();
-            
+
             $executionTime = round((microtime(true) - $startTime) * 1000, 2);
-            
+
             // Log successful response
             \PrestaShopLogger::addLog(
                 sprintf('[%s] API Response - Success (%.2fms)', $operation, $executionTime),
                 \PrestaShopLogger::LOG_SEVERITY_LEVEL_INFORMATIVE
             );
-            
+
             return $result;
         } catch (\Monei\ApiException $e) {
             $executionTime = round((microtime(true) - $startTime) * 1000, 2);
-            
+
             // Log API error with details
             \PrestaShopLogger::addLog(
                 sprintf(
@@ -87,14 +91,14 @@ abstract class AbstractApiService
                 ),
                 \PrestaShopLogger::LOG_SEVERITY_LEVEL_ERROR
             );
-            
+
             throw new MoneiException(
                 sprintf('MONEI API error: %s', $e->getMessage()),
                 MoneiException::CAPTURE_FAILED
             );
         } catch (\Exception $e) {
             $executionTime = round((microtime(true) - $startTime) * 1000, 2);
-            
+
             // Log unexpected error
             \PrestaShopLogger::addLog(
                 sprintf(
@@ -107,7 +111,7 @@ abstract class AbstractApiService
                 ),
                 \PrestaShopLogger::LOG_SEVERITY_LEVEL_ERROR
             );
-            
+
             throw new MoneiException(
                 sprintf('Unexpected error in %s: %s', $operation, $e->getMessage()),
                 MoneiException::CAPTURE_FAILED
@@ -120,6 +124,7 @@ abstract class AbstractApiService
      *
      * @param array $data Data to validate
      * @param array $requiredParams List of required parameters
+     *
      * @throws MoneiException If validation fails
      */
     protected function validateParams(array $data, array $requiredParams): void
@@ -138,6 +143,7 @@ abstract class AbstractApiService
      * Sanitize error message for logging
      *
      * @param string $message Error message to sanitize
+     *
      * @return string Sanitized message
      */
     protected function sanitizeErrorMessage(string $message): string
@@ -149,7 +155,7 @@ abstract class AbstractApiService
             '/sk_[a-zA-Z0-9]{32}/' => 'sk_[REDACTED]',
             '/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}/i' => '[UUID_REDACTED]',
         ];
-        
+
         return preg_replace(array_keys($patterns), array_values($patterns), $message);
     }
 }

@@ -63,15 +63,15 @@ class MoneiRedirectModuleFrontController extends ModuleFrontController
         } catch (Exception $ex) {
             // Store the exception message for technical errors
             $this->context->cookie->monei_error = $ex->getMessage();
-            
+
             // If it's a MoneiException with a payment response, try to extract status code
-            if ($ex instanceof \PsMonei\Exception\MoneiException && method_exists($ex, 'getPaymentData')) {
+            if ($ex instanceof MoneiException && method_exists($ex, 'getPaymentData')) {
                 $paymentData = $ex->getPaymentData();
                 if ($paymentData && isset($paymentData['statusCode'])) {
                     $this->context->cookie->monei_error_code = $paymentData['statusCode'];
                 }
             }
-            
+
             Tools::redirect($this->context->link->getModuleLink($this->module->name, 'errors'));
         }
 

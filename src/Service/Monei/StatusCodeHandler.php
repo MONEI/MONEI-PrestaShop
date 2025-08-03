@@ -10,16 +10,16 @@ use Monei;
 class StatusCodeHandler
 {
     /**
-     * @var Monei
+     * @var \Monei
      */
     private $module;
 
     /**
      * StatusCodeHandler constructor.
      *
-     * @param Monei $module
+     * @param \Monei $module
      */
-    public function __construct(Monei $module)
+    public function __construct(\Monei $module)
     {
         $this->module = $module;
     }
@@ -28,6 +28,7 @@ class StatusCodeHandler
      * Get a localized status message for a status code
      *
      * @param string $statusCode
+     *
      * @return string
      */
     public function getStatusMessage(string $statusCode): string
@@ -225,6 +226,7 @@ class StatusCodeHandler
      * Check if a status code indicates success
      *
      * @param string|null $statusCode
+     *
      * @return bool
      */
     public function isSuccessCode(?string $statusCode): bool
@@ -236,6 +238,7 @@ class StatusCodeHandler
      * Check if a status code indicates an error
      *
      * @param string|null $statusCode
+     *
      * @return bool
      */
     public function isErrorCode(?string $statusCode): bool
@@ -247,6 +250,7 @@ class StatusCodeHandler
      * Extract status code from payment data
      *
      * @param array $data
+     *
      * @return string|null
      */
     public function extractStatusCodeFromData(array $data): ?string
@@ -272,6 +276,7 @@ class StatusCodeHandler
      * Extract status message from payment data
      *
      * @param array $data
+     *
      * @return string|null
      */
     public function extractStatusMessageFromData(array $data): ?string

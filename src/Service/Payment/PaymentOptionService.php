@@ -168,18 +168,17 @@ class PaymentOptionService
             ];
 
             if ($this->configuration->get('MONEI_CARD_WITH_REDIRECT')) {
-                if ($this->configuration->get('MONEI_TOKENIZE')) {
-                    $redirectUrl = $this->context->link->getModuleLink('monei', 'redirect', [
-                        'method' => 'card',
-                        'transaction_id' => $this->getTransactionId(),
-                    ]);
-                    $smarty->assign([
-                        'link_create_payment' => $redirectUrl,
-                        'module_dir' => _MODULE_DIR_ . 'monei/',
-                    ]);
+                $redirectUrl = $this->context->link->getModuleLink('monei', 'redirect', [
+                    'method' => 'card',
+                    'transaction_id' => $this->getTransactionId(),
+                ]);
+                $smarty->assign([
+                    'link_create_payment' => $redirectUrl,
+                    'module_dir' => _MODULE_DIR_ . 'monei/',
+                    'payment_method' => 'card',
+                ]);
 
-                    $paymentOption['form'] = $smarty->fetch('module:monei/views/templates/hook/paymentOptions.tpl');
-                }
+                $paymentOption['form'] = $smarty->fetch('module:monei/views/templates/hook/paymentOptions.tpl');
             } else {
                 $smarty->assign([
                     'isCustomerLogged' => \Validate::isLoadedObject($customer),
@@ -243,11 +242,28 @@ class PaymentOptionService
     private function getBizumPaymentOption()
     {
         if ($this->configuration->get('MONEI_ALLOW_BIZUM') && $this->isPaymentMethodAllowed(PaymentPaymentMethod::METHOD_BIZUM)) {
-            $this->paymentOptions[] = [
+            $paymentOption = [
                 'name' => 'bizum',
                 'logo' => $this->getIconPath('bizum'),
                 'binary' => (bool) !$this->configuration->get('MONEI_BIZUM_WITH_REDIRECT'),
             ];
+
+            if ($this->configuration->get('MONEI_BIZUM_WITH_REDIRECT')) {
+                $redirectUrl = $this->context->link->getModuleLink('monei', 'redirect', [
+                    'method' => 'bizum',
+                    'transaction_id' => $this->getTransactionId(),
+                ]);
+                $smarty = $this->context->smarty;
+                $smarty->assign([
+                    'link_create_payment' => $redirectUrl,
+                    'module_dir' => _MODULE_DIR_ . 'monei/',
+                    'payment_method' => 'bizum',
+                ]);
+
+                $paymentOption['form'] = $smarty->fetch('module:monei/views/templates/hook/paymentOptions.tpl');
+            }
+
+            $this->paymentOptions[] = $paymentOption;
         }
     }
 
