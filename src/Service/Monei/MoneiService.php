@@ -6,13 +6,13 @@ if (!defined('_PS_VERSION_')) {
     exit;
 }
 
+use Monei\Model\CapturePaymentRequest;
 use Monei\Model\CreatePaymentRequest;
 use Monei\Model\Payment;
 use Monei\Model\PaymentBillingDetails;
 use Monei\Model\PaymentCustomer;
 use Monei\Model\PaymentTransactionType;
 use Monei\Model\RefundPaymentRequest;
-use Monei\Model\CapturePaymentRequest;
 use Monei\MoneiClient;
 use PrestaShop\PrestaShop\Adapter\LegacyContext;
 use PsMonei\Entity\Monei2CustomerCard;
@@ -21,15 +21,15 @@ use PsMonei\Entity\Monei2Payment;
 use PsMonei\Entity\Monei2Refund;
 use PsMonei\Exception\MoneiException;
 use PsMonei\Repository\MoneiCustomerCardRepository;
+use PsMonei\Repository\MoneiHistoryRepository;
 use PsMonei\Repository\MoneiPaymentRepository;
 use PsMonei\Repository\MoneiRefundRepository;
-use PsMonei\Repository\MoneiHistoryRepository;
 
 class MoneiService
 {
     // Payment methods that do not support AUTH transaction type
     const UNSUPPORTED_AUTH_METHODS = ['mbway', 'multibanco'];
-    
+
     private $legacyContext;
     private $moneiPaymentRepository;
     private $moneiCustomerCardRepository;
@@ -53,7 +53,7 @@ class MoneiService
         MoneiPaymentRepository $moneiPaymentRepository,
         MoneiCustomerCardRepository $moneiCustomerCardRepository,
         MoneiRefundRepository $moneiRefundRepository,
-        MoneiHistoryRepository $moneiHistoryRepository
+        MoneiHistoryRepository $moneiHistoryRepository,
     ) {
         $this->legacyContext = $legacyContext;
         $this->moneiPaymentRepository = $moneiPaymentRepository;
@@ -76,7 +76,7 @@ class MoneiService
 
         $client = new MoneiClient($apiKey);
         $client->setUserAgent('MONEI/PrestaShop/' . _PS_VERSION_);
-        
+
         return $client;
     }
 
@@ -513,7 +513,7 @@ class MoneiService
                 'applePay' => 'applePay',
                 'googlePay' => 'googlePay',
             ];
-            
+
             // Only set allowedPaymentMethods for specific redirect payment methods
             if (in_array($paymentMethod, ['multibanco', 'mbway', 'paypal'])) {
                 $mappedMethod = $paymentMethodMap[$paymentMethod] ?? null;
@@ -542,20 +542,20 @@ class MoneiService
 
         // Set transaction type based on payment action configuration (matching Magento logic)
         $paymentAction = \Configuration::get('MONEI_PAYMENT_ACTION');
-        
+
         if ($paymentAction === 'auth') {
             $allowedMethods = $createPaymentRequest->getAllowedPaymentMethods();
-            
+
             // Only check for unsupported methods if allowed methods are explicitly set
             // If no methods are specified (null/empty), all methods are available so use AUTH
-            $hasUnsupportedMethod = $allowedMethods && 
-                is_array($allowedMethods) && 
-                !empty(array_intersect($allowedMethods, self::UNSUPPORTED_AUTH_METHODS));
-            
+            $hasUnsupportedMethod = $allowedMethods
+                && is_array($allowedMethods)
+                && !empty(array_intersect($allowedMethods, self::UNSUPPORTED_AUTH_METHODS));
+
             if (!$hasUnsupportedMethod) {
                 $createPaymentRequest->setTransactionType(PaymentTransactionType::AUTH);
             }
-            // Note: If unsupported methods are found, transaction type remains default (SALE)
+        // Note: If unsupported methods are found, transaction type remains default (SALE)
         } else {
             // Default to SALE for immediate charge
             $createPaymentRequest->setTransactionType(PaymentTransactionType::SALE);
@@ -673,7 +673,7 @@ class MoneiService
 
         $this->moneiPaymentRepository->save($moneiPayment);
 
-        $monei2History = new \PsMonei\Entity\Monei2History();
+        $monei2History = new Monei2History();
         $monei2History->setPayment($moneiPayment);
         $monei2History->setStatus($capturedPayment->getStatus());
         $monei2History->setStatusCode($capturedPayment->getStatusCode());
