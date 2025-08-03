@@ -123,7 +123,7 @@ class Monei2History
 
     public function getDateAddFormatted(): ?string
     {
-        return $this->date_add->format('Y-m-d H:i:s');
+        return $this->date_add ? $this->date_add->format('Y-m-d H:i:s') : null;
     }
 
     public function setDateAdd(?\DateTime $date_add): self

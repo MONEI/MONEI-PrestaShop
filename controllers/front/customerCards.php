@@ -24,7 +24,7 @@ class MoneiCustomerCardsModuleFrontController extends ModuleFrontController
         $this->context->smarty->assign([
             'base_dir' => $url_shop,
             'modules_dir' => $url_shop . 'modules/',
-            'isWarehouseInstalled' => Module::isEnabled('iqitelementor'),
+            'isIqitElementorEnabled' => Module::isEnabled('iqitelementor'),
             'customerCardsList' => $customerCardsList,
         ]);
 

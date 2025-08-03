@@ -2,6 +2,10 @@
 
 namespace PsMonei\Service;
 
+if (!defined('_PS_VERSION_')) {
+    exit;
+}
+
 /**
  * Service for managing database locks to prevent concurrent processing
  * Uses MySQL's GET_LOCK/RELEASE_LOCK functions

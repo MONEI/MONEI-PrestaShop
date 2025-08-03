@@ -210,6 +210,7 @@ class MoneiConfirmationModuleFrontController extends ModuleFrontController
 
         // Redirect directly to checkout page where user can retry
         Tools::redirect($this->context->link->getPageLink('order'));
+        exit;
     }
 
     /**

@@ -205,7 +205,11 @@ class MoneiService
 
     public function extractCartIdFromMoneiOrderId($moneiOrderId)
     {
-        return (int) substr($moneiOrderId, 0, strpos($moneiOrderId, 'm'));
+        $pos = strpos($moneiOrderId, 'm');
+        if ($pos === false) {
+            throw new MoneiException('Invalid MONEI order ID format: ' . $moneiOrderId, MoneiException::INVALID_ORDER_ID_FORMAT);
+        }
+        return (int) substr($moneiOrderId, 0, $pos);
     }
 
     public function getCartAmount(array $cartSummaryDetails, int $currencyId, bool $withoutFormatting = false)
@@ -240,6 +244,15 @@ class MoneiService
             throw new MoneiException('The address could not be loaded correctly', MoneiException::ADDRESS_NOT_FOUND);
         }
 
+        // Note: Removing colons from email addresses may break valid emails
+        // Consider using proper email validation instead
+        // For now, keeping the behavior but adding a warning log
+        if (strpos($customer->email, ':') !== false) {
+            \PrestaShopLogger::addLog(
+                'MONEI - getCustomerData - Email contains colon, which will be removed: ' . $customer->email,
+                \PrestaShopLogger::LOG_SEVERITY_LEVEL_WARNING
+            );
+        }
         $customer->email = str_replace(':', '', $customer->email);
 
         $customerData = [
