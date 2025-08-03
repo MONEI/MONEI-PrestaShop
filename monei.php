@@ -682,6 +682,11 @@ class Monei extends PaymentModule
 
             $unavailableMethods = [];
 
+            // First, preserve all form values including redirect settings
+            foreach (array_keys($form_values) as $configKey) {
+                $form_values[$configKey] = Tools::getValue($configKey);
+            }
+
             // Check each enabled payment method
             foreach ($paymentMethodMap as $configKey => $methodCode) {
                 $isEnabled = Tools::getValue($configKey);

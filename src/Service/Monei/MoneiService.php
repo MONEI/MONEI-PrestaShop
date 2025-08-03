@@ -105,8 +105,8 @@ class MoneiService
             $currentTime = time();
 
             // Return from static cache if already fetched and not expired
-            if (isset(self::$paymentMethodsCache[$cacheKey])
-                    && ($currentTime - self::$paymentMethodsCache[$cacheKey]['timestamp'] < self::CACHE_LIFETIME)) {
+            if (isset(self::$paymentMethodsCache[$cacheKey]) &&
+                    ($currentTime - self::$paymentMethodsCache[$cacheKey]['timestamp'] < self::CACHE_LIFETIME)) {
                 \PrestaShopLogger::addLog('[MONEI] Using cached payment methods response', \PrestaShopLogger::LOG_SEVERITY_LEVEL_INFORMATIVE);
 
                 return self::$paymentMethodsCache[$cacheKey]['data'];
@@ -312,8 +312,14 @@ class MoneiService
             'MONEI_ALLOW_MBWAY' => 'mbway',
         ];
 
+        $paymentAction = \Configuration::get('MONEI_PAYMENT_ACTION');
+
         foreach ($allowedMethods as $configKey => $method) {
             if (\Configuration::get($configKey)) {
+                // If payment action is 'auth', exclude methods that don't support AUTH
+                if ($paymentAction === 'auth' && in_array($method, self::UNSUPPORTED_AUTH_METHODS)) {
+                    continue;  // Skip unsupported AUTH methods
+                }
                 $paymentMethods[] = $method;
             }
         }
@@ -381,7 +387,7 @@ class MoneiService
                 $shouldAddHistory = false;
                 \PrestaShopLogger::addLog(
                     'MONEI - saveMoneiPayment - Skipping duplicate history entry for payment: ' . $moneiPayment->getId()
-                    . ' with status: ' . $currentStatus,
+                        . ' with status: ' . $currentStatus,
                     \PrestaShopLogger::LOG_SEVERITY_LEVEL_INFORMATIVE
                 );
             }
@@ -562,14 +568,14 @@ class MoneiService
 
             // Only check for unsupported methods if allowed methods are explicitly set
             // If no methods are specified (null/empty), all methods are available so use AUTH
-            $hasUnsupportedMethod = $allowedMethods
-                && is_array($allowedMethods)
-                && !empty(array_intersect($allowedMethods, self::UNSUPPORTED_AUTH_METHODS));
+            $hasUnsupportedMethod = $allowedMethods &&
+                is_array($allowedMethods) &&
+                !empty(array_intersect($allowedMethods, self::UNSUPPORTED_AUTH_METHODS));
 
             if (!$hasUnsupportedMethod) {
                 $createPaymentRequest->setTransactionType(PaymentTransactionType::AUTH);
             }
-        // Note: If unsupported methods are found, transaction type remains default (SALE)
+            // Note: If unsupported methods are found, transaction type remains default (SALE)
         } else {
             // Default to SALE for immediate charge
             $createPaymentRequest->setTransactionType(PaymentTransactionType::SALE);
