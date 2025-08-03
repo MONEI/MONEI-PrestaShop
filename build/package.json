@@ -7,7 +7,7 @@
   "license": "MIT",
   "private": true,
   "scripts": {
-    "release": "release-it",
+    "release": "release-it"
   },
   "release-it": {
     "git": {
