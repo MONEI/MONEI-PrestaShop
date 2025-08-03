@@ -33,25 +33,28 @@ class MoneiCardlogosModuleFrontController extends ModuleFrontController
         // Generate cache key
         sort($brandsArray); // Ensure consistent cache key
         $cacheKey = md5(implode('_', $brandsArray));
+        
+        // Set up cache file paths
+        $cacheDir = $this->getCacheDir();
+        $cacheFile = $cacheDir . $cacheKey . '.svg';
 
         // Check if cached version exists and is fresh
-        // Temporarily disabled for testing
-        /*if (file_exists($cacheFile) && (time() - filemtime($cacheFile) < self::CACHE_TTL)) {
+        if (file_exists($cacheFile) && (time() - filemtime($cacheFile) < self::CACHE_TTL)) {
             header('Content-Type: image/svg+xml');
             header('Cache-Control: public, max-age=' . self::CACHE_TTL);
             header('ETag: "' . $cacheKey . '"');
             readfile($cacheFile);
             exit;
-        }*/
+        }
 
         // Generate SVG
         $svgContent = $this->generateCombinedSvg($brandsArray);
 
-        // Save to cache - temporarily disabled
-        /*if (!is_dir($cacheDir)) {
+        // Save to cache
+        if (!is_dir($cacheDir)) {
             mkdir($cacheDir, 0755, true);
         }
-        file_put_contents($cacheFile, $svgContent);*/
+        file_put_contents($cacheFile, $svgContent);
 
         // Output SVG
         header('Content-Type: image/svg+xml');

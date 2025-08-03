@@ -33,8 +33,7 @@ class MoneiConfirmationModuleFrontController extends ModuleFrontController
                 $this->context->cookie->write();
 
                 Tools::redirect($this->context->link->getPageLink('order'));
-
-                return;
+                exit;
             }
 
             // Fetch payment data from MONEI API to determine actual status
