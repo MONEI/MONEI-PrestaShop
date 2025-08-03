@@ -1344,6 +1344,17 @@ class Monei extends PaymentModule
     }
 
     /**
+     * Get MONEI client instance
+     *
+     * @return \Monei\MoneiClient
+     * @throws \PsMonei\Exception\MoneiException
+     */
+    public function getMoneiClient()
+    {
+        return self::getService('service.monei')->getMoneiClient();
+    }
+
+    /**
      * Get all available payment methods
      *
      * @return array
