@@ -7,9 +7,13 @@ if (!defined('_PS_VERSION_')) {
 function upgrade_module_2_0_0()
 {
     $db = Db::getInstance();
-
-    // Create the new tables
-    include_once dirname(__FILE__) . '/../sql/install.php';
+    
+    // Start transaction for data integrity
+    $db->execute('START TRANSACTION');
+    
+    try {
+        // Create the new tables
+        include_once dirname(__FILE__) . '/../sql/install.php';
 
     // Migration monei to monei2_payment
     // ----------------------------------------------
@@ -51,7 +55,23 @@ function upgrade_module_2_0_0()
                 $statusCode = 'UNKNOWN';
             }
 
-            $moneiPayment = json_decode(json_decode($history['response']), true);
+            // Handle potential double JSON encoding from legacy system
+            $response = $history['response'];
+            $moneiPayment = json_decode($response, true);
+            
+            // If first decode didn't work or result is still a string, try second decode
+            if (!is_array($moneiPayment) && is_string($moneiPayment)) {
+                $moneiPayment = json_decode($moneiPayment, true);
+            }
+            
+            // If still not an array, log and use empty array
+            if (!is_array($moneiPayment)) {
+                PrestaShopLogger::addLog(
+                    'MONEI - upgrade-2.0.0 - Failed to decode payment response for history ID: ' . $history['id_monei_history'],
+                    PrestaShopLogger::LOG_SEVERITY_LEVEL_WARNING
+                );
+                $moneiPayment = [];
+            }
 
             $db->insert('monei2_history', [
                 'id_history' => (int) $history['id_monei_history'],
@@ -82,6 +102,10 @@ function upgrade_module_2_0_0()
                 ->where('id_monei = ' . $refund['id_monei']);
             $paymentId = $db->getValue($query);
             if (!$paymentId) {
+                PrestaShopLogger::addLog(
+                    'MONEI - upgrade-2.0.0 - Skipping refund ID ' . $refund['id_monei_refund'] . ' - no matching payment found',
+                    PrestaShopLogger::LOG_SEVERITY_LEVEL_WARNING
+                );
                 continue;
             }
 
@@ -97,7 +121,26 @@ function upgrade_module_2_0_0()
     }
     // ----------------------------------------------
 
-    Configuration::deleteByName('MONEI_ALLOW_COFIDIS');
-
-    return true;
+        Configuration::deleteByName('MONEI_ALLOW_COFIDIS');
+        
+        // Commit transaction
+        $db->execute('COMMIT');
+        
+        PrestaShopLogger::addLog(
+            'MONEI - upgrade-2.0.0 - Migration completed successfully',
+            PrestaShopLogger::LOG_SEVERITY_LEVEL_INFORMATIVE
+        );
+        
+        return true;
+    } catch (Exception $e) {
+        // Rollback on error
+        $db->execute('ROLLBACK');
+        
+        PrestaShopLogger::addLog(
+            'MONEI - upgrade-2.0.0 - Migration failed: ' . $e->getMessage(),
+            PrestaShopLogger::LOG_SEVERITY_LEVEL_ERROR
+        );
+        
+        return false;
+    }
 }

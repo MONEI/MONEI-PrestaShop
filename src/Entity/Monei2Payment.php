@@ -100,8 +100,13 @@ class Monei2Payment
 
     public function isRefundable(): bool
     {
+        $amount = $this->getAmount();
+        if ($amount === null) {
+            return false;
+        }
+        
         $refundedAmount = $this->getRefundedAmount() ?? 0;
-        if ($refundedAmount < $this->getAmount()) {
+        if ($refundedAmount < $amount) {
             return true;
         }
 
@@ -110,7 +115,9 @@ class Monei2Payment
 
     public function getRemainingAmountToRefund(): int
     {
-        return $this->getAmount() - $this->getRefundedAmount();
+        $amount = $this->getAmount() ?? 0;
+        $refundedAmount = $this->getRefundedAmount() ?? 0;
+        return $amount - $refundedAmount;
     }
 
     public function getId(): string
@@ -161,8 +168,14 @@ class Monei2Payment
         return $this;
     }
 
-    public function getAmount(bool $inDecimal = false): ?int
+    /**
+     * @return int|float|null Returns int when $inDecimal is false, float when true, null if amount not set
+     */
+    public function getAmount(bool $inDecimal = false)
     {
+        if ($this->amount === null) {
+            return null;
+        }
         return $inDecimal ? $this->amount / 100 : $this->amount;
     }
 
@@ -279,7 +292,10 @@ class Monei2Payment
         return $this;
     }
 
-    public function getHistoryList()
+    /**
+     * @return ArrayCollection<int, Monei2History>
+     */
+    public function getHistoryList(): ArrayCollection
     {
         return $this->historyList;
     }
@@ -290,15 +306,18 @@ class Monei2Payment
         $this->historyList->add($paymentHistory);
     }
 
-    public function getRefundList()
+    /**
+     * @return ArrayCollection<int, Monei2Refund>
+     */
+    public function getRefundList(): ArrayCollection
     {
         return $this->refundList;
     }
 
-    public function getRefundByHistoryId($historyId)
+    public function getRefundByHistoryId(int $historyId): ?Monei2Refund
     {
         foreach ($this->refundList as $refund) {
-            if ($refund->getHistory()->getId() === (int) $historyId) {
+            if ($refund->getHistory()->getId() === $historyId) {
                 return $refund;
             }
         }
