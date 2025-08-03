@@ -1,0 +1,25 @@
+.monei-back {
+    background-image: url('/modules/monei/views/img/payment_gateway.svg');
+    background-repeat: no-repeat;
+    background-position: right;
+}
+
+/* Payment method icons in admin */
+.payment-method-icon {
+    max-width: 100%;
+    height: auto;
+}
+
+span[style*="width: 20px"] .payment-method-icon {
+    width: 20px !important;
+    height: 20px !important;
+}
+
+/* Payment details panel */
+.card dl.row dt {
+    font-weight: 600;
+}
+
+.card dl.row dd {
+    margin-bottom: 0.5rem;
+}

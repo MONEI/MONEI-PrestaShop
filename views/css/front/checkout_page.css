@@ -1,0 +1,107 @@
+section.checkout-step .payment-options > div {
+    margin-bottom: 1.25rem;
+}
+
+section.checkout-step .payment-option img {
+    height: 1.25rem;
+    margin-left: 0.5rem;
+}
+
+section.checkout-step .payment-option label {
+    text-align: left;
+}
+
+#opc_step_payment .payment-option img {
+    width: 89px;
+}
+
+#payment-form-monei .form-group {
+  margin-bottom: 18px;
+}
+#payment-form-monei .form-control, #payment-form-monei .input-form {
+  width: 100%;
+  padding: 12px 14px;
+  font-size: 16px;
+  background: #f9fafb;
+  transition: border-color 0.2s;
+}
+#payment-form-monei .form-control:focus, #payment-form-monei .input-form:focus {
+  border-color: #0070f3;
+  outline: none;
+  background: #fff;
+}
+#payment-form-monei label.form-control-label {
+  display: inline-block !important;
+  margin-left: 8px;
+  color: #333;
+}
+#payment-form-monei #monei-card_container {
+  padding: 0 14px;
+}
+#payment-form-monei #monei-card_container.is-focused {
+  border-color: #0070f3;
+  outline: none;
+  background: #fff;
+}
+#payment-form-monei #monei-card_container.is-invalid {
+  border-color: #e53e3e;
+}
+
+#monei-tokenize-card {
+  display: inline-block !important;
+  margin-right: 6px;
+}
+#payment-form-monei #monei-card-errors {
+  color: #e53e3e;
+  font-size: 14px;
+}
+
+#payment-form-monei .monei-tokenize-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 18px;
+}
+#payment-form-monei .monei-tokenize-row label {
+  margin: 0;
+  padding: 0;
+  cursor: pointer;
+  line-height: 1.2;
+}
+#payment-form-monei .monei-tokenize-row input[type="checkbox"] {
+  width: 15px;
+  height: 15px;
+  margin: 0;
+}
+
+/* Payment method icons */
+.payment-method-icon {
+  max-width: 100%;
+  height: auto;
+  object-fit: contain;
+}
+
+.payment-option .payment-method-icon {
+  height: 1.25rem;
+  width: auto;
+}
+
+/* MONEI card brands specific styling */
+.payment-option img[src*="/monei/cardlogos"] {
+  height: 1.6rem !important;
+  width: auto;
+  max-width: 300px;
+  vertical-align: middle;
+}
+
+/* Payment options responsive */
+@media (max-width: 768px) {
+  .payment-option .payment-method-icon {
+    height: 1rem;
+  }
+}
+
+/* Loading state for payment processing */
+.payment-options.processing {
+  position: relative;
+}

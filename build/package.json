@@ -1,6 +1,6 @@
 {
   "name": "monei-prestashop",
-  "version": "1.5.2",
+  "version": "2.0.0",
   "main": "index.js",
   "repository": "git@github.com:MONEI/MONEI-PrestaShop.git",
   "author": "MONEI <support@monei.com>",
@@ -24,8 +24,7 @@
     "plugins": {
       "@release-it/bumper": {
         "out": [
-          "../monei.php",
-          "../src/Monei/MoneiClient.php"
+          "../monei.php"
         ]
       }
     },
