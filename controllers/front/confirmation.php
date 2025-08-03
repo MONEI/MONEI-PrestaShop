@@ -128,6 +128,11 @@ class MoneiConfirmationModuleFrontController extends ModuleFrontController
                 'MONEI - confirmation.php - Order creation/update completed successfully',
                 PrestaShopLogger::LOG_SEVERITY_LEVEL_INFORMATIVE
             );
+
+            // The createOrUpdateOrder method with redirectToConfirmationPage=true will handle the redirect
+            // We should not reach this point as the method calls Tools::redirect()
+            // But just in case, we'll exit here to prevent Smarty template errors
+            exit;
         } catch (Exception $e) {
             PrestaShopLogger::addLog(
                 'MONEI - confirmation.php - ERROR in handleSuccessfulPayment: ' . $e->getMessage() . ' - File: ' . $e->getFile() . ' - Line: ' . $e->getLine() . ' - Trace: ' . $e->getTraceAsString(),
@@ -157,6 +162,8 @@ class MoneiConfirmationModuleFrontController extends ModuleFrontController
         if ($isMultibanco) {
             // For Multibanco, create the order and show success page with pending message
             Monei::getService('service.order')->createOrUpdateOrder($paymentId, true);
+            // The createOrUpdateOrder method with redirectToConfirmationPage=true will handle the redirect
+            exit;
         } else {
             // For other pending payments (like MBWAY), redirect to a loading page
             // that will periodically check payment status
