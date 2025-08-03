@@ -3,6 +3,7 @@
 namespace PsMonei\Entity;
 
 use Doctrine\Common\Collections\ArrayCollection;
+use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Mapping as ORM;
 
 /**
@@ -104,7 +105,7 @@ class Monei2Payment
         if ($amount === null) {
             return false;
         }
-        
+
         $refundedAmount = $this->getRefundedAmount() ?? 0;
         if ($refundedAmount < $amount) {
             return true;
@@ -117,6 +118,7 @@ class Monei2Payment
     {
         $amount = $this->getAmount() ?? 0;
         $refundedAmount = $this->getRefundedAmount() ?? 0;
+
         return $amount - $refundedAmount;
     }
 
@@ -176,6 +178,7 @@ class Monei2Payment
         if ($this->amount === null) {
             return null;
         }
+
         return $inDecimal ? $this->amount / 100 : $this->amount;
     }
 
@@ -293,9 +296,9 @@ class Monei2Payment
     }
 
     /**
-     * @return ArrayCollection<int, Monei2History>
+     * @return Collection<int, Monei2History>
      */
-    public function getHistoryList(): ArrayCollection
+    public function getHistoryList(): Collection
     {
         return $this->historyList;
     }
@@ -307,9 +310,9 @@ class Monei2Payment
     }
 
     /**
-     * @return ArrayCollection<int, Monei2Refund>
+     * @return Collection<int, Monei2Refund>
      */
-    public function getRefundList(): ArrayCollection
+    public function getRefundList(): Collection
     {
         return $this->refundList;
     }

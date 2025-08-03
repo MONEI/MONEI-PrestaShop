@@ -209,6 +209,7 @@ class MoneiService
         if ($pos === false) {
             throw new MoneiException('Invalid MONEI order ID format: ' . $moneiOrderId, MoneiException::INVALID_ORDER_ID_FORMAT);
         }
+
         return (int) substr($moneiOrderId, 0, $pos);
     }
 
