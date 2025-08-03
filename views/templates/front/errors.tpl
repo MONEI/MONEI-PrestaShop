@@ -27,9 +27,4 @@
         <i class="material-icons">&#xE88A;</i>
         <span>{l s='Home' d='Shop.Theme.Global'}</span>
     </a>
-    <script>
-        document.addEventListener("DOMContentLoaded", function (event) {
-            swal(conf_msg_mon1_ko, conf_msg_mon2_ko, conf_mon_icon_ko);
-        });
-    </script>
 {/block}

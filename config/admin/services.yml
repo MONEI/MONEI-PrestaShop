@@ -1,0 +1,8 @@
+imports:
+  - { resource: ../common.yml }
+  - { resource: ../hooks.yml }
+  - { resource: hooks.yml }
+
+services:
+  _defaults:
+    public: true
