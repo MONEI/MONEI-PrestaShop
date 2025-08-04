@@ -110,6 +110,11 @@ class Monei extends PaymentModule
         // Copy Apple Pay domain verification file to .well-known directory
         if ($result) {
             $this->copyApplePayDomainVerificationFile();
+            
+            // Regenerate .htaccess to include the new route
+            if (class_exists('Tools') && method_exists('Tools', 'generateHtaccess')) {
+                Tools::generateHtaccess();
+            }
         }
 
         return $result;
@@ -434,7 +439,14 @@ class Monei extends PaymentModule
         // Remove Apple Pay domain verification file
         $this->removeApplePayDomainVerificationFile();
 
-        return parent::uninstall();
+        $result = parent::uninstall();
+        
+        // Regenerate .htaccess to remove the route
+        if ($result && class_exists('Tools') && method_exists('Tools', 'generateHtaccess')) {
+            Tools::generateHtaccess();
+        }
+        
+        return $result;
     }
 
     /**
@@ -446,6 +458,11 @@ class Monei extends PaymentModule
 
         if ($result) {
             $this->copyApplePayDomainVerificationFile();
+            
+            // Regenerate .htaccess to ensure the route is included
+            if (class_exists('Tools') && method_exists('Tools', 'generateHtaccess')) {
+                Tools::generateHtaccess();
+            }
         }
 
         return $result;
@@ -460,6 +477,11 @@ class Monei extends PaymentModule
 
         if ($result) {
             $this->copyApplePayDomainVerificationFile();
+            
+            // Regenerate .htaccess to ensure the route is included
+            if (class_exists('Tools') && method_exists('Tools', 'generateHtaccess')) {
+                Tools::generateHtaccess();
+            }
         }
 
         return $result;
@@ -502,6 +524,12 @@ class Monei extends PaymentModule
             $message = $this->postProcess(3);
         } elseif (Tools::isSubmit('submitMoneiModuleComponentStyle')) {
             $message = $this->postProcess(4);
+        }
+
+        // Check Apple Pay domain verification status
+        $applePayNotification = $this->checkApplePayDomainVerification();
+        if ($applePayNotification) {
+            $message = $applePayNotification . $message;
         }
 
         // Assign values
@@ -1930,6 +1958,16 @@ class Monei extends PaymentModule
                     'controller' => 'applepay',
                 ],
             ],
+            'module-monei-applepay-wellknown' => [
+                'controller' => 'applepay',
+                'rule' => '.well-known/apple-developer-merchantid-domain-association',
+                'keywords' => [],
+                'params' => [
+                    'fc' => 'module',
+                    'module' => 'monei',
+                    'controller' => 'applepay',
+                ],
+            ],
         ];
     }
 
@@ -2154,6 +2192,17 @@ class Monei extends PaymentModule
     private function copyApplePayDomainVerificationFile()
     {
         $sourceFile = _PS_MODULE_DIR_ . $this->name . '/files/apple-developer-merchantid-domain-association';
+        
+        // Check for Bitnami Let's Encrypt installation first
+        $letsEncryptDir = '/opt/bitnami/apps/letsencrypt/.well-known';
+        if (is_dir($letsEncryptDir) && is_writable($letsEncryptDir)) {
+            $destFile = $letsEncryptDir . '/apple-developer-merchantid-domain-association';
+            if (file_exists($sourceFile)) {
+                return @copy($sourceFile, $destFile);
+            }
+        }
+        
+        // Fallback to standard .well-known directory
         $wellKnownDir = _PS_ROOT_DIR_ . '/.well-known';
         $destFile = $wellKnownDir . '/apple-developer-merchantid-domain-association';
 
@@ -2179,13 +2228,182 @@ class Monei extends PaymentModule
      */
     private function removeApplePayDomainVerificationFile()
     {
+        $removed = true;
+        
+        // Remove from Bitnami Let's Encrypt directory if it exists
+        $letsEncryptFile = '/opt/bitnami/apps/letsencrypt/.well-known/apple-developer-merchantid-domain-association';
+        if (file_exists($letsEncryptFile)) {
+            $removed = @unlink($letsEncryptFile) && $removed;
+        }
+        
+        // Remove from standard .well-known directory
         $file = _PS_ROOT_DIR_ . '/.well-known/apple-developer-merchantid-domain-association';
-
         if (file_exists($file)) {
-            return @unlink($file);
+            $removed = @unlink($file) && $removed;
         }
 
-        return true;
+        return $removed;
+    }
+    
+    /**
+     * Check Apple Pay domain verification status and return notification HTML
+     *
+     * @return string|null
+     */
+    private function checkApplePayDomainVerification()
+    {
+        // Only check if Apple Pay is enabled
+        if (!Configuration::get('MONEI_APPLE_GOOGLE')) {
+            return null;
+        }
+        
+        $domain = Configuration::get('PS_SHOP_DOMAIN');
+        $url = 'https://' . $domain . '/.well-known/apple-developer-merchantid-domain-association';
+        
+        // Check if file is accessible
+        $context = stream_context_create([
+            'http' => [
+                'timeout' => 5,
+                'follow_location' => 1,
+            ],
+            'ssl' => [
+                'verify_peer' => false,
+                'verify_peer_name' => false,
+            ]
+        ]);
+        
+        $headers = @get_headers($url, true, $context);
+        $httpCode = 0;
+        
+        if ($headers && isset($headers[0])) {
+            preg_match('/HTTP\/\d\.\d\s+(\d+)/', $headers[0], $matches);
+            $httpCode = isset($matches[1]) ? (int)$matches[1] : 0;
+        }
+        
+        if ($httpCode !== 200) {
+            // Try to copy the file again
+            $this->copyApplePayDomainVerificationFile();
+            
+            // Get diagnostic info
+            $diagnosticInfo = $this->getApplePayDiagnosticInfo();
+            
+            // File is not accessible, show warning
+            return $this->displayWarning(
+                $this->l('Apple Pay domain verification file is not accessible.') . ' ' .
+                '<span style="color:#666;">(' . $this->l('HTTP Status:') . ' ' . ($httpCode ?: 'No response') . ')</span><br><br>' .
+                '<strong>' . $this->l('To enable Apple Pay on your website, you need to:') . '</strong><br>' .
+                '1. ' . $this->l('Make sure the file is accessible at:') . ' <a href="' . $url . '" target="_blank">' . $url . '</a><br>' .
+                '2. ' . $this->l('If automatic setup failed, please follow these manual steps:') . '<br>' .
+                '&nbsp;&nbsp;&nbsp;&nbsp;• ' . $this->l('Download the verification file from:') . ' <a href="https://assets.monei.com/apple-pay/apple-developer-merchantid-domain-association/" target="_blank">MONEI Apple Pay Assets</a><br>' .
+                '&nbsp;&nbsp;&nbsp;&nbsp;• ' . $this->l('Upload it to your server at: /.well-known/apple-developer-merchantid-domain-association') . '<br>' .
+                '&nbsp;&nbsp;&nbsp;&nbsp;• ' . $this->l('Ensure the file is accessible via HTTPS with a valid SSL certificate') . '<br><br>' .
+                '<strong>' . $this->l('Common issues:') . '</strong><br>' .
+                '• ' . $this->l('Let\'s Encrypt or other services may be using the .well-known directory') . '<br>' .
+                '• ' . $this->l('File permissions may prevent access (should be 644)') . '<br>' .
+                '• ' . $this->l('Web server configuration may block access to .well-known directory') . '<br><br>' .
+                $this->l('For more information, visit:') . ' <a href="https://docs.monei.com/apis/rest/apple-pay-domain-register/" target="_blank">MONEI Documentation</a>' .
+                $this->getServerSpecificInstructions() . 
+                $diagnosticInfo . '<br><br>' .
+                '<a href="' . $this->context->link->getAdminLink('AdminModules') . '&configure=' . $this->name . '" class="btn btn-default">' .
+                '<i class="icon-refresh"></i> ' . $this->l('Refresh to check again') . '</a>'
+            );
+        }
+        
+        // File is accessible, save verification status
+        Configuration::updateValue('MONEI_APPLE_PAY_VERIFIED', true);
+        Configuration::updateValue('MONEI_APPLE_PAY_VERIFIED_DATE', date('Y-m-d H:i:s'));
+        
+        // Show success message only if it was previously not verified
+        $wasVerified = Configuration::get('MONEI_APPLE_PAY_VERIFIED');
+        if (!$wasVerified) {
+            return $this->displayConfirmation(
+                $this->l('Apple Pay domain verification is properly configured!') . '<br>' .
+                $this->l('The verification file is accessible at:') . ' <a href="' . $url . '" target="_blank">' . $url . '</a>'
+            );
+        }
+        
+        return null;
+    }
+    
+    /**
+     * Get server-specific instructions for Apple Pay domain verification
+     *
+     * @return string
+     */
+    private function getServerSpecificInstructions()
+    {
+        $instructions = '<br><br><strong>' . $this->l('Server-specific instructions:') . '</strong><br>';
+        
+        // Check for Nginx
+        if (stripos($_SERVER['SERVER_SOFTWARE'] ?? '', 'nginx') !== false) {
+            $instructions .= $this->l('For Nginx, add this to your server configuration:') . '<br>' .
+                '<pre style="background:#f5f5f5;padding:10px;margin:5px 0;">' .
+                'location ^~ /.well-known/apple-developer-merchantid-domain-association {' . "\n" .
+                '    alias ' . _PS_MODULE_DIR_ . $this->name . '/files/apple-developer-merchantid-domain-association;' . "\n" .
+                '    default_type text/plain;' . "\n" .
+                '}' .
+                '</pre>';
+        }
+        
+        // Check for Apache
+        elseif (function_exists('apache_get_version') || stripos($_SERVER['SERVER_SOFTWARE'] ?? '', 'apache') !== false) {
+            $instructions .= $this->l('For Apache, ensure your .htaccess allows access to .well-known:') . '<br>' .
+                '<pre style="background:#f5f5f5;padding:10px;margin:5px 0;">' .
+                'RewriteRule ^\.well-known/apple-developer-merchantid-domain-association$ - [L]' .
+                '</pre>';
+        }
+        
+        // Check for Bitnami
+        if (is_dir('/opt/bitnami')) {
+            $instructions .= '<br>' . $this->l('Bitnami detected: The file should be placed in:') . '<br>' .
+                '<code>/opt/bitnami/apps/letsencrypt/.well-known/</code><br>' .
+                $this->l('This is because Let\'s Encrypt redirects .well-known requests.');
+        }
+        
+        return $instructions;
+    }
+    
+    /**
+     * Get diagnostic information for Apple Pay verification issues
+     *
+     * @return string
+     */
+    private function getApplePayDiagnosticInfo()
+    {
+        $info = '<br><br><details style="margin-top:10px;">' .
+                '<summary style="cursor:pointer;font-weight:bold;">' . $this->l('Show diagnostic information') . '</summary>' .
+                '<div style="background:#f5f5f5;padding:10px;margin-top:5px;font-family:monospace;font-size:12px;">';
+        
+        // Check file locations
+        $locations = [
+            'Module directory' => _PS_MODULE_DIR_ . $this->name . '/files/apple-developer-merchantid-domain-association',
+            'PrestaShop .well-known' => _PS_ROOT_DIR_ . '/.well-known/apple-developer-merchantid-domain-association',
+            'Let\'s Encrypt .well-known' => '/opt/bitnami/apps/letsencrypt/.well-known/apple-developer-merchantid-domain-association',
+        ];
+        
+        $info .= '<strong>File locations checked:</strong><br>';
+        foreach ($locations as $name => $path) {
+            $exists = file_exists($path);
+            $readable = $exists ? is_readable($path) : false;
+            $info .= $name . ': ' . ($exists ? '✓ exists' : '✗ not found');
+            if ($exists) {
+                $info .= ' (' . ($readable ? 'readable' : 'not readable') . ', ';
+                $info .= 'perms: ' . substr(sprintf('%o', fileperms($path)), -4) . ')';
+            }
+            $info .= '<br>';
+        }
+        
+        // Server info
+        $info .= '<br><strong>Server information:</strong><br>';
+        $info .= 'Server software: ' . ($_SERVER['SERVER_SOFTWARE'] ?? 'Unknown') . '<br>';
+        $info .= 'Document root: ' . $_SERVER['DOCUMENT_ROOT'] . '<br>';
+        $info .= 'PrestaShop root: ' . _PS_ROOT_DIR_ . '<br>';
+        $info .= 'SSL enabled: ' . (Configuration::get('PS_SSL_ENABLED') ? 'Yes' : 'No') . '<br>';
+        $info .= 'Shop domain: ' . Configuration::get('PS_SHOP_DOMAIN') . '<br>';
+        
+        $info .= '</div></details>';
+        
+        return $info;
     }
 
     /**
