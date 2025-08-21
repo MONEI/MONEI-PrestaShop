@@ -10,7 +10,6 @@ use PsMonei\Helper\PaymentMethodFormatter;
 class PaymentOptionService
 {
     private $moneiService;
-    private $configuration;
     private $context;
     private $paymentMethodFormatter;
 
@@ -69,7 +68,6 @@ class PaymentOptionService
         PaymentMethodFormatter $paymentMethodFormatter
     ) {
         $this->moneiService = $moneiService;
-        $this->configuration = $configuration; // Will be Configuration class name for static calls
         $this->paymentMethodFormatter = $paymentMethodFormatter;
         
         // For PS1.7 compatibility, we accept context directly
@@ -78,8 +76,8 @@ class PaymentOptionService
         } else {
             $this->context = $context;
         }
-        // Note: moneiCustomerCardModel parameter kept for compatibility but not used
-        // as we use static methods on ObjectModel classes directly
+        // Note: moneiCustomerCardModel and configuration parameters kept for compatibility but not used
+        // as we use static methods on ObjectModel and Configuration classes directly
     }
 
     public function getPaymentOptions(): ?array
@@ -155,7 +153,7 @@ class PaymentOptionService
 
     private function getCardPaymentOption()
     {
-        if ($this->configuration->get('MONEI_ALLOW_CARD') && $this->isPaymentMethodAllowed(PaymentPaymentMethod::METHOD_CARD)) {
+        if (\Configuration::get('MONEI_ALLOW_CARD') && $this->isPaymentMethodAllowed(PaymentPaymentMethod::METHOD_CARD)) {
             $customer = $this->context->customer;
             $smarty = $this->context->smarty;
 
@@ -174,7 +172,7 @@ class PaymentOptionService
                 'availableCardBrands' => $this->availableCardBrands,
             ];
 
-            if ($this->configuration->get('MONEI_CARD_WITH_REDIRECT')) {
+            if (\Configuration::get('MONEI_CARD_WITH_REDIRECT')) {
                 $redirectUrl = $this->context->link->getModuleLink('monei', 'redirect', [
                     'method' => 'card',
                     'transaction_id' => $this->getTransactionId(),
@@ -189,7 +187,7 @@ class PaymentOptionService
             } else {
                 $smarty->assign([
                     'isCustomerLogged' => \Validate::isLoadedObject($customer),
-                    'tokenize' => (bool) $this->configuration->get('MONEI_TOKENIZE'),
+                    'tokenize' => (bool) \Configuration::get('MONEI_TOKENIZE'),
                     'module_dir' => _MODULE_DIR_ . 'monei/',
                 ]);
                 $paymentOption['additionalInformation'] = $smarty->fetch('module:monei/views/templates/front/onsite_card.tpl');
@@ -203,7 +201,7 @@ class PaymentOptionService
     private function getCustomerCardsPaymentOption()
     {
         $customer = $this->context->customer;
-        if ($this->configuration->get('MONEI_ALLOW_CARD')
+        if (\Configuration::get('MONEI_ALLOW_CARD')
             && $this->isPaymentMethodAllowed(PaymentPaymentMethod::METHOD_CARD)
             && \Validate::isLoadedObject($customer)
             && ($customer->isLogged() || $customer->isGuest())
@@ -248,14 +246,14 @@ class PaymentOptionService
 
     private function getBizumPaymentOption()
     {
-        if ($this->configuration->get('MONEI_ALLOW_BIZUM') && $this->isPaymentMethodAllowed(PaymentPaymentMethod::METHOD_BIZUM)) {
+        if (\Configuration::get('MONEI_ALLOW_BIZUM') && $this->isPaymentMethodAllowed(PaymentPaymentMethod::METHOD_BIZUM)) {
             $paymentOption = [
                 'name' => 'bizum',
                 'logo' => $this->getIconPath('bizum'),
-                'binary' => (bool) !$this->configuration->get('MONEI_BIZUM_WITH_REDIRECT'),
+                'binary' => (bool) !\Configuration::get('MONEI_BIZUM_WITH_REDIRECT'),
             ];
 
-            if ($this->configuration->get('MONEI_BIZUM_WITH_REDIRECT')) {
+            if (\Configuration::get('MONEI_BIZUM_WITH_REDIRECT')) {
                 $redirectUrl = $this->context->link->getModuleLink('monei', 'redirect', [
                     'method' => 'bizum',
                     'transaction_id' => $this->getTransactionId(),
@@ -276,7 +274,7 @@ class PaymentOptionService
 
     private function getApplePayPaymentOption()
     {
-        if ($this->configuration->get('MONEI_ALLOW_APPLE') && $this->isPaymentMethodAllowed('applePay')) {
+        if (\Configuration::get('MONEI_ALLOW_APPLE') && $this->isPaymentMethodAllowed('applePay')) {
             $this->paymentOptions[] = [
                 'name' => 'applePay',
                 'logo' => $this->getIconPath('applePay'),
@@ -287,7 +285,7 @@ class PaymentOptionService
 
     private function getGooglePayPaymentOption()
     {
-        if ($this->configuration->get('MONEI_ALLOW_GOOGLE') && $this->isPaymentMethodAllowed('googlePay')) {
+        if (\Configuration::get('MONEI_ALLOW_GOOGLE') && $this->isPaymentMethodAllowed('googlePay')) {
             $this->paymentOptions[] = [
                 'name' => 'googlePay',
                 'logo' => $this->getIconPath('googlePay'),
@@ -298,7 +296,7 @@ class PaymentOptionService
 
     private function getPaypalPaymentOption()
     {
-        if ($this->configuration->get('MONEI_ALLOW_PAYPAL') && $this->isPaymentMethodAllowed(PaymentPaymentMethod::METHOD_PAYPAL)) {
+        if (\Configuration::get('MONEI_ALLOW_PAYPAL') && $this->isPaymentMethodAllowed(PaymentPaymentMethod::METHOD_PAYPAL)) {
             $this->paymentOptions[] = [
                 'name' => 'paypal',
                 'logo' => $this->getIconPath('paypal'),
@@ -309,7 +307,7 @@ class PaymentOptionService
 
     private function getMultibancoPaymentOption()
     {
-        if ($this->configuration->get('MONEI_ALLOW_MULTIBANCO') && $this->isPaymentMethodAllowed(PaymentPaymentMethod::METHOD_MULTIBANCO)) {
+        if (\Configuration::get('MONEI_ALLOW_MULTIBANCO') && $this->isPaymentMethodAllowed(PaymentPaymentMethod::METHOD_MULTIBANCO)) {
             $this->paymentOptions[] = [
                 'name' => 'multibanco',
                 'logo' => $this->getIconPath('multibanco'),
@@ -320,7 +318,7 @@ class PaymentOptionService
 
     private function getMbwayPaymentOption()
     {
-        if ($this->configuration->get('MONEI_ALLOW_MBWAY') && $this->isPaymentMethodAllowed(PaymentPaymentMethod::METHOD_MBWAY)) {
+        if (\Configuration::get('MONEI_ALLOW_MBWAY') && $this->isPaymentMethodAllowed(PaymentPaymentMethod::METHOD_MBWAY)) {
             $this->paymentOptions[] = [
                 'name' => 'mbway',
                 'logo' => $this->getIconPath('mbway'),
