@@ -2,104 +2,211 @@
 
 namespace PsMonei\Entity;
 
-use Doctrine\Common\Collections\ArrayCollection;
-use Doctrine\Common\Collections\Collection;
-use Doctrine\ORM\Mapping as ORM;
+if (!defined('_PS_VERSION_')) {
+    exit;
+}
 
-/**
- * @ORM\Table()
- *
- * @ORM\Entity(repositoryClass="PsMonei\Repository\MoneiPaymentRepository")
- */
-class Monei2Payment
+class Monei2Payment extends \ObjectModel
 {
+    public $id_payment;
+    public $id_cart;
+    public $id_order;
+    public $id_order_monei;
+    public $amount;
+    public $refunded_amount;
+    public $currency;
+    public $authorization_code;
+    public $status;
+    public $is_captured = false;
+    public $status_code;
+    public $date_add;
+    public $date_upd;
+
     /**
-     * @ORM\Id
+     * @var array Object model definition
+     */
+    public static $definition = [
+        'table' => 'monei2_payment',
+        'primary' => 'id_payment',
+        'fields' => [
+            'id_payment' => ['type' => self::TYPE_STRING, 'validate' => 'isString', 'size' => 50, 'required' => true],
+            'id_cart' => ['type' => self::TYPE_INT, 'validate' => 'isUnsignedId', 'required' => true],
+            'id_order' => ['type' => self::TYPE_INT, 'validate' => 'isUnsignedId', 'allow_null' => true],
+            'id_order_monei' => ['type' => self::TYPE_STRING, 'validate' => 'isString', 'size' => 50, 'allow_null' => true],
+            'amount' => ['type' => self::TYPE_INT, 'validate' => 'isInt', 'required' => true],
+            'refunded_amount' => ['type' => self::TYPE_INT, 'validate' => 'isInt', 'allow_null' => true],
+            'currency' => ['type' => self::TYPE_STRING, 'validate' => 'isString', 'size' => 3],
+            'authorization_code' => ['type' => self::TYPE_STRING, 'validate' => 'isString', 'size' => 50, 'allow_null' => true],
+            'status' => ['type' => self::TYPE_STRING, 'validate' => 'isString', 'size' => 20, 'allow_null' => true],
+            'is_captured' => ['type' => self::TYPE_BOOL, 'validate' => 'isBool'],
+            'status_code' => ['type' => self::TYPE_STRING, 'validate' => 'isString', 'size' => 10, 'allow_null' => true],
+            'date_add' => ['type' => self::TYPE_DATE, 'validate' => 'isDate'],
+            'date_upd' => ['type' => self::TYPE_DATE, 'validate' => 'isDate'],
+        ],
+    ];
+
+    /**
+     * Constructor - override to handle string primary key
      *
-     * @ORM\Column(name="id_payment", type="string", length=50)
+     * @param string|null $id
+     * @param int|null $id_lang
+     * @param int|null $id_shop
      */
-    private $id;
-
-    /**
-     * @ORM\Column(type="integer")
-     */
-    private $id_cart;
-
-    /**
-     * @ORM\Column(type="integer", nullable=true)
-     */
-    private $id_order;
-
-    /**
-     * @ORM\Column(type="string", length=50, nullable=true)
-     */
-    private $id_order_monei;
-
-    /**
-     * @ORM\Column(type="integer")
-     */
-    private $amount;
-
-    /**
-     * @ORM\Column(type="integer", nullable=true)
-     */
-    private $refunded_amount;
-
-    /**
-     * @ORM\Column(type="string", length=3)
-     */
-    private $currency;
-
-    /**
-     * @ORM\Column(type="string", length=50, nullable=true)
-     */
-    private $authorization_code;
-
-    /**
-     * @ORM\Column(type="string", length=20, nullable=true)
-     */
-    private $status;
-
-    /**
-     * @ORM\Column(type="boolean", options={"default": false})
-     */
-    private $is_captured = false;
-
-    /**
-     * @ORM\Column(type="string", length=10, nullable=true)
-     */
-    private $status_code;
-
-    /**
-     * @ORM\Column(type="datetime", nullable=true)
-     */
-    private $date_add;
-
-    /**
-     * @ORM\Column(type="datetime", nullable=true)
-     */
-    private $date_upd;
-
-    /**
-     * @ORM\OneToMany(targetEntity="PsMonei\Entity\Monei2History", cascade={"persist", "remove"}, mappedBy="payment")
-     */
-    private $historyList;
-
-    /**
-     * @ORM\OneToMany(targetEntity="PsMonei\Entity\Monei2Refund", cascade={"persist", "remove"}, mappedBy="payment")
-     */
-    private $refundList;
-
-    public function __construct()
+    public function __construct($id = null, $id_lang = null, $id_shop = null)
     {
-        $this->historyList = new ArrayCollection();
-        $this->refundList = new ArrayCollection();
-
-        $this->setDateAdd(time());
-        $this->setDateUpd(time());
+        // For string primary key, we need to handle loading differently
+        if ($id) {
+            $this->id_payment = $id;
+            $this->id = $id; // Set the parent id property
+            
+            // Load data manually since ObjectModel expects integer ID
+            $sql = 'SELECT * FROM `' . _DB_PREFIX_ . self::$definition['table'] . '` 
+                    WHERE `' . self::$definition['primary'] . '` = \'' . pSQL($id) . '\'';
+            
+            if ($row = \Db::getInstance()->getRow($sql)) {
+                foreach ($row as $key => $value) {
+                    if (property_exists($this, $key)) {
+                        $this->{$key} = $value;
+                    }
+                }
+            }
+        }
+        
+        // Don't call parent constructor as it expects integer ID
     }
 
-    public function isRefundable(): bool
+    /**
+     * Override add to handle string primary key
+     */
+    public function add($auto_date = true, $null_values = false)
+    {
+        if ($auto_date && property_exists($this, 'date_add')) {
+            $this->date_add = date('Y-m-d H:i:s');
+        }
+        if ($auto_date && property_exists($this, 'date_upd')) {
+            $this->date_upd = date('Y-m-d H:i:s');
+        }
+
+        $fields = $this->getFields();
+        $keys = array_keys($fields);
+        $values = array_values($fields);
+
+        $sql = 'INSERT INTO `' . _DB_PREFIX_ . self::$definition['table'] . '` (`' . implode('`, `', $keys) . '`) 
+                VALUES (\'' . implode('\', \'', array_map('pSQL', $values)) . '\')';
+
+        $result = \Db::getInstance()->execute($sql);
+        
+        if ($result) {
+            $this->id = $this->id_payment;
+        }
+        
+        return $result;
+    }
+
+    /**
+     * Override update to handle string primary key
+     */
+    public function update($null_values = false)
+    {
+        $this->date_upd = date('Y-m-d H:i:s');
+
+        $fields = $this->getFields();
+        unset($fields['id_payment']); // Don't update primary key
+        
+        $sql_parts = [];
+        foreach ($fields as $key => $value) {
+            if ($value === null && !$null_values) {
+                continue;
+            }
+            $sql_parts[] = '`' . $key . '` = \'' . pSQL($value) . '\'';
+        }
+
+        $sql = 'UPDATE `' . _DB_PREFIX_ . self::$definition['table'] . '` 
+                SET ' . implode(', ', $sql_parts) . ' 
+                WHERE `' . self::$definition['primary'] . '` = \'' . pSQL($this->id_payment) . '\'';
+
+        return \Db::getInstance()->execute($sql);
+    }
+
+    /**
+     * Override delete to handle string primary key
+     */
+    public function delete()
+    {
+        $sql = 'DELETE FROM `' . _DB_PREFIX_ . self::$definition['table'] . '` 
+                WHERE `' . self::$definition['primary'] . '` = \'' . pSQL($this->id_payment) . '\'';
+
+        return \Db::getInstance()->execute($sql);
+    }
+
+    /**
+     * Override save to properly handle add/update
+     */
+    public function save($null_values = false, $auto_date = true)
+    {
+        // Check if record exists
+        $sql = 'SELECT COUNT(*) FROM `' . _DB_PREFIX_ . self::$definition['table'] . '` 
+                WHERE `' . self::$definition['primary'] . '` = \'' . pSQL($this->id_payment) . '\'';
+        
+        $exists = (bool) \Db::getInstance()->getValue($sql);
+        
+        if ($exists) {
+            return $this->update($null_values);
+        } else {
+            return $this->add($auto_date, $null_values);
+        }
+    }
+
+    /**
+     * Static finder methods to replace repository pattern
+     */
+    public static function getByIdOrder($id_order)
+    {
+        $sql = 'SELECT `id_payment` FROM `' . _DB_PREFIX_ . 'monei2_payment` 
+                WHERE `id_order` = ' . (int)$id_order;
+        $id = \Db::getInstance()->getValue($sql);
+        return $id ? new self($id) : null;
+    }
+
+    public static function getByIdCart($id_cart)
+    {
+        $sql = 'SELECT `id_payment` FROM `' . _DB_PREFIX_ . 'monei2_payment` 
+                WHERE `id_cart` = ' . (int)$id_cart;
+        $id = \Db::getInstance()->getValue($sql);
+        return $id ? new self($id) : null;
+    }
+
+    public static function getByIdOrderMonei($id_order_monei)
+    {
+        $sql = 'SELECT `id_payment` FROM `' . _DB_PREFIX_ . 'monei2_payment` 
+                WHERE `id_order_monei` = \'' . pSQL($id_order_monei) . '\'';
+        $id = \Db::getInstance()->getValue($sql);
+        return $id ? new self($id) : null;
+    }
+
+    public static function findOneBy($criteria)
+    {
+        $where_parts = [];
+        foreach ($criteria as $field => $value) {
+            if (is_int($value)) {
+                $where_parts[] = '`' . pSQL($field) . '` = ' . (int)$value;
+            } else {
+                $where_parts[] = '`' . pSQL($field) . '` = \'' . pSQL($value) . '\'';
+            }
+        }
+        
+        $sql = 'SELECT `id_payment` FROM `' . _DB_PREFIX_ . 'monei2_payment` 
+                WHERE ' . implode(' AND ', $where_parts) . ' 
+                LIMIT 1';
+        
+        $id = \Db::getInstance()->getValue($sql);
+        return $id ? new self($id) : null;
+    }
+
+    /**
+     * Compatibility methods for existing code
+     */
+    public function isRefundable()
     {
         $amount = $this->getAmount();
         if ($amount === null) {
@@ -114,7 +221,7 @@ class Monei2Payment
         return false;
     }
 
-    public function getRemainingAmountToRefund(): int
+    public function getRemainingAmountToRefund()
     {
         $amount = $this->getAmount() ?? 0;
         $refundedAmount = $this->getRefundedAmount() ?? 0;
@@ -122,58 +229,55 @@ class Monei2Payment
         return $amount - $refundedAmount;
     }
 
-    public function getId(): string
+    public function getId()
     {
-        return $this->id;
+        return $this->id_payment;
     }
 
-    public function setId(string $id): self
+    public function setId($id)
     {
+        $this->id_payment = $id;
         $this->id = $id;
-
         return $this;
     }
 
-    public function getCartId(): ?int
+    public function getCartId()
     {
         return $this->id_cart;
     }
 
-    public function setCartId(int $id_cart): self
+    public function setCartId($id_cart)
     {
         $this->id_cart = $id_cart;
-
         return $this;
     }
 
-    public function getOrderId(): ?int
+    public function getOrderId()
     {
         return $this->id_order;
     }
 
-    public function setOrderId(?int $id_order): self
+    public function setOrderId($id_order)
     {
         $this->id_order = $id_order;
-
         return $this;
     }
 
-    public function getOrderMoneiId(): ?string
+    public function getOrderMoneiId()
     {
         return $this->id_order_monei;
     }
 
-    public function setOrderMoneiId(?string $id_order_monei): self
+    public function setOrderMoneiId($id_order_monei)
     {
         $this->id_order_monei = $id_order_monei;
-
         return $this;
     }
 
     /**
      * @return int|float|null Returns int when $inDecimal is false, float when true, null if amount not set
      */
-    public function getAmount(bool $inDecimal = false)
+    public function getAmount($inDecimal = false)
     {
         if ($this->amount === null) {
             return null;
@@ -182,156 +286,200 @@ class Monei2Payment
         return $inDecimal ? $this->amount / 100 : $this->amount;
     }
 
-    public function setAmount(int $amount): self
+    public function setAmount($amount)
     {
         $this->amount = $amount;
-
         return $this;
     }
 
-    public function getRefundedAmount(bool $inDecimal = false): ?float
+    public function getRefundedAmount($inDecimal = false)
     {
-        return $inDecimal ? $this->refunded_amount / 100 : $this->refunded_amount;
+        return $inDecimal && $this->refunded_amount !== null ? $this->refunded_amount / 100 : $this->refunded_amount;
     }
 
-    public function setRefundedAmount(?int $refunded_amount): self
+    public function setRefundedAmount($refunded_amount)
     {
         $this->refunded_amount = $refunded_amount;
-
         return $this;
     }
 
-    public function getCurrency(): ?string
+    public function getCurrency()
     {
         return $this->currency;
     }
 
-    public function setCurrency(string $currency): self
+    public function setCurrency($currency)
     {
         $this->currency = $currency;
-
         return $this;
     }
 
-    public function getAuthorizationCode(): ?string
+    public function getAuthorizationCode()
     {
         return $this->authorization_code;
     }
 
-    public function setAuthorizationCode(?string $authorization_code): self
+    public function setAuthorizationCode($authorization_code)
     {
         $this->authorization_code = $authorization_code;
-
         return $this;
     }
 
-    public function getStatus(): ?string
+    public function getStatus()
     {
         return $this->status;
     }
 
-    public function setStatus(?string $status): self
+    public function setStatus($status)
     {
         $this->status = $status;
-
         return $this;
     }
 
-    public function getIsCaptured(): bool
+    public function getIsCaptured()
     {
-        return $this->is_captured;
+        return (bool)$this->is_captured;
     }
 
-    public function setIsCaptured(bool $is_captured): self
+    public function setIsCaptured($is_captured)
     {
-        $this->is_captured = $is_captured;
-
+        $this->is_captured = (bool)$is_captured;
         return $this;
     }
 
-    public function getStatusCode(): ?string
+    public function getStatusCode()
     {
         return $this->status_code;
     }
 
-    public function setStatusCode(?string $status_code): self
+    public function setStatusCode($status_code)
     {
         $this->status_code = $status_code;
-
         return $this;
     }
 
-    public function getDateAdd(): ?\DateTime
+    public function getDateAdd()
+    {
+        return $this->date_add ? new \DateTime($this->date_add) : null;
+    }
+
+    public function getDateAddFormatted()
     {
         return $this->date_add;
     }
 
-    public function getDateAddFormatted(): ?string
+    public function setDateAdd($timestamp)
     {
-        return $this->date_add ? $this->date_add->format('Y-m-d H:i:s') : null;
-    }
-
-    public function setDateAdd(?int $timestamp): self
-    {
-        $this->date_add = $timestamp ? (new \DateTime())->setTimestamp($timestamp) : null;
-
+        if (is_int($timestamp)) {
+            $this->date_add = date('Y-m-d H:i:s', $timestamp);
+        } else {
+            $this->date_add = $timestamp;
+        }
         return $this;
     }
 
-    public function getDateUpd(): ?\DateTime
+    public function getDateUpd()
+    {
+        return $this->date_upd ? new \DateTime($this->date_upd) : null;
+    }
+
+    public function getDateUpdFormatted()
     {
         return $this->date_upd;
     }
 
-    public function getDateUpdFormatted(): ?string
+    public function setDateUpd($timestamp)
     {
-        return $this->date_upd ? $this->date_upd->format('Y-m-d H:i:s') : null;
-    }
-
-    public function setDateUpd(?int $timestamp): self
-    {
-        $this->date_upd = $timestamp ? (new \DateTime())->setTimestamp($timestamp) : null;
-
+        if (is_int($timestamp)) {
+            $this->date_upd = date('Y-m-d H:i:s', $timestamp);
+        } else {
+            $this->date_upd = $timestamp;
+        }
         return $this;
     }
 
     /**
-     * @return Collection<int, Monei2History>
+     * Get history list - returns array instead of Collection
      */
-    public function getHistoryList(): Collection
+    public function getHistoryList()
     {
-        return $this->historyList;
-    }
-
-    public function addHistory(Monei2History $paymentHistory)
-    {
-        $paymentHistory->setPayment($this);
-        $this->historyList->add($paymentHistory);
+        $sql = 'SELECT * FROM `' . _DB_PREFIX_ . 'monei2_history` 
+                WHERE `id_payment` = \'' . pSQL($this->id_payment) . '\' 
+                ORDER BY `date_add` DESC';
+        
+        $results = \Db::getInstance()->executeS($sql);
+        $history = [];
+        
+        if ($results) {
+            foreach ($results as $row) {
+                $historyItem = new Monei2History();
+                $historyItem->hydrate($row);
+                $history[] = $historyItem;
+            }
+        }
+        
+        return $history;
     }
 
     /**
-     * @return Collection<int, Monei2Refund>
+     * Add history
      */
-    public function getRefundList(): Collection
+    public function addHistory($paymentHistory)
     {
-        return $this->refundList;
+        $paymentHistory->setPayment($this);
+        return $paymentHistory->save();
     }
 
-    public function getRefundByHistoryId(int $historyId): ?Monei2Refund
+    /**
+     * Get refund list - returns array instead of Collection
+     */
+    public function getRefundList()
     {
-        foreach ($this->refundList as $refund) {
-            if ($refund->getHistory()->getId() === $historyId) {
-                return $refund;
+        $sql = 'SELECT * FROM `' . _DB_PREFIX_ . 'monei2_refund` 
+                WHERE `id_payment` = \'' . pSQL($this->id_payment) . '\' 
+                ORDER BY `date_add` DESC';
+        
+        $results = \Db::getInstance()->executeS($sql);
+        $refunds = [];
+        
+        if ($results) {
+            foreach ($results as $row) {
+                $refundItem = new Monei2Refund();
+                $refundItem->hydrate($row);
+                $refunds[] = $refundItem;
             }
         }
+        
+        return $refunds;
+    }
 
+    /**
+     * Get refund by history ID
+     */
+    public function getRefundByHistoryId($historyId)
+    {
+        $sql = 'SELECT * FROM `' . _DB_PREFIX_ . 'monei2_refund` 
+                WHERE `id_payment` = \'' . pSQL($this->id_payment) . '\' 
+                AND `id_history` = ' . (int)$historyId;
+        
+        $row = \Db::getInstance()->getRow($sql);
+        
+        if ($row) {
+            $refund = new Monei2Refund();
+            $refund->hydrate($row);
+            return $refund;
+        }
+        
         return null;
     }
 
-    public function addRefund(Monei2Refund $paymentRefund)
+    /**
+     * Add refund
+     */
+    public function addRefund($paymentRefund)
     {
         $paymentRefund->setPayment($this);
-        $this->refundList->add($paymentRefund);
+        return $paymentRefund->save();
     }
 
     public function toArray()

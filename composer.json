@@ -22,8 +22,7 @@
     }
   },
   "require": {
-    "monei/monei-php-sdk": "^2.6",
-    "prestashop/module-lib-service-container": "^2.0"
+    "monei/monei-php-sdk": "^2.6"
   },
   "require-dev": {
     "friendsofphp/php-cs-fixer": "^3.3"

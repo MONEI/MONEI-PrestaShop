@@ -2,140 +2,210 @@
 
 namespace PsMonei\Entity;
 
-use Doctrine\ORM\Mapping as ORM;
+if (!defined('_PS_VERSION_')) {
+    exit;
+}
 
-/**
- * @ORM\Table()
- *
- * @ORM\Entity(repositoryClass="PsMonei\Repository\MoneiHistoryRepository")
- */
-class Monei2History
+class Monei2History extends \ObjectModel
 {
-    /**
-     * @ORM\Id
-     *
-     * @ORM\GeneratedValue
-     *
-     * @ORM\Column(name="id_history", type="integer", length=10)
-     */
-    private $id;
+    public $id_history;
+    public $id_payment;
+    public $status;
+    public $status_code;
+    public $response;
+    public $date_add;
 
     /**
-     * @ORM\ManyToOne(targetEntity="PsMonei\Entity\Monei2Payment", inversedBy="history")
-     *
-     * @ORM\JoinColumn(name="id_payment", referencedColumnName="id_payment", nullable=false)
+     * @var array Object model definition
+     */
+    public static $definition = [
+        'table' => 'monei2_history',
+        'primary' => 'id_history',
+        'fields' => [
+            'id_payment' => ['type' => self::TYPE_STRING, 'validate' => 'isString', 'size' => 50, 'required' => true],
+            'status' => ['type' => self::TYPE_STRING, 'validate' => 'isString', 'size' => 20, 'required' => true],
+            'status_code' => ['type' => self::TYPE_STRING, 'validate' => 'isString', 'size' => 4],
+            'response' => ['type' => self::TYPE_STRING, 'validate' => 'isString', 'size' => 4000],
+            'date_add' => ['type' => self::TYPE_DATE, 'validate' => 'isDate'],
+        ],
+    ];
+
+    /**
+     * Reference to payment object
      */
     private $payment;
 
     /**
-     * @ORM\OneToOne(targetEntity="PsMonei\Entity\Monei2Refund", mappedBy="history")
+     * Static finder methods to replace repository pattern
      */
-    private $refund;
-
-    /**
-     * @ORM\Column(type="string", length=20)
-     */
-    private $status;
-
-    /**
-     * @ORM\Column(type="string", length=4, nullable=true)
-     */
-    private $status_code;
-
-    /**
-     * @ORM\Column(type="string", length=4000, nullable=true)
-     */
-    private $response;
-
-    /**
-     * @ORM\Column(type="datetime", nullable=true)
-     */
-    private $date_add;
-
-    public function __construct()
+    public static function getByPaymentId($id_payment)
     {
-        $this->date_add = new \DateTime();
+        $sql = 'SELECT `id_history` FROM `' . _DB_PREFIX_ . 'monei2_history` 
+                WHERE `id_payment` = \'' . pSQL($id_payment) . '\' 
+                ORDER BY `date_add` DESC';
+        
+        $results = \Db::getInstance()->executeS($sql);
+        $history = [];
+        
+        if ($results) {
+            foreach ($results as $row) {
+                $history[] = new self($row['id_history']);
+            }
+        }
+        
+        return $history;
     }
 
-    // Getters and Setters for each property
-    public function getId(): ?int
+    public static function findBy($criteria)
     {
-        return $this->id;
+        $where_parts = [];
+        foreach ($criteria as $field => $value) {
+            if (is_int($value)) {
+                $where_parts[] = '`' . pSQL($field) . '` = ' . (int)$value;
+            } else {
+                $where_parts[] = '`' . pSQL($field) . '` = \'' . pSQL($value) . '\'';
+            }
+        }
+        
+        $sql = 'SELECT `id_history` FROM `' . _DB_PREFIX_ . 'monei2_history`';
+        if (!empty($where_parts)) {
+            $sql .= ' WHERE ' . implode(' AND ', $where_parts);
+        }
+        $sql .= ' ORDER BY `date_add` DESC';
+        
+        $results = \Db::getInstance()->executeS($sql);
+        $history = [];
+        
+        if ($results) {
+            foreach ($results as $row) {
+                $history[] = new self($row['id_history']);
+            }
+        }
+        
+        return $history;
+    }
+
+    public static function findOneBy($criteria)
+    {
+        $where_parts = [];
+        foreach ($criteria as $field => $value) {
+            if (is_int($value)) {
+                $where_parts[] = '`' . pSQL($field) . '` = ' . (int)$value;
+            } else {
+                $where_parts[] = '`' . pSQL($field) . '` = \'' . pSQL($value) . '\'';
+            }
+        }
+        
+        $sql = 'SELECT `id_history` FROM `' . _DB_PREFIX_ . 'monei2_history` 
+                WHERE ' . implode(' AND ', $where_parts) . ' 
+                LIMIT 1';
+        
+        $id = \Db::getInstance()->getValue($sql);
+        return $id ? new self($id) : null;
+    }
+
+    /**
+     * Compatibility methods for existing code
+     */
+    public function getId()
+    {
+        return (int)$this->id_history;
     }
 
     public function getPayment()
     {
+        if (!$this->payment && $this->id_payment) {
+            $this->payment = new Monei2Payment($this->id_payment);
+        }
         return $this->payment;
     }
 
-    public function setPayment(Monei2Payment $payment)
+    public function setPayment($payment)
     {
         $this->payment = $payment;
-
+        if ($payment instanceof Monei2Payment) {
+            $this->id_payment = $payment->getId();
+        } else if (is_string($payment)) {
+            $this->id_payment = $payment;
+        }
         return $this;
     }
 
-    public function getStatus(): ?string
+    public function getStatus()
     {
         return $this->status;
     }
 
-    public function setStatus(string $status): self
+    public function setStatus($status)
     {
         $this->status = $status;
-
         return $this;
     }
 
-    public function getStatusCode(): ?string
+    public function getStatusCode()
     {
         return $this->status_code ?? '';
     }
 
-    public function setStatusCode(?string $status_code): self
+    public function setStatusCode($status_code)
     {
         $this->status_code = $status_code;
-
         return $this;
     }
 
-    public function getResponse(): ?string
+    public function getResponse()
     {
         return $this->response;
     }
 
-    public function getResponseDecoded(): ?array
+    public function getResponseDecoded()
     {
-        return json_decode($this->response, true);
+        return $this->response ? json_decode($this->response, true) : null;
     }
 
-    public function setResponse(?string $response): self
+    public function setResponse($response)
     {
         $this->response = $response;
-
         return $this;
     }
 
-    public function getDateAdd(): ?\DateTime
+    public function getDateAdd()
+    {
+        return $this->date_add ? new \DateTime($this->date_add) : null;
+    }
+
+    public function getDateAddFormatted()
     {
         return $this->date_add;
     }
 
-    public function getDateAddFormatted(): ?string
+    public function setDateAdd($date_add)
     {
-        return $this->date_add ? $this->date_add->format('Y-m-d H:i:s') : null;
-    }
-
-    public function setDateAdd(?\DateTime $date_add): self
-    {
-        $this->date_add = $date_add;
-
+        if ($date_add instanceof \DateTime) {
+            $this->date_add = $date_add->format('Y-m-d H:i:s');
+        } else if (is_int($date_add)) {
+            $this->date_add = date('Y-m-d H:i:s', $date_add);
+        } else {
+            $this->date_add = $date_add;
+        }
         return $this;
     }
 
-    public function getRefund(): ?Monei2Refund
+    public function getRefund()
     {
-        return $this->refund;
+        // Check if there's a refund associated with this history
+        $sql = 'SELECT * FROM `' . _DB_PREFIX_ . 'monei2_refund` 
+                WHERE `id_history` = ' . (int)$this->id_history;
+        
+        $row = \Db::getInstance()->getRow($sql);
+        
+        if ($row) {
+            $refund = new Monei2Refund();
+            $refund->hydrate($row);
+            return $refund;
+        }
+        
+        return null;
     }
 
     public function toArray()

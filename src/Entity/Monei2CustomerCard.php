@@ -2,194 +2,247 @@
 
 namespace PsMonei\Entity;
 
-use Doctrine\ORM\Mapping as ORM;
+if (!defined('_PS_VERSION_')) {
+    exit;
+}
 
-/**
- * @ORM\Table()
- *
- * @ORM\Entity(repositoryClass="PsMonei\Repository\MoneiCustomerCardRepository")
- */
-class Monei2CustomerCard
+class Monei2CustomerCard extends \ObjectModel
 {
-    /**
-     * @ORM\Id
-     *
-     * @ORM\GeneratedValue
-     *
-     * @ORM\Column(name="id_customer_card", type="integer", length=11)
-     */
-    private $id;
+    public $id_customer_card;
+    public $id_customer;
+    public $brand;
+    public $country;
+    public $last_four;
+    public $expiration;
+    public $tokenized;
+    public $date_add;
 
     /**
-     * @ORM\Column(type="integer")
+     * @var array Object model definition
      */
-    private $id_customer;
+    public static $definition = [
+        'table' => 'monei2_customer_card',
+        'primary' => 'id_customer_card',
+        'fields' => [
+            'id_customer' => ['type' => self::TYPE_INT, 'validate' => 'isUnsignedId', 'required' => true],
+            'brand' => ['type' => self::TYPE_STRING, 'validate' => 'isString', 'size' => 50],
+            'country' => ['type' => self::TYPE_STRING, 'validate' => 'isString', 'size' => 4],
+            'last_four' => ['type' => self::TYPE_STRING, 'validate' => 'isString', 'size' => 20, 'required' => true],
+            'expiration' => ['type' => self::TYPE_INT, 'validate' => 'isInt', 'required' => true],
+            'tokenized' => ['type' => self::TYPE_STRING, 'validate' => 'isString', 'size' => 255, 'required' => true],
+            'date_add' => ['type' => self::TYPE_DATE, 'validate' => 'isDate'],
+        ],
+    ];
 
     /**
-     * @ORM\Column(type="string", length=50, nullable=true)
+     * Static finder methods to replace repository pattern
      */
-    private $brand;
-
-    /**
-     * @ORM\Column(type="string", length=4, nullable=true)
-     */
-    private $country;
-
-    /**
-     * @ORM\Column(type="string", length=20)
-     */
-    private $last_four;
-
-    /**
-     * @ORM\Column(type="integer")
-     */
-    private $expiration;
-
-    /**
-     * @ORM\Column(type="string", length=255)
-     */
-    private $tokenized;
-
-    /**
-     * @ORM\Column(type="datetime", nullable=true)
-     */
-    private $date_add;
-
-    public function __construct()
+    public static function getByCustomer($id_customer)
     {
-        $this->date_add = new \DateTime();
+        $sql = 'SELECT `id_customer_card` FROM `' . _DB_PREFIX_ . 'monei2_customer_card` 
+                WHERE `id_customer` = ' . (int)$id_customer . ' 
+                ORDER BY `date_add` DESC';
+        
+        $results = \Db::getInstance()->executeS($sql);
+        $cards = [];
+        
+        if ($results) {
+            foreach ($results as $row) {
+                $cards[] = new self($row['id_customer_card']);
+            }
+        }
+        
+        return $cards;
     }
 
-    public function getId(): ?int
+    public static function getByCustomerAndId($id_customer, $id_customer_card)
     {
-        return $this->id;
+        $sql = 'SELECT `id_customer_card` FROM `' . _DB_PREFIX_ . 'monei2_customer_card` 
+                WHERE `id_customer` = ' . (int)$id_customer . ' 
+                AND `id_customer_card` = ' . (int)$id_customer_card;
+        
+        $id = \Db::getInstance()->getValue($sql);
+        return $id ? new self($id) : null;
     }
 
-    public function getCustomerId(): ?int
+    public static function findBy($criteria)
     {
-        return $this->id_customer;
+        $where_parts = [];
+        foreach ($criteria as $field => $value) {
+            if (is_int($value)) {
+                $where_parts[] = '`' . pSQL($field) . '` = ' . (int)$value;
+            } else {
+                $where_parts[] = '`' . pSQL($field) . '` = \'' . pSQL($value) . '\'';
+            }
+        }
+        
+        $sql = 'SELECT `id_customer_card` FROM `' . _DB_PREFIX_ . 'monei2_customer_card`';
+        if (!empty($where_parts)) {
+            $sql .= ' WHERE ' . implode(' AND ', $where_parts);
+        }
+        $sql .= ' ORDER BY `date_add` DESC';
+        
+        $results = \Db::getInstance()->executeS($sql);
+        $cards = [];
+        
+        if ($results) {
+            foreach ($results as $row) {
+                $cards[] = new self($row['id_customer_card']);
+            }
+        }
+        
+        return $cards;
     }
 
-    public function setCustomerId(int $id_customer): self
+    public static function findOneBy($criteria)
     {
-        $this->id_customer = $id_customer;
+        $where_parts = [];
+        foreach ($criteria as $field => $value) {
+            if (is_int($value)) {
+                $where_parts[] = '`' . pSQL($field) . '` = ' . (int)$value;
+            } else {
+                $where_parts[] = '`' . pSQL($field) . '` = \'' . pSQL($value) . '\'';
+            }
+        }
+        
+        $sql = 'SELECT `id_customer_card` FROM `' . _DB_PREFIX_ . 'monei2_customer_card` 
+                WHERE ' . implode(' AND ', $where_parts) . ' 
+                LIMIT 1';
+        
+        $id = \Db::getInstance()->getValue($sql);
+        return $id ? new self($id) : null;
+    }
 
+    /**
+     * Compatibility methods for existing code
+     */
+    public function getId()
+    {
+        return (int)$this->id_customer_card;
+    }
+
+    public function getCustomerId()
+    {
+        return (int)$this->id_customer;
+    }
+
+    public function setCustomerId($id_customer)
+    {
+        $this->id_customer = (int)$id_customer;
         return $this;
     }
 
-    public function getBrand(): ?string
+    public function getBrand()
     {
         return $this->brand !== null ? strtoupper($this->brand) : null;
     }
 
-    public function setBrand(?string $brand): self
+    public function setBrand($brand)
     {
         $this->brand = $brand;
-
         return $this;
     }
 
-    public function getCountry(): ?string
+    public function getCountry()
     {
         return $this->country;
     }
 
-    public function setCountry(?string $country): self
+    public function setCountry($country)
     {
         $this->country = $country;
-
         return $this;
     }
 
-    public function getLastFour(): string
+    public function getLastFour()
     {
         return $this->last_four;
     }
 
-    public function getLastFourWithMask(): string
+    public function getLastFourWithMask()
     {
         return '•••• ' . $this->last_four;
     }
 
-    public function setLastFour(string $last_four): self
+    public function setLastFour($last_four)
     {
         $this->last_four = $last_four;
-
         return $this;
     }
 
-    public function getExpiration(): int
+    public function getExpiration()
     {
-        return $this->expiration;
+        return (int)$this->expiration;
     }
 
-    public function getExpirationFormatted(): string
+    public function getExpirationFormatted()
     {
         return date('m/y', $this->expiration);
     }
 
-    public function setExpiration(int $expiration): self
+    public function setExpiration($expiration)
     {
-        $this->expiration = $expiration;
-
+        $this->expiration = (int)$expiration;
         return $this;
     }
 
-    public function getTokenized(): string
+    public function getTokenized()
     {
         return $this->tokenized;
     }
 
-    public function setTokenized(string $tokenized): self
+    public function setTokenized($tokenized)
     {
         $this->tokenized = $tokenized;
-
         return $this;
     }
 
-    public function getDateAdd(): ?\DateTime
+    public function getDateAdd()
+    {
+        return $this->date_add ? new \DateTime($this->date_add) : null;
+    }
+
+    public function getDateAddFormatted()
     {
         return $this->date_add;
     }
 
-    public function getDateAddFormatted(): ?string
+    public function setDateAdd($timestamp)
     {
-        return $this->date_add ? $this->date_add->format('Y-m-d H:i:s') : null;
-    }
-
-    public function setDateAdd(?int $timestamp): self
-    {
-        $this->date_add = $timestamp ? (new \DateTime())->setTimestamp($timestamp) : null;
-
+        if (is_int($timestamp)) {
+            $this->date_add = date('Y-m-d H:i:s', $timestamp);
+        } else {
+            $this->date_add = $timestamp;
+        }
         return $this;
     }
 
-    public function toArrayLegacy(): array
+    public function toArrayLegacy()
     {
         return [
-            'id_customer_card' => $this->id,
-            'id_customer' => $this->id_customer,
-            'brand' => $this->brand,
-            'country' => $this->country,
-            'last_four' => $this->last_four,
+            'id_customer_card' => $this->getId(),
+            'id_customer' => $this->getCustomerId(),
+            'brand' => $this->getBrand(),
+            'country' => $this->getCountry(),
+            'last_four' => $this->getLastFour(),
             'last_four_with_mask' => $this->getLastFourWithMask(),
-            'expiration' => $this->expiration,
-            'tokenized' => $this->tokenized,
+            'expiration' => $this->getExpiration(),
+            'tokenized' => $this->getTokenized(),
             'date_add' => $this->getDateAddFormatted(),
         ];
     }
 
-    public function toArray(): array
+    public function toArray()
     {
         return [
-            'id' => $this->id,
-            'customerId' => $this->id_customer,
-            'brand' => $this->brand,
-            'country' => $this->country,
-            'lastFour' => $this->last_four,
+            'id' => $this->getId(),
+            'customerId' => $this->getCustomerId(),
+            'brand' => $this->getBrand(),
+            'country' => $this->getCountry(),
+            'lastFour' => $this->getLastFour(),
             'lastFourWithMask' => $this->getLastFourWithMask(),
-            'expiration' => $this->expiration,
-            'tokenized' => $this->tokenized,
+            'expiration' => $this->getExpiration(),
+            'tokenized' => $this->getTokenized(),
             'dateAdd' => $this->getDateAddFormatted(),
         ];
     }

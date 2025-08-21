@@ -3,17 +3,16 @@
 namespace PsMonei\Service\Payment;
 
 use Monei\Model\PaymentPaymentMethod;
-use PrestaShop\PrestaShop\Adapter\Configuration as ConfigurationLegacy;
-use PrestaShop\PrestaShop\Adapter\LegacyContext;
-use PsMonei\Repository\MoneiCustomerCardRepository;
+use PsMonei\Entity\Monei2CustomerCard;
 use PsMonei\Service\Monei\MoneiService;
+use PsMonei\Helper\PaymentMethodFormatter;
 
 class PaymentOptionService
 {
     private $moneiService;
-    private $moneiCustomerCardRepository;
     private $configuration;
     private $context;
+    private $paymentMethodFormatter;
 
     private $paymentMethodsAllowed = [];
     private $availableCardBrands = [];
@@ -64,15 +63,23 @@ class PaymentOptionService
 
     public function __construct(
         MoneiService $moneiService,
-        MoneiCustomerCardRepository $moneiCustomerCardRepository,
-        ConfigurationLegacy $configuration,
-        LegacyContext $legacyContext,
+        $moneiCustomerCardModel,
+        $configuration,
+        $context,
+        PaymentMethodFormatter $paymentMethodFormatter
     ) {
         $this->moneiService = $moneiService;
-        $this->moneiCustomerCardRepository = $moneiCustomerCardRepository;
-        $this->configuration = $configuration;
-
-        $this->context = $legacyContext->getContext();
+        $this->configuration = $configuration; // Will be Configuration class name for static calls
+        $this->paymentMethodFormatter = $paymentMethodFormatter;
+        
+        // For PS1.7 compatibility, we accept context directly
+        if (is_object($context) && method_exists($context, 'getContext')) {
+            $this->context = $context->getContext();
+        } else {
+            $this->context = $context;
+        }
+        // Note: moneiCustomerCardModel parameter kept for compatibility but not used
+        // as we use static methods on ObjectModel classes directly
     }
 
     public function getPaymentOptions(): ?array
@@ -204,7 +211,7 @@ class PaymentOptionService
             $link = $this->context->link;
 
             // Get current customer cards (not expired ones)
-            $activeCustomerCards = $this->moneiCustomerCardRepository->getActiveCustomerCards($customer->id);
+            $activeCustomerCards = Monei2CustomerCard::getByCustomer($customer->id);
             if ($activeCustomerCards) {
                 foreach ($activeCustomerCards as $customerCard) {
                     $cardBrand = strtolower($customerCard->getBrand());

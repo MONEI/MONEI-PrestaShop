@@ -14,27 +14,18 @@ use Monei\Model\PaymentCustomer;
 use Monei\Model\PaymentTransactionType;
 use Monei\Model\RefundPaymentRequest;
 use Monei\MoneiClient;
-use PrestaShop\PrestaShop\Adapter\LegacyContext;
 use PsMonei\Entity\Monei2CustomerCard;
 use PsMonei\Entity\Monei2History;
 use PsMonei\Entity\Monei2Payment;
 use PsMonei\Entity\Monei2Refund;
 use PsMonei\Exception\MoneiException;
-use PsMonei\Repository\MoneiCustomerCardRepository;
-use PsMonei\Repository\MoneiHistoryRepository;
-use PsMonei\Repository\MoneiPaymentRepository;
-use PsMonei\Repository\MoneiRefundRepository;
 
 class MoneiService
 {
     // Payment methods that do not support AUTH transaction type
     const UNSUPPORTED_AUTH_METHODS = ['mbway', 'multibanco'];
 
-    private $legacyContext;
-    private $moneiPaymentRepository;
-    private $moneiCustomerCardRepository;
-    private $moneiRefundRepository;
-    private $moneiHistoryRepository;
+    private $context;
 
     /**
      * Static cache of payment methods to avoid repeated API calls within a single request
@@ -49,17 +40,20 @@ class MoneiService
     private const CACHE_LIFETIME = 60;
 
     public function __construct(
-        LegacyContext $legacyContext,
-        MoneiPaymentRepository $moneiPaymentRepository,
-        MoneiCustomerCardRepository $moneiCustomerCardRepository,
-        MoneiRefundRepository $moneiRefundRepository,
-        MoneiHistoryRepository $moneiHistoryRepository,
+        $context,
+        $moneiPaymentModel,
+        $moneiCustomerCardModel,
+        $moneiRefundModel,
+        $moneiHistoryModel
     ) {
-        $this->legacyContext = $legacyContext;
-        $this->moneiPaymentRepository = $moneiPaymentRepository;
-        $this->moneiCustomerCardRepository = $moneiCustomerCardRepository;
-        $this->moneiRefundRepository = $moneiRefundRepository;
-        $this->moneiHistoryRepository = $moneiHistoryRepository;
+        // For PS1.7 compatibility, we accept context directly
+        if (is_object($context) && method_exists($context, 'getContext')) {
+            $this->context = $context->getContext();
+        } else {
+            $this->context = $context;
+        }
+        // Note: Model parameters are kept for compatibility but not used
+        // as we use static methods on ObjectModel classes directly
     }
 
     public function getMoneiClient()
@@ -272,12 +266,12 @@ class MoneiService
             throw new MoneiException('The address could not be loaded correctly', MoneiException::ADDRESS_NOT_FOUND);
         }
 
-        $country = new \Country($address->id_country, (int) $this->legacyContext->getLanguage()->id);
+        $country = new \Country($address->id_country, (int) $this->context->language->id);
         if (!\Validate::isLoadedObject($country)) {
             throw new MoneiException('The country could not be loaded correctly', MoneiException::COUNTRY_NOT_FOUND);
         }
 
-        $state = new \State((int) $address->id_state, (int) $this->legacyContext->getLanguage()->id);
+        $state = new \State((int) $address->id_state, (int) $this->context->language->id);
         $stateName = $state->name ?: '';
 
         $billingData = [
@@ -329,7 +323,7 @@ class MoneiService
 
     public function getTotalRefundedByIdOrder(int $orderId)
     {
-        $payment = $this->moneiPaymentRepository->findOneBy(['id_order' => $orderId]);
+        $payment = Monei2Payment::findOneBy(['id_order' => $orderId]);
         if (!$payment) {
             return 0;
         }
@@ -356,7 +350,7 @@ class MoneiService
 
         $cartId = $this->extractCartIdFromMoneiOrderId($moneiPayment->getOrderId());
 
-        $monei2PaymentEntity = $this->moneiPaymentRepository->findOneById($moneiPayment->getId()) ?? new Monei2Payment();
+        $monei2PaymentEntity = new Monei2Payment($moneiPayment->getId()) ?? new Monei2Payment();
 
         $monei2PaymentEntity->setId($moneiPayment->getId());
         $monei2PaymentEntity->setCartId($cartId);
@@ -433,7 +427,7 @@ class MoneiService
             $monei2PaymentEntity->addRefund($monei2Refund);
         }
 
-        $this->moneiPaymentRepository->save($monei2PaymentEntity);
+        $monei2PaymentEntity->save();
 
         return $monei2PaymentEntity;
     }
@@ -443,7 +437,7 @@ class MoneiService
         $cardPayment = $moneiPayment->getPaymentMethod()->getCard();
         $paymentToken = $moneiPayment->getPaymentToken();
         if ($cardPayment && $paymentToken) {
-            $monei2CustomerCard = $this->moneiCustomerCardRepository->findOneBy([
+            $monei2CustomerCard = Monei2CustomerCard::findOneBy([
                 'tokenized' => $paymentToken,
                 'expiration' => $cardPayment->getExpiration(),
                 'last_four' => $cardPayment->getLast4(),
@@ -458,7 +452,7 @@ class MoneiService
                 $monei2CustomerCard->setExpiration($cardPayment->getExpiration());
                 $monei2CustomerCard->setTokenized($paymentToken);
 
-                $this->moneiCustomerCardRepository->save($monei2CustomerCard);
+                $monei2CustomerCard->save();
             }
         }
     }
@@ -484,7 +478,7 @@ class MoneiService
             throw new MoneiException('The customer could not be loaded correctly', MoneiException::CUSTOMER_NOT_FOUND);
         }
 
-        $link = $this->legacyContext->getContext()->link;
+        $link = $this->context->link;
 
         $orderId = $this->createMoneiOrderId($cart->id);
 
@@ -503,7 +497,7 @@ class MoneiService
                 $link->getModuleLink('monei', 'validation')
             )
             ->setCancelUrl(
-                $this->legacyContext->getFrontUrl('order')
+                $this->context->link->getPageLink('order')
             );
 
         $customerData = $this->getCustomerData($customer, (int) $cart->id_address_invoice, true);
@@ -549,7 +543,7 @@ class MoneiService
         if ($tokenizeCard) {
             $createPaymentRequest->setGeneratePaymentToken(true);
         } elseif ($cardTokenId) {
-            $monei2CustomerCard = $this->moneiCustomerCardRepository->findOneBy([
+            $monei2CustomerCard = Monei2CustomerCard::findOneBy([
                 'id' => $cardTokenId,
                 'id_customer' => $customer->id,
             ]);
@@ -609,7 +603,7 @@ class MoneiService
 
     public function createRefund(int $orderId, int $amount, int $employeeId, string $reason)
     {
-        $moneiPayment = $this->moneiPaymentRepository->findOneBy(['id_order' => $orderId]);
+        $moneiPayment = Monei2Payment::findOneBy(['id_order' => $orderId]);
         if (!$moneiPayment) {
             throw new MoneiException('The order could not be loaded correctly', MoneiException::ORDER_NOT_FOUND);
         }
@@ -645,7 +639,7 @@ class MoneiService
 
     public function capturePayment(int $orderId, int $amount)
     {
-        $moneiPayment = $this->moneiPaymentRepository->findOneBy(['id_order' => $orderId]);
+        $moneiPayment = Monei2Payment::findOneBy(['id_order' => $orderId]);
         if (!$moneiPayment) {
             throw new MoneiException('Payment record not found for order', MoneiException::ORDER_NOT_FOUND);
         }
@@ -691,7 +685,7 @@ class MoneiService
         $moneiPayment->setIsCaptured(true);
         $moneiPayment->setDateUpd(time());
 
-        $this->moneiPaymentRepository->save($moneiPayment);
+        $moneiPayment->save();
 
         $monei2History = new Monei2History();
         $monei2History->setPayment($moneiPayment);
@@ -700,7 +694,7 @@ class MoneiService
         $monei2History->setResponse(json_encode($capturedPayment));
         $monei2History->setDateAdd(new \DateTime());
 
-        $this->moneiHistoryRepository->save($monei2History);
+        $monei2History->save();
 
         return $capturedPayment;
     }
