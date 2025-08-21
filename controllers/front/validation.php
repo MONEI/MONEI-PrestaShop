@@ -53,7 +53,20 @@ class MoneiValidationModuleFrontController extends ModuleFrontController
             // Parse the JSON to a MoneiPayment object
             $moneiPayment = new Payment($json_array);
 
+            // Check for EXPIRED status without authorization code
+            if ($moneiPayment->getStatus() === Monei\Model\PaymentStatus::EXPIRED && !$moneiPayment->getAuthorizationCode()) {
+                // Payment expired before completion - ignore to allow retry
+                PrestaShopLogger::addLog(
+                    'MONEI - validation.php - Ignoring EXPIRED payment without auth (can be retried): ' . $moneiPayment->getId(),
+                    PrestaShopLogger::LOG_SEVERITY_LEVEL_INFORMATIVE
+                );
+                header('HTTP/1.1 200 OK');
+                echo 'OK - Expired payment ignored for retry';
+                exit;
+            }
+
             // Create or update the order
+            // For EXPIRED with authorizationCode, this will transition AUTHORIZED order to FAILED
             Monei::getService('service.order')->createOrUpdateOrder($moneiPayment->getId());
         } catch (MoneiException $ex) {
             PrestaShopLogger::addLog(

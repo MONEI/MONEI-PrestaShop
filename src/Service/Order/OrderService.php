@@ -66,6 +66,19 @@ class OrderService
             }
 
             $moneiPayment = $this->moneiService->getMoneiPayment($moneiPaymentId);
+
+            // Skip order creation for expired payments without authorization
+            if ($moneiPayment->getStatus() === PaymentStatus::EXPIRED && !$moneiPayment->getAuthorizationCode()) {
+                \PrestaShopLogger::addLog(
+                    'MONEI - createOrUpdateOrder - Skipping EXPIRED payment without auth: ' . $moneiPaymentId,
+                    \PrestaShopLogger::LOG_SEVERITY_LEVEL_INFORMATIVE
+                );
+
+                return;
+            }
+            // EXPIRED with authorizationCode continues and maps to MONEI_STATUS_FAILED
+            // This properly transitions AUTHORIZED orders to FAILED status
+
             $cartId = $this->moneiService->extractCartIdFromMoneiOrderId($moneiPayment->getOrderId());
             $cart = $this->validateCart($cartId);
             $customer = $this->validateCustomer($cart->id_customer);

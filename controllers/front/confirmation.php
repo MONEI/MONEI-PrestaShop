@@ -80,9 +80,27 @@ class MoneiConfirmationModuleFrontController extends ModuleFrontController
 
                     break;
 
+                case PaymentStatus::EXPIRED:
+                    if ($payment->getAuthorizationCode()) {
+                        // Expired authorization - treat as permanent failure
+                        $this->handleFailedPayment($payment);
+                    } else {
+                        // Expired payment attempt - allow retry
+                        PrestaShopLogger::addLog(
+                            'MONEI - confirmation.php - Payment expired without auth, allowing retry: ' . $payment->getId(),
+                            PrestaShopLogger::LOG_SEVERITY_LEVEL_INFORMATIVE
+                        );
+                        $errorMessage = $this->module->l('Payment expired. Please try again.');
+                        $this->context->cookie->monei_checkout_error = $errorMessage;
+                        $this->context->cookie->write();
+                        Tools::redirect($this->context->link->getPageLink('order'));
+                        exit;
+                    }
+
+                    break;
+
                 case PaymentStatus::FAILED:
                 case PaymentStatus::CANCELED:
-                case PaymentStatus::EXPIRED:
                 default:
                     $this->handleFailedPayment($payment);
 
@@ -171,7 +189,7 @@ class MoneiConfirmationModuleFrontController extends ModuleFrontController
     }
 
     /**
-     * Handle failed payment (FAILED, CANCELED, EXPIRED status)
+     * Handle failed payment (FAILED, CANCELED status, or EXPIRED with authorizationCode)
      */
     private function handleFailedPayment($payment)
     {
