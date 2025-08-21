@@ -641,7 +641,11 @@ class Monei extends PaymentModule
 
                         // Add success message if Apple Pay was just enabled
                         if (!$previousApplePayState && $currentApplePayState) {
-                            $this->confirmations[] = $this->l('Apple Pay domain verification initiated successfully.');
+                            // Mark Apple Pay as verified to prevent duplicate message
+                            Configuration::updateValue('MONEI_APPLE_PAY_VERIFIED', true);
+                            Configuration::updateValue('MONEI_APPLE_PAY_VERIFIED_DATE', date('Y-m-d H:i:s'));
+                            
+                            $this->confirmations[] = $this->l('Apple Pay domain verified successfully.');
                         }
                     }
                 } catch (Exception $e) {
