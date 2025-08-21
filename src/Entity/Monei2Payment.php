@@ -163,7 +163,8 @@ class Monei2Payment extends \ObjectModel
     public static function getByIdOrder($id_order)
     {
         $sql = 'SELECT `id_payment` FROM `' . _DB_PREFIX_ . 'monei2_payment` 
-                WHERE `id_order` = ' . (int)$id_order;
+                WHERE `id_order` = ' . (int)$id_order . ' 
+                LIMIT 1';
         $id = \Db::getInstance()->getValue($sql);
         return $id ? new self($id) : null;
     }
@@ -171,7 +172,8 @@ class Monei2Payment extends \ObjectModel
     public static function getByIdCart($id_cart)
     {
         $sql = 'SELECT `id_payment` FROM `' . _DB_PREFIX_ . 'monei2_payment` 
-                WHERE `id_cart` = ' . (int)$id_cart;
+                WHERE `id_cart` = ' . (int)$id_cart . ' 
+                LIMIT 1';
         $id = \Db::getInstance()->getValue($sql);
         return $id ? new self($id) : null;
     }
@@ -179,7 +181,8 @@ class Monei2Payment extends \ObjectModel
     public static function getByIdOrderMonei($id_order_monei)
     {
         $sql = 'SELECT `id_payment` FROM `' . _DB_PREFIX_ . 'monei2_payment` 
-                WHERE `id_order_monei` = \'' . pSQL($id_order_monei) . '\'';
+                WHERE `id_order_monei` = \'' . pSQL($id_order_monei) . '\' 
+                LIMIT 1';
         $id = \Db::getInstance()->getValue($sql);
         return $id ? new self($id) : null;
     }
@@ -196,8 +199,7 @@ class Monei2Payment extends \ObjectModel
         }
         
         $sql = 'SELECT `id_payment` FROM `' . _DB_PREFIX_ . 'monei2_payment` 
-                WHERE ' . implode(' AND ', $where_parts) . ' 
-                LIMIT 1';
+                WHERE ' . implode(' AND ', $where_parts);
         
         $id = \Db::getInstance()->getValue($sql);
         return $id ? new self($id) : null;

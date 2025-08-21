@@ -97,8 +97,7 @@ class Monei2History extends \ObjectModel
         }
         
         $sql = 'SELECT `id_history` FROM `' . _DB_PREFIX_ . 'monei2_history` 
-                WHERE ' . implode(' AND ', $where_parts) . ' 
-                LIMIT 1';
+                WHERE ' . implode(' AND ', $where_parts);
         
         $id = \Db::getInstance()->getValue($sql);
         return $id ? new self($id) : null;
