@@ -1,6 +1,5 @@
 <?php
 use Monei\Model\PaymentStatus;
-use PrestaShop\PrestaShop\Adapter\ServiceLocator;
 use PsMonei\Exception\MoneiException;
 
 if (!defined('_PS_VERSION_')) {
@@ -18,9 +17,10 @@ class MoneiRedirectModuleFrontController extends ModuleFrontController
         $moneiCardId = (int) Tools::getValue('id_monei_card', 0);
         $paymentMethod = Tools::getValue('method', '');
 
-        $crypto = ServiceLocator::get('\\PrestaShop\\PrestaShop\\Core\\Crypto\\Hashing');
         $cart = $this->context->cart;
-        $check_encrypt = $crypto->checkHash((int) $cart->id . (int) $cart->id_customer, $transactionId);
+        // Use PS1.7 compatible encryption
+        $expected_hash = Tools::encrypt((int) $cart->id . (int) $cart->id_customer);
+        $check_encrypt = ($expected_hash === $transactionId);
 
         if ($cart->id_customer == 0
             || $cart->id_address_delivery == 0

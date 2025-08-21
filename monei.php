@@ -6,7 +6,7 @@ use Monei\Model\PaymentPaymentMethod;
 use Monei\Model\PaymentStatus;
 use PsMonei\Entity\Monei2CustomerCard;
 use PsMonei\Entity\Monei2Payment;
-use Symfony\Polyfill\Mbstring\Mbstring;
+use PsMonei\Service\MoneiServiceLocator;
 
 if (!defined('_PS_VERSION_')) {
     exit;
@@ -18,20 +18,17 @@ class Monei extends PaymentModule
     protected $moneiClient = false;
 
     const NAME = 'monei';
-    const VERSION = '2.0.2';
-
-    private static $serviceContainer;
-    private static $serviceList;
+    const VERSION = '1.5.2';
 
     public function __construct()
     {
         $this->displayName = 'MONEI Payments';
         $this->name = 'monei';
         $this->tab = 'payments_gateways';
-        $this->version = '2.0.2';
+        $this->version = '1.5.2';
         $this->author = 'MONEI';
         $this->need_instance = 0;
-        $this->ps_versions_compliancy = ['min' => '8', 'max' => _PS_VERSION_];
+        $this->ps_versions_compliancy = ['min' => '1.7', 'max' => _PS_VERSION_];
         $this->bootstrap = true;
 
         $this->controllers = [
@@ -104,8 +101,7 @@ class Monei extends PaymentModule
             && $this->registerHook('displayPaymentReturn')
             && $this->registerHook('actionCustomerLogoutAfter')
             && $this->registerHook('moduleRoutes')
-            && $this->registerHook('actionOrderSlipAdd')
-            && $this->registerHook('actionGetAdminOrderButtons');
+            && $this->registerHook('actionOrderSlipAdd');
 
         // Copy Apple Pay domain verification file to .well-known directory
         if ($result) {
@@ -122,49 +118,36 @@ class Monei extends PaymentModule
 
     public static function getService($serviceName)
     {
-        $serviceName = self::NAME . '.' . $serviceName;
-
-        if (is_null(self::$serviceContainer)) {
-            $localPath = _PS_MODULE_DIR_ . self::NAME . '/';
-
-            self::$serviceContainer = new PrestaShop\ModuleLibServiceContainer\DependencyInjection\ServiceContainer(
-                self::NAME . str_replace('.', '', self::VERSION),
-                $localPath
-            );
-        }
-
-        if (isset(self::$serviceList[$serviceName])) {
-            return self::$serviceList[$serviceName];
-        }
-
-        self::$serviceList[$serviceName] = self::$serviceContainer->getService($serviceName);
-
-        return self::$serviceList[$serviceName];
+        return MoneiServiceLocator::getService($serviceName);
     }
 
     public function getRepository($class)
     {
-        return $this->get('doctrine.orm.entity_manager')->getRepository($class);
+        // For backward compatibility, return the class itself for static method calls
+        return $class;
     }
 
     public function getDbalConnection()
     {
-        return $this->get('doctrine.dbal.default_connection');
+        // Return Db instance for PS1.7 compatibility
+        return Db::getInstance();
     }
 
     public function getLegacyContext()
     {
-        return $this->get('prestashop.adapter.legacy.context');
+        return Context::getContext();
     }
 
     public function getLegacyConfiguration()
     {
-        return $this->get('prestashop.adapter.legacy.configuration');
+        return Configuration::class;
     }
 
     public function getCacheClearerChain()
     {
-        return $this->get('prestashop.core.cache.clearer.cache_clearer_chain');
+        // PS1.7 doesn't have this service, clear cache manually
+        Tools::clearCache();
+        return null;
     }
 
     /**
@@ -1658,7 +1641,7 @@ class Monei extends PaymentModule
     public function hookDisplayPaymentReturn($params)
     {
         $orderId = (int) $params['order']->id;
-        $monei2PaymentEntity = $this->getRepository(Monei2Payment::class)->findOneBy([
+        $monei2PaymentEntity = Monei2Payment::findOneBy([
             'id_order' => $orderId,
             'status' => PaymentStatus::PENDING,
         ]);
@@ -1683,7 +1666,7 @@ class Monei extends PaymentModule
     {
         $orderId = (int) $params['id_order'];
 
-        $monei2PaymentEntity = $this->getRepository(Monei2Payment::class)->findOneBy(['id_order' => $orderId]);
+        $monei2PaymentEntity = Monei2Payment::findOneBy(['id_order' => $orderId]);
         if (!$monei2PaymentEntity) {
             return;
         }
@@ -1895,7 +1878,7 @@ class Monei extends PaymentModule
 
     public function hookDisplayCustomerAccount()
     {
-        $customerCards = $this->getRepository(Monei2CustomerCard::class)->findBy(['id_customer' => $this->context->customer->id]);
+        $customerCards = Monei2CustomerCard::findBy(['id_customer' => $this->context->customer->id]);
 
         $isWarehouseInstalled = Module::isEnabled('iqitelementor');
 
@@ -1913,10 +1896,10 @@ class Monei extends PaymentModule
     {
         if (!empty($customer['id'])) {
             try {
-                $customerCards = $this->getRepository(Monei2CustomerCard::class)->findBy(['id_customer' => (int) $customer['id']]);
+                $customerCards = Monei2CustomerCard::findBy(['id_customer' => (int) $customer['id']]);
                 if ($customerCards) {
                     foreach ($customerCards as $customerCard) {
-                        $this->getRepository(Monei2CustomerCard::class)->remove($customerCard);
+                        $customerCard->delete();
                     }
                 }
 
@@ -1931,7 +1914,7 @@ class Monei extends PaymentModule
     {
         if (!empty($customer['id'])) {
             try {
-                $customerCards = $this->getRepository(Monei2CustomerCard::class)->findBy(['id_customer' => (int) $customer['id']]);
+                $customerCards = Monei2CustomerCard::findBy(['id_customer' => (int) $customer['id']]);
                 if ($customerCards) {
                     $customerCardsArray = [];
                     foreach ($customerCards as $customerCard) {
@@ -2004,7 +1987,7 @@ class Monei extends PaymentModule
             $qtyList = $params['qtyList'];
 
             // Get MONEI payment from repository
-            $moneiPayment = $this->getRepository(Monei2Payment::class)->findOneBy(['id_order' => $order->id]);
+            $moneiPayment = Monei2Payment::findOneBy(['id_order' => $order->id]);
             if (!$moneiPayment) {
                 PrestaShopLogger::addLog(
                     'MONEI - hookActionOrderSlipAdd - No MONEI payment found for order ID: ' . $order->id,
@@ -2450,43 +2433,6 @@ class Monei extends PaymentModule
      *
      * @param array $params Hook parameters containing order information
      */
-    public function hookActionGetAdminOrderButtons(array $params)
-    {
-        if (!isset($params['id_order']) || !isset($params['actions_bar_buttons_collection'])) {
-            return;
-        }
-
-        $orderId = (int) $params['id_order'];
-        $bar = $params['actions_bar_buttons_collection'];
-
-        // Check if this order has a MONEI payment
-        $monei2PaymentEntity = $this->getRepository(Monei2Payment::class)->findOneBy(['id_order' => $orderId]);
-        if (!$monei2PaymentEntity) {
-            return;
-        }
-
-        // Check if payment is authorized and not yet captured
-        if ($monei2PaymentEntity->getStatus() !== 'AUTHORIZED' || $monei2PaymentEntity->getIsCaptured()) {
-            return;
-        }
-
-        // Get order currency for amount formatting
-        $order = new Order($orderId);
-        if (!Validate::isLoadedObject($order)) {
-            return;
-        }
-
-        // Create a link to the MONEI payment section
-        $bar->add(
-            new PrestaShop\PrestaShop\Core\Action\ActionsBarButton(
-                'btn-primary',
-                [
-                    'href' => '#monei-capture-payment-btn',
-                    'onclick' => 'document.getElementById(\'monei-capture-payment-btn\').click(); return false;',
-                    'title' => $this->l('Capture the authorized payment'),
-                ],
-                $this->l('Capture Payment')
-            )
-        );
-    }
+    // PS8-specific hook removed for PS1.7 compatibility
+    // Capture button functionality is now handled through hookDisplayAdminOrder
 }

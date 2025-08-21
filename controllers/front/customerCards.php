@@ -33,7 +33,7 @@ class MoneiCustomerCardsModuleFrontController extends ModuleFrontController
 
     private function getCustomerCards(int $customerId): array
     {
-        $customerCards = $this->module->getRepository(Monei2CustomerCard::class)->findBy(['id_customer' => $customerId]);
+        $customerCards = Monei2CustomerCard::findBy(['id_customer' => $customerId]);
         $paymentMethodFormatter = Monei::getService('helper.payment_method_formatter');
 
         return array_map(function ($customerCard) use ($paymentMethodFormatter) {
@@ -56,13 +56,13 @@ class MoneiCustomerCardsModuleFrontController extends ModuleFrontController
     {
         try {
             $customerCardId = (int) Tools::getValue('customerCardId');
-            $customerCard = $this->module->getRepository(Monei2CustomerCard::class)->findOneBy([
-                'id' => $customerCardId,
+            $customerCard = Monei2CustomerCard::findOneBy([
+                'id_customer_card' => $customerCardId,
                 'id_customer' => (int) $this->context->customer->id,
             ]);
 
             if ($customerCard) {
-                $this->module->getRepository(Monei2CustomerCard::class)->remove($customerCard);
+                $customerCard->delete();
             }
 
             $this->ajaxResponse(true);
