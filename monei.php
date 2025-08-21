@@ -1947,6 +1947,16 @@ class Monei extends PaymentModule
                     'controller' => 'applepay',
                 ],
             ],
+            'module-monei-applepay-root' => [
+                'controller' => 'applepay',
+                'rule' => 'apple-developer-merchantid-domain-association',
+                'keywords' => [],
+                'params' => [
+                    'fc' => 'module',
+                    'module' => 'monei',
+                    'controller' => 'applepay',
+                ],
+            ],
         ];
     }
 
@@ -2362,6 +2372,7 @@ class Monei extends PaymentModule
         $locations = [
             'Module directory' => _PS_MODULE_DIR_ . $this->name . '/files/apple-developer-merchantid-domain-association',
             'PrestaShop .well-known' => _PS_ROOT_DIR_ . '/.well-known/apple-developer-merchantid-domain-association',
+            'PrestaShop root (nginx workaround)' => _PS_ROOT_DIR_ . '/apple-developer-merchantid-domain-association',
             'Let\'s Encrypt .well-known' => $this->getBitnamiLetsEncryptPath() . '/apple-developer-merchantid-domain-association',
         ];
 
