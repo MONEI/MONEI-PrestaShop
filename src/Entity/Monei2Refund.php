@@ -109,8 +109,7 @@ class Monei2Refund extends \ObjectModel
         }
         
         $sql = 'SELECT `id_refund` FROM `' . _DB_PREFIX_ . 'monei2_refund` 
-                WHERE ' . implode(' AND ', $where_parts) . ' 
-                LIMIT 1';
+                WHERE ' . implode(' AND ', $where_parts);
         
         $id = \Db::getInstance()->getValue($sql);
         return $id ? new self($id) : null;
