@@ -14,9 +14,7 @@ class AdminMoneiCapturePaymentController extends ModuleAdminController
         $this->table = false;
         $this->className = '';
 
-
         parent::__construct();
-
 
         $this->bootstrap = true;
         $this->ajax = true;
@@ -31,7 +29,6 @@ class AdminMoneiCapturePaymentController extends ModuleAdminController
         parent::initContent();
     }
 
-
     public function postProcess()
     {
         if (Tools::getValue('ajax')) {
@@ -45,11 +42,9 @@ class AdminMoneiCapturePaymentController extends ModuleAdminController
 
             $action = Tools::getValue('action');
 
-
             switch ($action) {
                 case 'capturePayment':
                     $this->ajaxProcessCapturePayment();
-
 
                     break;
                 default:
@@ -60,7 +55,6 @@ class AdminMoneiCapturePaymentController extends ModuleAdminController
             }
         }
     }
-
 
     public function renderView()
     {
@@ -75,7 +69,6 @@ class AdminMoneiCapturePaymentController extends ModuleAdminController
         if (!$this->module) {
             $this->module = Module::getInstanceByName('monei');
         }
-
 
         // Check permissions
         if (!$this->access('edit')) {
@@ -130,7 +123,6 @@ class AdminMoneiCapturePaymentController extends ModuleAdminController
             // Convert amount to cents for MONEI API
             $amountInCents = (int) round($amount * 100);
 
-
             // Capture the payment
             $capturedPayment = $moneiService->capturePayment($orderId, $amountInCents);
 
@@ -143,7 +135,6 @@ class AdminMoneiCapturePaymentController extends ModuleAdminController
                     $order->save();
                 }
 
-
                 // Update order payment amount to reflect actual captured amount
                 $orderPayments = $order->getOrderPaymentCollection();
                 if (count($orderPayments) > 0) {
@@ -151,7 +142,6 @@ class AdminMoneiCapturePaymentController extends ModuleAdminController
                     $orderPayment->amount = $amount; // Update to captured amount
                     $orderPayment->update();
                 }
-
 
                 // Fetch full payment details from MONEI to get payment method information
                 try {
@@ -167,7 +157,6 @@ class AdminMoneiCapturePaymentController extends ModuleAdminController
                     );
                 }
             }
-
 
             die(json_encode([
                 'success' => true,
@@ -185,7 +174,6 @@ class AdminMoneiCapturePaymentController extends ModuleAdminController
                 $orderId
             );
 
-
             die(json_encode([
                 'success' => false,
                 'message' => $this->getErrorMessage($e),
@@ -201,7 +189,6 @@ class AdminMoneiCapturePaymentController extends ModuleAdminController
                 $orderId
             );
 
-
             die(json_encode([
                 'success' => false,
                 'message' => $this->module->l('An unexpected error occurred while capturing the payment'),
@@ -214,7 +201,6 @@ class AdminMoneiCapturePaymentController extends ModuleAdminController
      * Get user-friendly error message based on exception
      *
      * @param MoneiException $exception
-     *
      *
      * @return string
      */
@@ -242,4 +228,3 @@ class AdminMoneiCapturePaymentController extends ModuleAdminController
         }
     }
 }
-

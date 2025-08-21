@@ -644,7 +644,7 @@ class Monei extends PaymentModule
                             // Mark Apple Pay as verified to prevent duplicate message
                             Configuration::updateValue('MONEI_APPLE_PAY_VERIFIED', true);
                             Configuration::updateValue('MONEI_APPLE_PAY_VERIFIED_DATE', date('Y-m-d H:i:s'));
-                            
+
                             $this->confirmations[] = $this->l('Apple Pay domain verified successfully.');
                         }
                     }

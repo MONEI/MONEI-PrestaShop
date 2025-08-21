@@ -33,7 +33,7 @@ class MoneiCardlogosModuleFrontController extends ModuleFrontController
         // Generate cache key
         sort($brandsArray); // Ensure consistent cache key
         $cacheKey = md5(implode('_', $brandsArray));
-        
+
         // Set up cache file paths
         $cacheDir = $this->getCacheDir();
         $cacheFile = $cacheDir . $cacheKey . '.svg';
