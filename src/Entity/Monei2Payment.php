@@ -76,6 +76,27 @@ class Monei2Payment extends \ObjectModel
     }
 
     /**
+     * Override getFields to handle our custom fields without parent validation
+     */
+    public function getFields()
+    {
+        $fields = array();
+        
+        // Build fields array based on our definition
+        foreach (self::$definition['fields'] as $field => $def) {
+            // Skip fields that allow null and are actually null
+            if (isset($def['allow_null']) && $def['allow_null'] && $this->{$field} === null) {
+                continue;
+            }
+            
+            // Add the field value
+            $fields[$field] = $this->{$field};
+        }
+        
+        return $fields;
+    }
+
+    /**
      * Override add to handle string primary key
      */
     public function add($auto_date = true, $null_values = false)
@@ -115,10 +136,18 @@ class Monei2Payment extends \ObjectModel
         
         $sql_parts = [];
         foreach ($fields as $key => $value) {
-            if ($value === null && !$null_values) {
-                continue;
+            // Handle null values properly
+            if ($value === null) {
+                if ($null_values || (isset(self::$definition['fields'][$key]['allow_null']) && self::$definition['fields'][$key]['allow_null'])) {
+                    $sql_parts[] = '`' . $key . '` = NULL';
+                }
+            } else {
+                $sql_parts[] = '`' . $key . '` = \'' . pSQL($value) . '\'';
             }
-            $sql_parts[] = '`' . $key . '` = \'' . pSQL($value) . '\'';
+        }
+
+        if (empty($sql_parts)) {
+            return true; // Nothing to update
         }
 
         $sql = 'UPDATE `' . _DB_PREFIX_ . self::$definition['table'] . '` 
@@ -163,8 +192,7 @@ class Monei2Payment extends \ObjectModel
     public static function getByIdOrder($id_order)
     {
         $sql = 'SELECT `id_payment` FROM `' . _DB_PREFIX_ . 'monei2_payment` 
-                WHERE `id_order` = ' . (int)$id_order . ' 
-                LIMIT 1';
+                WHERE `id_order` = ' . (int)$id_order;
         $id = \Db::getInstance()->getValue($sql);
         return $id ? new self($id) : null;
     }
@@ -172,8 +200,7 @@ class Monei2Payment extends \ObjectModel
     public static function getByIdCart($id_cart)
     {
         $sql = 'SELECT `id_payment` FROM `' . _DB_PREFIX_ . 'monei2_payment` 
-                WHERE `id_cart` = ' . (int)$id_cart . ' 
-                LIMIT 1';
+                WHERE `id_cart` = ' . (int)$id_cart;
         $id = \Db::getInstance()->getValue($sql);
         return $id ? new self($id) : null;
     }
@@ -181,8 +208,7 @@ class Monei2Payment extends \ObjectModel
     public static function getByIdOrderMonei($id_order_monei)
     {
         $sql = 'SELECT `id_payment` FROM `' . _DB_PREFIX_ . 'monei2_payment` 
-                WHERE `id_order_monei` = \'' . pSQL($id_order_monei) . '\' 
-                LIMIT 1';
+                WHERE `id_order_monei` = \'' . pSQL($id_order_monei) . '\'';
         $id = \Db::getInstance()->getValue($sql);
         return $id ? new self($id) : null;
     }
