@@ -238,10 +238,46 @@ class PaymentMethodFormatter
             $iconBrand = null;
         }
 
+        // Determine icon dimensions based on payment method
+        // Scale down customer-facing dimensions by ~30% for admin panel (70% of original size)
+        switch ($iconMethod) {
+            case 'paypal':
+                // Customer: 70x45, Admin: 49x32 (maintaining aspect ratio)
+                $iconDimensions = ['width' => 49, 'height' => 32];
+                break;
+            case 'bizum':
+                // Customer: 70x22, Admin: 49x15
+                $iconDimensions = ['width' => 49, 'height' => 15];
+                break;
+            case 'apple-pay':
+            case 'applePay':
+                // Customer: 50x22, Admin: 35x15
+                $iconDimensions = ['width' => 35, 'height' => 15];
+                break;
+            case 'google-pay':
+            case 'googlePay':
+                // Customer: 50x22, Admin: 35x15
+                $iconDimensions = ['width' => 35, 'height' => 15];
+                break;
+            case 'multibanco':
+                // Customer: 105x22, Admin: 74x15
+                $iconDimensions = ['width' => 74, 'height' => 15];
+                break;
+            case 'mbway':
+                // Customer: 45x22, Admin: 32x15
+                $iconDimensions = ['width' => 32, 'height' => 15];
+                break;
+            case 'card':
+            default:
+                // Customer: 40x24, Admin: 28x17
+                $iconDimensions = ['width' => 28, 'height' => 17];
+                break;
+        }
+
         $formatted = [
             'method' => $method,
             'method_display' => $this->formatPaymentMethodDisplay($paymentData),
-            'icon' => $this->renderPaymentMethodIcon($iconMethod, $iconBrand, ['width' => 24, 'height' => 24]),
+            'icon' => $this->renderPaymentMethodIcon($iconMethod, $iconBrand, $iconDimensions),
             'details' => [],
         ];
 

@@ -532,7 +532,7 @@ class MoneiService
             ];
 
             // Only set allowedPaymentMethods for specific redirect payment methods
-            if (in_array($paymentMethod, ['multibanco', 'mbway', 'paypal'])) {
+            if (in_array($paymentMethod, ['multibanco', 'mbway', 'paypal', 'bizum'])) {
                 $mappedMethod = $paymentMethodMap[$paymentMethod] ?? null;
                 if ($mappedMethod) {
                     $createPaymentRequest->setAllowedPaymentMethods([$mappedMethod]);
