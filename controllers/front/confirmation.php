@@ -116,17 +116,7 @@ class MoneiConfirmationModuleFrontController extends ModuleFrontController
         try {
             // Process the order through the order service
             $orderService = Monei::getService('service.order');
-            PrestaShopLogger::addLog(
-                'MONEI - confirmation.php - Got order service, calling createOrUpdateOrder',
-                PrestaShopLogger::LOG_SEVERITY_LEVEL_INFORMATIVE
-            );
-
             $orderService->createOrUpdateOrder($moneiPaymentId, true);
-
-            PrestaShopLogger::addLog(
-                'MONEI - confirmation.php - Order creation/update completed successfully',
-                PrestaShopLogger::LOG_SEVERITY_LEVEL_INFORMATIVE
-            );
 
             // The createOrUpdateOrder method with redirectToConfirmationPage=true will handle the redirect
             // We should not reach this point as the method calls Tools::redirect()

@@ -373,8 +373,8 @@ class MoneiService
         // Get existing history entries
         $historyList = $monei2PaymentEntity->getHistoryList();
         if ($historyList && count($historyList) > 0) {
-            // Get the last history entry efficiently using Doctrine's last() method
-            $lastHistory = $historyList->last();
+            // Get the last history entry - in PS1.7 this is an array, not a Doctrine Collection
+            $lastHistory = is_array($historyList) ? end($historyList) : $historyList->last();
 
             // Only add new history if status has changed
             if ($lastHistory && $lastHistory->getStatus() === $currentStatus && $lastHistory->getStatusCode() === $currentStatusCode) {

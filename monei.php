@@ -1688,11 +1688,11 @@ class Monei extends PaymentModule
         $paymentMethodFormatter = self::getService('helper.payment_method_formatter');
 
         $paymentHistory = $monei2PaymentEntity->getHistoryList();
-        if (!$paymentHistory->isEmpty()) {
+        if (!empty($paymentHistory)) {
             foreach ($paymentHistory as $history) {
                 $paymentHistoryLog = $history->toArrayLegacy();
                 $paymentHistoryLog['responseDecoded'] = $history->getResponseDecoded();
-                $paymentHistoryLog['responseB64'] = Mbstring::mb_convert_encoding($history->getResponse(), 'BASE64');
+                $paymentHistoryLog['responseB64'] = base64_encode($history->getResponse());
 
                 // Extract payment method details from response
                 $response = $history->getResponseDecoded();
@@ -1712,7 +1712,8 @@ class Monei extends PaymentModule
                 if ($paymentRefund) {
                     $paymentRefundLog = $paymentRefund->toArrayLegacy();
                     $paymentRefundLog['paymentHistory'] = $paymentHistoryLog;
-                    $paymentRefundLog['amountFormatted'] = $this->formatPrice($paymentRefundLog['amount_in_decimal'], $currency->iso_code);
+                    $refundAmount = isset($paymentRefundLog['amount_in_decimal']) ? $paymentRefundLog['amount_in_decimal'] : 0;
+                    $paymentRefundLog['amountFormatted'] = $this->formatPrice($refundAmount, $currency->iso_code);
 
                     $employeeEmail = '';
                     if ($paymentRefundLog['id_employee']) {
@@ -1729,7 +1730,7 @@ class Monei extends PaymentModule
 
         // Check if payment is capturable (AUTHORIZED status and not captured)
         $isCapturable = $monei2PaymentEntity->getStatus() === 'AUTHORIZED' && !$monei2PaymentEntity->getIsCaptured();
-        $authorizedAmount = $monei2PaymentEntity->getAmount();
+        $authorizedAmount = $monei2PaymentEntity->getAmount() ?: 0;
         $authorizedAmountFormatted = $this->formatPrice($authorizedAmount / 100, $currency->iso_code);
 
         // Calculate captured and remaining amounts for partial capture
@@ -1765,7 +1766,7 @@ class Monei extends PaymentModule
             'locale' => $this->context->language->locale,
             'remainingAmountToRefund' => $monei2PaymentEntity->getRemainingAmountToRefund(),
             'totalRefundedAmount' => $monei2PaymentEntity->getRefundedAmount(),
-            'totalRefundedAmountFormatted' => $this->formatPrice($monei2PaymentEntity->getRefundedAmount(true), $currency->iso_code),
+            'totalRefundedAmountFormatted' => $this->formatPrice($monei2PaymentEntity->getRefundedAmount(true) ?: 0, $currency->iso_code),
             'paymentHistoryLogs' => $paymentHistoryLogs,
             'paymentRefundLogs' => $paymentRefundLogs,
             'orderId' => $orderId,
@@ -2081,9 +2082,14 @@ class Monei extends PaymentModule
      */
     private function formatPrice($price, $currencyIso)
     {
+        // Ensure price is a valid number
+        if ($price === null || $price === '') {
+            $price = 0;
+        }
+        
         $locale = Tools::getContextLocale($this->context);
 
-        return $locale->formatPrice($price, $currencyIso);
+        return $locale->formatPrice((float)$price, $currencyIso);
     }
 
     /**
