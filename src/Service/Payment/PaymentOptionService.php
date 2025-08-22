@@ -292,11 +292,28 @@ class PaymentOptionService
     private function getPaypalPaymentOption()
     {
         if ($this->configuration->get('MONEI_ALLOW_PAYPAL') && $this->isPaymentMethodAllowed(PaymentPaymentMethod::METHOD_PAYPAL)) {
-            $this->paymentOptions[] = [
+            $paymentOption = [
                 'name' => 'paypal',
                 'logo' => $this->getIconPath('paypal'),
-                'binary' => true,
+                'binary' => (bool) !$this->configuration->get('MONEI_PAYPAL_WITH_REDIRECT'),
             ];
+
+            if ($this->configuration->get('MONEI_PAYPAL_WITH_REDIRECT')) {
+                $redirectUrl = $this->context->link->getModuleLink('monei', 'redirect', [
+                    'method' => 'paypal',
+                    'transaction_id' => $this->getTransactionId(),
+                ]);
+                $smarty = $this->context->smarty;
+                $smarty->assign([
+                    'link_create_payment' => $redirectUrl,
+                    'module_dir' => _MODULE_DIR_ . 'monei/',
+                    'payment_method' => 'paypal',
+                ]);
+
+                $paymentOption['form'] = $smarty->fetch('module:monei/views/templates/hook/paymentOptions.tpl');
+            }
+
+            $this->paymentOptions[] = $paymentOption;
         }
     }
 
