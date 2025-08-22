@@ -544,7 +544,7 @@ class MoneiService
             $createPaymentRequest->setGeneratePaymentToken(true);
         } elseif ($cardTokenId) {
             $monei2CustomerCard = Monei2CustomerCard::findOneBy([
-                'id' => $cardTokenId,
+                'id_customer_card' => $cardTokenId,
                 'id_customer' => $customer->id,
             ]);
 
