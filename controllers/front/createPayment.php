@@ -12,8 +12,17 @@ class MoneiCreatePaymentModuleFrontController extends ModuleFrontController
             exit;
         }
 
+        $json = file_get_contents('php://input');
+        $data = json_decode($json, true);
+        
+        // Get payment method from request if provided
+        $paymentMethod = isset($data['paymentMethod']) ? $data['paymentMethod'] : '';
+
         $paymentResponse = Monei::getService('service.monei')->createMoneiPayment(
-            $this->context->cart
+            $this->context->cart,
+            false,  // tokenizeCard
+            0,      // cardTokenId
+            $paymentMethod
         );
         if ($paymentResponse) {
             header('Content-Type: application/json');
