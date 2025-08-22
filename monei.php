@@ -19,6 +19,13 @@ class Monei extends PaymentModule
 
     const NAME = 'monei';
     const VERSION = '1.5.2';
+    
+    const LOG_SEVERITY_LEVELS = [
+        'info' => 1,
+        'error' => 2,
+        'warning' => 3,
+        'major' => 4,
+    ];
 
     public function __construct()
     {
