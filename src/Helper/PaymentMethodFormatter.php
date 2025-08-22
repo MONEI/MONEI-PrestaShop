@@ -96,6 +96,35 @@ class PaymentMethodFormatter
     }
 
     /**
+     * Obfuscate email address, showing only first 2 and last 2 characters before @
+     */
+    public function obfuscateEmail(string $email): string
+    {
+        if (empty($email)) {
+            return '';
+        }
+
+        $parts = explode('@', $email);
+        if (count($parts) !== 2) {
+            return $email;
+        }
+
+        $localPart = $parts[0];
+        $domain = $parts[1];
+
+        $localLength = strlen($localPart);
+        if ($localLength <= 4) {
+            // For short email addresses, show first character only
+            $obfuscated = substr($localPart, 0, 1) . str_repeat('•', $localLength - 1);
+        } else {
+            // Show first 2 and last 2 characters
+            $obfuscated = substr($localPart, 0, 2) . '••••' . substr($localPart, -2);
+        }
+
+        return $obfuscated . '@' . $domain;
+    }
+
+    /**
      * Format complete payment display
      */
     public function formatPaymentDisplay(string $method, ?string $brand = null, ?string $last4 = null): string
@@ -239,7 +268,7 @@ class PaymentMethodFormatter
 
         // PayPal details
         if (!empty($paymentData['email'])) {
-            $formatted['details']['paypal_email'] = $paymentData['email'];
+            $formatted['details']['paypal_email'] = $this->obfuscateEmail($paymentData['email']);
         }
 
         // Bizum details
@@ -323,9 +352,9 @@ class PaymentMethodFormatter
                         break;
 
                     case 'paypal':
-                        // Add PayPal email if available
+                        // Add PayPal email if available (obfuscated)
                         if (isset($paymentInfo['email']) && !empty($paymentInfo['email'])) {
-                            $paymentMethodDisplay .= ' (' . $paymentInfo['email'] . ')';
+                            $paymentMethodDisplay .= ' (' . $this->obfuscateEmail($paymentInfo['email']) . ')';
                         }
 
                         break;
