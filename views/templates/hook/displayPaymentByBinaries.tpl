@@ -4,6 +4,7 @@
   var moneiToken = '{$moneiToken|escape:'htmlall':'UTF-8'}';
   var moneiCurrency = '{$moneiCurrency|escape:'htmlall':'UTF-8'}';
   var moneiAmount = {$moneiAmount|intval};
+  var moneiPaymentAction = '{if isset($moneiPaymentAction)}{$moneiPaymentAction|escape:'htmlall':'UTF-8'}{else}sale{/if}';
 
   {literal}
     // Debug logging helper - only logs in development/test mode
@@ -422,12 +423,13 @@
           const moneiPayPalRenderContainer = moneiPayPalButtonsContainer.querySelector('.monei-paypal_render');
           if (!moneiPayPalRenderContainer) return;
 
-          monei.PayPal({
+          var paypalConfig = {
             accountId: moneiAccountId,
             language: prestashop.language.iso_code,
             style: moneiPayPalStyle || {},
             amount: moneiAmount,
             currency: moneiCurrency,
+            transactionType: moneiPaymentAction === 'auth' ? 'AUTH' : 'SALE',
             onLoad() {
               processingMoneiPayPalPayment = false;
             },
@@ -452,7 +454,14 @@
               moneiLog('error', 'PayPal', `Payment error: ${error.status || 'Unknown'} ${error.statusCode ? `(${error.statusCode})` : ''}`, error);
               processingMoneiPayPalPayment = false;
             }
-          }).render(moneiPayPalRenderContainer);
+          };
+          
+          // Debug logging for PayPal configuration
+          console.log('[MONEI Debug] PayPal Configuration:', paypalConfig);
+          console.log('[MONEI Debug] Payment Action:', moneiPaymentAction);
+          console.log('[MONEI Debug] Transaction Type:', paypalConfig.transactionType);
+          
+          monei.PayPal(paypalConfig).render(moneiPayPalRenderContainer);
         }
       </script>
     {/literal}

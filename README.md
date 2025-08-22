@@ -78,7 +78,9 @@ Experience the module in action: [PrestaShop Demo Store](https://prestashop-demo
 
 ### Production Installation
 
-1. Download the latest version of the [MONEI PrestaShop module](https://github.com/MONEI/MONEI-PrestaShop/releases/latest/download/monei.zip)
+1. Download the appropriate version for your PrestaShop:
+   - **PrestaShop 8.x**: Download the [latest v2.x release](https://github.com/MONEI/MONEI-PrestaShop/releases/latest/download/monei.zip)
+   - **PrestaShop 1.7**: Download from [releases page](https://github.com/MONEI/MONEI-PrestaShop/releases) (look for v1.x versions)
 2. Go to your PrestaShop admin panel
 3. Navigate to **Modules → Module Manager**
 4. Click on **Upload a module**

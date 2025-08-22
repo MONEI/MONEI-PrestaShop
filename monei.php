@@ -73,6 +73,7 @@ class Monei extends PaymentModule
         Configuration::updateValue('MONEI_ALLOW_APPLE', false);
         Configuration::updateValue('MONEI_ALLOW_GOOGLE', false);
         Configuration::updateValue('MONEI_ALLOW_PAYPAL', false);
+        Configuration::updateValue('MONEI_PAYPAL_WITH_REDIRECT', false);
         Configuration::updateValue('MONEI_ALLOW_MULTIBANCO', false);
         Configuration::updateValue('MONEI_ALLOW_MBWAY', false);
         // Payment Action
@@ -414,6 +415,7 @@ class Monei extends PaymentModule
         Configuration::deleteByName('MONEI_ALLOW_APPLE');
         Configuration::deleteByName('MONEI_ALLOW_GOOGLE');
         Configuration::deleteByName('MONEI_ALLOW_PAYPAL');
+        Configuration::deleteByName('MONEI_PAYPAL_WITH_REDIRECT');
         Configuration::deleteByName('MONEI_ALLOW_MULTIBANCO');
         Configuration::deleteByName('MONEI_ALLOW_MBWAY');
         // Payment Action
@@ -803,6 +805,7 @@ class Monei extends PaymentModule
             'MONEI_ALLOW_APPLE' => Configuration::get('MONEI_ALLOW_APPLE', false),
             'MONEI_ALLOW_GOOGLE' => Configuration::get('MONEI_ALLOW_GOOGLE', false),
             'MONEI_ALLOW_PAYPAL' => Configuration::get('MONEI_ALLOW_PAYPAL', false),
+            'MONEI_PAYPAL_WITH_REDIRECT' => Configuration::get('MONEI_PAYPAL_WITH_REDIRECT', false),
             'MONEI_ALLOW_MULTIBANCO' => Configuration::get('MONEI_ALLOW_MULTIBANCO', false),
             'MONEI_ALLOW_MBWAY' => Configuration::get('MONEI_ALLOW_MBWAY', false),
         ];
@@ -1172,6 +1175,25 @@ class Monei extends PaymentModule
                         'label' => $this->l('Allow PayPal'),
                         'name' => 'MONEI_ALLOW_PAYPAL',
                         'is_bool' => true,
+                        'values' => [
+                            [
+                                'id' => 'active_on',
+                                'value' => true,
+                                'label' => $this->l('Enabled'),
+                            ],
+                            [
+                                'id' => 'active_off',
+                                'value' => false,
+                                'label' => $this->l('Disabled'),
+                            ],
+                        ],
+                    ],
+                    [
+                        'type' => 'switch',
+                        'label' => $this->l('Activate PayPal with Redirect'),
+                        'name' => 'MONEI_PAYPAL_WITH_REDIRECT',
+                        'is_bool' => true,
+                        'hint' => $this->l('It is recommended to enable redirection in cases where PayPal payments do not function correctly.'),
                         'values' => [
                             [
                                 'id' => 'active_on',
@@ -1642,6 +1664,7 @@ class Monei extends PaymentModule
                 'moneiCreatePaymentUrlController' => $this->context->link->getModuleLink('monei', 'createPayment'),
                 'moneiToken' => Tools::getToken(false),
                 'moneiCurrency' => $this->context->currency->iso_code,
+                'moneiPaymentAction' => Configuration::get('MONEI_PAYMENT_ACTION', 'sale'),
             ]);
 
             return $this->fetch('module:monei/views/templates/hook/displayPaymentByBinaries.tpl');
