@@ -69,7 +69,10 @@ class MoneiService
         }
 
         $client = new MoneiClient($apiKey);
-        $client->setUserAgent('MONEI/PrestaShop/' . _PS_VERSION_);
+        
+        // Use module version in User-Agent (required for proper API response)
+        $moduleVersion = \Module::getInstanceByName('monei')->version ?? '1.0.0';
+        $client->setUserAgent('MONEI/PrestaShop/' . $moduleVersion);
 
         return $client;
     }
