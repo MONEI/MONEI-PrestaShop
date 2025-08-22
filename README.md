@@ -63,7 +63,8 @@ Experience the module in action: [PrestaShop Demo Store](https://prestashop-demo
 ## Requirements
 
 - **PHP**: ≥7.4
-- **PrestaShop**: ≥8.0
+- **PrestaShop**: ≥8.0 (v2.x releases)
+  - For PrestaShop 1.7, please use the [prestashop-1.7 branch](https://github.com/MONEI/MONEI-PrestaShop/tree/prestashop-1.7) (v1.x releases)
 - **MONEI Account**: [Sign up here](https://dashboard.monei.com/signup)
 - **Composer**: For dependency management (development)
 
@@ -71,7 +72,9 @@ Experience the module in action: [PrestaShop Demo Store](https://prestashop-demo
 
 ### Production Installation
 
-1. Download the latest version of the [MONEI PrestaShop module](https://github.com/MONEI/MONEI-PrestaShop/releases/latest/download/monei.zip)
+1. Download the appropriate version for your PrestaShop:
+   - **PrestaShop 8.x**: Download the [latest v2.x release](https://github.com/MONEI/MONEI-PrestaShop/releases/latest/download/monei.zip)
+   - **PrestaShop 1.7**: Download from [releases page](https://github.com/MONEI/MONEI-PrestaShop/releases) (look for v1.x versions)
 2. Go to your PrestaShop admin panel
 3. Navigate to **Modules → Module Manager**
 4. Click on **Upload a module**
