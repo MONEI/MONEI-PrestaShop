@@ -8,6 +8,7 @@
 .payment-method-icon {
     max-width: 100%;
     height: auto;
+    object-fit: contain;
 }
 
 span[style*="width: 20px"] .payment-method-icon {

@@ -45,8 +45,7 @@
                                     <td>
                                         {if $paymentHistory.paymentDetails}
                                             <span class="d-inline-flex align-items-center">
-                                                <span
-                                                    style="width: 20px; height: 20px; display: inline-block; margin-right: 5px;">
+                                                <span style="display: inline-block; margin-right: 5px;">
                                                     {$paymentHistory.paymentDetails.icon nofilter}
                                                 </span>
                                                 {$paymentHistory.paymentDetails.method_display|escape:'html':'UTF-8'}
