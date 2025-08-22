@@ -347,13 +347,20 @@ class OrderService
     private function handlePostOrderCreation($redirectToConfirmationPage, $cart, $customer, $order)
     {
         if ($redirectToConfirmationPage) {
-            \Tools::redirect(
-                'index.php?controller=order-confirmation'
-                . '&id_cart=' . $cart->id
-                . '&id_module=' . $this->moneiInstance->id
-                . '&id_order=' . $order->id
-                . '&key=' . $customer->secure_key
+            // Use context link for proper URL generation in PS1.7
+            $confirmationUrl = $this->context->link->getPageLink(
+                'order-confirmation',
+                null,
+                null,
+                [
+                    'id_cart' => (int)$cart->id,
+                    'id_module' => (int)$this->moneiInstance->id,
+                    'id_order' => (int)$order->id,
+                    'key' => $customer->secure_key
+                ]
             );
+            
+            \Tools::redirect($confirmationUrl);
         } else {
             header('HTTP/1.1 200 OK');
             echo '<h1>OK</h1>';
