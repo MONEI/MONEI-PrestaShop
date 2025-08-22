@@ -6,6 +6,13 @@
 
 Accept payments through [MONEI](https://monei.com) in your PrestaShop store with our official module.
 
+> **⚠️ Important Version Information**
+> 
+> This branch (`prestashop-1.7`) contains **MONEI Module v1.x** specifically for **PrestaShop 1.7.7 - 1.7.8.x**.
+> 
+> - **For PrestaShop 8+**: Use [MONEI Module v2.x](https://github.com/MONEI/MONEI-PrestaShop/tree/master) from the `master` branch
+> - **For PrestaShop 1.7**: Use this version (v1.x) from the `prestashop-1.7` branch
+
 ## Table of Contents
 
 - [Overview](#overview)
@@ -63,7 +70,7 @@ Experience the module in action: [PrestaShop Demo Store](https://prestashop-demo
 ## Requirements
 
 - **PHP**: ≥7.4
-- **PrestaShop**: ≥8.0
+- **PrestaShop**: 1.7.7 - 1.7.8.x (For PrestaShop 8+, use [v2.x from master branch](https://github.com/MONEI/MONEI-PrestaShop/tree/master))
 - **MONEI Account**: [Sign up here](https://dashboard.monei.com/signup)
 - **Composer**: For dependency management (development)
 
