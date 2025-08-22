@@ -114,9 +114,8 @@ class PaymentOptionService
     public function getTransactionId(): string
     {
         $cart = $this->context->cart;
-        $crypto = new \PrestaShop\PrestaShop\Core\Crypto\Hashing();
-
-        return $crypto->hash($cart->id . $cart->id_customer, _COOKIE_KEY_);
+        // Use PS1.7 compatible encryption to match redirect controller
+        return \Tools::encrypt((int)$cart->id . (int)$cart->id_customer);
     }
 
     private function isPaymentMethodAllowed($paymentMethod)
