@@ -628,12 +628,14 @@ class Monei extends PaymentModule
                             // Mark Apple Pay as verified to prevent duplicate message
                             Configuration::updateValue('MONEI_APPLE_PAY_VERIFIED', true);
                             Configuration::updateValue('MONEI_APPLE_PAY_VERIFIED_DATE', date('Y-m-d H:i:s'));
-                            
+
                             $this->confirmations[] = $this->l('Apple Pay domain verified successfully.');
                         }
                     }
                 } catch (Exception $e) {
-                    $this->warning[] = $this->l('Apple Pay domain verification failed: ') . $e->getMessage();
+                    // Don't show the API error, let checkApplePayDomainVerification handle it
+                    // Just mark that verification failed
+                    Configuration::updateValue('MONEI_APPLE_PAY_VERIFIED', false);
                 }
             }
         }
@@ -2279,18 +2281,18 @@ class Monei extends PaymentModule
             // File is not accessible, show warning
             return $this->displayWarning(
                 $this->l('Apple Pay domain verification file is not accessible.') . ' '
-                . '<span style="color:#666;">(' . $this->l('HTTP Status:') . ' ' . ($httpCode ?: 'No response') . ')</span><br><br>'
+                . '<span style="color:#666;">(' . $this->l('HTTP Status:') . ' ' . ($httpCode ?: $this->l('No response')) . ')</span><br><br>'
                 . '<strong>' . $this->l('To enable Apple Pay on your website, you need to:') . '</strong><br>'
                 . '1. ' . $this->l('Make sure the file is accessible at:') . ' <a href="' . $url . '" target="_blank">' . $url . '</a><br>'
                 . '2. ' . $this->l('If automatic setup failed, please follow these manual steps:') . '<br>'
-                . '&nbsp;&nbsp;&nbsp;&nbsp;• ' . $this->l('Download the verification file from:') . ' <a href="https://assets.monei.com/apple-pay/apple-developer-merchantid-domain-association/" target="_blank">MONEI Apple Pay Assets</a><br>'
+                . '&nbsp;&nbsp;&nbsp;&nbsp;• ' . $this->l('Download the verification file from:') . ' <a href="https://assets.monei.com/apple-pay/apple-developer-merchantid-domain-association/" target="_blank">' . $this->l('MONEI Apple Pay Assets') . '</a><br>'
                 . '&nbsp;&nbsp;&nbsp;&nbsp;• ' . $this->l('Upload it to your server at: /.well-known/apple-developer-merchantid-domain-association') . '<br>'
                 . '&nbsp;&nbsp;&nbsp;&nbsp;• ' . $this->l('Ensure the file is accessible via HTTPS with a valid SSL certificate') . '<br><br>'
                 . '<strong>' . $this->l('Common issues:') . '</strong><br>'
                 . '• ' . $this->l('Let\'s Encrypt or other services may be using the .well-known directory') . '<br>'
                 . '• ' . $this->l('File permissions may prevent access (should be 644)') . '<br>'
                 . '• ' . $this->l('Web server configuration may block access to .well-known directory') . '<br><br>'
-                . $this->l('For more information, visit:') . ' <a href="https://docs.monei.com/apis/rest/apple-pay-domain-register/" target="_blank">MONEI Documentation</a>'
+                . $this->l('For more information, visit:') . ' <a href="https://docs.monei.com/apis/rest/apple-pay-domain-register/" target="_blank">' . $this->l('MONEI Documentation') . '</a>'
                 . $this->getServerSpecificInstructions()
                 . $diagnosticInfo . '<br><br>'
                 . '<a href="' . $this->context->link->getAdminLink('AdminModules') . '&configure=' . $this->name . '" class="btn btn-default">'
@@ -2307,10 +2309,7 @@ class Monei extends PaymentModule
 
         // Show success message only if it was previously not verified
         if (!$wasVerified) {
-            return $this->displayConfirmation(
-                $this->l('Apple Pay domain verification is properly configured!') . '<br>'
-                . $this->l('The verification file is accessible at:') . ' <a href="' . $url . '" target="_blank">' . $url . '</a>'
-            );
+            return $this->displayConfirmation($this->l('Apple Pay domain verified successfully.'));
         }
 
         return null;
@@ -2367,30 +2366,30 @@ class Monei extends PaymentModule
 
         // Check file locations
         $locations = [
-            'Module directory' => _PS_MODULE_DIR_ . $this->name . '/files/apple-developer-merchantid-domain-association',
-            'PrestaShop .well-known' => _PS_ROOT_DIR_ . '/.well-known/apple-developer-merchantid-domain-association',
-            'Let\'s Encrypt .well-known' => $this->getBitnamiLetsEncryptPath() . '/apple-developer-merchantid-domain-association',
+            $this->l('Module directory') => _PS_MODULE_DIR_ . $this->name . '/files/apple-developer-merchantid-domain-association',
+            $this->l('PrestaShop .well-known') => _PS_ROOT_DIR_ . '/.well-known/apple-developer-merchantid-domain-association',
+            $this->l('Let\'s Encrypt .well-known') => $this->getBitnamiLetsEncryptPath() . '/apple-developer-merchantid-domain-association',
         ];
 
-        $info .= '<strong>File locations checked:</strong><br>';
+        $info .= '<strong>' . $this->l('File locations checked:') . '</strong><br>';
         foreach ($locations as $name => $path) {
             $exists = file_exists($path);
             $readable = $exists ? is_readable($path) : false;
-            $info .= $name . ': ' . ($exists ? '✓ exists' : '✗ not found');
+            $info .= $name . ': ' . ($exists ? '✓ ' . $this->l('exists') : '✗ ' . $this->l('not found'));
             if ($exists) {
-                $info .= ' (' . ($readable ? 'readable' : 'not readable') . ', ';
-                $info .= 'perms: ' . substr(sprintf('%o', fileperms($path)), -4) . ')';
+                $info .= ' (' . ($readable ? $this->l('readable') : $this->l('not readable')) . ', ';
+                $info .= $this->l('perms:') . ' ' . substr(sprintf('%o', fileperms($path)), -4) . ')';
             }
             $info .= '<br>';
         }
 
         // Server info
-        $info .= '<br><strong>Server information:</strong><br>';
-        $info .= 'Server software: ' . ($_SERVER['SERVER_SOFTWARE'] ?? 'Unknown') . '<br>';
-        $info .= 'Document root: ' . $_SERVER['DOCUMENT_ROOT'] . '<br>';
-        $info .= 'PrestaShop root: ' . _PS_ROOT_DIR_ . '<br>';
-        $info .= 'SSL enabled: ' . (Configuration::get('PS_SSL_ENABLED') ? 'Yes' : 'No') . '<br>';
-        $info .= 'Shop domain: ' . Configuration::get('PS_SHOP_DOMAIN') . '<br>';
+        $info .= '<br><strong>' . $this->l('Server information:') . '</strong><br>';
+        $info .= $this->l('Server software:') . ' ' . ($_SERVER['SERVER_SOFTWARE'] ?? $this->l('Unknown')) . '<br>';
+        $info .= $this->l('Document root:') . ' ' . $_SERVER['DOCUMENT_ROOT'] . '<br>';
+        $info .= $this->l('PrestaShop root:') . ' ' . _PS_ROOT_DIR_ . '<br>';
+        $info .= $this->l('SSL enabled:') . ' ' . (Configuration::get('PS_SSL_ENABLED') ? $this->l('Yes') : $this->l('No')) . '<br>';
+        $info .= $this->l('Shop domain:') . ' ' . Configuration::get('PS_SHOP_DOMAIN') . '<br>';
 
         $info .= '</div></details>';
 
