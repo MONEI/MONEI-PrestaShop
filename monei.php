@@ -101,7 +101,8 @@ class Monei extends PaymentModule
             && $this->registerHook('displayPaymentReturn')
             && $this->registerHook('actionCustomerLogoutAfter')
             && $this->registerHook('moduleRoutes')
-            && $this->registerHook('actionOrderSlipAdd');
+            && $this->registerHook('actionOrderSlipAdd')
+            && $this->registerHook('actionGetAdminOrderButtons');
 
         // Copy Apple Pay domain verification file to .well-known directory
         if ($result) {
@@ -2435,10 +2436,58 @@ class Monei extends PaymentModule
     }
 
     /**
-     * Hook to add capture payment button to order actions
+     * Hook to add capture payment button to order actions (PS 1.7.7+)
      *
      * @param array $params Hook parameters containing order information
      */
-    // PS8-specific hook removed for PS1.7 compatibility
-    // Capture button functionality is now handled through hookDisplayAdminOrder
+    public function hookActionGetAdminOrderButtons(array $params)
+    {
+        // Check if this is a MONEI order
+        $orderId = (int) $params['id_order'];
+        $order = new Order($orderId);
+        
+        if (!Validate::isLoadedObject($order) || $order->module !== 'monei') {
+            return;
+        }
+        
+        // Check if payment can be captured
+        $monei2PaymentEntity = Monei2Payment::findOneBy(['id_order' => $orderId]);
+        if (!$monei2PaymentEntity) {
+            return;
+        }
+        
+        // Check if payment is in AUTHORIZED status
+        if ($monei2PaymentEntity->status !== 'AUTHORIZED') {
+            return;
+        }
+        
+        // Get the actions bar buttons collection
+        /** @var \PrestaShopBundle\Controller\Admin\Sell\Order\ActionsBarButtonsCollection $bar */
+        $bar = $params['actions_bar_buttons_collection'];
+        
+        // Calculate remaining amount
+        $authorizedAmount = (float) $monei2PaymentEntity->amount / 100;
+        $capturedAmount = (float) $monei2PaymentEntity->captured_amount / 100;
+        $remainingAmount = $authorizedAmount - $capturedAmount;
+        
+        $currency = new Currency($order->id_currency);
+        $currencySign = $currency->sign;
+        
+        // Add capture button that triggers the existing modal from hookDisplayAdminOrder
+        $bar->add(
+            new \PrestaShopBundle\Controller\Admin\Sell\Order\ActionsBarButton(
+                'btn-action btn-primary monei-capture-action-btn',
+                [
+                    'href' => '#',
+                    'data-toggle' => 'modal',
+                    'data-target' => '#moneiCaptureModal',  // Use existing modal ID
+                    'data-order-id' => $orderId,
+                    'data-max-amount' => $remainingAmount,
+                    'data-currency-sign' => $currencySign,
+                    'title' => $this->l('Capture the authorized payment')
+                ],
+                $this->l('Capture Payment')
+            )
+        );
+    }
 }
