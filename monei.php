@@ -16,6 +16,10 @@ class Monei extends PaymentModule
     protected $config_form = false;
     protected $paymentMethods;
     protected $moneiClient = false;
+    
+    // Payment module properties for restrictions
+    public $currencies = true;
+    public $currencies_mode = 'checkbox';
 
     const NAME = 'monei';
     const VERSION = '1.6.1';
@@ -1510,15 +1514,20 @@ class Monei extends PaymentModule
 
     public function isMoneiAvailable($cart)
     {
+        PrestaShopLogger::addLog('MONEI - isMoneiAvailable checking', self::getLogLevel('info'));
+        
         if (!$this->active) {
+            PrestaShopLogger::addLog('MONEI - isMoneiAvailable - Module not active', self::getLogLevel('info'));
             return false;
         }
         if (!$this->checkCurrency($cart)) {
+            PrestaShopLogger::addLog('MONEI - isMoneiAvailable - Currency check failed', self::getLogLevel('info'));
             return false;
         }
 
         try {
             self::getService('service.monei')->getMoneiClient();
+            PrestaShopLogger::addLog('MONEI - isMoneiAvailable - Client initialized successfully', self::getLogLevel('info'));
         } catch (Exception $e) {
             PrestaShopLogger::addLog(
                 'MONEI - Exception - monei.php - isMoneiAvailable: ' . $e->getMessage() . ' - ' . $e->getFile(),
@@ -1551,6 +1560,7 @@ class Monei extends PaymentModule
     private function getPaymentMethods()
     {
         if ($this->paymentMethods) {
+            PrestaShopLogger::addLog('MONEI - getPaymentMethods - Already cached', self::getLogLevel('info'));
             return;
         }
 
@@ -1564,12 +1574,18 @@ class Monei extends PaymentModule
 
         $paymentOptionService = self::getService('service.payment.option');
 
+        PrestaShopLogger::addLog('MONEI - getPaymentMethods - Calling getPaymentOptions', self::getLogLevel('info'));
         $paymentOptions = $paymentOptionService->getPaymentOptions();
         if (empty($paymentOptions)) {
+            PrestaShopLogger::addLog('MONEI - getPaymentMethods - No payment options returned from service', self::getLogLevel('info'));
             return;
         }
+        PrestaShopLogger::addLog('MONEI - getPaymentMethods - Got ' . count($paymentOptions) . ' payment options', self::getLogLevel('info'));
 
         $transactionId = $paymentOptionService->getTransactionId();
+        
+        // Initialize payment methods array
+        $paymentMethods = [];
 
         $paymentNames = [
             'bizum' => $this->l('Bizum'),
@@ -1657,15 +1673,20 @@ class Monei extends PaymentModule
      */
     public function hookPaymentOptions($params)
     {
+        PrestaShopLogger::addLog('MONEI - hookPaymentOptions called', self::getLogLevel('info'));
+        
         if (!$this->isMoneiAvailable($params['cart'])) {
+            PrestaShopLogger::addLog('MONEI - hookPaymentOptions - MONEI not available', self::getLogLevel('info'));
             return;
         }
 
         $this->getPaymentMethods();
         if (!$this->paymentMethods) {
+            PrestaShopLogger::addLog('MONEI - hookPaymentOptions - No payment methods', self::getLogLevel('info'));
             return;
         }
 
+        PrestaShopLogger::addLog('MONEI - hookPaymentOptions - Returning ' . count($this->paymentMethods) . ' payment methods', self::getLogLevel('info'));
         return $this->paymentMethods;
     }
 
@@ -1696,9 +1717,9 @@ class Monei extends PaymentModule
                 'paymentMethodsToDisplay' => $paymentMethodsToDisplay,
                 'moneiAccountId' => (bool) Configuration::get('MONEI_PRODUCTION_MODE') ? Configuration::get('MONEI_ACCOUNT_ID') : Configuration::get('MONEI_TEST_ACCOUNT_ID'),
                 'moneiAmount' => $moneiService->getCartAmount($cartSummaryDetails, $this->context->cart->id_currency),
-                'moneiAmountFormatted' => $this->context->getCurrentLocale()->formatPrice(
+                'moneiAmountFormatted' => Tools::displayPrice(
                     $moneiService->getCartAmount($cartSummaryDetails, $this->context->cart->id_currency, true),
-                    $this->context->currency->iso_code
+                    $this->context->currency
                 ),
                 'moneiCreatePaymentUrlController' => $this->context->link->getModuleLink('monei', 'createPayment'),
                 'moneiToken' => Tools::getToken(false),
@@ -1855,14 +1876,19 @@ class Monei extends PaymentModule
      */
     public function hookActionFrontControllerSetMedia()
     {
+        PrestaShopLogger::addLog('MONEI - hookActionFrontControllerSetMedia called', self::getLogLevel('info'));
+        
         if (!property_exists($this->context->controller, 'page_name')) {
+            PrestaShopLogger::addLog('MONEI - page_name property not found on controller', self::getLogLevel('info'));
             return;
         }
 
         $pageName = $this->context->controller->page_name;
+        PrestaShopLogger::addLog('MONEI - Page name: ' . $pageName, self::getLogLevel('info'));
 
         // Checkout
         if ($pageName == 'checkout') {
+            PrestaShopLogger::addLog('MONEI - Loading scripts for checkout page', self::getLogLevel('info'));
             $moneiv2 = 'https://js.monei.com/v2/monei.js';
             $this->context->controller->registerJavascript(
                 sha1($moneiv2),
@@ -2128,11 +2154,16 @@ class Monei extends PaymentModule
     {
         $currency_order = new Currency($cart->id_currency);
         $currencies_module = $this->getCurrency();
-        if (is_array($currencies_module)) {
-            foreach ($currencies_module as $currency_module) {
-                if ($currency_order->id == $currency_module['id_currency']) {
-                    return true;
-                }
+        
+        // If no specific currencies are set, accept all currencies
+        if (!is_array($currencies_module) || empty($currencies_module)) {
+            return true;
+        }
+        
+        // Otherwise check if the currency is in the allowed list
+        foreach ($currencies_module as $currency_module) {
+            if ($currency_order->id == $currency_module['id_currency']) {
+                return true;
             }
         }
 
