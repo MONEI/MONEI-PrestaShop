@@ -28,7 +28,7 @@ class MoneiValidationModuleFrontController extends ModuleFrontController
         } catch (MoneiException $e) {
             PrestaShopLogger::addLog(
                 'MONEI - Exception - validation.php - postProcess: ' . $e->getMessage() . ' - ' . $e->getFile(),
-                PrestaShopLogger::LOG_SEVERITY_LEVEL_ERROR
+                Monei::getLogLevel('error')
             );
 
             header('HTTP/1.1 401 Unauthorized');
@@ -47,7 +47,7 @@ class MoneiValidationModuleFrontController extends ModuleFrontController
             // Log the JSON array for debugging
             PrestaShopLogger::addLog(
                 'MONEI - validation.php - postProcess - JSON Data: ' . json_encode($json_array),
-                PrestaShopLogger::LOG_SEVERITY_LEVEL_INFORMATIVE
+                Monei::getLogLevel('info')
             );
 
             // Parse the JSON to a MoneiPayment object
@@ -58,7 +58,7 @@ class MoneiValidationModuleFrontController extends ModuleFrontController
         } catch (MoneiException $ex) {
             PrestaShopLogger::addLog(
                 'MONEI - Exception - validation.php - postProcess: ' . $ex->getMessage() . ' - ' . $ex->getFile(),
-                PrestaShopLogger::LOG_SEVERITY_LEVEL_ERROR
+                Monei::getLogLevel('error')
             );
 
             header('HTTP/1.1 400 Bad Request');

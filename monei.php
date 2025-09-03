@@ -54,7 +54,7 @@ class Monei extends PaymentModule
      *
      * @return int
      */
-    private static function getLogLevel($level = 'info')
+    public static function getLogLevel($level = 'info')
     {
         // Check if PrestaShop 1.7.8+ constants exist
         if (defined('PrestaShopLogger::LOG_SEVERITY_LEVEL_INFORMATIVE')) {
@@ -784,7 +784,7 @@ class Monei extends PaymentModule
             return $form_values;
         } catch (Exception $e) {
             // Log error and allow saving
-            PrestaShopLogger::addLog('MONEI - validatePaymentMethods - Error: ' . $e->getMessage(), PrestaShopLogger::LOG_SEVERITY_LEVEL_WARNING);
+            PrestaShopLogger::addLog('MONEI - validatePaymentMethods - Error: ' . $e->getMessage(), self::getLogLevel('warning'));
             $this->warning[] = $this->l('Unable to validate payment methods. Please check your API credentials.');
 
             return $form_values;
