@@ -153,7 +153,7 @@ class AdminMoneiCapturePaymentController extends ModuleAdminController
                     // Log error but don't fail the capture
                     PrestaShopLogger::addLog(
                         'MONEI - Failed to update payment method details: ' . $e->getMessage(),
-                        PrestaShopLogger::LOG_SEVERITY_LEVEL_WARNING
+                        Monei::getLogLevel('warning')
                     );
                 }
             }
@@ -168,7 +168,7 @@ class AdminMoneiCapturePaymentController extends ModuleAdminController
             $errorMessage = 'MONEI - Capture payment error: ' . $e->getMessage() . ' | Code: ' . $e->getCode() . ' | Trace: ' . $e->getTraceAsString();
             PrestaShopLogger::addLog(
                 $errorMessage,
-                PrestaShopLogger::LOG_SEVERITY_LEVEL_ERROR,
+                Monei::getLogLevel('error'),
                 $e->getCode(),
                 'MoneiCapturePaymentController',
                 $orderId
@@ -183,7 +183,7 @@ class AdminMoneiCapturePaymentController extends ModuleAdminController
             $errorMessage = 'MONEI - Capture payment general error: ' . $e->getMessage() . ' | File: ' . $e->getFile() . ' | Line: ' . $e->getLine() . ' | Trace: ' . $e->getTraceAsString();
             PrestaShopLogger::addLog(
                 $errorMessage,
-                PrestaShopLogger::LOG_SEVERITY_LEVEL_ERROR,
+                Monei::getLogLevel('error'),
                 null,
                 'MoneiCapturePaymentController',
                 $orderId
