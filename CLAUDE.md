@@ -162,3 +162,10 @@ Using PrestaShop Flashlight with custom PHP 7.4 upgrade for PrestaShop 1.7.2.4:
 - Custom Dockerfile upgrades PHP from 7.1 to 7.4.33
 - ngrok tunnel for HTTPS testing
 - MariaDB 10.3 for database
+
+## Git Commit Guidelines
+When creating commits:
+- Use clear, concise commit messages
+- Do NOT add any AI-generated footers or signatures
+- Do NOT include "Generated with Claude Code" or similar messages
+- Keep commit messages professional and focused on the changes made
