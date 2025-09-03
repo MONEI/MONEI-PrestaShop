@@ -44,7 +44,7 @@ class MoneiService
         $moneiPaymentModel,
         $moneiCustomerCardModel,
         $moneiRefundModel,
-        $moneiHistoryModel,
+        $moneiHistoryModel
     ) {
         // For PS1.7 compatibility, we accept context directly
         if (is_object($context) && method_exists($context, 'getContext')) {

@@ -26,7 +26,7 @@ class OrderService
         MoneiService $moneiService,
         PaymentMethodFormatter $paymentMethodFormatter,
         LockService $lockService,
-        $context,
+        $context
     ) {
         $this->moneiInstance = $moneiInstance;
         $this->moneiService = $moneiService;
