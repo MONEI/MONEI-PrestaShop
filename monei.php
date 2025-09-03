@@ -19,7 +19,7 @@ class Monei extends PaymentModule
 
     const NAME = 'monei';
     const VERSION = '1.6.1';
-    
+
     const LOG_SEVERITY_LEVELS = [
         'info' => 1,
         'error' => 2,
@@ -45,6 +45,40 @@ class Monei extends PaymentModule
         parent::__construct();
 
         $this->description = $this->l('Accept Card, Apple Pay, Google Pay, Bizum, PayPal and many more payment methods in your store.');
+    }
+
+    /**
+     * Get log severity level for PrestaShop compatibility
+     *
+     * @param string $level The log level (info, warning, error, major)
+     *
+     * @return int
+     */
+    private static function getLogLevel($level = 'info')
+    {
+        // Check if PrestaShop 1.7.8+ constants exist
+        if (defined('PrestaShopLogger::LOG_SEVERITY_LEVEL_INFORMATIVE')) {
+            switch ($level) {
+                case 'info':
+                    return constant('PrestaShopLogger::LOG_SEVERITY_LEVEL_INFORMATIVE');
+                case 'warning':
+                    return constant('PrestaShopLogger::LOG_SEVERITY_LEVEL_WARNING');
+                case 'error':
+                    return constant('PrestaShopLogger::LOG_SEVERITY_LEVEL_ERROR');
+                case 'major':
+                    return constant('PrestaShopLogger::LOG_SEVERITY_LEVEL_MAJOR');
+            }
+        }
+
+        // Fallback for PrestaShop 1.7.2 - use numeric values
+        $levels = [
+            'info' => 1,
+            'warning' => 2,
+            'error' => 3,
+            'major' => 4,
+        ];
+
+        return isset($levels[$level]) ? $levels[$level] : 1;
     }
 
     public function install()
@@ -156,6 +190,7 @@ class Monei extends PaymentModule
     {
         // PS1.7 doesn't have this service, clear cache manually
         Tools::clearCache();
+
         return null;
     }
 
@@ -196,14 +231,14 @@ class Monei extends PaymentModule
 
             PrestaShopLogger::addLog(
                 'MONEI - findOrderStateByName - SQL: ' . $sql,
-                PrestaShopLogger::LOG_SEVERITY_LEVEL_INFORMATIVE
+                self::getLogLevel('info')
             );
 
             return Db::getInstance()->getValue($sql);
         } catch (Exception $e) {
             PrestaShopLogger::addLog(
                 'MONEI - findOrderStateByName - Error: ' . $e->getMessage(),
-                PrestaShopLogger::LOG_SEVERITY_LEVEL_ERROR
+                self::getLogLevel('error')
             );
 
             return false;
@@ -219,21 +254,21 @@ class Monei extends PaymentModule
     {
         PrestaShopLogger::addLog(
             'MONEI - installOrderState - Starting order state installation',
-            PrestaShopLogger::LOG_SEVERITY_LEVEL_INFORMATIVE
+            self::getLogLevel('info')
         );
 
         // Check for existing "Awaiting payment" state
         $existingPendingStateId = $this->findOrderStateByName('Awaiting payment');
         PrestaShopLogger::addLog(
             'MONEI - installOrderState - Existing pending state ID: ' . ($existingPendingStateId ?: 'none'),
-            PrestaShopLogger::LOG_SEVERITY_LEVEL_INFORMATIVE
+            self::getLogLevel('info')
         );
 
         if ($existingPendingStateId) {
             Configuration::updateValue('MONEI_STATUS_PENDING', (int) $existingPendingStateId);
             PrestaShopLogger::addLog(
                 'MONEI - Using existing pending order state ID: ' . $existingPendingStateId,
-                PrestaShopLogger::LOG_SEVERITY_LEVEL_INFORMATIVE
+                self::getLogLevel('info')
             );
         } elseif ((int) Configuration::get('MONEI_STATUS_PENDING') === 0) {
             $order_state = new OrderState();
@@ -286,14 +321,14 @@ class Monei extends PaymentModule
         $existingAuthorizedStateId = $this->findOrderStateByName('Payment authorized');
         PrestaShopLogger::addLog(
             'MONEI - installOrderState - Existing authorized state ID: ' . ($existingAuthorizedStateId ?: 'none'),
-            PrestaShopLogger::LOG_SEVERITY_LEVEL_INFORMATIVE
+            self::getLogLevel('info')
         );
 
         if ($existingAuthorizedStateId) {
             Configuration::updateValue('MONEI_STATUS_AUTHORIZED', (int) $existingAuthorizedStateId);
             PrestaShopLogger::addLog(
                 'MONEI - Using existing authorized order state ID: ' . $existingAuthorizedStateId,
-                PrestaShopLogger::LOG_SEVERITY_LEVEL_INFORMATIVE
+                self::getLogLevel('info')
             );
         } else {
             $authorizedStateId = (int) Configuration::get('MONEI_STATUS_AUTHORIZED');
@@ -506,7 +541,7 @@ class Monei extends PaymentModule
         // Add CSS and JS for module configuration page
         $this->context->controller->addCSS($this->_path . 'views/css/admin/admin.css');
         $this->context->controller->addJS($this->_path . 'views/js/admin/admin.js');
-        
+
         $message = '';
 
         /*
@@ -1487,7 +1522,7 @@ class Monei extends PaymentModule
         } catch (Exception $e) {
             PrestaShopLogger::addLog(
                 'MONEI - Exception - monei.php - isMoneiAvailable: ' . $e->getMessage() . ' - ' . $e->getFile(),
-                PrestaShopLogger::LOG_SEVERITY_LEVEL_ERROR
+                self::getLogLevel('error')
             );
 
             return false;
@@ -2025,7 +2060,7 @@ class Monei extends PaymentModule
             if (!$moneiPayment) {
                 PrestaShopLogger::addLog(
                     'MONEI - hookActionOrderSlipAdd - No MONEI payment found for order ID: ' . $order->id,
-                    PrestaShopLogger::LOG_SEVERITY_LEVEL_INFORMATIVE
+                    self::getLogLevel('info')
                 );
 
                 return; // Not a MONEI order, skip
@@ -2047,7 +2082,7 @@ class Monei extends PaymentModule
                 'MONEI - hookActionOrderSlipAdd - Processing refund for order ID: ' . $order->id
                 . ', Payment ID: ' . $paymentId
                 . ', Amount: ' . $refundAmount . ' cents',
-                PrestaShopLogger::LOG_SEVERITY_LEVEL_INFORMATIVE
+                self::getLogLevel('info')
             );
 
             // Get refund reason from POST data or default to requested_by_customer
@@ -2061,7 +2096,7 @@ class Monei extends PaymentModule
 
             PrestaShopLogger::addLog(
                 'MONEI - hookActionOrderSlipAdd - Refund processed successfully for order ID: ' . $order->id,
-                PrestaShopLogger::LOG_SEVERITY_LEVEL_INFORMATIVE
+                self::getLogLevel('info')
             );
 
             // Update order status if needed
@@ -2119,10 +2154,10 @@ class Monei extends PaymentModule
         if ($price === null || $price === '') {
             $price = 0;
         }
-        
+
         $locale = Tools::getContextLocale($this->context);
 
-        return $locale->formatPrice((float)$price, $currencyIso);
+        return $locale->formatPrice((float) $price, $currencyIso);
     }
 
     /**
@@ -2474,37 +2509,37 @@ class Monei extends PaymentModule
         // Check if this is a MONEI order
         $orderId = (int) $params['id_order'];
         $order = new Order($orderId);
-        
+
         if (!Validate::isLoadedObject($order) || $order->module !== 'monei') {
             return;
         }
-        
+
         // Check if payment can be captured
         $monei2PaymentEntity = Monei2Payment::findOneBy(['id_order' => $orderId]);
         if (!$monei2PaymentEntity) {
             return;
         }
-        
+
         // Check if payment is in AUTHORIZED status
         if ($monei2PaymentEntity->status !== 'AUTHORIZED') {
             return;
         }
-        
+
         // Get the actions bar buttons collection
-        /** @var \PrestaShopBundle\Controller\Admin\Sell\Order\ActionsBarButtonsCollection $bar */
+        /** @var PrestaShopBundle\Controller\Admin\Sell\Order\ActionsBarButtonsCollection $bar */
         $bar = $params['actions_bar_buttons_collection'];
-        
+
         // Calculate remaining amount
         $authorizedAmount = (float) $monei2PaymentEntity->amount / 100;
         $capturedAmount = (float) $monei2PaymentEntity->captured_amount / 100;
         $remainingAmount = $authorizedAmount - $capturedAmount;
-        
+
         $currency = new Currency($order->id_currency);
         $currencySign = $currency->sign;
-        
+
         // Add capture button that triggers the existing modal from hookDisplayAdminOrder
         $bar->add(
-            new \PrestaShopBundle\Controller\Admin\Sell\Order\ActionsBarButton(
+            new PrestaShopBundle\Controller\Admin\Sell\Order\ActionsBarButton(
                 'btn-action btn-primary monei-capture-action-btn',
                 [
                     'href' => '#',
@@ -2513,7 +2548,7 @@ class Monei extends PaymentModule
                     'data-order-id' => $orderId,
                     'data-max-amount' => $remainingAmount,
                     'data-currency-sign' => $currencySign,
-                    'title' => $this->l('Capture the authorized payment')
+                    'title' => $this->l('Capture the authorized payment'),
                 ],
                 $this->l('Capture Payment')
             )

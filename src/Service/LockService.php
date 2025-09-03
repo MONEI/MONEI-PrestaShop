@@ -43,7 +43,7 @@ class LockService
         } catch (\PrestaShopException $e) {
             \PrestaShopLogger::addLog(
                 'MONEI - LockService - Failed to acquire lock: ' . $e->getMessage(),
-                \PrestaShopLogger::LOG_SEVERITY_LEVEL_ERROR
+                \Monei::getLogLevel('error')
             );
 
             return false;
@@ -70,7 +70,7 @@ class LockService
         } catch (\PrestaShopException $e) {
             \PrestaShopLogger::addLog(
                 'MONEI - LockService - Failed to release lock: ' . $e->getMessage(),
-                \PrestaShopLogger::LOG_SEVERITY_LEVEL_ERROR
+                \Monei::getLogLevel('error')
             );
 
             return false;
@@ -97,7 +97,7 @@ class LockService
         } catch (\PrestaShopException $e) {
             \PrestaShopLogger::addLog(
                 'MONEI - LockService - Failed to check lock status: ' . $e->getMessage(),
-                \PrestaShopLogger::LOG_SEVERITY_LEVEL_WARNING
+                \Monei::getLogLevel('warning')
             );
 
             return true; // Assume free on error to avoid blocking
