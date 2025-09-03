@@ -36,7 +36,7 @@
                             <tr>
                                 <td>{$customerCard.id|escape:'html':'UTF-8'}</td>
                                 <td>
-                                    {$customerCard.iconHtml nofilter}
+                                    {$customerCard.iconHtml}
                                 </td>
                                 <td>{$customerCard.displayName|escape:'html':'UTF-8'}</td>
                                 <td>{$customerCard.expiration|date_format:'%m/%y'|escape:'html':'UTF-8'}</td>
@@ -78,8 +78,8 @@
                     <p>{l s='Are you sure you want to remove this card?' mod='monei'}</p>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-dismiss="modal">{l s='Cancel' mod='monei'}</button>
-                    <button type="button" class="btn btn-danger" id="confirmDeleteCard">
+                    <button type="button" class="btn btn-default btn-secondary" data-dismiss="modal">{l s='Cancel' mod='monei'}</button>
+                    <button type="button" class="btn btn-default btn-danger" id="confirmDeleteCard">
                         {l s='Yes, remove it' mod='monei'}
                     </button>
                 </div>

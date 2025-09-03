@@ -72,6 +72,15 @@ $sql[] = 'CREATE TABLE IF NOT EXISTS `' . _DB_PREFIX_ . 'monei2_order_payment` (
     INDEX (`id_order`)
 ) ENGINE=' . _MYSQL_ENGINE_ . ' DEFAULT CHARSET=utf8;';
 
+$sql[] = 'CREATE TABLE IF NOT EXISTS `' . _DB_PREFIX_ . 'monei2_admin_order_message` (
+    `id_monei_admin_order_message` INT(10) UNSIGNED NOT NULL AUTO_INCREMENT,
+    `id_order` INT(10) UNSIGNED NOT NULL,
+    `message` TEXT,
+    `date_add` DATETIME NOT NULL,
+    PRIMARY KEY (`id_monei_admin_order_message`),
+    INDEX (`id_order`)
+) ENGINE=' . _MYSQL_ENGINE_ . ' DEFAULT CHARSET=utf8;';
+
 // Execute SQL queries
 foreach ($sql as $query) {
     if (Db::getInstance()->execute($query) === false) {

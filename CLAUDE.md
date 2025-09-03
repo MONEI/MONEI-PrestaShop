@@ -151,6 +151,57 @@ $paymentService = Monei::getService('monei.service.payment');
   - `admin/admin.js`: Admin panel functionality (field toggling, refund handling)
 - No bundler or build process required
 
+### Testing MONEI Card Input (Playwright/Automated Testing)
+The MONEI card input fields are rendered inside a cross-origin iframe from `js.monei.com`. To interact with these fields in automated tests:
+
+#### Accessing Card Input Fields
+```javascript
+// The iframe contains input fields with data-testid attributes:
+// - data-testid="card-number-input" - Card number field
+// - data-testid="expiry-date-input" - Expiry date field (MM/YY format)
+// - data-testid="cvc-input" - CVC/CVV field
+
+// In Playwright, access the iframe content:
+await page.locator('iframe[src*="monei"]').contentFrame().getByTestId('card-number-input').fill('4444444444444422');
+await page.locator('iframe[src*="monei"]').contentFrame().getByTestId('expiry-date-input').fill('12/34');
+await page.locator('iframe[src*="monei"]').contentFrame().getByTestId('cvc-input').fill('123');
+```
+
+#### Test Card Numbers (from https://docs.monei.com/testing/)
+**Visa Test Cards:**
+- `4444444444444406` - 3D Secure v2.1 Challenge (use for AUTH testing)
+- `4444444444444414` - 3D Secure v2.1 Direct (no challenge)
+- `4444444444444422` - 3D Secure v2.1 Frictionless
+- `4444444444444430` - 3D Secure v2.1 Frictionless and Challenge
+
+**Mastercard Test Cards:**
+- `5555555555555524` - 3D Secure v2.1 Direct (no challenge)
+- `5555555555555532` - 3D Secure v2.1 Frictionless
+- `5555555555555565` - 3D Secure v2.1 Challenge
+- `5555555555555573` - 3D Secure v2.1 Frictionless and Challenge
+
+**Important:** Always use expiry date `12/34` and CVC `123` for test cards.
+
+#### Authorization and Capture (AUTH Mode)
+MONEI supports two payment action modes:
+- **SALE** (default) - Funds are automatically captured when customer authorizes payment
+- **AUTH** - Places a hold on funds but doesn't capture until later (up to 30 days)
+
+To test AUTH mode:
+1. Set `MONEI_PAYMENT_ACTION` configuration to 'auth' in database
+2. Use test card `4444444444444406` (3D Secure Challenge) for reliable AUTH testing
+3. After successful authorization, payment status will be "AUTHORIZED" (not "SUCCEEDED")
+4. Capture can be performed later via API or admin interface (if implemented)
+
+Note: If capture button is not visible in PrestaShop admin, check:
+- Payment status is "AUTHORIZED" (not "SUCCEEDED")
+- `is_captured` field in database is 0
+- Module's capture functionality is properly implemented
+
+#### Payment Flow Issues
+- The `createPayment` controller must be registered in the module's `$this->controllers` array
+- If getting 404 errors on payment submission, ensure the controller is listed in monei.php constructor
+
 ## Version Compatibility
 - PHP: ≥7.4 (composer platform configured)
 - PrestaShop: ≥1.7.2.4 (tested) and ≥8.0 (officially supported)
