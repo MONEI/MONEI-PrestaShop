@@ -46,25 +46,26 @@ class Monei2Refund extends \ObjectModel
         $sql = 'SELECT `id_refund` FROM `' . _DB_PREFIX_ . 'monei2_refund` 
                 WHERE `id_payment` = \'' . pSQL($id_payment) . '\' 
                 ORDER BY `date_add` DESC';
-        
+
         $results = \Db::getInstance()->executeS($sql);
         $refunds = [];
-        
+
         if ($results) {
             foreach ($results as $row) {
                 $refunds[] = new self($row['id_refund']);
             }
         }
-        
+
         return $refunds;
     }
 
     public static function getByHistoryId($id_history)
     {
         $sql = 'SELECT `id_refund` FROM `' . _DB_PREFIX_ . 'monei2_refund` 
-                WHERE `id_history` = ' . (int)$id_history;
-        
+                WHERE `id_history` = ' . (int) $id_history;
+
         $id = \Db::getInstance()->getValue($sql);
+
         return $id ? new self($id) : null;
     }
 
@@ -73,27 +74,27 @@ class Monei2Refund extends \ObjectModel
         $where_parts = [];
         foreach ($criteria as $field => $value) {
             if (is_int($value)) {
-                $where_parts[] = '`' . pSQL($field) . '` = ' . (int)$value;
+                $where_parts[] = '`' . pSQL($field) . '` = ' . (int) $value;
             } else {
                 $where_parts[] = '`' . pSQL($field) . '` = \'' . pSQL($value) . '\'';
             }
         }
-        
+
         $sql = 'SELECT `id_refund` FROM `' . _DB_PREFIX_ . 'monei2_refund`';
         if (!empty($where_parts)) {
             $sql .= ' WHERE ' . implode(' AND ', $where_parts);
         }
         $sql .= ' ORDER BY `date_add` DESC';
-        
+
         $results = \Db::getInstance()->executeS($sql);
         $refunds = [];
-        
+
         if ($results) {
             foreach ($results as $row) {
                 $refunds[] = new self($row['id_refund']);
             }
         }
-        
+
         return $refunds;
     }
 
@@ -102,16 +103,17 @@ class Monei2Refund extends \ObjectModel
         $where_parts = [];
         foreach ($criteria as $field => $value) {
             if (is_int($value)) {
-                $where_parts[] = '`' . pSQL($field) . '` = ' . (int)$value;
+                $where_parts[] = '`' . pSQL($field) . '` = ' . (int) $value;
             } else {
                 $where_parts[] = '`' . pSQL($field) . '` = \'' . pSQL($value) . '\'';
             }
         }
-        
+
         $sql = 'SELECT `id_refund` FROM `' . _DB_PREFIX_ . 'monei2_refund` 
                 WHERE ' . implode(' AND ', $where_parts);
-        
+
         $id = \Db::getInstance()->getValue($sql);
+
         return $id ? new self($id) : null;
     }
 
@@ -120,7 +122,7 @@ class Monei2Refund extends \ObjectModel
      */
     public function getId()
     {
-        return (int)$this->id_refund;
+        return (int) $this->id_refund;
     }
 
     public function getPayment()
@@ -128,6 +130,7 @@ class Monei2Refund extends \ObjectModel
         if (!$this->payment && $this->id_payment) {
             $this->payment = new Monei2Payment($this->id_payment);
         }
+
         return $this->payment;
     }
 
@@ -136,9 +139,10 @@ class Monei2Refund extends \ObjectModel
         $this->payment = $payment;
         if ($payment instanceof Monei2Payment) {
             $this->id_payment = $payment->getId();
-        } else if (is_string($payment)) {
+        } elseif (is_string($payment)) {
             $this->id_payment = $payment;
         }
+
         return $this;
     }
 
@@ -147,6 +151,7 @@ class Monei2Refund extends \ObjectModel
         if (!$this->history && $this->id_history) {
             $this->history = new Monei2History($this->id_history);
         }
+
         return $this->history;
     }
 
@@ -155,9 +160,10 @@ class Monei2Refund extends \ObjectModel
         $this->history = $history;
         if ($history instanceof Monei2History) {
             $this->id_history = $history->getId();
-        } else if (is_int($history)) {
+        } elseif (is_int($history)) {
             $this->id_history = $history;
         }
+
         return $this;
     }
 
@@ -169,6 +175,7 @@ class Monei2Refund extends \ObjectModel
     public function setEmployeeId($id_employee)
     {
         $this->id_employee = $id_employee;
+
         return $this;
     }
 
@@ -180,6 +187,7 @@ class Monei2Refund extends \ObjectModel
     public function setReason($reason)
     {
         $this->reason = $reason;
+
         return $this;
     }
 
@@ -191,6 +199,7 @@ class Monei2Refund extends \ObjectModel
     public function setAmount($amount)
     {
         $this->amount = $amount;
+
         return $this;
     }
 
@@ -208,11 +217,12 @@ class Monei2Refund extends \ObjectModel
     {
         if ($date_add instanceof \DateTimeInterface) {
             $this->date_add = $date_add->format('Y-m-d H:i:s');
-        } else if (is_int($date_add)) {
+        } elseif (is_int($date_add)) {
             $this->date_add = date('Y-m-d H:i:s', $date_add);
         } else {
             $this->date_add = $date_add;
         }
+
         return $this;
     }
 

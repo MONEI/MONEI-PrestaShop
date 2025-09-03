@@ -25,6 +25,7 @@ cd build && yarn install && yarn release
 
 ### Code Quality
 - PHP code style: Uses PHP-CS-Fixer with custom Symfony-based configuration (see `.php-cs-fixer.php`)
+- IMPORTANT: Always run `./vendor/bin/php-cs-fixer fix` after modifying PHP files
 - No JavaScript linting configured
 - No test suite implemented (PHPUnit configured but `/tests` directory is empty)
 
@@ -155,6 +156,20 @@ $paymentService = Monei::getService('monei.service.payment');
 - PrestaShop: ≥1.7.2.4 (tested) and ≥8.0 (officially supported)
 - MONEI PHP SDK: ^2.6
 - Build tools: Yarn 4.5.0 (packageManager field enforced)
+
+## Known Compatibility Issues
+
+### PrestaShop 1.7.2.4 Specific Issues
+- PrestaShopLogger constants don't exist (use numeric values: info=1, warning=2, error=3, major=4)
+- hookDisplayBackOfficeHeader not triggered for module configuration pages
+- JavaScript/CSS must be loaded in getContent() method for admin pages
+- jQuery timing issues require waitForJQuery wrapper for reliable initialization
+
+### Compatibility Solutions
+- Added getLogLevel() method for PrestaShopLogger compatibility across versions
+- Load admin assets in both getContent() and hookDisplayBackOfficeHeader
+- Use waitForJQuery pattern for JavaScript initialization
+- Always run php-cs-fixer after code modifications
 
 ## Docker Development Environment
 Using PrestaShop Flashlight with custom PHP 7.4 upgrade for PrestaShop 1.7.2.4:

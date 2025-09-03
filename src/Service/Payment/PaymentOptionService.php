@@ -4,8 +4,8 @@ namespace PsMonei\Service\Payment;
 
 use Monei\Model\PaymentPaymentMethod;
 use PsMonei\Entity\Monei2CustomerCard;
-use PsMonei\Service\Monei\MoneiService;
 use PsMonei\Helper\PaymentMethodFormatter;
+use PsMonei\Service\Monei\MoneiService;
 
 class PaymentOptionService
 {
@@ -65,11 +65,11 @@ class PaymentOptionService
         $moneiCustomerCardModel,
         $configuration,
         $context,
-        PaymentMethodFormatter $paymentMethodFormatter
+        PaymentMethodFormatter $paymentMethodFormatter,
     ) {
         $this->moneiService = $moneiService;
         $this->paymentMethodFormatter = $paymentMethodFormatter;
-        
+
         // For PS1.7 compatibility, we accept context directly
         if (is_object($context) && method_exists($context, 'getContext')) {
             $this->context = $context->getContext();
@@ -114,8 +114,9 @@ class PaymentOptionService
     public function getTransactionId(): string
     {
         $cart = $this->context->cart;
+
         // Use PS1.7 compatible encryption to match redirect controller
-        return \Tools::encrypt((int)$cart->id . (int)$cart->id_customer);
+        return \Tools::encrypt((int) $cart->id . (int) $cart->id_customer);
     }
 
     private function isPaymentMethodAllowed($paymentMethod)
@@ -217,7 +218,7 @@ class PaymentOptionService
                     if (!in_array($cardBrand, $this->availableCardBrands)) {
                         \PrestaShopLogger::addLog(
                             'MONEI - Skipping saved card with unsupported brand: ' . $cardBrand,
-                            \PrestaShopLogger::LOG_SEVERITY_LEVEL_INFORMATIVE
+                            \Monei::getLogLevel('info')
                         );
 
                         continue;
