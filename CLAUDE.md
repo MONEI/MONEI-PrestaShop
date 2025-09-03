@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-MONEI PrestaShop payment gateway module that enables merchants to accept various payment methods (Card, Apple Pay, Google Pay, Bizum, PayPal, etc.) in PrestaShop 8+ stores.
+MONEI PrestaShop payment gateway module that enables merchants to accept various payment methods (Card, Apple Pay, Google Pay, Bizum, PayPal, etc.) in PrestaShop 1.7.2+ and 8+ stores.
 
 ## Key Commands
 
@@ -16,17 +16,35 @@ composer install
 # Fix PHP code style
 ./vendor/bin/php-cs-fixer fix
 
-# Build JavaScript assets (from /build directory)
-cd build && yarn install && yarn build
-
 # Create release (from /build directory) - bumps version in monei.php
-cd build && yarn release
+cd build && yarn install && yarn release
+
+# Note: No build step required for JavaScript assets
+# JavaScript files in /views/js/ are production-ready (no minification needed)
 ```
 
 ### Code Quality
 - PHP code style: Uses PHP-CS-Fixer with custom Symfony-based configuration (see `.php-cs-fixer.php`)
 - No JavaScript linting configured
 - No test suite implemented (PHPUnit configured but `/tests` directory is empty)
+
+### PrestaShop Admin Access
+When using PrestaShop Flashlight Docker environment:
+
+| URL      | {PS_DOMAIN}/admin-dev |
+| -------- | --------------------- |
+| Login    | admin@prestashop.com  |
+| Password | prestashop            |
+
+### Module Installation
+Install MONEI module via CLI:
+```bash
+# For PrestaShop 1.7.2 (no console command available)
+docker exec tunnel1-prestashop-1 bash -c "cd /var/www/html && php modules/monei/monei.php"
+
+# For PrestaShop 8+
+docker exec tunnel1-prestashop-1 bash -c "php /var/www/html/bin/console prestashop:module install monei"
+```
 
 ### Cache Clearing (PrestaShop Flashlight)
 When using PrestaShop Flashlight Docker environment, clear cache after module changes:
@@ -36,9 +54,14 @@ docker ps | grep prestashop
 
 # Clear all caches (replace 'tunnel1-prestashop-1' with your container name)
 docker exec tunnel1-prestashop-1 bash -c "rm -rf /var/www/html/var/cache/*"
+
+# For PrestaShop 1.7.2 (simpler cache structure)
+docker exec tunnel1-prestashop-1 bash -c "rm -rf /var/www/html/cache/smarty/compile/* /var/www/html/cache/smarty/cache/* /var/www/html/cache/cachefs/* /var/www/html/cache/class_index.php"
+
+# For PrestaShop 8+
 docker exec tunnel1-prestashop-1 bash -c "php /var/www/html/bin/console cache:clear"
 
-# Reset module to force configuration reload
+# Reset module to force configuration reload (PrestaShop 8+ only)
 docker exec tunnel1-prestashop-1 bash -c "php /var/www/html/bin/console prestashop:module reset monei"
 ```
 Then hard refresh browser (Ctrl+F5 or Cmd+Shift+R).
@@ -86,8 +109,7 @@ Log locations inside the container:
   - `/front`: Frontend controllers (redirect, validation, check, cards)
 - `/views`: Frontend resources
   - `/templates`: Smarty templates
-  - `/js/_dev/`: Development JavaScript (source files)
-  - `/js/`: Minified production JavaScript (generated via uglifyjs-folder)
+  - `/js/`: JavaScript files (production-ready)
   - `/css`: Stylesheets
 - `/build`: Build tooling with Yarn 4.5.0 and release-it configuration
 - `/sql`: Database schema (install.sql, uninstall.sql)
@@ -121,15 +143,22 @@ $paymentService = Monei::getService('monei.service.payment');
 ```
 
 ### Frontend JavaScript Architecture
-- Development files in `/views/js/_dev/` use vanilla JavaScript
+- JavaScript files in `/views/js/` use vanilla JavaScript (no build/transpilation)
 - Key files:
   - `checkout.js`: Payment form handling, Apple/Google Pay detection
   - `saved-cards.js`: Tokenized card management
-  - `admin.js`: Admin panel functionality
-- Built with uglifyjs-folder (no bundler/transpilation)
+  - `admin/admin.js`: Admin panel functionality (field toggling, refund handling)
+- No bundler or build process required
 
 ## Version Compatibility
 - PHP: ≥7.4 (composer platform configured)
-- PrestaShop: ≥8.0 (minimum supported version)
+- PrestaShop: ≥1.7.2.4 (tested) and ≥8.0 (officially supported)
 - MONEI PHP SDK: ^2.6
 - Build tools: Yarn 4.5.0 (packageManager field enforced)
+
+## Docker Development Environment
+Using PrestaShop Flashlight with custom PHP 7.4 upgrade for PrestaShop 1.7.2.4:
+- Base image: `prestashop/prestashop-flashlight:1.7.2.4-7.1`
+- Custom Dockerfile upgrades PHP from 7.1 to 7.4.33
+- ngrok tunnel for HTTPS testing
+- MariaDB 10.3 for database

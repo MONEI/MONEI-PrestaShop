@@ -503,6 +503,10 @@ class Monei extends PaymentModule
      */
     public function getContent()
     {
+        // Add CSS and JS for module configuration page
+        $this->context->controller->addCSS($this->_path . 'views/css/admin/admin.css');
+        $this->context->controller->addJS($this->_path . 'views/js/admin/admin.js');
+        
         $message = '';
 
         /*
@@ -1989,21 +1993,17 @@ class Monei extends PaymentModule
         $this->context->controller->addCSS($this->_path . 'views/css/admin/admin.css');
         $this->context->controller->addJS($this->_path . 'views/js/admin/admin.js');
 
-        // Only for Orders controller, we dont need to load JS/CSS everywhere
-        if ($this->context->controller->controller_name !== 'AdminOrders') {
-            return;
+        // Add additional JS/vars only for Orders controller
+        if ($this->context->controller->controller_name === 'AdminOrders') {
+            Media::addJsDef([
+                'MoneiVars' => [
+                    'adminMoneiControllerUrl' => $this->context->link->getAdminLink('AdminMonei'),
+                ],
+            ]);
+
+            $this->context->controller->addCSS($this->_path . 'views/css/jquery.json-viewer.css');
+            $this->context->controller->addJS($this->_path . 'views/js/jquery.json-viewer.js');
         }
-
-        Media::addJsDef([
-            'MoneiVars' => [
-                'adminMoneiControllerUrl' => $this->context->link->getAdminLink('AdminMonei'),
-            ],
-        ]);
-
-        $this->context->controller->addCSS($this->_path . 'views/css/jquery.json-viewer.css');
-
-        $this->context->controller->addJS($this->_path . 'views/js/jquery.json-viewer.js');
-        $this->context->controller->addJS($this->_path . 'views/js/admin/admin.js');
     }
 
     /**
