@@ -65,7 +65,7 @@ class PaymentOptionService
         $moneiCustomerCardModel,
         $configuration,
         $context,
-        PaymentMethodFormatter $paymentMethodFormatter,
+        PaymentMethodFormatter $paymentMethodFormatter
     ) {
         $this->moneiService = $moneiService;
         $this->paymentMethodFormatter = $paymentMethodFormatter;
