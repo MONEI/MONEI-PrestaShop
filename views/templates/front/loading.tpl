@@ -18,7 +18,7 @@
 // Automatically check payment status every 3 seconds
 (function() {
     var paymentId = '{$payment_id|escape:'javascript':'UTF-8'}';
-    var completeUrl = '{$complete_url|escape:'javascript':'UTF-8'}';
+    var completeUrl = '{$complete_url}';
     var maxAttempts = 60; // 3 minutes maximum
     var attempts = 0;
     
