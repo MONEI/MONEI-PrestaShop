@@ -1,12 +1,10 @@
 <div class="row">
     <div class="col-lg-12">
-        <div class="card">
-            <div class="card-header">
-                <h3 class="card-header-title">
-                    <i class="material-icons">payment</i>&nbsp;{l s='MONEI Payments' mod='monei'}
-                </h3>
+        <div class="panel card">
+            <div class="panel-heading card-header">
+                <i class="icon-credit-card"></i> {l s='MONEI Payments' mod='monei'}
             </div>
-            <div class="card-body">
+            <div class="panel-body card-body">
                     {if $isCapturable}
                         <div class="alert alert-warning mb-3">
                             <p class="mb-2"><strong>{l s='Payment Authorized' mod='monei'}</strong></p>
@@ -18,8 +16,8 @@
                                 <p class="mb-3">{l s='Remaining capturable:' mod='monei'} <strong>{$remainingAmountFormatted}</strong></p>
                             {/if}
                             <div>
-                                <button type="button" class="btn btn-primary" id="monei-capture-payment-btn" data-order-id="{$orderId|escape:'html':'UTF-8'}" data-max-amount="{$remainingAmount|escape:'html':'UTF-8'}" data-currency-sign="{$currencySign|escape:'html':'UTF-8'}" data-toggle="modal" data-target="#moneiCaptureModal">
-                                    {l s='Capture Payment' mod='monei'}
+                                <button type="button" class="btn btn-warning" id="monei-capture-payment-btn" data-order-id="{$orderId|escape:'html':'UTF-8'}" data-max-amount="{$remainingAmount|escape:'html':'UTF-8'}" data-currency-sign="{$currencySign|escape:'html':'UTF-8'}" data-toggle="modal" data-target="#moneiCaptureModal">
+                                    <i class="icon-check"></i> {l s='Capture Payment' mod='monei'}
                                 </button>
                             </div>
                         </div>
@@ -88,6 +86,9 @@
                 </button>
             </div>
             <div class="modal-body">
+                <div class="alert alert-info">
+                    <p>{l s='Important: You can only capture once. If you capture a partial amount, the remaining authorization will be released.' mod='monei'}</p>
+                </div>
                 <form id="monei-capture-form">
                     <div class="form-group">
                         <label for="capture-amount">{l s='Amount to capture' mod='monei'}</label>
@@ -101,20 +102,20 @@
                                    max="{$remainingAmount|string_format:"%.2f"}" 
                                    step="0.01"
                                    required>
-                            <div class="input-group-append">
+                            <div class="input-group-addon input-group-append">
                                 <span class="input-group-text">{$currencySign}</span>
                             </div>
                         </div>
-                        <small class="form-text text-muted">
-                            {l s='Maximum:' mod='monei'} {$remainingAmountFormatted}
+                        <small class="help-block form-text text-muted">
+                            {l s='Maximum authorized amount:' mod='monei'} {$authorizedAmountFormatted}
                         </small>
                     </div>
                 </form>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-secondary btn-outline-secondary" data-dismiss="modal">{l s='Cancel' mod='monei'}</button>
+                <button type="button" class="btn btn-default btn-secondary" data-dismiss="modal">{l s='Cancel' mod='monei'}</button>
                 <button type="button" class="btn btn-primary" id="confirm-capture-btn">
-                    {l s='Capture payment' mod='monei'}
+                    <i class="icon-check"></i> {l s='Capture payment' mod='monei'}
                 </button>
             </div>
         </div>
@@ -143,7 +144,7 @@
             }
             
             // Disable button and show loading
-            $btn.prop('disabled', true).html('<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> {l s='Processing...' mod='monei' js=1}');
+            $btn.prop('disabled', true).html('<i class="icon-refresh icon-spin"></i> {l s='Processing...' mod='monei' js=1}');
             
             // Make AJAX request
             $.ajax({
