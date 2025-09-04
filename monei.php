@@ -1673,11 +1673,12 @@ class Monei extends PaymentModule
             if (isset($paymentOption['action'])) {
                 $option->setAction($paymentOption['action']);
             } else {
+                // Decode HTML entities as form actions should never be HTML-escaped
                 $option->setAction(
-                    $this->context->link->getModuleLink($this->name, 'redirect', [
+                    html_entity_decode($this->context->link->getModuleLink($this->name, 'redirect', [
                         'method' => $paymentOption['name'],
                         'transaction_id' => $transactionId,
-                    ])
+                    ]))
                 );
             }
 
@@ -1750,7 +1751,8 @@ class Monei extends PaymentModule
                     $moneiService->getCartAmount($cartSummaryDetails, $this->context->cart->id_currency, true),
                     $this->context->currency
                 ),
-                'moneiCreatePaymentUrlController' => $this->context->link->getModuleLink('monei', 'createPayment'),
+                // URLs should never be HTML-escaped when used in JavaScript
+                'moneiCreatePaymentUrlController' => html_entity_decode($this->context->link->getModuleLink('monei', 'createPayment')),
                 'moneiToken' => Tools::getToken(false),
                 'moneiCurrency' => $this->context->currency->iso_code,
                 'moneiPaymentAction' => Configuration::get('MONEI_PAYMENT_ACTION', 'sale'),
@@ -1869,8 +1871,8 @@ class Monei extends PaymentModule
         $capturedAmountFormatted = $this->formatPrice($capturedAmount / 100, $currency->iso_code);
         $remainingAmountFormatted = $this->formatPrice($remainingAmount, $currency->iso_code);
 
-        // Generate capture controller link
-        $captureLinkController = $this->context->link->getAdminLink('AdminMoneiCapturePayment');
+        // Generate capture controller link - decode HTML entities as URLs should not be escaped
+        $captureLinkController = html_entity_decode($this->context->link->getAdminLink('AdminMoneiCapturePayment'));
 
         $this->context->smarty->assign([
             'moneiPayment' => $monei2PaymentEntity->toArrayLegacy(),
@@ -2087,7 +2089,8 @@ class Monei extends PaymentModule
         if ($this->context->controller->controller_name === 'AdminOrders') {
             Media::addJsDef([
                 'MoneiVars' => [
-                    'adminMoneiControllerUrl' => $this->context->link->getAdminLink('AdminMonei'),
+                    // Decode HTML entities as URLs should not be escaped in JavaScript
+                    'adminMoneiControllerUrl' => html_entity_decode($this->context->link->getAdminLink('AdminMonei')),
                 ],
             ]);
 

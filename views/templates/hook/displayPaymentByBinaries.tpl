@@ -1,7 +1,8 @@
 <script>
   var moneiAccountId = '{$moneiAccountId|escape:'javascript':'UTF-8'}';
   
-  var moneiCreatePaymentUrlController = '{$moneiCreatePaymentUrlController}';
+  // Fix &amp; encoding issue - decode HTML entities in URL
+  var moneiCreatePaymentUrlController = '{$moneiCreatePaymentUrlController}'.replace(/&amp;/g, '&');
   
   var moneiToken = '{$moneiToken|escape:'javascript':'UTF-8'}';
   var moneiCurrency = '{$moneiCurrency|escape:'javascript':'UTF-8'}';
