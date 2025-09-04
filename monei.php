@@ -149,10 +149,50 @@ class Monei extends PaymentModule
         return (bool) Db::getInstance()->getValue($sql);
     }
 
+    /**
+     * Check PHP version compatibility
+     *
+     * @return array Array with 'compatible' bool and 'message' string
+     */
+    public function checkPHPCompatibility()
+    {
+        $phpVersion = PHP_VERSION;
+        $psVersion = _PS_VERSION_;
+
+        // PS 1.7.8+ requires PHP 7.1.3+
+        if (version_compare($psVersion, '1.7.8.0', '>=') && version_compare($phpVersion, '7.1.3', '<')) {
+            return [
+                'compatible' => false,
+                'message' => sprintf($this->l('PrestaShop %s requires PHP 7.1.3 or higher. Current PHP version: %s'), $psVersion, $phpVersion),
+            ];
+        }
+
+        // PS 1.7.7+ requires PHP 7.1.3+
+        if (version_compare($psVersion, '1.7.7.0', '>=') && version_compare($phpVersion, '7.1.3', '<')) {
+            return [
+                'compatible' => false,
+                'message' => sprintf($this->l('PrestaShop %s requires PHP 7.1.3 or higher. Current PHP version: %s'), $psVersion, $phpVersion),
+            ];
+        }
+
+        return [
+            'compatible' => true,
+            'message' => '',
+        ];
+    }
+
     public function install()
     {
         if (extension_loaded('curl') == false) {
             $this->_errors[] = $this->l('You have to enable the cURL extension on your server to install this module');
+
+            return false;
+        }
+
+        // Check PHP compatibility
+        $phpCheck = $this->checkPHPCompatibility();
+        if (!$phpCheck['compatible']) {
+            $this->_errors[] = $phpCheck['message'];
 
             return false;
         }
