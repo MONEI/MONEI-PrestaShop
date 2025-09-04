@@ -11,7 +11,6 @@
                         <p class="mb-2">{l s='The payment has been authorized but not yet captured. The funds are reserved on the customer\'s card but have not been transferred to your account.' mod='monei'}</p>
                         <p class="mb-3">{l s='You must capture the payment within 7 days or the authorization will expire and the funds will be released back to the customer.' mod='monei'}</p>
                         <p class="mb-3">{l s='Authorized amount:' mod='monei'} <strong>{$authorizedAmountFormatted}</strong></p>
-                        <p class="text-info"><small>{l s='You can capture the full amount or a partial amount, but capture can only be done once.' mod='monei'}</small></p>
                         <div style="margin-top: 15px;">
                             <button type="button" class="btn btn-warning" id="monei-capture-payment-btn" 
                                 data-order-id="{$orderId|escape:'html':'UTF-8'}" 
