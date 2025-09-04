@@ -251,6 +251,7 @@
                 $btn.prop('disabled', true).html('<i class="icon-spinner icon-spin"></i> Capturing...');
 
                 // Make AJAX request to capture the payment
+                // Using promise-based approach for better jQuery 3.x compatibility
                 $.ajax({
                     url: captureUrl,
                     type: 'POST',
@@ -259,46 +260,44 @@
                         action: 'capturePayment',
                         id_order: orderId,
                         amount: amount
-                    },
-                    success: function(response) {
-                        try {
-                            const result = typeof response === 'string' ? JSON.parse(response) : response;
-                            
-                            if (result.success) {
-                                // Show success message
-                                if (typeof showSuccessMessage === 'function') {
-                                    showSuccessMessage(result.message);
-                                } else {
-                                    alert('Success: ' + result.message);
-                                }
-                                
-                                // Remove the capture button as payment is now captured
-                                $btn.closest('.btn-group').fadeOut();
-                                
-                                // Optionally reload the page to show updated status
-                                setTimeout(function() {
-                                    window.location.reload();
-                                }, 1500);
+                    }
+                }).done(function(response) {
+                    try {
+                        const result = typeof response === 'string' ? JSON.parse(response) : response;
+                        
+                        if (result.success) {
+                            // Show success message
+                            if (typeof showSuccessMessage === 'function') {
+                                showSuccessMessage(result.message);
                             } else {
-                                // Show error message
-                                if (typeof showErrorMessage === 'function') {
-                                    showErrorMessage(result.message);
-                                } else {
-                                    alert('Error: ' + result.message);
-                                }
-                                
-                                // Restore button
-                                $btn.prop('disabled', false).html(originalText);
+                                alert('Success: ' + result.message);
                             }
-                        } catch (e) {
-                            alert('Error processing response: ' + e.message);
+                            
+                            // Remove the capture button as payment is now captured
+                            $btn.closest('.btn-group').fadeOut();
+                            
+                            // Optionally reload the page to show updated status
+                            setTimeout(function() {
+                                window.location.reload();
+                            }, 1500);
+                        } else {
+                            // Show error message
+                            if (typeof showErrorMessage === 'function') {
+                                showErrorMessage(result.message);
+                            } else {
+                                alert('Error: ' + result.message);
+                            }
+                            
+                            // Restore button
                             $btn.prop('disabled', false).html(originalText);
                         }
-                    },
-                    error: function(xhr, status, error) {
-                        alert('AJAX Error: ' + error);
+                    } catch (e) {
+                        alert('Error processing response: ' + e.message);
                         $btn.prop('disabled', false).html(originalText);
                     }
+                }).fail(function(xhr, status, error) {
+                    alert('AJAX Error: ' + error);
+                    $btn.prop('disabled', false).html(originalText);
                 });
             }
         };

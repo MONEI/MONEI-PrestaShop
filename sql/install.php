@@ -1,4 +1,10 @@
 <?php
+// Determine charset based on PrestaShop version
+// PS 1.7.7+ uses utf8mb4 for emoji support
+$charset = version_compare(_PS_VERSION_, '1.7.7.0', '>=')
+    ? 'utf8mb4 COLLATE=utf8mb4_unicode_ci'
+    : 'utf8';
+
 $sql = [];
 
 $sql[] = 'CREATE TABLE IF NOT EXISTS `' . _DB_PREFIX_ . 'monei2_payment` (
@@ -22,7 +28,7 @@ $sql[] = 'CREATE TABLE IF NOT EXISTS `' . _DB_PREFIX_ . 'monei2_payment` (
     INDEX (`id_cart`, `id_order_monei`),
     INDEX (`id_order`, `id_order_monei`),
     INDEX (`id_cart`, `id_order`, `id_order_monei`)
-) ENGINE=' . _MYSQL_ENGINE_ . ' DEFAULT CHARSET=utf8;';
+) ENGINE=' . _MYSQL_ENGINE_ . ' DEFAULT CHARSET=' . $charset . ';';
 
 $sql[] = 'CREATE TABLE IF NOT EXISTS `' . _DB_PREFIX_ . 'monei2_history` (
     `id_history` INT(11) NOT NULL AUTO_INCREMENT,
@@ -35,7 +41,7 @@ $sql[] = 'CREATE TABLE IF NOT EXISTS `' . _DB_PREFIX_ . 'monei2_history` (
     INDEX (`id_payment`),
     INDEX (`status_code`),
     INDEX (`id_payment`, `status_code`)
-) ENGINE=' . _MYSQL_ENGINE_ . ' DEFAULT CHARSET=utf8;';
+) ENGINE=' . _MYSQL_ENGINE_ . ' DEFAULT CHARSET=' . $charset . ';';
 
 $sql[] = 'CREATE TABLE IF NOT EXISTS `' . _DB_PREFIX_ . 'monei2_customer_card` (
     `id_customer_card` INT(11) NOT NULL AUTO_INCREMENT,
@@ -48,7 +54,7 @@ $sql[] = 'CREATE TABLE IF NOT EXISTS `' . _DB_PREFIX_ . 'monei2_customer_card` (
     `date_add` DATETIME DEFAULT NULL,
     PRIMARY KEY (`id_customer_card`),
     INDEX (`id_customer`)
-) ENGINE=' . _MYSQL_ENGINE_ . ' DEFAULT CHARSET=utf8;';
+) ENGINE=' . _MYSQL_ENGINE_ . ' DEFAULT CHARSET=' . $charset . ';';
 
 $sql[] = 'CREATE TABLE IF NOT EXISTS `' . _DB_PREFIX_ . 'monei2_refund` (
     `id_refund` INT(11) NOT NULL AUTO_INCREMENT,
@@ -62,7 +68,7 @@ $sql[] = 'CREATE TABLE IF NOT EXISTS `' . _DB_PREFIX_ . 'monei2_refund` (
     INDEX (`id_payment`),
     INDEX (`id_history`),
     INDEX (`id_employee`)
-) ENGINE=' . _MYSQL_ENGINE_ . ' DEFAULT CHARSET=utf8;';
+) ENGINE=' . _MYSQL_ENGINE_ . ' DEFAULT CHARSET=' . $charset . ';';
 
 $sql[] = 'CREATE TABLE IF NOT EXISTS `' . _DB_PREFIX_ . 'monei2_order_payment` (
     `id_payment` VARCHAR(50) NOT NULL,
@@ -70,7 +76,7 @@ $sql[] = 'CREATE TABLE IF NOT EXISTS `' . _DB_PREFIX_ . 'monei2_order_payment` (
     `date_add` DATETIME DEFAULT NULL,
     PRIMARY KEY (`id_payment`),
     INDEX (`id_order`)
-) ENGINE=' . _MYSQL_ENGINE_ . ' DEFAULT CHARSET=utf8;';
+) ENGINE=' . _MYSQL_ENGINE_ . ' DEFAULT CHARSET=' . $charset . ';';
 
 $sql[] = 'CREATE TABLE IF NOT EXISTS `' . _DB_PREFIX_ . 'monei2_admin_order_message` (
     `id_monei_admin_order_message` INT(10) UNSIGNED NOT NULL AUTO_INCREMENT,
@@ -79,7 +85,7 @@ $sql[] = 'CREATE TABLE IF NOT EXISTS `' . _DB_PREFIX_ . 'monei2_admin_order_mess
     `date_add` DATETIME NOT NULL,
     PRIMARY KEY (`id_monei_admin_order_message`),
     INDEX (`id_order`)
-) ENGINE=' . _MYSQL_ENGINE_ . ' DEFAULT CHARSET=utf8;';
+) ENGINE=' . _MYSQL_ENGINE_ . ' DEFAULT CHARSET=' . $charset . ';';
 
 // Execute SQL queries
 foreach ($sql as $query) {
