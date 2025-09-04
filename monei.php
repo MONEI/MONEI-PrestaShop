@@ -16,7 +16,8 @@ class Monei extends PaymentModule
     protected $config_form = false;
     protected $paymentMethods;
     protected $moneiClient = false;
-    
+    protected static $admin_assets_loaded = false;
+
     // Payment module properties for restrictions
     public $currencies = true;
     public $currencies_mode = 'checkbox';
@@ -43,7 +44,7 @@ class Monei extends PaymentModule
         $this->need_instance = 0;
         $this->ps_versions_compliancy = ['min' => '1.7', 'max' => _PS_VERSION_];
         $this->bootstrap = true;
-        
+
         // Set currency properties BEFORE parent::__construct()
         $this->currencies = true;
         $this->currencies_mode = 'checkbox';
@@ -89,6 +90,63 @@ class Monei extends PaymentModule
         ];
 
         return isset($levels[$level]) ? $levels[$level] : 1;
+    }
+
+    /**
+     * Get Bootstrap version based on PrestaShop version
+     *
+     * @return int Bootstrap version (3 or 4)
+     */
+    public function getBootstrapVersion()
+    {
+        // PrestaShop 1.7.7+ uses Bootstrap 4
+        // PrestaShop 1.7.2-1.7.6 uses Bootstrap 3
+        return version_compare(_PS_VERSION_, '1.7.7.0', '>=') ? 4 : 3;
+    }
+
+    /**
+     * Get modal data attributes based on Bootstrap version
+     *
+     * @return array Modal attributes for toggle and dismiss
+     */
+    public function getModalAttributes()
+    {
+        $bootstrapVersion = $this->getBootstrapVersion();
+
+        if ($bootstrapVersion === 4) {
+            return [
+                'toggle' => 'data-bs-toggle',
+                'dismiss' => 'data-bs-dismiss',
+                'target' => 'data-bs-target',
+            ];
+        }
+
+        // Bootstrap 3
+        return [
+            'toggle' => 'data-toggle',
+            'dismiss' => 'data-dismiss',
+            'target' => 'data-target',
+        ];
+    }
+
+    /**
+     * Check if a hook exists in current PrestaShop version
+     *
+     * @param string $hookName Hook name to check
+     *
+     * @return bool
+     */
+    public function isHookAvailable($hookName)
+    {
+        // Check if Hook class has the method to verify hook existence
+        if (method_exists('Hook', 'getIdByName')) {
+            return (bool) Hook::getIdByName($hookName);
+        }
+
+        // Fallback: Try to get hook ID directly from database
+        $sql = 'SELECT id_hook FROM ' . _DB_PREFIX_ . 'hook WHERE name = \'' . pSQL($hookName) . '\'';
+
+        return (bool) Db::getInstance()->getValue($sql);
     }
 
     public function install()
@@ -548,9 +606,12 @@ class Monei extends PaymentModule
      */
     public function getContent()
     {
-        // Add CSS and JS for module configuration page
-        $this->context->controller->addCSS($this->_path . 'views/css/admin/admin.css');
-        $this->context->controller->addJS($this->_path . 'views/js/admin/admin.js');
+        // Add CSS and JS for module configuration page (only if not already loaded)
+        if (!self::$admin_assets_loaded) {
+            $this->context->controller->addCSS($this->_path . 'views/css/admin/admin.css');
+            $this->context->controller->addJS($this->_path . 'views/js/admin/admin.js');
+            self::$admin_assets_loaded = true;
+        }
 
         $message = '';
 
@@ -1521,13 +1582,15 @@ class Monei extends PaymentModule
     public function isMoneiAvailable($cart)
     {
         PrestaShopLogger::addLog('MONEI - isMoneiAvailable checking', self::getLogLevel('info'));
-        
+
         if (!$this->active) {
             PrestaShopLogger::addLog('MONEI - isMoneiAvailable - Module not active', self::getLogLevel('info'));
+
             return false;
         }
         if (!$this->checkCurrency($cart)) {
             PrestaShopLogger::addLog('MONEI - isMoneiAvailable - Currency check failed', self::getLogLevel('info'));
+
             return false;
         }
 
@@ -1567,6 +1630,7 @@ class Monei extends PaymentModule
     {
         if ($this->paymentMethods) {
             PrestaShopLogger::addLog('MONEI - getPaymentMethods - Already cached', self::getLogLevel('info'));
+
             return;
         }
 
@@ -1580,7 +1644,7 @@ class Monei extends PaymentModule
 
         // DEMO MODE: Return default payment options if API fails
         $paymentOptions = [];
-        
+
         try {
             $paymentOptionService = self::getService('service.payment.option');
             PrestaShopLogger::addLog('MONEI - getPaymentMethods - Calling getPaymentOptions', self::getLogLevel('info'));
@@ -1588,7 +1652,7 @@ class Monei extends PaymentModule
         } catch (Exception $e) {
             PrestaShopLogger::addLog('MONEI - getPaymentMethods - API Error, using demo mode: ' . $e->getMessage(), self::getLogLevel('info'));
         }
-        
+
         // If no payment options (API error or test mode), provide default card payment
         if (empty($paymentOptions)) {
             PrestaShopLogger::addLog('MONEI - getPaymentMethods - Using demo payment options', self::getLogLevel('info'));
@@ -1597,13 +1661,14 @@ class Monei extends PaymentModule
                 $paymentOptions[] = [
                     'name' => 'card',
                     'title' => $this->l('Credit/Debit Card'),
-                    'enabled' => true
+                    'enabled' => true,
                 ];
             }
         }
         PrestaShopLogger::addLog('MONEI - getPaymentMethods - Got ' . count($paymentOptions) . ' payment options', self::getLogLevel('info'));
 
         $transactionId = '';
+
         try {
             if (isset($paymentOptionService)) {
                 $transactionId = $paymentOptionService->getTransactionId();
@@ -1612,7 +1677,7 @@ class Monei extends PaymentModule
             // Use a demo transaction ID if service fails
             $transactionId = 'demo_' . time();
         }
-        
+
         // Initialize payment methods array
         $paymentMethods = [];
 
@@ -1704,19 +1769,22 @@ class Monei extends PaymentModule
     public function hookPaymentOptions($params)
     {
         PrestaShopLogger::addLog('MONEI - hookPaymentOptions called', self::getLogLevel('info'));
-        
+
         if (!$this->isMoneiAvailable($params['cart'])) {
             PrestaShopLogger::addLog('MONEI - hookPaymentOptions - MONEI not available', self::getLogLevel('info'));
+
             return;
         }
 
         $this->getPaymentMethods();
         if (!$this->paymentMethods) {
             PrestaShopLogger::addLog('MONEI - hookPaymentOptions - No payment methods', self::getLogLevel('info'));
+
             return;
         }
 
         PrestaShopLogger::addLog('MONEI - hookPaymentOptions - Returning ' . count($this->paymentMethods) . ' payment methods', self::getLogLevel('info'));
+
         return $this->paymentMethods;
     }
 
@@ -1791,7 +1859,7 @@ class Monei extends PaymentModule
         // Load required assets for jsonViewer (needed for PrestaShop 1.7.2 compatibility)
         $this->context->controller->addCSS($this->_path . 'views/css/jquery.json-viewer.css');
         $this->context->controller->addJS($this->_path . 'views/js/jquery.json-viewer.js');
-        
+
         $orderId = (int) $params['id_order'];
 
         $monei2PaymentEntity = Monei2Payment::findOneBy(['id_order' => $orderId]);
@@ -1878,10 +1946,18 @@ class Monei extends PaymentModule
         // Generate capture controller link - decode HTML entities as URLs should not be escaped
         $captureLinkController = html_entity_decode($this->context->link->getAdminLink('AdminMoneiCapturePayment'));
 
+        // Get modal attributes for Bootstrap compatibility
+        $modalAttributes = $this->getModalAttributes();
+        $bootstrapVersion = $this->getBootstrapVersion();
+
         $this->context->smarty->assign([
             'moneiPayment' => $monei2PaymentEntity->toArrayLegacy(),
             'isRefundable' => $monei2PaymentEntity->isRefundable(),
             'isCapturable' => $isCapturable,
+            'modalToggle' => $modalAttributes['toggle'],
+            'modalDismiss' => $modalAttributes['dismiss'],
+            'modalTarget' => $modalAttributes['target'],
+            'bootstrapVersion' => $bootstrapVersion,
             'authorizedAmount' => $authorizedAmount,
             'authorizedAmountFormatted' => $authorizedAmountFormatted,
             'capturedAmount' => $capturedAmount,
@@ -1912,9 +1988,10 @@ class Monei extends PaymentModule
     public function hookActionFrontControllerSetMedia()
     {
         PrestaShopLogger::addLog('MONEI - hookActionFrontControllerSetMedia called', self::getLogLevel('info'));
-        
+
         if (!property_exists($this->context->controller, 'page_name')) {
             PrestaShopLogger::addLog('MONEI - page_name property not found on controller', self::getLogLevel('info'));
+
             return;
         }
 
@@ -2086,8 +2163,12 @@ class Monei extends PaymentModule
 
     public function hookDisplayBackOfficeHeader()
     {
-        $this->context->controller->addCSS($this->_path . 'views/css/admin/admin.css');
-        $this->context->controller->addJS($this->_path . 'views/js/admin/admin.js');
+        // Add admin assets only if not already loaded
+        if (!self::$admin_assets_loaded) {
+            $this->context->controller->addCSS($this->_path . 'views/css/admin/admin.css');
+            $this->context->controller->addJS($this->_path . 'views/js/admin/admin.js');
+            self::$admin_assets_loaded = true;
+        }
 
         // Add additional JS/vars only for Orders controller
         if ($this->context->controller->controller_name === 'AdminOrders') {
@@ -2190,7 +2271,7 @@ class Monei extends PaymentModule
     {
         $currency_order = new Currency($cart->id_currency);
         $currencies_module = $this->getCurrency($cart->id_currency);
-        
+
         if (is_array($currencies_module)) {
             foreach ($currencies_module as $currency_module) {
                 if ($currency_order->id == $currency_module['id_currency']) {
@@ -2198,7 +2279,7 @@ class Monei extends PaymentModule
                 }
             }
         }
-        
+
         return false;
     }
 
@@ -2220,6 +2301,7 @@ class Monei extends PaymentModule
 
         // PrestaShop 1.7.2 compatibility - use Tools::displayPrice instead of getContextLocale
         $currency = Currency::getCurrencyInstance(Currency::getIdByIsoCode($currencyIso));
+
         return Tools::displayPrice((float) $price, $currency);
     }
 
@@ -2569,6 +2651,13 @@ class Monei extends PaymentModule
      */
     public function hookActionGetAdminOrderButtons(array $params)
     {
+        // This hook only exists in PrestaShop 1.7.7+
+        // Check if the required classes exist
+        if (!class_exists('PrestaShopBundle\Controller\Admin\Sell\Order\ActionsBarButton')
+            || !class_exists('PrestaShopBundle\Controller\Admin\Sell\Order\ActionsBarButtonsCollection')) {
+            return;
+        }
+
         // Check if this is a MONEI order
         $orderId = (int) $params['id_order'];
         $order = new Order($orderId);
@@ -2600,14 +2689,17 @@ class Monei extends PaymentModule
         $currency = new Currency($order->id_currency);
         $currencySign = $currency->sign;
 
+        // Get modal attributes for current Bootstrap version
+        $modalAttrs = $this->getModalAttributes();
+
         // Add capture button that triggers the existing modal from hookDisplayAdminOrder
         $bar->add(
             new PrestaShopBundle\Controller\Admin\Sell\Order\ActionsBarButton(
                 'btn-action btn-primary monei-capture-action-btn',
                 [
                     'href' => '#',
-                    'data-toggle' => 'modal',
-                    'data-target' => '#moneiCaptureModal',  // Use existing modal ID
+                    $modalAttrs['toggle'] => 'modal',
+                    $modalAttrs['target'] => '#moneiCaptureModal',  // Use existing modal ID
                     'data-order-id' => $orderId,
                     'data-max-amount' => $remainingAmount,
                     'data-currency-sign' => $currencySign,

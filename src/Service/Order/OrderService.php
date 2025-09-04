@@ -190,7 +190,7 @@ class OrderService
             'MONEI - determineOrderStateId - START: moneiPaymentStatus=' . $moneiPaymentStatus,
             \Monei::getLogLevel('info')
         );
-        
+
         $statusMap = [
             PaymentStatus::REFUNDED => 'MONEI_STATUS_REFUNDED',
             PaymentStatus::PARTIALLY_REFUNDED => 'MONEI_STATUS_REFUNDED',
@@ -199,19 +199,19 @@ class OrderService
             PaymentStatus::AUTHORIZED => 'MONEI_STATUS_AUTHORIZED',
         ];
         $configKey = $statusMap[$moneiPaymentStatus] ?? 'MONEI_STATUS_FAILED';
-        
+
         \PrestaShopLogger::addLog(
             'MONEI - determineOrderStateId - Mapping payment status=' . $moneiPaymentStatus . ' to config_key=' . $configKey,
             \Monei::getLogLevel('info')
         );
 
         $orderStateId = (int) \Configuration::get($configKey);
-        
+
         \PrestaShopLogger::addLog(
             'MONEI - determineOrderStateId - Configuration::get(' . $configKey . ') = ' . $orderStateId,
             \Monei::getLogLevel('info')
         );
-        
+
         // Validate that the order state exists in PrestaShop
         if ($orderStateId > 0) {
             $orderState = new \OrderState($orderStateId);
@@ -454,7 +454,7 @@ class OrderService
                 false,
                 $customer->secure_key
             );
-            
+
             \PrestaShopLogger::addLog(
                 'MONEI - createNewOrder - validateOrder completed successfully',
                 \Monei::getLogLevel('info')
@@ -464,6 +464,7 @@ class OrderService
                 'MONEI - createNewOrder - ERROR in validateOrder: ' . $e->getMessage() . ' - File: ' . $e->getFile() . ' - Line: ' . $e->getLine(),
                 \Monei::getLogLevel('error')
             );
+
             throw $e;
         }
 

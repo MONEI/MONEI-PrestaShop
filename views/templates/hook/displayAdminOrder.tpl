@@ -24,8 +24,8 @@
                                 data-order-id="{$orderId|escape:'html':'UTF-8'}" 
                                 data-max-amount="{$remainingAmount|escape:'html':'UTF-8'}" 
                                 data-currency-sign="{$currencySign|escape:'html':'UTF-8'}" 
-                                data-toggle="modal" 
-                                data-target="#moneiCaptureModal">
+                                {$modalToggle}="modal" 
+                                {$modalTarget}="#moneiCaptureModal">
                                 <i class="icon-check"></i> {l s='Capture Payment' mod='monei'}
                             </button>
                         </div>
@@ -88,7 +88,7 @@
         <div class="modal-content">
             <div class="modal-header">
                 <h4 class="modal-title h5" id="moneiCaptureModalLabel">{l s='Capture Payment' mod='monei'}</h4>
-                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                <button type="button" class="close" {$modalDismiss}="modal" aria-label="Close">
                     <span aria-hidden="true">&times;</span>
                 </button>
             </div>
@@ -117,7 +117,7 @@
                 </form>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-default btn-secondary" data-dismiss="modal">
+                <button type="button" class="btn btn-default btn-secondary" {$modalDismiss}="modal">
                     {l s='Cancel' mod='monei'}
                 </button>
                 <button type="button" class="btn btn-primary" id="confirm-capture-btn">
