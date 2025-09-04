@@ -20,9 +20,6 @@ class Monei extends PaymentModule
 
     // Payment module properties for restrictions
     public $currencies = true;
-    public $currencies_mode = 'checkbox';
-    public $limited_countries = [];
-    public $limited_currencies = [];
 
     const NAME = 'monei';
     const VERSION = '1.6.1';
@@ -41,13 +38,12 @@ class Monei extends PaymentModule
         $this->tab = 'payments_gateways';
         $this->version = '1.6.1';
         $this->author = 'MONEI';
-        $this->need_instance = 0;
+        $this->need_instance = 1;
         $this->ps_versions_compliancy = ['min' => '1.7', 'max' => _PS_VERSION_];
         $this->bootstrap = true;
 
-        // Set currency properties BEFORE parent::__construct()
+        // Currency support is enabled (currencies_mode defaults to 'checkbox' in parent)
         $this->currencies = true;
-        $this->currencies_mode = 'checkbox';
 
         $this->controllers = [
             'validation', 'confirmation', 'redirect', 'cards', 'errors', 'check', 'applepay', 'createPayment',

@@ -222,6 +222,13 @@ Note: If capture button is not visible in PrestaShop admin, check:
 - Use waitForJQuery pattern for JavaScript initialization
 - Always run php-cs-fixer after code modifications
 
+### Currency Restrictions Configuration (IMPORTANT)
+- **need_instance** MUST be set to 1 for currency checkboxes to appear in Payment Preferences
+- Without `need_instance = 1`, PrestaShop won't instantiate the module class when loading Module::getModulesOnDisk()
+- This causes the module to appear without checkboxes (just dashes) in Payment > Preferences > Currency Restrictions
+- The fix is compatible with PrestaShop 1.7.2.4 through 1.7.8 and PrestaShop 8.x
+- Properties removed for compatibility: `limited_currencies`, explicit `currencies_mode` (uses parent default)
+
 ## Docker Development Environment
 Using PrestaShop Flashlight with custom PHP 7.4 upgrade for PrestaShop 1.7.2.4:
 - Base image: `prestashop/prestashop-flashlight:1.7.2.4-7.1`
