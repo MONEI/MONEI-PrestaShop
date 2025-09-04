@@ -2109,8 +2109,11 @@ class Monei extends PaymentModule
                     'textRemoveCard' => $this->l('Are you sure you want to remove this card?'),
                     'cancelRemoveCard' => $this->l('Cancel'),
                     'confirmRemoveCard' => $this->l('Confirm'),
+                    'removingCard' => $this->l('Removing...'),
                     'successfullyRemovedCard' => $this->l('Card successfully removed'),
                     'errorRemovingCard' => $this->l('An error occurred while deleting the card.'),
+                    'noSavedCards' => $this->l('You don\'t have any saved credit cards yet.'),
+                    'unexpectedError' => $this->l('An unexpected error occurred.'),
                     'indexUrl' => $this->context->link->getPageLink('index'),
                 ],
             ]);
