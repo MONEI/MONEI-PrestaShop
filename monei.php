@@ -1788,6 +1788,10 @@ class Monei extends PaymentModule
      */
     public function hookDisplayAdminOrder($params)
     {
+        // Load required assets for jsonViewer (needed for PrestaShop 1.7.2 compatibility)
+        $this->context->controller->addCSS($this->_path . 'views/css/jquery.json-viewer.css');
+        $this->context->controller->addJS($this->_path . 'views/js/jquery.json-viewer.js');
+        
         $orderId = (int) $params['id_order'];
 
         $monei2PaymentEntity = Monei2Payment::findOneBy(['id_order' => $orderId]);
