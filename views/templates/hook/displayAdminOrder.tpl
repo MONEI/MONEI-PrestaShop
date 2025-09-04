@@ -79,10 +79,10 @@
     <div class="modal-dialog modal-sm" role="document">
         <div class="modal-content">
             <div class="modal-header">
-                <h4 class="modal-title h5" id="moneiCaptureModalLabel">{l s='Capture Payment' mod='monei'}</h4>
                 <button type="button" class="close" {$modalDismiss}="modal" aria-label="Close">
                     <span aria-hidden="true">&times;</span>
                 </button>
+                <h4 class="modal-title" id="moneiCaptureModalLabel">{l s='Capture Payment' mod='monei'}</h4>
             </div>
             <div class="modal-body">
                 <div class="alert alert-info">
