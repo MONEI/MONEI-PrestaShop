@@ -95,8 +95,10 @@ class Monei extends PaymentModule
      */
     public function getBootstrapVersion()
     {
-        // PrestaShop 1.7.7+ uses Bootstrap 4
-        // PrestaShop 1.7.2-1.7.6 uses Bootstrap 3
+        // PrestaShop 1.7.2 uses Bootstrap 3 in admin
+        // PrestaShop 1.7.7+ uses Bootstrap 4 in admin
+        // Note: All PrestaShop 1.7.x versions use Bootstrap 4 in the frontend (Classic theme)
+        // but the admin panel transitioned from Bootstrap 3 to 4 in 1.7.7
         return version_compare(_PS_VERSION_, '1.7.7.0', '>=') ? 4 : 3;
     }
 
@@ -107,9 +109,11 @@ class Monei extends PaymentModule
      */
     public function getModalAttributes()
     {
-        $bootstrapVersion = $this->getBootstrapVersion();
-
-        if ($bootstrapVersion === 4) {
+        // Both Bootstrap 3 and 4 in PrestaShop 1.7.x use data-* attributes
+        // Bootstrap 5 (used in PrestaShop 8+) uses data-bs-* attributes
+        // PrestaShop 1.7.x (including 1.7.8) uses Bootstrap 3/4 which use data-* attributes
+        if (version_compare(_PS_VERSION_, '8.0.0', '>=')) {
+            // PrestaShop 8+ uses Bootstrap 5
             return [
                 'toggle' => 'data-bs-toggle',
                 'dismiss' => 'data-bs-dismiss',
@@ -117,7 +121,7 @@ class Monei extends PaymentModule
             ];
         }
 
-        // Bootstrap 3
+        // PrestaShop 1.7.x (Bootstrap 3/4) uses data-* attributes
         return [
             'toggle' => 'data-toggle',
             'dismiss' => 'data-dismiss',
