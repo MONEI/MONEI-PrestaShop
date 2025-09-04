@@ -1,4 +1,4 @@
-<form action="{$link_create_payment|escape:'html':'UTF-8'}" method="post" id="monei-payment-form">
+<form action="{$link_create_payment}" method="post" id="monei-payment-form">
     {if $payment_method == 'card'}
         <div class="form-group">
             <label class="form-check-label">

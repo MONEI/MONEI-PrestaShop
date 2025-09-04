@@ -43,8 +43,8 @@ class MoneiCustomerCardsModuleFrontController extends ModuleFrontController
             // Add formatted display and icon
             $cardData['displayName'] = $paymentMethodFormatter->formatPaymentDisplay('card', $cardBrand, $customerCard->getLastFour());
             $cardData['iconHtml'] = $paymentMethodFormatter->renderPaymentMethodIcon('card', $cardBrand, [
-                'width' => 48,
-                'height' => 32,
+                'width' => 40,
+                'height' => 25,
                 'class' => 'img img-responsive',
             ]);
 

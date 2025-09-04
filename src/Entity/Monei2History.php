@@ -43,16 +43,16 @@ class Monei2History extends \ObjectModel
         $sql = 'SELECT `id_history` FROM `' . _DB_PREFIX_ . 'monei2_history` 
                 WHERE `id_payment` = \'' . pSQL($id_payment) . '\' 
                 ORDER BY `date_add` DESC';
-        
+
         $results = \Db::getInstance()->executeS($sql);
         $history = [];
-        
+
         if ($results) {
             foreach ($results as $row) {
                 $history[] = new self($row['id_history']);
             }
         }
-        
+
         return $history;
     }
 
@@ -61,27 +61,27 @@ class Monei2History extends \ObjectModel
         $where_parts = [];
         foreach ($criteria as $field => $value) {
             if (is_int($value)) {
-                $where_parts[] = '`' . pSQL($field) . '` = ' . (int)$value;
+                $where_parts[] = '`' . pSQL($field) . '` = ' . (int) $value;
             } else {
                 $where_parts[] = '`' . pSQL($field) . '` = \'' . pSQL($value) . '\'';
             }
         }
-        
+
         $sql = 'SELECT `id_history` FROM `' . _DB_PREFIX_ . 'monei2_history`';
         if (!empty($where_parts)) {
             $sql .= ' WHERE ' . implode(' AND ', $where_parts);
         }
         $sql .= ' ORDER BY `date_add` DESC';
-        
+
         $results = \Db::getInstance()->executeS($sql);
         $history = [];
-        
+
         if ($results) {
             foreach ($results as $row) {
                 $history[] = new self($row['id_history']);
             }
         }
-        
+
         return $history;
     }
 
@@ -90,16 +90,17 @@ class Monei2History extends \ObjectModel
         $where_parts = [];
         foreach ($criteria as $field => $value) {
             if (is_int($value)) {
-                $where_parts[] = '`' . pSQL($field) . '` = ' . (int)$value;
+                $where_parts[] = '`' . pSQL($field) . '` = ' . (int) $value;
             } else {
                 $where_parts[] = '`' . pSQL($field) . '` = \'' . pSQL($value) . '\'';
             }
         }
-        
+
         $sql = 'SELECT `id_history` FROM `' . _DB_PREFIX_ . 'monei2_history` 
                 WHERE ' . implode(' AND ', $where_parts);
-        
+
         $id = \Db::getInstance()->getValue($sql);
+
         return $id ? new self($id) : null;
     }
 
@@ -108,7 +109,7 @@ class Monei2History extends \ObjectModel
      */
     public function getId()
     {
-        return (int)$this->id_history;
+        return (int) $this->id_history;
     }
 
     public function getPayment()
@@ -116,6 +117,7 @@ class Monei2History extends \ObjectModel
         if (!$this->payment && $this->id_payment) {
             $this->payment = new Monei2Payment($this->id_payment);
         }
+
         return $this->payment;
     }
 
@@ -124,9 +126,10 @@ class Monei2History extends \ObjectModel
         $this->payment = $payment;
         if ($payment instanceof Monei2Payment) {
             $this->id_payment = $payment->getId();
-        } else if (is_string($payment)) {
+        } elseif (is_string($payment)) {
             $this->id_payment = $payment;
         }
+
         return $this;
     }
 
@@ -138,6 +141,7 @@ class Monei2History extends \ObjectModel
     public function setStatus($status)
     {
         $this->status = $status;
+
         return $this;
     }
 
@@ -149,6 +153,7 @@ class Monei2History extends \ObjectModel
     public function setStatusCode($status_code)
     {
         $this->status_code = $status_code;
+
         return $this;
     }
 
@@ -165,6 +170,7 @@ class Monei2History extends \ObjectModel
     public function setResponse($response)
     {
         $this->response = $response;
+
         return $this;
     }
 
@@ -182,11 +188,12 @@ class Monei2History extends \ObjectModel
     {
         if ($date_add instanceof \DateTime) {
             $this->date_add = $date_add->format('Y-m-d H:i:s');
-        } else if (is_int($date_add)) {
+        } elseif (is_int($date_add)) {
             $this->date_add = date('Y-m-d H:i:s', $date_add);
         } else {
             $this->date_add = $date_add;
         }
+
         return $this;
     }
 
@@ -194,16 +201,17 @@ class Monei2History extends \ObjectModel
     {
         // Check if there's a refund associated with this history
         $sql = 'SELECT * FROM `' . _DB_PREFIX_ . 'monei2_refund` 
-                WHERE `id_history` = ' . (int)$this->id_history;
-        
+                WHERE `id_history` = ' . (int) $this->id_history;
+
         $row = \Db::getInstance()->getRow($sql);
-        
+
         if ($row) {
             $refund = new Monei2Refund();
             $refund->hydrate($row);
+
             return $refund;
         }
-        
+
         return null;
     }
 

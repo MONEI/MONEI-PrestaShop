@@ -18,7 +18,7 @@ class MoneiConfirmationModuleFrontController extends ModuleFrontController
 
         PrestaShopLogger::addLog(
             'MONEI - confirmation.php - Payment completion received: payment_id=' . $moneiPaymentId . ', cart_id=' . $cartId . ', order_id=' . $orderId,
-            PrestaShopLogger::LOG_SEVERITY_LEVEL_INFORMATIVE
+            Monei::getLogLevel('info')
         );
 
         try {
@@ -26,7 +26,7 @@ class MoneiConfirmationModuleFrontController extends ModuleFrontController
             if (!$moneiPaymentId) {
                 PrestaShopLogger::addLog(
                     'MONEI - confirmation.php - Missing payment ID, URL params: ' . json_encode($_GET),
-                    PrestaShopLogger::LOG_SEVERITY_LEVEL_ERROR
+                    Monei::getLogLevel('error')
                 );
 
                 $this->context->cookie->monei_checkout_error = $this->module->l('There was a problem processing your payment. Please try again.');
@@ -39,7 +39,7 @@ class MoneiConfirmationModuleFrontController extends ModuleFrontController
             // Fetch payment data from MONEI API to determine actual status
             PrestaShopLogger::addLog(
                 'MONEI - confirmation.php - About to fetch payment from API: ' . $moneiPaymentId,
-                PrestaShopLogger::LOG_SEVERITY_LEVEL_INFORMATIVE
+                Monei::getLogLevel('info')
             );
 
             $moneiService = Monei::getService('service.monei');
@@ -50,12 +50,12 @@ class MoneiConfirmationModuleFrontController extends ModuleFrontController
 
                 PrestaShopLogger::addLog(
                     'MONEI - confirmation.php - Payment retrieved from API: status=' . $payment->getStatus() . ', statusCode=' . $payment->getStatusCode(),
-                    PrestaShopLogger::LOG_SEVERITY_LEVEL_INFORMATIVE
+                    Monei::getLogLevel('info')
                 );
             } catch (Exception $e) {
                 PrestaShopLogger::addLog(
                     'MONEI - confirmation.php - Error retrieving payment from API: ' . $e->getMessage() . ' - Stack: ' . $e->getTraceAsString(),
-                    PrestaShopLogger::LOG_SEVERITY_LEVEL_ERROR
+                    Monei::getLogLevel('error')
                 );
 
                 $this->context->cookie->monei_checkout_error = $this->module->l('An error occurred while processing your payment. Please try again.');
@@ -91,7 +91,7 @@ class MoneiConfirmationModuleFrontController extends ModuleFrontController
         } catch (Exception $ex) {
             PrestaShopLogger::addLog(
                 'MONEI - Exception - confirmation.php - initContent: ' . $ex->getMessage() . ' - ' . $ex->getFile(),
-                PrestaShopLogger::LOG_SEVERITY_LEVEL_ERROR
+                Monei::getLogLevel('error')
             );
 
             // Store the exception message for technical errors
@@ -110,7 +110,7 @@ class MoneiConfirmationModuleFrontController extends ModuleFrontController
     {
         PrestaShopLogger::addLog(
             'MONEI - confirmation.php - Processing successful payment: ' . $moneiPaymentId,
-            PrestaShopLogger::LOG_SEVERITY_LEVEL_INFORMATIVE
+            Monei::getLogLevel('info')
         );
 
         try {
@@ -125,7 +125,7 @@ class MoneiConfirmationModuleFrontController extends ModuleFrontController
         } catch (Exception $e) {
             PrestaShopLogger::addLog(
                 'MONEI - confirmation.php - ERROR in handleSuccessfulPayment: ' . $e->getMessage() . ' - File: ' . $e->getFile() . ' - Line: ' . $e->getLine() . ' - Trace: ' . $e->getTraceAsString(),
-                PrestaShopLogger::LOG_SEVERITY_LEVEL_ERROR
+                Monei::getLogLevel('error')
             );
 
             throw $e; // Re-throw to be caught by outer try-catch
@@ -141,7 +141,7 @@ class MoneiConfirmationModuleFrontController extends ModuleFrontController
 
         PrestaShopLogger::addLog(
             'MONEI - confirmation.php - Payment still in pending state: ' . $paymentId,
-            PrestaShopLogger::LOG_SEVERITY_LEVEL_INFORMATIVE
+            Monei::getLogLevel('info')
         );
 
         // Check if this is a Multibanco payment (which can remain pending for days)
@@ -170,7 +170,7 @@ class MoneiConfirmationModuleFrontController extends ModuleFrontController
 
         PrestaShopLogger::addLog(
             'MONEI - confirmation.php - Payment failed: status=' . $paymentStatus . ', statusCode=' . $statusCode,
-            PrestaShopLogger::LOG_SEVERITY_LEVEL_INFORMATIVE
+            Monei::getLogLevel('info')
         );
 
         // Get localized error message based on status code

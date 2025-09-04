@@ -58,11 +58,11 @@ class Monei2Payment extends \ObjectModel
         if ($id) {
             $this->id_payment = $id;
             $this->id = $id; // Set the parent id property
-            
+
             // Load data manually since ObjectModel expects integer ID
             $sql = 'SELECT * FROM `' . _DB_PREFIX_ . self::$definition['table'] . '` 
                     WHERE `' . self::$definition['primary'] . '` = \'' . pSQL($id) . '\'';
-            
+
             if ($row = \Db::getInstance()->getRow($sql)) {
                 foreach ($row as $key => $value) {
                     if (property_exists($this, $key)) {
@@ -71,7 +71,7 @@ class Monei2Payment extends \ObjectModel
                 }
             }
         }
-        
+
         // Don't call parent constructor as it expects integer ID
     }
 
@@ -80,19 +80,19 @@ class Monei2Payment extends \ObjectModel
      */
     public function getFields()
     {
-        $fields = array();
-        
+        $fields = [];
+
         // Build fields array based on our definition
         foreach (self::$definition['fields'] as $field => $def) {
             // Skip fields that allow null and are actually null
             if (isset($def['allow_null']) && $def['allow_null'] && $this->{$field} === null) {
                 continue;
             }
-            
+
             // Add the field value
             $fields[$field] = $this->{$field};
         }
-        
+
         return $fields;
     }
 
@@ -116,11 +116,11 @@ class Monei2Payment extends \ObjectModel
                 VALUES (\'' . implode('\', \'', array_map('pSQL', $values)) . '\')';
 
         $result = \Db::getInstance()->execute($sql);
-        
+
         if ($result) {
             $this->id = $this->id_payment;
         }
-        
+
         return $result;
     }
 
@@ -133,7 +133,7 @@ class Monei2Payment extends \ObjectModel
 
         $fields = $this->getFields();
         unset($fields['id_payment']); // Don't update primary key
-        
+
         $sql_parts = [];
         foreach ($fields as $key => $value) {
             // Handle null values properly
@@ -176,9 +176,9 @@ class Monei2Payment extends \ObjectModel
         // Check if record exists
         $sql = 'SELECT COUNT(*) FROM `' . _DB_PREFIX_ . self::$definition['table'] . '` 
                 WHERE `' . self::$definition['primary'] . '` = \'' . pSQL($this->id_payment) . '\'';
-        
+
         $exists = (bool) \Db::getInstance()->getValue($sql);
-        
+
         if ($exists) {
             return $this->update($null_values);
         } else {
@@ -192,16 +192,18 @@ class Monei2Payment extends \ObjectModel
     public static function getByIdOrder($id_order)
     {
         $sql = 'SELECT `id_payment` FROM `' . _DB_PREFIX_ . 'monei2_payment` 
-                WHERE `id_order` = ' . (int)$id_order;
+                WHERE `id_order` = ' . (int) $id_order;
         $id = \Db::getInstance()->getValue($sql);
+
         return $id ? new self($id) : null;
     }
 
     public static function getByIdCart($id_cart)
     {
         $sql = 'SELECT `id_payment` FROM `' . _DB_PREFIX_ . 'monei2_payment` 
-                WHERE `id_cart` = ' . (int)$id_cart;
+                WHERE `id_cart` = ' . (int) $id_cart;
         $id = \Db::getInstance()->getValue($sql);
+
         return $id ? new self($id) : null;
     }
 
@@ -210,6 +212,7 @@ class Monei2Payment extends \ObjectModel
         $sql = 'SELECT `id_payment` FROM `' . _DB_PREFIX_ . 'monei2_payment` 
                 WHERE `id_order_monei` = \'' . pSQL($id_order_monei) . '\'';
         $id = \Db::getInstance()->getValue($sql);
+
         return $id ? new self($id) : null;
     }
 
@@ -218,16 +221,17 @@ class Monei2Payment extends \ObjectModel
         $where_parts = [];
         foreach ($criteria as $field => $value) {
             if (is_int($value)) {
-                $where_parts[] = '`' . pSQL($field) . '` = ' . (int)$value;
+                $where_parts[] = '`' . pSQL($field) . '` = ' . (int) $value;
             } else {
                 $where_parts[] = '`' . pSQL($field) . '` = \'' . pSQL($value) . '\'';
             }
         }
-        
+
         $sql = 'SELECT `id_payment` FROM `' . _DB_PREFIX_ . 'monei2_payment` 
                 WHERE ' . implode(' AND ', $where_parts);
-        
+
         $id = \Db::getInstance()->getValue($sql);
+
         return $id ? new self($id) : null;
     }
 
@@ -266,6 +270,7 @@ class Monei2Payment extends \ObjectModel
     {
         $this->id_payment = $id;
         $this->id = $id;
+
         return $this;
     }
 
@@ -277,6 +282,7 @@ class Monei2Payment extends \ObjectModel
     public function setCartId($id_cart)
     {
         $this->id_cart = $id_cart;
+
         return $this;
     }
 
@@ -288,6 +294,7 @@ class Monei2Payment extends \ObjectModel
     public function setOrderId($id_order)
     {
         $this->id_order = $id_order;
+
         return $this;
     }
 
@@ -299,6 +306,7 @@ class Monei2Payment extends \ObjectModel
     public function setOrderMoneiId($id_order_monei)
     {
         $this->id_order_monei = $id_order_monei;
+
         return $this;
     }
 
@@ -317,6 +325,7 @@ class Monei2Payment extends \ObjectModel
     public function setAmount($amount)
     {
         $this->amount = $amount;
+
         return $this;
     }
 
@@ -328,6 +337,7 @@ class Monei2Payment extends \ObjectModel
     public function setRefundedAmount($refunded_amount)
     {
         $this->refunded_amount = $refunded_amount;
+
         return $this;
     }
 
@@ -339,6 +349,7 @@ class Monei2Payment extends \ObjectModel
     public function setCurrency($currency)
     {
         $this->currency = $currency;
+
         return $this;
     }
 
@@ -350,6 +361,7 @@ class Monei2Payment extends \ObjectModel
     public function setAuthorizationCode($authorization_code)
     {
         $this->authorization_code = $authorization_code;
+
         return $this;
     }
 
@@ -361,17 +373,19 @@ class Monei2Payment extends \ObjectModel
     public function setStatus($status)
     {
         $this->status = $status;
+
         return $this;
     }
 
     public function getIsCaptured()
     {
-        return (bool)$this->is_captured;
+        return (bool) $this->is_captured;
     }
 
     public function setIsCaptured($is_captured)
     {
-        $this->is_captured = (bool)$is_captured;
+        $this->is_captured = (bool) $is_captured;
+
         return $this;
     }
 
@@ -383,6 +397,7 @@ class Monei2Payment extends \ObjectModel
     public function setStatusCode($status_code)
     {
         $this->status_code = $status_code;
+
         return $this;
     }
 
@@ -403,6 +418,7 @@ class Monei2Payment extends \ObjectModel
         } else {
             $this->date_add = $timestamp;
         }
+
         return $this;
     }
 
@@ -423,6 +439,7 @@ class Monei2Payment extends \ObjectModel
         } else {
             $this->date_upd = $timestamp;
         }
+
         return $this;
     }
 
@@ -434,10 +451,10 @@ class Monei2Payment extends \ObjectModel
         $sql = 'SELECT * FROM `' . _DB_PREFIX_ . 'monei2_history` 
                 WHERE `id_payment` = \'' . pSQL($this->id_payment) . '\' 
                 ORDER BY `date_add` DESC';
-        
+
         $results = \Db::getInstance()->executeS($sql);
         $history = [];
-        
+
         if ($results) {
             foreach ($results as $row) {
                 $historyItem = new Monei2History();
@@ -445,7 +462,7 @@ class Monei2Payment extends \ObjectModel
                 $history[] = $historyItem;
             }
         }
-        
+
         return $history;
     }
 
@@ -455,6 +472,7 @@ class Monei2Payment extends \ObjectModel
     public function addHistory($paymentHistory)
     {
         $paymentHistory->setPayment($this);
+
         return $paymentHistory->save();
     }
 
@@ -466,10 +484,10 @@ class Monei2Payment extends \ObjectModel
         $sql = 'SELECT * FROM `' . _DB_PREFIX_ . 'monei2_refund` 
                 WHERE `id_payment` = \'' . pSQL($this->id_payment) . '\' 
                 ORDER BY `date_add` DESC';
-        
+
         $results = \Db::getInstance()->executeS($sql);
         $refunds = [];
-        
+
         if ($results) {
             foreach ($results as $row) {
                 $refundItem = new Monei2Refund();
@@ -477,7 +495,7 @@ class Monei2Payment extends \ObjectModel
                 $refunds[] = $refundItem;
             }
         }
-        
+
         return $refunds;
     }
 
@@ -488,16 +506,17 @@ class Monei2Payment extends \ObjectModel
     {
         $sql = 'SELECT * FROM `' . _DB_PREFIX_ . 'monei2_refund` 
                 WHERE `id_payment` = \'' . pSQL($this->id_payment) . '\' 
-                AND `id_history` = ' . (int)$historyId;
-        
+                AND `id_history` = ' . (int) $historyId;
+
         $row = \Db::getInstance()->getRow($sql);
-        
+
         if ($row) {
             $refund = new Monei2Refund();
             $refund->hydrate($row);
+
             return $refund;
         }
-        
+
         return null;
     }
 
@@ -507,6 +526,7 @@ class Monei2Payment extends \ObjectModel
     public function addRefund($paymentRefund)
     {
         $paymentRefund->setPayment($this);
+
         return $paymentRefund->save();
     }
 

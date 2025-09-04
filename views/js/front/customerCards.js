@@ -37,7 +37,7 @@ document.addEventListener("DOMContentLoaded", function (event) {
             const confirmBtn = document.getElementById('confirmDeleteCard');
             if (confirmBtn) {
                 confirmBtn.disabled = false;
-                confirmBtn.textContent = MoneiVars.confirmRemoveCard || 'Yes, remove it';
+                confirmBtn.textContent = MoneiVars.confirmRemoveCard || 'Confirm';
             }
         });
     }

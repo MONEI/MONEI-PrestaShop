@@ -18,8 +18,11 @@ nbproject/private/
 nbproject/
 package-lock.json
 composer.lock
-.php_cs.cache
+.php_cs.cache/
 yarn.lock
 _dev/admin/yarn.lock
 _dev/front/yarn.lock
 pnpm-lock.yaml
+.playwright-mcp
+.php_cs.cache
+config_backup.sql

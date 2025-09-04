@@ -14,7 +14,7 @@ class MoneiCreatePaymentModuleFrontController extends ModuleFrontController
 
         $json = file_get_contents('php://input');
         $data = json_decode($json, true);
-        
+
         // Get payment method from request if provided
         $paymentMethod = isset($data['paymentMethod']) ? $data['paymentMethod'] : '';
 

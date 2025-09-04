@@ -3,8 +3,23 @@
  * @author: Alexandre Bodelot <alexandre.bodelot@gmail.com>
  * @license MIT https://github.com/abodelot/jquery.json-viewer/blob/master/LICENSE
  */
-
-(function ($) {
+(function (factory) {
+    'use strict';
+    if (typeof jQuery !== 'undefined') {
+        factory(jQuery);
+    } else if (typeof $ !== 'undefined') {
+        factory($);
+    } else {
+        // Try again in 100ms
+        setTimeout(function() {
+            if (typeof jQuery !== 'undefined') {
+                factory(jQuery);
+            } else if (typeof $ !== 'undefined') {
+                factory($);
+            }
+        }, 100);
+    }
+}(function ($) {
 
     /**
      * Check if arg is either an array with at least 1 element, or a dict with at least 1 key
@@ -158,4 +173,4 @@
             }
         });
     };
-})(jQuery);
+}));

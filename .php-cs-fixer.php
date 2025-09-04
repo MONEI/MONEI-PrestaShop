@@ -54,6 +54,12 @@ $config
         'visibility_required' => [
             'elements' => ['property', 'method'],
         ],
+        'trailing_comma_in_multiline' => [
+            'elements' => ['arrays'],
+            // Don't add trailing commas in function parameters for PHP 7.4 compatibility
+            // 'after_heredoc' => false, // PHP 7.3+
+        ],
+        'no_trailing_comma_in_singleline' => true,
     ])
     ->setFinder($finder)
     ->setUsingCache(true)

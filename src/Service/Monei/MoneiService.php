@@ -69,7 +69,7 @@ class MoneiService
         }
 
         $client = new MoneiClient($apiKey);
-        
+
         // Use module version in User-Agent (required for proper API response)
         $moduleVersion = \Module::getInstanceByName('monei')->version ?? '1.0.0';
         $client->setUserAgent('MONEI/PrestaShop/' . $moduleVersion);
@@ -102,9 +102,9 @@ class MoneiService
             $currentTime = time();
 
             // Return from static cache if already fetched and not expired
-            if (isset(self::$paymentMethodsCache[$cacheKey]) &&
-                    ($currentTime - self::$paymentMethodsCache[$cacheKey]['timestamp'] < self::CACHE_LIFETIME)) {
-                \PrestaShopLogger::addLog('[MONEI] Using cached payment methods response', \PrestaShopLogger::LOG_SEVERITY_LEVEL_INFORMATIVE);
+            if (isset(self::$paymentMethodsCache[$cacheKey])
+                    && ($currentTime - self::$paymentMethodsCache[$cacheKey]['timestamp'] < self::CACHE_LIFETIME)) {
+                \PrestaShopLogger::addLog('[MONEI] Using cached payment methods response', \Monei::getLogLevel('info'));
 
                 return self::$paymentMethodsCache[$cacheKey]['data'];
             }
@@ -119,7 +119,7 @@ class MoneiService
 
             return $moneiAccountInformation;
         } catch (\Exception $e) {
-            \PrestaShopLogger::addLog('MONEI - getPaymentMethodsResponse - Error: ' . $e->getMessage(), \PrestaShopLogger::LOG_SEVERITY_LEVEL_WARNING);
+            \PrestaShopLogger::addLog('MONEI - getPaymentMethodsResponse - Error: ' . $e->getMessage(), \Monei::getLogLevel('warning'));
 
             return null;
         }
@@ -166,7 +166,7 @@ class MoneiService
             // Normalize brands to lowercase for consistency
             return array_map('strtolower', $brands);
         } catch (\Exception $e) {
-            \PrestaShopLogger::addLog('MONEI - getAvailableCardBrands - Error: ' . $e->getMessage(), \PrestaShopLogger::LOG_SEVERITY_LEVEL_WARNING);
+            \PrestaShopLogger::addLog('MONEI - getAvailableCardBrands - Error: ' . $e->getMessage(), \Monei::getLogLevel('warning'));
 
             return $this->getDefaultCardBrands();
         }
@@ -248,7 +248,7 @@ class MoneiService
         if (strpos($customer->email, ':') !== false) {
             \PrestaShopLogger::addLog(
                 'MONEI - getCustomerData - Email contains colon, which will be removed: ' . $customer->email,
-                \PrestaShopLogger::LOG_SEVERITY_LEVEL_WARNING
+                \Monei::getLogLevel('warning')
             );
         }
         $customer->email = str_replace(':', '', $customer->email);
@@ -345,7 +345,7 @@ class MoneiService
         if ($moneiPayment->getStatus() === \Monei\Model\PaymentStatus::PENDING) {
             \PrestaShopLogger::addLog(
                 'MONEI - saveMoneiPayment - Skipping pending payment: ' . $moneiPayment->getId(),
-                \PrestaShopLogger::LOG_SEVERITY_LEVEL_INFORMATIVE
+                \Monei::getLogLevel('info')
             );
 
             return;
@@ -385,7 +385,7 @@ class MoneiService
                 \PrestaShopLogger::addLog(
                     'MONEI - saveMoneiPayment - Skipping duplicate history entry for payment: ' . $moneiPayment->getId()
                         . ' with status: ' . $currentStatus,
-                    \PrestaShopLogger::LOG_SEVERITY_LEVEL_INFORMATIVE
+                    \Monei::getLogLevel('info')
                 );
             }
         }
@@ -565,14 +565,14 @@ class MoneiService
 
             // Only check for unsupported methods if allowed methods are explicitly set
             // If no methods are specified (null/empty), all methods are available so use AUTH
-            $hasUnsupportedMethod = $allowedMethods &&
-                is_array($allowedMethods) &&
-                !empty(array_intersect($allowedMethods, self::UNSUPPORTED_AUTH_METHODS));
+            $hasUnsupportedMethod = $allowedMethods
+                && is_array($allowedMethods)
+                && !empty(array_intersect($allowedMethods, self::UNSUPPORTED_AUTH_METHODS));
 
             if (!$hasUnsupportedMethod) {
                 $createPaymentRequest->setTransactionType(PaymentTransactionType::AUTH);
             }
-            // Note: If unsupported methods are found, transaction type remains default (SALE)
+        // Note: If unsupported methods are found, transaction type remains default (SALE)
         } else {
             // Default to SALE for immediate charge
             $createPaymentRequest->setTransactionType(PaymentTransactionType::SALE);
@@ -597,7 +597,7 @@ class MoneiService
         } catch (\Exception $ex) {
             \PrestaShopLogger::addLog(
                 'MONEI - Exception - MoneiService.php - createMoneiPayment: ' . $ex->getMessage() . ' - ' . $ex->getFile(),
-                \PrestaShopLogger::LOG_SEVERITY_LEVEL_ERROR
+                \Monei::getLogLevel('error')
             );
 
             return false;
@@ -631,7 +631,7 @@ class MoneiService
         } catch (\Exception $ex) {
             \PrestaShopLogger::addLog(
                 'MONEI - Exception - MoneiService.php - createRefund: ' . $ex->getMessage(),
-                \PrestaShopLogger::LOG_SEVERITY_LEVEL_ERROR
+                \Monei::getLogLevel('error')
             );
 
             throw new MoneiException('Failed to create refund: ' . $ex->getMessage(), MoneiException::REFUND_CREATION_FAILED);
@@ -676,7 +676,7 @@ class MoneiService
         } catch (\Exception $ex) {
             \PrestaShopLogger::addLog(
                 'MONEI - Exception - MoneiService.php - capturePayment: ' . $ex->getMessage(),
-                \PrestaShopLogger::LOG_SEVERITY_LEVEL_ERROR
+                \Monei::getLogLevel('error')
             );
 
             throw new MoneiException('Failed to capture payment: ' . $ex->getMessage(), MoneiException::CAPTURE_FAILED);
