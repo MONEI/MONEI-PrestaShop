@@ -177,8 +177,10 @@ class PaymentOptionService
                     'method' => 'card',
                     'transaction_id' => $this->getTransactionId(),
                 ]);
+                // Decode HTML entities as URLs should never be HTML-escaped
+                $decodedUrl = html_entity_decode($redirectUrl);
                 $smarty->assign([
-                    'link_create_payment' => $redirectUrl,
+                    'link_create_payment' => $decodedUrl,
                     'module_dir' => _MODULE_DIR_ . 'monei/',
                     'payment_method' => 'card',
                 ]);
@@ -237,7 +239,7 @@ class PaymentOptionService
                         'name' => 'tokenized_card',
                         'title' => $optionTitle,
                         'logo' => $this->getCardBrandIconPath($customerCard->getBrand()),
-                        'action' => $redirectUrl,
+                        'action' => html_entity_decode($redirectUrl),
                     ];
                 }
             }
@@ -259,8 +261,9 @@ class PaymentOptionService
                     'transaction_id' => $this->getTransactionId(),
                 ]);
                 $smarty = $this->context->smarty;
+                // Decode HTML entities as URLs should never be HTML-escaped
                 $smarty->assign([
-                    'link_create_payment' => $redirectUrl,
+                    'link_create_payment' => html_entity_decode($redirectUrl),
                     'module_dir' => _MODULE_DIR_ . 'monei/',
                     'payment_method' => 'bizum',
                 ]);
@@ -309,8 +312,9 @@ class PaymentOptionService
                     'transaction_id' => $this->getTransactionId(),
                 ]);
                 $smarty = $this->context->smarty;
+                // Decode HTML entities as URLs should never be HTML-escaped
                 $smarty->assign([
-                    'link_create_payment' => $redirectUrl,
+                    'link_create_payment' => html_entity_decode($redirectUrl),
                     'module_dir' => _MODULE_DIR_ . 'monei/',
                     'payment_method' => 'paypal',
                 ]);
