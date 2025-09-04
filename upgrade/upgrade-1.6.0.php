@@ -68,7 +68,7 @@ function upgrade_module_1_6_0()
                 if (!is_array($moneiPayment)) {
                     PrestaShopLogger::addLog(
                         'MONEI - upgrade-1.6.0 - Failed to decode payment response for history ID: ' . $history['id_monei_history'],
-                        PrestaShopLogger::LOG_SEVERITY_LEVEL_WARNING
+                        Monei::getLogLevel('warning')
                     );
                     $moneiPayment = [];
                 }
@@ -104,7 +104,7 @@ function upgrade_module_1_6_0()
                 if (!$paymentId) {
                     PrestaShopLogger::addLog(
                         'MONEI - upgrade-1.6.0 - Skipping refund ID ' . $refund['id_monei_refund'] . ' - no matching payment found',
-                        PrestaShopLogger::LOG_SEVERITY_LEVEL_WARNING
+                        Monei::getLogLevel('warning')
                     );
 
                     continue;
@@ -129,7 +129,7 @@ function upgrade_module_1_6_0()
 
         PrestaShopLogger::addLog(
             'MONEI - upgrade-1.6.0 - Migration completed successfully',
-            PrestaShopLogger::LOG_SEVERITY_LEVEL_INFORMATIVE
+            Monei::getLogLevel('info')
         );
 
         return true;
@@ -139,7 +139,7 @@ function upgrade_module_1_6_0()
 
         PrestaShopLogger::addLog(
             'MONEI - upgrade-1.6.0 - Migration failed: ' . $e->getMessage(),
-            PrestaShopLogger::LOG_SEVERITY_LEVEL_ERROR
+            Monei::getLogLevel('error')
         );
 
         return false;

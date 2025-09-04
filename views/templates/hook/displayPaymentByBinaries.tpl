@@ -1,10 +1,13 @@
 <script>
-  var moneiAccountId = '{$moneiAccountId|escape:'htmlall':'UTF-8'}';
-  var moneiCreatePaymentUrlController = '{$moneiCreatePaymentUrlController|escape:'htmlall':'UTF-8'}';
-  var moneiToken = '{$moneiToken|escape:'htmlall':'UTF-8'}';
-  var moneiCurrency = '{$moneiCurrency|escape:'htmlall':'UTF-8'}';
+  var moneiAccountId = '{$moneiAccountId|escape:'javascript':'UTF-8'}';
+  
+  // Fix &amp; encoding issue - decode HTML entities in URL
+  var moneiCreatePaymentUrlController = '{$moneiCreatePaymentUrlController}'.replace(/&amp;/g, '&');
+  
+  var moneiToken = '{$moneiToken|escape:'javascript':'UTF-8'}';
+  var moneiCurrency = '{$moneiCurrency|escape:'javascript':'UTF-8'}';
   var moneiAmount = {$moneiAmount|intval};
-  var moneiPaymentAction = '{if isset($moneiPaymentAction)}{$moneiPaymentAction|escape:'htmlall':'UTF-8'}{else}sale{/if}';
+  var moneiPaymentAction = '{if isset($moneiPaymentAction)}{$moneiPaymentAction|escape:'javascript':'UTF-8'}{else}sale{/if}';
 
   {literal}
     // Debug logging helper - only logs in development/test mode

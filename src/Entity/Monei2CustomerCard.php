@@ -40,28 +40,29 @@ class Monei2CustomerCard extends \ObjectModel
     public static function getByCustomer($id_customer)
     {
         $sql = 'SELECT `id_customer_card` FROM `' . _DB_PREFIX_ . 'monei2_customer_card` 
-                WHERE `id_customer` = ' . (int)$id_customer . ' 
+                WHERE `id_customer` = ' . (int) $id_customer . ' 
                 ORDER BY `date_add` DESC';
-        
+
         $results = \Db::getInstance()->executeS($sql);
         $cards = [];
-        
+
         if ($results) {
             foreach ($results as $row) {
                 $cards[] = new self($row['id_customer_card']);
             }
         }
-        
+
         return $cards;
     }
 
     public static function getByCustomerAndId($id_customer, $id_customer_card)
     {
         $sql = 'SELECT `id_customer_card` FROM `' . _DB_PREFIX_ . 'monei2_customer_card` 
-                WHERE `id_customer` = ' . (int)$id_customer . ' 
-                AND `id_customer_card` = ' . (int)$id_customer_card;
-        
+                WHERE `id_customer` = ' . (int) $id_customer . ' 
+                AND `id_customer_card` = ' . (int) $id_customer_card;
+
         $id = \Db::getInstance()->getValue($sql);
+
         return $id ? new self($id) : null;
     }
 
@@ -70,27 +71,27 @@ class Monei2CustomerCard extends \ObjectModel
         $where_parts = [];
         foreach ($criteria as $field => $value) {
             if (is_int($value)) {
-                $where_parts[] = '`' . pSQL($field) . '` = ' . (int)$value;
+                $where_parts[] = '`' . pSQL($field) . '` = ' . (int) $value;
             } else {
                 $where_parts[] = '`' . pSQL($field) . '` = \'' . pSQL($value) . '\'';
             }
         }
-        
+
         $sql = 'SELECT `id_customer_card` FROM `' . _DB_PREFIX_ . 'monei2_customer_card`';
         if (!empty($where_parts)) {
             $sql .= ' WHERE ' . implode(' AND ', $where_parts);
         }
         $sql .= ' ORDER BY `date_add` DESC';
-        
+
         $results = \Db::getInstance()->executeS($sql);
         $cards = [];
-        
+
         if ($results) {
             foreach ($results as $row) {
                 $cards[] = new self($row['id_customer_card']);
             }
         }
-        
+
         return $cards;
     }
 
@@ -99,16 +100,17 @@ class Monei2CustomerCard extends \ObjectModel
         $where_parts = [];
         foreach ($criteria as $field => $value) {
             if (is_int($value)) {
-                $where_parts[] = '`' . pSQL($field) . '` = ' . (int)$value;
+                $where_parts[] = '`' . pSQL($field) . '` = ' . (int) $value;
             } else {
                 $where_parts[] = '`' . pSQL($field) . '` = \'' . pSQL($value) . '\'';
             }
         }
-        
+
         $sql = 'SELECT `id_customer_card` FROM `' . _DB_PREFIX_ . 'monei2_customer_card` 
                 WHERE ' . implode(' AND ', $where_parts);
-        
+
         $id = \Db::getInstance()->getValue($sql);
+
         return $id ? new self($id) : null;
     }
 
@@ -117,17 +119,18 @@ class Monei2CustomerCard extends \ObjectModel
      */
     public function getId()
     {
-        return (int)$this->id_customer_card;
+        return (int) $this->id_customer_card;
     }
 
     public function getCustomerId()
     {
-        return (int)$this->id_customer;
+        return (int) $this->id_customer;
     }
 
     public function setCustomerId($id_customer)
     {
-        $this->id_customer = (int)$id_customer;
+        $this->id_customer = (int) $id_customer;
+
         return $this;
     }
 
@@ -139,6 +142,7 @@ class Monei2CustomerCard extends \ObjectModel
     public function setBrand($brand)
     {
         $this->brand = $brand;
+
         return $this;
     }
 
@@ -150,6 +154,7 @@ class Monei2CustomerCard extends \ObjectModel
     public function setCountry($country)
     {
         $this->country = $country;
+
         return $this;
     }
 
@@ -166,12 +171,13 @@ class Monei2CustomerCard extends \ObjectModel
     public function setLastFour($last_four)
     {
         $this->last_four = $last_four;
+
         return $this;
     }
 
     public function getExpiration()
     {
-        return (int)$this->expiration;
+        return (int) $this->expiration;
     }
 
     public function getExpirationFormatted()
@@ -181,7 +187,8 @@ class Monei2CustomerCard extends \ObjectModel
 
     public function setExpiration($expiration)
     {
-        $this->expiration = (int)$expiration;
+        $this->expiration = (int) $expiration;
+
         return $this;
     }
 
@@ -193,6 +200,7 @@ class Monei2CustomerCard extends \ObjectModel
     public function setTokenized($tokenized)
     {
         $this->tokenized = $tokenized;
+
         return $this;
     }
 
@@ -213,6 +221,7 @@ class Monei2CustomerCard extends \ObjectModel
         } else {
             $this->date_add = $timestamp;
         }
+
         return $this;
     }
 

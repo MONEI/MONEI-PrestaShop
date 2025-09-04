@@ -2,16 +2,15 @@
 
 namespace PsMonei\Service;
 
+use PsMonei\Entity\Monei2CustomerCard;
+use PsMonei\Entity\Monei2History;
+use PsMonei\Entity\Monei2Payment;
+use PsMonei\Entity\Monei2Refund;
+use PsMonei\Helper\PaymentMethodFormatter;
 use PsMonei\Service\Monei\MoneiService;
+use PsMonei\Service\Monei\StatusCodeHandler;
 use PsMonei\Service\Order\OrderService;
 use PsMonei\Service\Payment\PaymentOptionService;
-use PsMonei\Service\Monei\StatusCodeHandler;
-use PsMonei\Service\LockService;
-use PsMonei\Helper\PaymentMethodFormatter;
-use PsMonei\Entity\Monei2Payment;
-use PsMonei\Entity\Monei2CustomerCard;
-use PsMonei\Entity\Monei2Refund;
-use PsMonei\Entity\Monei2History;
 
 if (!defined('_PS_VERSION_')) {
     exit;
@@ -23,7 +22,7 @@ if (!defined('_PS_VERSION_')) {
 class MoneiServiceLocator
 {
     private static $instances = [];
-    
+
     /**
      * Get MoneiService instance
      */
@@ -38,9 +37,10 @@ class MoneiServiceLocator
                 new Monei2History()
             );
         }
+
         return self::$instances['monei_service'];
     }
-    
+
     /**
      * Get OrderService instance
      */
@@ -56,9 +56,10 @@ class MoneiServiceLocator
                 \Context::getContext()
             );
         }
+
         return self::$instances['order_service'];
     }
-    
+
     /**
      * Get PaymentOptionService instance
      */
@@ -73,9 +74,10 @@ class MoneiServiceLocator
                 self::getPaymentMethodFormatter()
             );
         }
+
         return self::$instances['payment_option_service'];
     }
-    
+
     /**
      * Get LockService instance
      */
@@ -84,9 +86,10 @@ class MoneiServiceLocator
         if (!isset(self::$instances['lock_service'])) {
             self::$instances['lock_service'] = new LockService();
         }
+
         return self::$instances['lock_service'];
     }
-    
+
     /**
      * Get PaymentMethodFormatter instance
      */
@@ -95,9 +98,10 @@ class MoneiServiceLocator
         if (!isset(self::$instances['payment_method_formatter'])) {
             self::$instances['payment_method_formatter'] = new PaymentMethodFormatter();
         }
+
         return self::$instances['payment_method_formatter'];
     }
-    
+
     /**
      * Get StatusCodeHandler instance
      */
@@ -107,9 +111,10 @@ class MoneiServiceLocator
             $module = \Module::getInstanceByName('monei');
             self::$instances['status_code_handler'] = new StatusCodeHandler($module);
         }
+
         return self::$instances['status_code_handler'];
     }
-    
+
     /**
      * Generic getter for backward compatibility with getService calls
      * Maps old service names to new service locator methods
@@ -118,7 +123,7 @@ class MoneiServiceLocator
     {
         // Remove 'monei.' prefix if present
         $serviceName = str_replace('monei.', '', $serviceName);
-        
+
         switch ($serviceName) {
             case 'service.monei':
                 return self::getMoneiService();
@@ -136,7 +141,7 @@ class MoneiServiceLocator
                 throw new \Exception("Service '{$serviceName}' not found in MoneiServiceLocator");
         }
     }
-    
+
     /**
      * Clear all service instances (useful for testing)
      */
