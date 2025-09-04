@@ -105,8 +105,8 @@ class MoneiService
             $currentTime = time();
 
             // Return from static cache if already fetched and not expired
-            if (isset(self::$paymentMethodsCache[$cacheKey]) &&
-                    ($currentTime - self::$paymentMethodsCache[$cacheKey]['timestamp'] < self::CACHE_LIFETIME)) {
+            if (isset(self::$paymentMethodsCache[$cacheKey])
+                    && ($currentTime - self::$paymentMethodsCache[$cacheKey]['timestamp'] < self::CACHE_LIFETIME)) {
                 \PrestaShopLogger::addLog('[MONEI] Using cached payment methods response', \PrestaShopLogger::LOG_SEVERITY_LEVEL_INFORMATIVE);
 
                 return self::$paymentMethodsCache[$cacheKey]['data'];
@@ -568,14 +568,14 @@ class MoneiService
 
             // Only check for unsupported methods if allowed methods are explicitly set
             // If no methods are specified (null/empty), all methods are available so use AUTH
-            $hasUnsupportedMethod = $allowedMethods &&
-                is_array($allowedMethods) &&
-                !empty(array_intersect($allowedMethods, self::UNSUPPORTED_AUTH_METHODS));
+            $hasUnsupportedMethod = $allowedMethods
+                && is_array($allowedMethods)
+                && !empty(array_intersect($allowedMethods, self::UNSUPPORTED_AUTH_METHODS));
 
             if (!$hasUnsupportedMethod) {
                 $createPaymentRequest->setTransactionType(PaymentTransactionType::AUTH);
             }
-            // Note: If unsupported methods are found, transaction type remains default (SALE)
+        // Note: If unsupported methods are found, transaction type remains default (SALE)
         } else {
             // Default to SALE for immediate charge
             $createPaymentRequest->setTransactionType(PaymentTransactionType::SALE);
