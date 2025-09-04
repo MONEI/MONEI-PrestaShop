@@ -11,12 +11,7 @@
                         <p class="mb-2">{l s='The payment has been authorized but not yet captured. The funds are reserved on the customer\'s card but have not been transferred to your account.' mod='monei'}</p>
                         <p class="mb-3">{l s='You must capture the payment within 7 days or the authorization will expire and the funds will be released back to the customer.' mod='monei'}</p>
                         <p class="mb-3">{l s='Authorized amount:' mod='monei'} <strong>{$authorizedAmountFormatted}</strong></p>
-                        {if isset($capturedAmount) && $capturedAmount > 0}
-                            <p class="mb-3">{l s='Already captured:' mod='monei'} <strong>{$capturedAmountFormatted}</strong></p>
-                            <p class="mb-3">{l s='Remaining capturable:' mod='monei'} <strong>{$remainingAmountFormatted}</strong></p>
-                        {else}
-                            <p class="mb-3">{l s='Remaining capturable:' mod='monei'} <strong>{$remainingAmountFormatted}</strong></p>
-                        {/if}
+                        <p class="text-info"><small>{l s='Note: You can capture the full amount or a partial amount, but capture can only be done once.' mod='monei'}</small></p>
                         <div style="margin-top: 15px;">
                             <button type="button" class="btn btn-warning" id="monei-capture-payment-btn" 
                                 data-order-id="{$orderId|escape:'html':'UTF-8'}" 
@@ -91,6 +86,9 @@
                 </button>
             </div>
             <div class="modal-body">
+                <div class="alert alert-info">
+                    <p>{l s='Important: You can only capture once. If you capture a partial amount, the remaining authorization will be released.' mod='monei'}</p>
+                </div>
                 <form id="monei-capture-form">
                     <div class="form-group">
                         <label for="capture-amount">{l s='Amount to capture' mod='monei'}</label>
@@ -109,7 +107,7 @@
                             </div>
                         </div>
                         <small class="help-block form-text text-muted">
-                            {l s='Maximum:' mod='monei'} {$remainingAmountFormatted}
+                            {l s='Maximum authorized amount:' mod='monei'} {$authorizedAmountFormatted}
                         </small>
                     </div>
                 </form>
