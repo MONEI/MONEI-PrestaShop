@@ -2,9 +2,7 @@
     <div class="col-lg-12">
         <div class="panel card">
             <div class="panel-heading card-header">
-                <h3 class="panel-title card-header-title">
-                    <i class="icon-credit-card"></i> {l s='MONEI Payments' mod='monei'}
-                </h3>
+                <i class="icon-credit-card"></i> {l s='MONEI Payments' mod='monei'}
             </div>
             <div class="panel-body card-body">
                 {if $isCapturable}
