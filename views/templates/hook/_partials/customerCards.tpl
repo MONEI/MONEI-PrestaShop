@@ -68,11 +68,11 @@
     <div class="modal fade" id="deleteCardModal" tabindex="-1" role="dialog" aria-labelledby="deleteCardModalLabel" aria-hidden="true">
         <div class="modal-dialog modal-sm" role="document">
             <div class="modal-content">
-                <div class="modal-header">
-                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                <div class="modal-header clearfix">
+                    <button type="button" class="close pull-right" data-dismiss="modal" aria-label="Close">
                         <span aria-hidden="true">&times;</span>
                     </button>
-                    <h4 class="modal-title" id="deleteCardModalLabel">{l s='Remove Card' mod='monei'}</h4>
+                    <h5 class="modal-title" id="deleteCardModalLabel">{l s='Remove Card' mod='monei'}</h5>
                 </div>
                 <div class="modal-body">
                     <p>{l s='Are you sure you want to remove this card?' mod='monei'}</p>

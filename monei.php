@@ -1810,8 +1810,9 @@ class Monei extends PaymentModule
     {
         PrestaShopLogger::addLog('MONEI - hookPaymentOptions called', self::getLogLevel('info'));
 
-        if (!$this->isMoneiAvailable($params['cart'])) {
-            PrestaShopLogger::addLog('MONEI - hookPaymentOptions - MONEI not available', self::getLogLevel('info'));
+        // Check if cart parameter exists (it might not exist when called from admin payment preferences)
+        if (!isset($params['cart']) || !$this->isMoneiAvailable($params['cart'])) {
+            PrestaShopLogger::addLog('MONEI - hookPaymentOptions - Cart missing or MONEI not available', self::getLogLevel('info'));
 
             return;
         }
@@ -1830,7 +1831,8 @@ class Monei extends PaymentModule
 
     public function hookDisplayPaymentByBinaries($params)
     {
-        if (!$this->isMoneiAvailable($params['cart'])) {
+        // Check if cart parameter exists before accessing it
+        if (!isset($params['cart']) || !$this->isMoneiAvailable($params['cart'])) {
             return;
         }
 
