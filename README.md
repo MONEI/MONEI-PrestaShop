@@ -8,10 +8,10 @@ Accept payments through [MONEI](https://monei.com) in your PrestaShop store with
 
 > **⚠️ Important Version Information**
 > 
-> This branch (`prestashop-1.7`) contains **MONEI Module v1.x** specifically for **PrestaShop 1.7.7 - 1.7.8.x**.
+> This branch (`support-1.7.2`) contains **MONEI Module v1.x** with extended compatibility for **PrestaShop 1.7.2 - 1.7.8.x**.
 > 
 > - **For PrestaShop 8+**: Use [MONEI Module v2.x](https://github.com/MONEI/MONEI-PrestaShop/tree/master) from the `master` branch
-> - **For PrestaShop 1.7**: Use this version (v1.x) from the `prestashop-1.7` branch
+> - **For PrestaShop 1.7.2 - 1.7.8**: Use this version (v1.x) from the `support-1.7.2` branch
 
 ## Table of Contents
 
@@ -70,7 +70,7 @@ Experience the module in action: [PrestaShop Demo Store](https://prestashop-demo
 ## Requirements
 
 - **PHP**: ≥7.4
-- **PrestaShop**: 1.7.7 - 1.7.8.x (For PrestaShop 8+, use [v2.x from master branch](https://github.com/MONEI/MONEI-PrestaShop/tree/master))
+- **PrestaShop**: 1.7.2 - 1.7.8.x (For PrestaShop 8+, use [v2.x from master branch](https://github.com/MONEI/MONEI-PrestaShop/tree/master))
 - **MONEI Account**: [Sign up here](https://dashboard.monei.com/signup)
 - **Composer**: For dependency management (development)
 
@@ -80,7 +80,7 @@ Experience the module in action: [PrestaShop Demo Store](https://prestashop-demo
 
 1. Download the appropriate version for your PrestaShop:
    - **PrestaShop 8.x**: Download the [latest v2.x release](https://github.com/MONEI/MONEI-PrestaShop/releases/latest/download/monei.zip)
-   - **PrestaShop 1.7**: Download from [releases page](https://github.com/MONEI/MONEI-PrestaShop/releases) (look for v1.x versions)
+   - **PrestaShop 1.7.2 - 1.7.8**: Download from [releases page](https://github.com/MONEI/MONEI-PrestaShop/releases) (look for v1.x versions)
 2. Go to your PrestaShop admin panel
 3. Navigate to **Modules → Module Manager**
 4. Click on **Upload a module**
