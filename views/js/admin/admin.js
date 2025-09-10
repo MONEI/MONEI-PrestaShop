@@ -1,6 +1,13 @@
 (function ($) {
     'use strict';
 
+    // Configuration constants
+    const CONFIG = {
+        selectors: {
+            jsonLog: '#json_log'
+        }
+    };
+
     // Simple toggle function
     function toggleFields() {
         var isProduction = $('input[name="MONEI_PRODUCTION_MODE"]:checked').val() === '1';

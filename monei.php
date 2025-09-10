@@ -81,7 +81,7 @@ class Monei extends PaymentModule
         Configuration::updateValue('MONEI_STATUS_PARTIALLY_REFUNDED', Configuration::get('PS_OS_REFUND'));
         Configuration::updateValue('MONEI_STATUS_PENDING', Configuration::get('PS_OS_PREPARATION'));
         Configuration::updateValue('MONEI_STATUS_AUTHORIZED', 0);
-        Configuration::updateValue('MONEI_SWITCH_REFUNDS', false);
+        Configuration::updateValue('MONEI_SWITCH_REFUNDS', true);
         // Styles
         Configuration::updateValue('MONEI_CARD_INPUT_STYLE', '{"base": {"height": "42px"}, "input": {"background": "none"}}');
         Configuration::updateValue('MONEI_BIZUM_STYLE', '{"height": "42"}');
@@ -2102,9 +2102,15 @@ class Monei extends PaymentModule
             ],
         ]);
 
+        // Add fancybox for popup functionality
+        $this->context->controller->addCSS('/js/jquery/plugins/fancybox/jquery.fancybox.css');
+        $this->context->controller->addJS('/js/jquery/plugins/fancybox/jquery.fancybox.js');
+        
+        // Add JSON viewer for displaying payment details
         $this->context->controller->addCSS($this->_path . 'views/css/jquery.json-viewer.css');
-
         $this->context->controller->addJS($this->_path . 'views/js/jquery.json-viewer.js');
+        
+        // Add admin JavaScript
         $this->context->controller->addJS($this->_path . 'views/js/admin/admin.js');
     }
 
