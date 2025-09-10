@@ -332,8 +332,8 @@ $_MODULE['<{monei}prestashop>statuscodehandler_3164536cb674f4a1a2b8e0bfb8acebc7'
 $_MODULE['<{monei}prestashop>statuscodehandler_57ee3debbb1e12cf62cb502eb3861566'] = 'Transakciju noraidīja ClickToPay maksājuma procesa laikā';
 $_MODULE['<{monei}prestashop>statuscodehandler_a4e2c33f5123a8b3f176129cdeb350d4'] = 'Nepareiza ClickToPay konfigurācija';
 $_MODULE['<{monei}prestashop>statuscodehandler_d4bae019657857613ef1319ca317df02'] = 'Transakciju noraidīja Cofidis maksājuma procesa laikā';
-$_MODULE[047<{monei}prestashop>statuscodehandler_792b8408bc86b3b99606fe1ab71805d3047] = 047Unknown status code: %s047;
-$_MODULE[047<{monei}prestashop>monei_db0e52c1a6f726df55f66ec6512ef7a1047] = 047Production environment cannot be enabled without valid Account ID and API Key.047;
+$_MODULE['<{monei}prestashop>statuscodehandler_792b8408bc86b3b99606fe1ab71805d3'] = 'Nezināms statusa kods: %s';
+$_MODULE['<{monei}prestashop>monei_db0e52c1a6f726df55f66ec6512ef7a1'] = 'Ražošanas vidi nevar iespējot bez derīga konta ID un API atslēgas.';
 $_MODULE['<{monei}prestashop>monei_6210620c681755728a3b67312d59cba4'] = 'Invalid production credentials. Please check your Account ID and API Key.';
 $_MODULE['<{monei}prestashop>monei_baaba5cc3f2fe12e8a890b16169144bc'] = 'Test environment requires valid Test Account ID and Test API Key.';
 $_MODULE['<{monei}prestashop>monei_702859487450ebeb92148b7b36b3c94c'] = 'Invalid test credentials. Please check your Test Account ID and Test API Key.';
