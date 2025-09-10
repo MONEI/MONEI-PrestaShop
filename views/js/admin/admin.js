@@ -1,44 +1,27 @@
 (function ($) {
     'use strict';
 
-    // Configuración de constantes
-    const CONFIG = {
-        selectors: {
-            productionMode: 'input[name="MONEI_PRODUCTION_MODE"]',
-            accountId: '#MONEI_ACCOUNT_ID',
-            apiKey: '#MONEI_API_KEY',
-            testAccountId: '#MONEI_TEST_ACCOUNT_ID',
-            testApiKey: '#MONEI_TEST_API_KEY',
-            jsonLog: '#json_log'
-        }
-    };
+    // Simple toggle function
+    function toggleFields() {
+        var isProduction = $('input[name="MONEI_PRODUCTION_MODE"]:checked').val() === '1';
+        
+        // Show/hide production fields
+        $('.monei-production-field').closest('.form-group').toggle(isProduction);
+        
+        // Show/hide test fields  
+        $('.monei-test-field').closest('.form-group').toggle(!isProduction);
+    }
 
-    // Funciones de utilidad
-    const utils = {
-        parseAmount: (value) => parseFloat(value) || 0,
-        formatAmount: (cents) => cents / 100,
-        getFormGroup: (selector) => $(selector).parents('.form-group')
-    };
+    // Initialize on document ready
+    $(document).ready(function() {
+        // Set up radio button change handler
+        $('input[name="MONEI_PRODUCTION_MODE"]').change(toggleFields);
+        
+        // Initial toggle
+        toggleFields();
+    });
 
-    // Manejador de modo de producción
-    const productionModeHandler = {
-        init: function() {
-            $(CONFIG.selectors.productionMode).on('change', this.toggleFields);
-            $(CONFIG.selectors.productionMode).trigger('change');
-        },
-
-        toggleFields: function() {
-            const isProduction = $(this).val() === '1';
-
-            utils.getFormGroup(CONFIG.selectors.accountId).toggle(isProduction);
-            utils.getFormGroup(CONFIG.selectors.apiKey).toggle(isProduction);
-            utils.getFormGroup(CONFIG.selectors.testAccountId).toggle(!isProduction);
-            utils.getFormGroup(CONFIG.selectors.testApiKey).toggle(!isProduction);
-        }
-    };
-
-
-    // Manejador de visualización JSON
+    // JSON viewer handler
     const jsonViewerHandler = {
         init: function() {
             if (typeof MoneiVars === 'undefined') return;
@@ -271,12 +254,18 @@
         }
     };
 
-    // Inicialización
+    // Initialize other handlers on document ready
     $(document).ready(function() {
-        productionModeHandler.init();
         jsonViewerHandler.init();
         creditSlipHandler.init();
         capturePaymentHandler.init();
+        
+        // Re-apply toggle when switching to settings tab
+        $(document).on('shown.bs.tab', 'a[data-toggle="tab"]', function(e) {
+            if ($(e.target).attr('href') === '#panel-conf-1') {
+                toggleFields();
+            }
+        });
     });
 
 })(jQuery);

@@ -567,6 +567,12 @@ class Monei extends PaymentModule
                 $section = $this->l('General');
                 $form_values = $this->getConfigFormValues();
 
+                // Validate API credentials for the enabled environment
+                $validationResult = $this->validateApiCredentials($form_values);
+                if ($validationResult !== true) {
+                    return $validationResult;
+                }
+
                 break;
             case 2:
                 $section = $this->l('Payment Methods');
@@ -762,6 +768,79 @@ class Monei extends PaymentModule
     }
 
     /**
+     * Validate API credentials for the enabled environment
+     *
+     * @param array $form_values
+     *
+     * @return bool|string true if valid, error message string if invalid
+     */
+    protected function validateApiCredentials($form_values)
+    {
+        $isProductionMode = Tools::getValue('MONEI_PRODUCTION_MODE');
+        
+        if ($isProductionMode === '1') {
+            // Validate production credentials
+            $accountId = Tools::getValue('MONEI_ACCOUNT_ID');
+            $apiKey = Tools::getValue('MONEI_API_KEY');
+            
+            if (empty($accountId) || empty($apiKey)) {
+                return $this->displayError($this->l('Production environment cannot be enabled without valid Account ID and API Key.'));
+            }
+            
+            // Test API connection with production credentials
+            if (!$this->testApiConnection($accountId, $apiKey, true)) {
+                return $this->displayError($this->l('Invalid production credentials. Please check your Account ID and API Key.'));
+            }
+        } else {
+            // Validate test credentials
+            $testAccountId = Tools::getValue('MONEI_TEST_ACCOUNT_ID');
+            $testApiKey = Tools::getValue('MONEI_TEST_API_KEY');
+            
+            if (empty($testAccountId) || empty($testApiKey)) {
+                return $this->displayError($this->l('Test environment requires valid Test Account ID and Test API Key.'));
+            }
+            
+            // Test API connection with test credentials
+            if (!$this->testApiConnection($testAccountId, $testApiKey, false)) {
+                return $this->displayError($this->l('Invalid test credentials. Please check your Test Account ID and Test API Key.'));
+            }
+        }
+        
+        return true;
+    }
+
+    /**
+     * Test API connection with given credentials
+     *
+     * @param string $accountId
+     * @param string $apiKey
+     * @param bool $isProduction
+     *
+     * @return bool
+     */
+    protected function testApiConnection($accountId, $apiKey, $isProduction)
+    {
+        try {
+            if (empty($accountId) || empty($apiKey)) {
+                return false;
+            }
+
+            // Create temporary MONEI client with provided credentials
+            $moneiClient = new \Monei\MoneiClient($apiKey);
+            $moneiClient->setUserAgent('MONEI/PrestaShop/' . _PS_VERSION_);
+            
+            // Test the connection by trying to get payment methods for the account
+            $paymentMethods = $moneiClient->paymentMethods->getByAccountId($accountId);
+            
+            // If we get any response without exception, credentials are valid
+            return $paymentMethods !== null;
+        } catch (Exception $e) {
+            PrestaShopLogger::addLog('MONEI - API credentials test failed: ' . $e->getMessage(), PrestaShopLogger::LOG_SEVERITY_LEVEL_WARNING);
+            return false;
+        }
+    }
+
+    /**
      * Get human-readable payment method name
      *
      * @param string $methodCode
@@ -912,17 +991,19 @@ class Monei extends PaymentModule
                         'col' => 3,
                         'type' => 'text',
                         'prefix' => '<i class="icon icon-key"></i>',
-                        'desc' => $this->l('Your MONEI Account ID. Available at your MONEI dashboard.'),
+                        'desc' => $this->l('Your MONEI Real Account ID. Available at your MONEI dashboard.'),
                         'name' => 'MONEI_ACCOUNT_ID',
                         'label' => $this->l('Account ID'),
+                        'class' => 'monei-production-field',
                     ],
                     [
                         'col' => 3,
                         'type' => 'text',
                         'prefix' => '<i class="icon icon-key"></i>',
-                        'desc' => $this->l('Your MONEI API Key. Available at your MONEI dashboard.'),
+                        'desc' => $this->l('Your MONEI Real API Key. Available at your MONEI dashboard.'),
                         'name' => 'MONEI_API_KEY',
                         'label' => $this->l('API Key'),
+                        'class' => 'monei-production-field',
                     ],
                     [
                         'col' => 3,
@@ -931,6 +1012,7 @@ class Monei extends PaymentModule
                         'desc' => $this->l('Your MONEI Test Account ID. Available at your MONEI dashboard.'),
                         'name' => 'MONEI_TEST_ACCOUNT_ID',
                         'label' => $this->l('Test Account ID'),
+                        'class' => 'monei-test-field',
                     ],
                     [
                         'col' => 3,
@@ -939,6 +1021,7 @@ class Monei extends PaymentModule
                         'desc' => $this->l('Your MONEI Test API Key. Available at your MONEI dashboard.'),
                         'name' => 'MONEI_TEST_API_KEY',
                         'label' => $this->l('Test API Key'),
+                        'class' => 'monei-test-field',
                     ],
                     [
                         'type' => 'switch',
