@@ -152,8 +152,8 @@
                     return;
                 }
 
-                // Find the table inside the cancel-product-element
-                const $refundTable = $cancelProductElement.find('table').first();
+                // Find the products table using its ID (it's not inside cancel-product-element)
+                const $refundTable = $('#orderProductsTable');
                 
                 if ($refundTable.length > 0) {
                     $refundTable.after(this.buildRefundReasonSelect());
