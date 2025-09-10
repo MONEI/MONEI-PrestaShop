@@ -333,7 +333,7 @@ $_MODULE['<{monei}prestashop>statuscodehandler_3164536cb674f4a1a2b8e0bfb8acebc7'
 $_MODULE['<{monei}prestashop>statuscodehandler_57ee3debbb1e12cf62cb502eb3861566'] = 'Transacció declinada durant el procés de pagament ClickToPay';
 $_MODULE['<{monei}prestashop>statuscodehandler_a4e2c33f5123a8b3f176129cdeb350d4'] = 'Configuració incorrecta de ClickToPay';
 $_MODULE['<{monei}prestashop>statuscodehandler_d4bae019657857613ef1319ca317df02'] = 'Transacció declinada durant el procés de pagament Cofidis';
-$_MODULE['<{monei}prestashop>statuscodehandler_792b8408bc86b3b99606fe1ab71805d3'] = 'Codi d'estat desconegut: %s';
+$_MODULE['<{monei}prestashop>statuscodehandler_792b8408bc86b3b99606fe1ab71805d3'] = 'Codi d\'estat desconegut: %s';
 $_MODULE['<{monei}prestashop>monei_db0e52c1a6f726df55f66ec6512ef7a1'] = 'L\'entorn de producció no es pot habilitar sense un ID de compte i una clau API vàlids.';
 $_MODULE['<{monei}prestashop>monei_6210620c681755728a3b67312d59cba4'] = 'Invalid production credentials. Please check your Account ID and API Key.';
 $_MODULE['<{monei}prestashop>monei_baaba5cc3f2fe12e8a890b16169144bc'] = 'Test environment requires valid Test Account ID and Test API Key.';
