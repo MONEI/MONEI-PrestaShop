@@ -1,5 +1,4 @@
 <?php
-
 global $_MODULE;
 $_MODULE = array();
 $_MODULE['<{monei}prestashop>monei_99cc282fb6fdb65298dacac1bfe0b1e6'] = 'Hyväksy korttimaksut, Apple Pay, Google Pay, Bizum, PayPal ja monia muita maksutapoja kaupassasi.';
@@ -27,11 +26,9 @@ $_MODULE['<{monei}prestashop>monei_05e923384033eed2550d329437930d88'] = 'Tuotant
 $_MODULE['<{monei}prestashop>monei_4378b0f3ca1da6a8b96c4fccb7784090'] = 'Aseta POIS PÄÄLTÄ/POISTETTU KÄYTÖSTÄ testiympäristön käyttämiseksi.';
 $_MODULE['<{monei}prestashop>monei_00d23a76e43b46dae9ec7aa9dcbebb32'] = 'Käytössä';
 $_MODULE['<{monei}prestashop>monei_b9f5c797ebbf55adccdd8539a65a0241'] = 'Poistettu käytöstä';
-$_MODULE['<{monei}prestashop>monei_5dab2299d027b561d2c68fed285d9105'] = 'MONEI todellinen tili-ID. Saatavilla MONEI-hallintapaneelissa.';
-$_MODULE['<{monei}prestashop>monei_eb881ebac781c8d18cf1a95c632a8897'] = 'MONEI-tilisi tunniste. Löytyy MONEI-hallintapaneelista.';
+$_MODULE['<{monei}prestashop>monei_44af25276a7627b23388e7b5d72c12b9'] = 'MONEI todellinen tili-ID. Saatavilla MONEI-hallintapaneelissa.';
 $_MODULE['<{monei}prestashop>monei_351a2eb8764e19b9e565e8a355469e70'] = 'Tilin tunniste';
-$_MODULE['<{monei}prestashop>monei_95678574c75e9ff4635adcccdba14fbf'] = 'MONEI todellinen API-avain. Saatavilla MONEI-hallintapaneelissa.';
-$_MODULE['<{monei}prestashop>monei_d480a30ef40a6f7408b0ebd0d0914471'] = 'MONEI API-avaimesi. Löytyy MONEI-hallintapaneelista.';
+$_MODULE['<{monei}prestashop>monei_0e775d62491c69aab51c3cda623f9971'] = 'MONEI todellinen API-avain. Saatavilla MONEI-hallintapaneelissa.';
 $_MODULE['<{monei}prestashop>monei_d876ff8da67c3731ae25d8335a4168b4'] = 'API-avain';
 $_MODULE['<{monei}prestashop>monei_cb70ca7310134c7121124c5d7a8f66b3'] = 'MONEI-testitilisi tunniste. Löytyy MONEI-hallintapaneelista.';
 $_MODULE['<{monei}prestashop>monei_718a9047ea4fc12cf06c7d00351b82f0'] = 'Testitilin tunniste';
@@ -165,7 +162,6 @@ $_MODULE['<{monei}prestashop>adminmoneicapturepaymentcontroller_cd41badf2abd4a99
 $_MODULE['<{monei}prestashop>adminmoneicapturepaymentcontroller_9af53da66ca5abb4f0c50c1f34ad211a'] = 'Virheellinen veloitettava summa';
 $_MODULE['<{monei}prestashop>adminmoneicapturepaymentcontroller_24909e87dc242b9dd539e10609b8b050'] = 'Tilausta ei löydy';
 $_MODULE['<{monei}prestashop>adminmoneicapturepaymentcontroller_0c7452aa9c35e2d720d065ee7321f873'] = 'Tätä tilausta ei maksettu MONEIlla';
-$_MODULE['<{monei}prestashop>adminmoneicapturepaymentcontroller_535f36927a4456857882dc54f16df2e4'] = 'Liian monta veloitusyritystä. Yritä myöhemmin uudelleen.';
 $_MODULE['<{monei}prestashop>adminmoneicapturepaymentcontroller_d24a05fc76634f2b44d124478aae1081'] = 'Maksu veloitettu onnistuneesti';
 $_MODULE['<{monei}prestashop>adminmoneicapturepaymentcontroller_a234d0efdc5a3198ebee9ac5b9bf9fe5'] = 'Odottamaton virhe tapahtui maksun veloittamisessa';
 $_MODULE['<{monei}prestashop>adminmoneicapturepaymentcontroller_5f6bc96b82cf8f8e1c2278fd9ae433ee'] = 'Maksutietuetta ei löydy tälle tilaukselle';
@@ -206,8 +202,6 @@ $_MODULE['<{monei}prestashop>displayadminorder_39a36f33efa5a7b626ae28cb54e09162'
 $_MODULE['<{monei}prestashop>displayadminorder_04acf405e941eef563ff71b07bc3393a'] = 'Maksu on valtuutettu mutta ei vielä veloitettu. Varat on varattu asiakkaan kortilta, mutta niitä ei ole siirretty tilillesi.';
 $_MODULE['<{monei}prestashop>displayadminorder_9b650d2ee428e59b8cfd7e543400b157'] = 'Sinun on veloitettava maksu 7 päivän kuluessa tai valtuutus vanhenee ja varat palautetaan asiakkaalle.';
 $_MODULE['<{monei}prestashop>displayadminorder_3f4c5d9e70c4e4bd1b06f72c1caf5e22'] = 'Valtuutettu summa:';
-$_MODULE['<{monei}prestashop>displayadminorder_71fe22b86fd9dd65ac59bb3680ecd33a'] = 'Jo veloitettu:';
-$_MODULE['<{monei}prestashop>displayadminorder_5c3a57360eb40f414ca5eb2ad527117e'] = 'Jäljellä veloitettavaa:';
 $_MODULE['<{monei}prestashop>displayadminorder_c3d2b1c9aef86f179c7ee5657f7b755a'] = 'Veloita maksu';
 $_MODULE['<{monei}prestashop>displayadminorder_44749712dbec183e983dcd78a7736c41'] = 'Päivämäärä';
 $_MODULE['<{monei}prestashop>displayadminorder_707436a5aa13b82a4d777f64c717a625'] = 'Maksutapa';
@@ -218,7 +212,6 @@ $_MODULE['<{monei}prestashop>displayadminorder_a12a3079e14ced46e69ba52b8a90b21a'
 $_MODULE['<{monei}prestashop>displayadminorder_955ad3298db330b5ee880c2c9e6f23a0'] = 'Live';
 $_MODULE['<{monei}prestashop>displayadminorder_549fa398acc100796592d7be0e8634d1'] = 'Yksityiskohdat...';
 $_MODULE['<{monei}prestashop>displayadminorder_06e85d5dfb9e4389af3c268d70e7d356'] = 'Veloitettava summa';
-$_MODULE['<{monei}prestashop>displayadminorder_12cbe1a4645659457808631047989afb'] = 'Maksimi:';
 $_MODULE['<{monei}prestashop>displayadminorder_ea4788705e6873b424c65e91c2846b19'] = 'Peruuta';
 $_MODULE['<{monei}prestashop>displayadminorder_8e24b37123b006e6d48c4d89459e8eac'] = 'Veloita maksu';
 $_MODULE['<{monei}prestashop>displayadminorder_851bc9d9fbb898dfac8bf16e5fc4c40e'] = 'Anna kelvollinen veloitettava summa.';
@@ -240,7 +233,14 @@ $_MODULE['<{monei}prestashop>customercards_42fdf49d60e2288c7dd80a2da33e686d'] = 
 $_MODULE['<{monei}prestashop>customercards_cd6f6d59461ee210cc6dc7441c7e11a2'] = 'Poista kortti';
 $_MODULE['<{monei}prestashop>customercards_501c05e156fef7fb93a9bfe9230e2e1c'] = 'Haluatko varmasti poistaa tämän kortin?';
 $_MODULE['<{monei}prestashop>customercards_ea4788705e6873b424c65e91c2846b19'] = 'Peruuta';
-$_MODULE['<{monei}prestashop>customercards_66a186ec4b462f621be16fd85bdb024d'] = 'Kyllä, poista se';
+$_MODULE['<{monei}prestashop>customercards_70d9be9b139893aa6c69b5e77e614311'] = 'Vahvista';
+$_MODULE['<{monei}prestashop>displayadminorder_0ea43c7ef1c78a81df5c856f1199e96e'] = 'Suurin valtuutettu summa:';
+$_MODULE['<{monei}prestashop>displayadminorder_923974d7eb22e4ab5670c3d2b2b01ea9'] = 'Tärkeää: Voit kaapata vain kerran. Jos kaappaat osittaisen summan, jäljellä oleva valtuutus vapautetaan.';
+$_MODULE['<{monei}prestashop>monei_11408e1752463fd7bdd5884a02364808'] = 'Luotto-/pankkikortti';
+$_MODULE['<{monei}prestashop>monei_1da2e8106b3a2171fbb7193a24b91526'] = 'Tapahtui odottamaton virhe.';
+$_MODULE['<{monei}prestashop>monei_70d5c5ef9a60f989072586028b709c99'] = 'Sinulla ei ole vielä tallennettuja luottokortteja.';
+$_MODULE['<{monei}prestashop>monei_8a0f13b6a3242924e1ecb50648cc639a'] = 'PrestaShop %s vaatii PHP 7.1.3 tai uudemman. Nykyinen PHP-versio: %s';
+$_MODULE['<{monei}prestashop>monei_d5ba93d5d002004caf85dc17bb3b5b79'] = 'Poistetaan...';
 $_MODULE['<{monei}prestashop>statuscodehandler_53f6ba965da2b38b7850ffe4713be352'] = 'Tapahtuma hyväksytty';
 $_MODULE['<{monei}prestashop>statuscodehandler_5d7f220ac8e6e772303ccd8ada4274f9'] = 'Palvelun sisäinen virhe. Ota yhteyttä tukeen';
 $_MODULE['<{monei}prestashop>statuscodehandler_de0261bcc6de9b8b4b13d037d07798df'] = 'Virhe maksunkäsittelijän konfiguraatiossa. Tarkista tämä hallintapaneelista tai ota yhteyttä MONEIhin tuen saamiseksi';

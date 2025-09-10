@@ -1,5 +1,4 @@
 <?php
-
 global $_MODULE;
 $_MODULE = array();
 $_MODULE['<{monei}prestashop>monei_99cc282fb6fdb65298dacac1bfe0b1e6'] = 'Aksepter kort, Apple Pay, Google Pay, Bizum, PayPal og mange andre betalingsmetoder i butikken din.';
@@ -9,9 +8,7 @@ $_MODULE['<{monei}prestashop>monei_af01f8c298aa063d9c7490f00eddd2df'] = 'Betalin
 $_MODULE['<{monei}prestashop>monei_ec53a8c4f07baed5d8825072c89799be'] = 'Status';
 $_MODULE['<{monei}prestashop>monei_fd5f32dcf788489799abba98fc56dc7e'] = 'Komponentstil';
 $_MODULE['<{monei}prestashop>monei_6bb9af104edfa98b85af8f6fede610be'] = 'Apple Pay aktivert, men kan ikke verifisere domene: Vennligst konfigurer MONEI API-nøklene dine først.';
-$_MODULE['<{monei}prestashop>monei_71817b231e6577c61f94211e6e9e162b'] = 'Apple Pay domene verifisert vellykket.';
 $_MODULE['<{monei}prestashop>monei_a09e5b2d8582f737d51c67da04240d63'] = 'Apple Pay domene verifisert vellykket.';
-$_MODULE['<{monei}prestashop>monei_f2564ed64a8bd016691bb9f216d778cb'] = 'Apple Pay domeneverifisering feilet: ';
 $_MODULE['<{monei}prestashop>monei_4d9ac946f92f7211e40671513c72fd09'] = 'Innstillinger lagret vellykket.';
 $_MODULE['<{monei}prestashop>monei_371d02adfaebd3fe6552e02b29c11333'] = 'Kan ikke få tilgang til MONEI-tjenesten.';
 $_MODULE['<{monei}prestashop>monei_35725ae643d3d36748a85d5da78557c7'] = 'Kan ikke validere betalingsmetoder med MONEI API. Vennligst sørg for at API-legitimasjonen din er korrekt og at metodene er konfigurert i MONEI-dashbordet ditt.';
@@ -29,9 +26,9 @@ $_MODULE['<{monei}prestashop>monei_05e923384033eed2550d329437930d88'] = 'Produks
 $_MODULE['<{monei}prestashop>monei_4378b0f3ca1da6a8b96c4fccb7784090'] = 'Sett til AV/DEAKTIVERT for å bruke testmiljøet.';
 $_MODULE['<{monei}prestashop>monei_00d23a76e43b46dae9ec7aa9dcbebb32'] = 'Aktivert';
 $_MODULE['<{monei}prestashop>monei_b9f5c797ebbf55adccdd8539a65a0241'] = 'Deaktivert';
-$_MODULE['<{monei}prestashop>monei_eb881ebac781c8d18cf1a95c632a8897'] = 'Din MONEI-konto-ID. Tilgjengelig i MONEI-dashbordet ditt.';
+$_MODULE['<{monei}prestashop>monei_44af25276a7627b23388e7b5d72c12b9'] = 'Din virkelige MONEI-konto-ID. Tilgjengelig i MONEI-dashbordet ditt.';
 $_MODULE['<{monei}prestashop>monei_351a2eb8764e19b9e565e8a355469e70'] = 'Konto-ID';
-$_MODULE['<{monei}prestashop>monei_d480a30ef40a6f7408b0ebd0d0914471'] = 'Din MONEI API-nøkkel. Tilgjengelig i MONEI-dashbordet ditt.';
+$_MODULE['<{monei}prestashop>monei_0e775d62491c69aab51c3cda623f9971'] = 'Din virkelige MONEI API-nøkkel. Tilgjengelig i MONEI-dashbordet ditt.';
 $_MODULE['<{monei}prestashop>monei_d876ff8da67c3731ae25d8335a4168b4'] = 'API-nøkkel';
 $_MODULE['<{monei}prestashop>monei_cb70ca7310134c7121124c5d7a8f66b3'] = 'Din MONEI Test-konto-ID. Tilgjengelig i MONEI-dashbordet ditt.';
 $_MODULE['<{monei}prestashop>monei_718a9047ea4fc12cf06c7d00351b82f0'] = 'Test-konto-ID';
@@ -165,7 +162,6 @@ $_MODULE['<{monei}prestashop>adminmoneicapturepaymentcontroller_cd41badf2abd4a99
 $_MODULE['<{monei}prestashop>adminmoneicapturepaymentcontroller_9af53da66ca5abb4f0c50c1f34ad211a'] = 'Ugyldig fangebeløp';
 $_MODULE['<{monei}prestashop>adminmoneicapturepaymentcontroller_24909e87dc242b9dd539e10609b8b050'] = 'Ordre ikke funnet';
 $_MODULE['<{monei}prestashop>adminmoneicapturepaymentcontroller_0c7452aa9c35e2d720d065ee7321f873'] = 'Denne ordren ble ikke betalt med MONEI';
-$_MODULE['<{monei}prestashop>adminmoneicapturepaymentcontroller_535f36927a4456857882dc54f16df2e4'] = 'For mange fangeforsøk. Vennligst prøv igjen senere.';
 $_MODULE['<{monei}prestashop>adminmoneicapturepaymentcontroller_d24a05fc76634f2b44d124478aae1081'] = 'Betaling fanget vellykket';
 $_MODULE['<{monei}prestashop>adminmoneicapturepaymentcontroller_a234d0efdc5a3198ebee9ac5b9bf9fe5'] = 'En uventet feil oppstod under fangst av betalingen';
 $_MODULE['<{monei}prestashop>adminmoneicapturepaymentcontroller_5f6bc96b82cf8f8e1c2278fd9ae433ee'] = 'Betalingspost ikke funnet for denne ordren';
@@ -206,8 +202,6 @@ $_MODULE['<{monei}prestashop>displayadminorder_39a36f33efa5a7b626ae28cb54e09162'
 $_MODULE['<{monei}prestashop>displayadminorder_04acf405e941eef563ff71b07bc3393a'] = 'Betalingen er autorisert, men ikke fanget ennå. Midlene er reservert på kundens kort, men har ikke blitt overført til kontoen din.';
 $_MODULE['<{monei}prestashop>displayadminorder_9b650d2ee428e59b8cfd7e543400b157'] = 'Du må fange betalingen innen 7 dager, ellers vil autorisasjonen utløpe og midlene blir frigitt tilbake til kunden.';
 $_MODULE['<{monei}prestashop>displayadminorder_3f4c5d9e70c4e4bd1b06f72c1caf5e22'] = 'Autorisert beløp:';
-$_MODULE['<{monei}prestashop>displayadminorder_71fe22b86fd9dd65ac59bb3680ecd33a'] = 'Allerede fanget:';
-$_MODULE['<{monei}prestashop>displayadminorder_5c3a57360eb40f414ca5eb2ad527117e'] = 'Gjenværende som kan fanges:';
 $_MODULE['<{monei}prestashop>displayadminorder_c3d2b1c9aef86f179c7ee5657f7b755a'] = 'Fang betaling';
 $_MODULE['<{monei}prestashop>displayadminorder_44749712dbec183e983dcd78a7736c41'] = 'Dato';
 $_MODULE['<{monei}prestashop>displayadminorder_707436a5aa13b82a4d777f64c717a625'] = 'Betalingsmetode';
@@ -218,7 +212,6 @@ $_MODULE['<{monei}prestashop>displayadminorder_a12a3079e14ced46e69ba52b8a90b21a'
 $_MODULE['<{monei}prestashop>displayadminorder_955ad3298db330b5ee880c2c9e6f23a0'] = 'Live';
 $_MODULE['<{monei}prestashop>displayadminorder_549fa398acc100796592d7be0e8634d1'] = 'Detaljer...';
 $_MODULE['<{monei}prestashop>displayadminorder_06e85d5dfb9e4389af3c268d70e7d356'] = 'Beløp å fange';
-$_MODULE['<{monei}prestashop>displayadminorder_12cbe1a4645659457808631047989afb'] = 'Maksimum:';
 $_MODULE['<{monei}prestashop>displayadminorder_ea4788705e6873b424c65e91c2846b19'] = 'Avbryt';
 $_MODULE['<{monei}prestashop>displayadminorder_8e24b37123b006e6d48c4d89459e8eac'] = 'Fang betaling';
 $_MODULE['<{monei}prestashop>displayadminorder_851bc9d9fbb898dfac8bf16e5fc4c40e'] = 'Vennligst oppgi et gyldig beløp å fange.';
@@ -240,7 +233,14 @@ $_MODULE['<{monei}prestashop>customercards_42fdf49d60e2288c7dd80a2da33e686d'] = 
 $_MODULE['<{monei}prestashop>customercards_cd6f6d59461ee210cc6dc7441c7e11a2'] = 'Fjern kort';
 $_MODULE['<{monei}prestashop>customercards_501c05e156fef7fb93a9bfe9230e2e1c'] = 'Er du sikker på at du vil fjerne dette kortet?';
 $_MODULE['<{monei}prestashop>customercards_ea4788705e6873b424c65e91c2846b19'] = 'Avbryt';
-$_MODULE['<{monei}prestashop>customercards_66a186ec4b462f621be16fd85bdb024d'] = 'Ja, fjern det';
+$_MODULE['<{monei}prestashop>customercards_70d9be9b139893aa6c69b5e77e614311'] = 'Bekreft';
+$_MODULE['<{monei}prestashop>displayadminorder_0ea43c7ef1c78a81df5c856f1199e96e'] = 'Maksimalt autorisert beløp:';
+$_MODULE['<{monei}prestashop>displayadminorder_923974d7eb22e4ab5670c3d2b2b01ea9'] = 'Viktig: Du kan bare fange én gang. Hvis du fanger et delvis beløp, vil den gjenstående autorisasjonen bli frigitt.';
+$_MODULE['<{monei}prestashop>monei_11408e1752463fd7bdd5884a02364808'] = 'Kreditt-/debetkort';
+$_MODULE['<{monei}prestashop>monei_1da2e8106b3a2171fbb7193a24b91526'] = 'En uventet feil oppstod.';
+$_MODULE['<{monei}prestashop>monei_70d5c5ef9a60f989072586028b709c99'] = 'Du har ingen lagrede kredittkort ennå.';
+$_MODULE['<{monei}prestashop>monei_8a0f13b6a3242924e1ecb50648cc639a'] = 'PrestaShop %s krever PHP 7.1.3 eller høyere. Nåværende PHP-versjon: %s';
+$_MODULE['<{monei}prestashop>monei_d5ba93d5d002004caf85dc17bb3b5b79'] = 'Fjerner...';
 $_MODULE['<{monei}prestashop>statuscodehandler_53f6ba965da2b38b7850ffe4713be352'] = 'Transaksjon godkjent';
 $_MODULE['<{monei}prestashop>statuscodehandler_5d7f220ac8e6e772303ccd8ada4274f9'] = 'Tjeneste intern feil. Vennligst kontakt support';
 $_MODULE['<{monei}prestashop>statuscodehandler_de0261bcc6de9b8b4b13d037d07798df'] = 'Feil med betalingsprosessorkonfigurasjon. Sjekk dette i dashbordet ditt eller kontakt MONEI for support';
