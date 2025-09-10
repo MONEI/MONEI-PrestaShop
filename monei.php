@@ -2102,9 +2102,15 @@ class Monei extends PaymentModule
             ],
         ]);
 
+        // Add fancybox for popup functionality
+        $this->context->controller->addCSS('/js/jquery/plugins/fancybox/jquery.fancybox.css');
+        $this->context->controller->addJS('/js/jquery/plugins/fancybox/jquery.fancybox.js');
+        
+        // Add JSON viewer for displaying payment details
         $this->context->controller->addCSS($this->_path . 'views/css/jquery.json-viewer.css');
-
         $this->context->controller->addJS($this->_path . 'views/js/jquery.json-viewer.js');
+        
+        // Add admin JavaScript
         $this->context->controller->addJS($this->_path . 'views/js/admin/admin.js');
     }
 

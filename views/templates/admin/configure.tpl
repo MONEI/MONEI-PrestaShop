@@ -48,15 +48,15 @@
                             </div>
 
                             <div class="panel-footer">
-                                <a class="btn btn-default btn-secondary"
+                                <a class="btn btn-default"
                                     href="https://support.monei.com/hc/en-us/requests/new?ticket_form_id=360000322338"
                                     target="_blank">
-                                    <i class="icon icon-envelope"></i> {l s='Contact support' mod='monei'}
+                                    <i class="material-icons">mail</i> {l s='Contact support' mod='monei'}
                                 </a>
-                                <a class="btn btn-default btn-secondary"
+                                <a class="btn btn-default"
                                     href="https://docs.monei.com/docs/e-commerce/prestashop/"
                                     target="_blank">
-                                    <i class="icon icon-book"></i> {l s='Documentation' mod='monei'}
+                                    <i class="material-icons">menu_book</i> {l s='Documentation' mod='monei'}
                                 </a>
                             </div>
                         </div>
