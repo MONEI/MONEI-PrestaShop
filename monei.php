@@ -22,7 +22,7 @@ class Monei extends PaymentModule
     public $currencies = true;
 
     const NAME = 'monei';
-    const VERSION = '1.7.0';
+    const VERSION = '1.7.1';
 
     const LOG_SEVERITY_LEVELS = [
         'info' => 1,
@@ -36,7 +36,7 @@ class Monei extends PaymentModule
         $this->displayName = 'MONEI Payments';
         $this->name = 'monei';
         $this->tab = 'payments_gateways';
-        $this->version = '1.7.0';
+        $this->version = '1.7.1';
         $this->author = 'MONEI';
         $this->need_instance = 1;
         $this->ps_versions_compliancy = ['min' => '1.7', 'max' => _PS_VERSION_];
