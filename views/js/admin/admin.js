@@ -110,49 +110,67 @@
             ],
 
             init: function() {
-                // Watch for the partial refund button click
-                this.watchForPartialRefund();
+                // Watch for partial refund button clicks
+                this.watchForPartialRefundButton();
             },
 
-            watchForPartialRefund: function() {
+            watchForPartialRefundButton: function() {
                 const self = this;
                 
-                // Watch for clicks on buttons
-                $(document).on('click', 'button', function(e) {
-                    const $btn = $(this);
-                    const btnText = $btn.text().trim();
-                    
-                    // Check if this is the "Partial refund" button in the action bar (not the submit button)
-                    if (btnText.includes('Partial refund') && $btn.hasClass('partial-refund-display')) {
-                        // Small delay to let PrestaShop show the form
-                        setTimeout(() => {
-                            // Only inject if the cancel-product-element div is visible (refund mode active)
-                            if ($('.cancel-product-element:visible').length > 0 && $('#monei_credit_slip_reason').length === 0) {
-                                self.injectRefundReasonField();
-                            }
-                        }, 100);
+                // Watch for clicks on the partial refund button
+                $(document).on('click', 'button.partial-refund-display', function() {
+                    // Wait for the form to be fully rendered
+                    requestAnimationFrame(() => {
+                        requestAnimationFrame(() => {
+                            self.checkAndInjectField();
+                        });
+                    });
+                });
+                
+                // Watch for cancel button to clean up
+                $(document).on('click', '.cancel-product-element button.cancel, .cancel-product-element button[name="cancel"]', function() {
+                    $('#monei_refund_reason_container').remove();
+                });
+                
+                // Also use MutationObserver as backup to detect when refund inputs appear
+                const observer = new MutationObserver(() => {
+                    // Check if refund inputs are visible but our field is not
+                    if ($('input[id^="cancel_product_quantity_"]:visible').length > 0 && 
+                        $('#monei_credit_slip_reason').length === 0) {
+                        self.checkAndInjectField();
                     }
-                    // Check if this is the Cancel button inside the refund form
-                    else if ((btnText === 'Cancel' || btnText.includes('Cancel')) && $('.cancel-product-element:visible').length > 0) {
-                        // Remove the field when canceling
+                    
+                    // Clean up if refund inputs disappear
+                    if ($('input[id^="cancel_product_quantity_"]:visible').length === 0 && 
+                        $('#monei_refund_reason_container').length > 0) {
                         $('#monei_refund_reason_container').remove();
                     }
                 });
+                
+                observer.observe(document.body, {
+                    childList: true,
+                    subtree: true,
+                    attributes: true,
+                    attributeFilter: ['style', 'class'] // Watch for visibility changes
+                });
+            },
+            
+            checkAndInjectField: function() {
+                // Only inject if refund mode is truly active (visible refund inputs)
+                if ($('input[id^="cancel_product_quantity_"]:visible').length > 0 && 
+                    $('#monei_credit_slip_reason').length === 0) {
+                    this.injectRefundReasonField();
+                }
             },
 
+
             injectRefundReasonField: function() {
-                // Don't inject if already exists
+                // Double-check field doesn't already exist
                 if ($('#monei_credit_slip_reason').length > 0) {
                     return;
                 }
 
-                // Only inject if the cancel-product-element is visible (refund mode is active)
-                const $cancelProductElement = $('.cancel-product-element:visible');
-                if ($cancelProductElement.length === 0) {
-                    return;
-                }
-
-                // Find the products table using its ID (it's not inside cancel-product-element)
+                // Find the products table
                 const $refundTable = $('#orderProductsTable');
                 
                 if ($refundTable.length > 0) {
@@ -168,20 +186,18 @@
                     optionsHtml += `<option value="${reason.value}" ${selected}>${reason.label}</option>`;
                 });
 
-                // Use the same layout structure as other fields: row mb-3 > col-md-12 > col-md-12 > info-block
+                // Use simplified layout structure without info-block
                 return `
                     <div class="row mb-3" id="monei_refund_reason_container">
                         <div class="col-md-12">
                             <div class="col-md-12">
-                                <div class="info-block">
-                                    <div class="d-flex align-items-center">
-                                        <label for="monei_credit_slip_reason" class="mb-0 mr-2">
-                                            <strong>MONEI refund reason</strong>
-                                        </label>
-                                        <select id="monei_credit_slip_reason" name="monei_refund_reason" class="form-control" style="width: auto;">
-                                            ${optionsHtml}
-                                        </select>
-                                    </div>
+                                <div class="d-flex align-items-center justify-content-end">
+                                    <label for="monei_credit_slip_reason" class="mb-0 mr-2">
+                                        <strong>MONEI refund reason</strong>
+                                    </label>
+                                    <select id="monei_credit_slip_reason" name="monei_refund_reason" class="form-control" style="width: auto;">
+                                        ${optionsHtml}
+                                    </select>
                                 </div>
                             </div>
                         </div>
