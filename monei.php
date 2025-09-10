@@ -2402,6 +2402,12 @@ class Monei extends PaymentModule
 
             $moneiService->createRefund((int) $order->id, $refundAmount, $employeeId, $refundReason);
 
+            PrestaShopLogger::addLog(
+                'MONEI - Refund processed successfully for order ID: ' . $order->id 
+                . ', Amount: ' . ($refundAmount / 100) . ' EUR',
+                self::getLogLevel('info')
+            );
+
             // Update order status if needed
             $orderService = self::getService('service.order');
             $orderService->updateOrderStateAfterRefund((int) $order->id);
