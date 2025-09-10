@@ -81,7 +81,7 @@ class Monei extends PaymentModule
         Configuration::updateValue('MONEI_STATUS_PARTIALLY_REFUNDED', Configuration::get('PS_OS_REFUND'));
         Configuration::updateValue('MONEI_STATUS_PENDING', Configuration::get('PS_OS_PREPARATION'));
         Configuration::updateValue('MONEI_STATUS_AUTHORIZED', 0);
-        Configuration::updateValue('MONEI_SWITCH_REFUNDS', false);
+        Configuration::updateValue('MONEI_SWITCH_REFUNDS', true);
         // Styles
         Configuration::updateValue('MONEI_CARD_INPUT_STYLE', '{"base": {"height": "42px"}, "input": {"background": "none"}}');
         Configuration::updateValue('MONEI_BIZUM_STYLE', '{"height": "42"}');

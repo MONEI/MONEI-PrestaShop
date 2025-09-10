@@ -61,7 +61,16 @@ class OrderService
             if ($orderPaymentExists) {
                 \PrestaShopLogger::addLog('MONEI - createOrUpdateOrder - Order: (' . $orderPaymentExists['id_order'] . ') already exists. Payment ID: ' . $moneiPaymentId . ' Date: ' . $orderPaymentExists['date_add'], \PrestaShopLogger::LOG_SEVERITY_LEVEL_WARNING);
 
-                // If order already exists and was processed, we can return early
+                // If order already exists and redirect is requested, redirect to confirmation page
+                if ($redirectToConfirmationPage) {
+                    $existingOrder = new \Order($orderPaymentExists['id_order']);
+                    if (\Validate::isLoadedObject($existingOrder)) {
+                        $cart = new \Cart($existingOrder->id_cart);
+                        $customer = new \Customer($existingOrder->id_customer);
+                        $this->handlePostOrderCreation($redirectToConfirmationPage, $cart, $customer, $existingOrder);
+                    }
+                }
+                
                 return;
             }
 
@@ -343,13 +352,13 @@ class OrderService
     private function handlePostOrderCreation($redirectToConfirmationPage, $cart, $customer, $order)
     {
         if ($redirectToConfirmationPage) {
-            \Tools::redirect(
-                'index.php?controller=order-confirmation'
+            $redirectUrl = 'index.php?controller=order-confirmation'
                 . '&id_cart=' . $cart->id
                 . '&id_module=' . $this->moneiInstance->id
                 . '&id_order=' . $order->id
-                . '&key=' . $customer->secure_key
-            );
+                . '&key=' . $customer->secure_key;
+            
+            \Tools::redirect($redirectUrl);
         } else {
             header('HTTP/1.1 200 OK');
             echo '<h1>OK</h1>';
