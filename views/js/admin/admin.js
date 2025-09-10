@@ -41,32 +41,32 @@
             getFormGroup: (selector) => $(selector).parents('.form-group')
         };
 
-        // Production mode handler
+        // Simple toggle function
+        function toggleFields() {
+            var isProduction = $('input[name="MONEI_PRODUCTION_MODE"]:checked').val() === '1';
+            
+            // Show/hide production fields
+            $('.monei-production-field').closest('.form-group').toggle(isProduction);
+            
+            // Show/hide test fields  
+            $('.monei-test-field').closest('.form-group').toggle(!isProduction);
+        }
+
+        // Production mode handler (updated for reliability)
         const productionModeHandler = {
             init: function() {
-                const $radios = $(CONFIG.selectors.productionMode);
+                // Set up radio button change handler
+                $('input[name="MONEI_PRODUCTION_MODE"]').change(toggleFields);
                 
-                if ($radios.length > 0) {
-                    // Bind change event
-                    $radios.on('change', function() {
-                        productionModeHandler.toggleFields.call(this);
-                    });
-                    
-                    // Trigger initial state
-                    $radios.filter(':checked').trigger('change');
-                }
-            },
-
-            toggleFields: function() {
-                const isProduction = $(this).val() === '1';
-
-                // Toggle production fields
-                utils.getFormGroup(CONFIG.selectors.accountId).toggle(isProduction);
-                utils.getFormGroup(CONFIG.selectors.apiKey).toggle(isProduction);
+                // Initial toggle
+                toggleFields();
                 
-                // Toggle test fields (opposite of production)
-                utils.getFormGroup(CONFIG.selectors.testAccountId).toggle(!isProduction);
-                utils.getFormGroup(CONFIG.selectors.testApiKey).toggle(!isProduction);
+                // Re-apply toggle when switching to settings tab
+                $(document).on('shown.bs.tab', 'a[data-toggle="tab"]', function(e) {
+                    if ($(e.target).attr('href') === '#panel-conf-1') {
+                        toggleFields();
+                    }
+                });
             }
         };
 
