@@ -68,112 +68,116 @@
         ],
 
         init: function() {
-            // Watch for credit slip form appearance in PrestaShop 8
-            this.observeCreditSlipForm();
-            
-            // Also handle legacy form if present
-            this.handleLegacyForm();
+            // Watch for partial refund button clicks
+            this.watchForPartialRefundButton();
         },
 
-        observeCreditSlipForm: function() {
-            // Use MutationObserver to detect when credit slip form is added to DOM
-            const observer = new MutationObserver((mutations) => {
-                mutations.forEach((mutation) => {
-                    mutation.addedNodes.forEach((node) => {
-                        if (node.nodeType === 1) { // Element node
-                            // Check for credit slip form elements
-                            const creditSlipForm = $(node).find('#order_credit_slip_form, [name="cancel_product"]').length > 0 ||
-                                                 $(node).is('#order_credit_slip_form, [name="cancel_product"]');
-                            
-                            if (creditSlipForm) {
-                                setTimeout(() => this.injectRefundReasonField(), 100);
-                            }
-                        }
+        watchForPartialRefundButton: function() {
+            const self = this;
+            
+            // Watch for clicks on the partial refund button
+            $(document).on('click', 'button.partial-refund-display', function() {
+                // Wait for the form to be fully rendered
+                requestAnimationFrame(() => {
+                    requestAnimationFrame(() => {
+                        self.checkAndInjectField();
                     });
                 });
             });
-
-            // Start observing
+            
+            // Watch for cancel button to clean up
+            $(document).on('click', '.cancel-product-element button.cancel, .cancel-product-element button[name="cancel"]', function() {
+                $('#monei_refund_reason_container').remove();
+            });
+            
+            // Also use MutationObserver as backup to detect when refund inputs appear
+            const observer = new MutationObserver(() => {
+                // Check if refund inputs are visible but our field is not
+                if ($('input[id^="cancel_product_quantity_"]:visible').length > 0 && 
+                    $('#monei_credit_slip_reason').length === 0) {
+                    self.checkAndInjectField();
+                }
+                
+                // Clean up if refund inputs disappear
+                if ($('input[id^="cancel_product_quantity_"]:visible').length === 0 && 
+                    $('#monei_refund_reason_container').length > 0) {
+                    $('#monei_refund_reason_container').remove();
+                }
+            });
+            
             observer.observe(document.body, {
                 childList: true,
-                subtree: true
+                subtree: true,
+                attributes: true,
+                attributeFilter: ['style', 'class'] // Watch for visibility changes
             });
         },
-
-        handleLegacyForm: function() {
-            // For immediate injection if form is already present
-            if ($('#order_credit_slip_form, [name="cancel_product"]').length > 0) {
+        
+        checkAndInjectField: function() {
+            // Only inject if refund mode is truly active (visible refund inputs)
+            if ($('input[id^="cancel_product_quantity_"]:visible').length > 0 && 
+                $('#monei_credit_slip_reason').length === 0) {
                 this.injectRefundReasonField();
             }
         },
 
         injectRefundReasonField: function() {
-            // Don't inject if already exists
+            // Double-check field doesn't already exist
             if ($('#monei_credit_slip_reason').length > 0) {
                 return;
             }
 
-            // Build the select field HTML
-            const selectHtml = this.buildRefundReasonSelect();
+            // Find the products table
+            const $refundTable = $('#orderProductsTable');
             
-            // Find suitable injection points for PrestaShop 8 order page
-            const injectionPoints = [
-                '.cancel-product-element:last', // New order page
-                '.standard-refund-fields:last', // Standard refund
-                '.partial-refund-fields:last', // Partial refund
-                '[name="cancel_product_credit_slip"]:last', // Credit slip checkbox
-                '.form-group:has([name="cancel_product_credit_slip"])', // Form group containing credit slip
-            ];
-
-            let injected = false;
-            for (const selector of injectionPoints) {
-                const $element = $(selector);
-                if ($element.length > 0) {
-                    $element.after(selectHtml);
-                    injected = true;
-                    break;
-                }
+            if ($refundTable.length > 0) {
+                $refundTable.after(this.buildRefundReasonSelect());
+                this.interceptFormSubmission();
             }
-
-            // If no suitable injection point found, try to append to form
-            if (!injected) {
-                const $form = $('#order_credit_slip_form, form[name="cancel_product"]');
-                if ($form.length > 0) {
-                    $form.append(selectHtml);
-                }
-            }
-
-            // Add data to form submission
-            this.interceptFormSubmission();
         },
 
         buildRefundReasonSelect: function() {
-            let optionsHtml = '<option value="">-- Select refund reason --</option>';
+            // Set default refund reason
+            const defaultReason = 'requested_by_customer';
+            let optionsHtml = '';
+            
             this.refundReasons.forEach(reason => {
-                optionsHtml += `<option value="${reason.value}">${reason.label}</option>`;
+                const selected = reason.value === defaultReason ? 'selected' : '';
+                optionsHtml += `<option value="${reason.value}" ${selected}>${reason.label}</option>`;
             });
 
+            // Use simplified layout structure without info-block
             return `
-                <div class="form-group" id="monei_refund_reason_group">
-                    <label class="control-label">MONEI Refund Reason</label>
-                    <select id="monei_credit_slip_reason" name="monei_refund_reason" class="form-control">
-                        ${optionsHtml}
-                    </select>
+                <div class="row mb-3" id="monei_refund_reason_container">
+                    <div class="col-md-12">
+                        <div class="col-md-12">
+                            <div class="d-flex align-items-center justify-content-end">
+                                <label for="monei_credit_slip_reason" class="mb-0 mr-2">
+                                    <strong>MONEI refund reason</strong>
+                                </label>
+                                <select id="monei_credit_slip_reason" name="monei_refund_reason" class="form-control" style="width: auto;">
+                                    ${optionsHtml}
+                                </select>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             `;
         },
 
         interceptFormSubmission: function() {
-            // Intercept form submission to include refund reason
-            $(document).off('submit.monei').on('submit.monei', '#order_credit_slip_form, form[name="cancel_product"]', function(e) {
+            // Simple form submission interception
+            $(document).off('submit.monei').on('submit.monei', 'form[name="cancel_product"]', function(e) {
                 const $form = $(this);
                 const refundReason = $('#monei_credit_slip_reason').val() || 'requested_by_customer';
                 
-                // Add hidden input with refund reason if not exists
-                if ($form.find('input[name="monei_refund_reason"]').length === 0) {
-                    $form.append(`<input type="hidden" name="monei_refund_reason" value="${refundReason}" />`);
+                // Ensure hidden input exists with current value
+                let $hiddenInput = $form.find('input[name="monei_refund_reason"]');
+                if ($hiddenInput.length === 0) {
+                    $hiddenInput = $(`<input type="hidden" name="monei_refund_reason" value="${refundReason}" />`);
+                    $form.append($hiddenInput);
                 } else {
-                    $form.find('input[name="monei_refund_reason"]').val(refundReason);
+                    $hiddenInput.val(refundReason);
                 }
             });
         }

@@ -2105,11 +2105,11 @@ class Monei extends PaymentModule
         // Add fancybox for popup functionality
         $this->context->controller->addCSS('/js/jquery/plugins/fancybox/jquery.fancybox.css');
         $this->context->controller->addJS('/js/jquery/plugins/fancybox/jquery.fancybox.js');
-        
+
         // Add JSON viewer for displaying payment details
         $this->context->controller->addCSS($this->_path . 'views/css/jquery.json-viewer.css');
         $this->context->controller->addJS($this->_path . 'views/js/jquery.json-viewer.js');
-        
+
         // Add admin JavaScript
         $this->context->controller->addJS($this->_path . 'views/js/admin/admin.js');
     }
@@ -2149,12 +2149,44 @@ class Monei extends PaymentModule
             }
 
             // Calculate refund amount from the order slip
-            $refundAmount = (int) round($currentSlip['amount'] * 100); // Convert to cents
+            // Start with product refund amount
+            $totalRefundAmount = $currentSlip['amount'];
+
+            // Check for shipping refund in various POST parameters PrestaShop might send
+            $shippingRefundAmount = 0;
+
+            // Check if shipping refund is included in the order slip
+            if (isset($currentSlip['shipping_cost_amount']) && $currentSlip['shipping_cost_amount'] > 0) {
+                $shippingRefundAmount = $currentSlip['shipping_cost_amount'];
+            }
+
+            // Also check POST parameters for partial shipping refund (PrestaShop 8 compatibility)
+            // These take precedence over order slip values if present
+            if (Tools::getValue('partialRefundShippingCost') !== false) {
+                $shippingRefundAmount = (float) Tools::getValue('partialRefundShippingCost');
+            } elseif (Tools::getValue('cancel_product') && is_array(Tools::getValue('cancel_product'))) {
+                $cancelProduct = Tools::getValue('cancel_product');
+
+                if (isset($cancelProduct['shipping_amount'])) {
+                    $shippingRefundAmount = (float) $cancelProduct['shipping_amount'];
+                } elseif (isset($cancelProduct['shipping']) && $cancelProduct['shipping'] == 1) {
+                    // Full shipping refund requested - get original shipping cost from order
+                    $shippingRefundAmount = $order->total_shipping_tax_incl;
+                }
+            }
+
+            // Add shipping refund to total if present
+            if ($shippingRefundAmount > 0) {
+                $totalRefundAmount += $shippingRefundAmount;
+            }
+
+            $refundAmount = (int) round($totalRefundAmount * 100); // Convert to cents
 
             PrestaShopLogger::addLog(
-                'MONEI - hookActionOrderSlipAdd - Processing refund for order ID: ' . $order->id
-                . ', Payment ID: ' . $paymentId
-                . ', Amount: ' . $refundAmount . ' cents',
+                'MONEI - Processing refund for order ID: ' . $order->id
+                . ', Amount: ' . ($refundAmount / 100) . ' ' . $order->id_currency
+                . ' (Products: ' . $currentSlip['amount']
+                . ', Shipping: ' . $shippingRefundAmount . ')',
                 PrestaShopLogger::LOG_SEVERITY_LEVEL_INFORMATIVE
             );
 
@@ -2166,11 +2198,6 @@ class Monei extends PaymentModule
             $employeeId = $this->context->employee ? $this->context->employee->id : 0;
 
             $moneiService->createRefund((int) $order->id, $refundAmount, $employeeId, $refundReason);
-
-            PrestaShopLogger::addLog(
-                'MONEI - hookActionOrderSlipAdd - Refund processed successfully for order ID: ' . $order->id,
-                PrestaShopLogger::LOG_SEVERITY_LEVEL_INFORMATIVE
-            );
 
             // Update order status if needed
             $orderService = self::getService('service.order');
