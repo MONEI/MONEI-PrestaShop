@@ -1133,18 +1133,20 @@ class Monei extends PaymentModule
                         'col' => 3,
                         'type' => 'text',
                         'prefix' => '<i class="icon icon-key"></i>',
-                        'desc' => $this->l('Your MONEI real Account ID. Available at your MONEI dashboard.'),
+                        'desc' => $this->l('Your MONEI Account ID. Available at your MONEI dashboard.'),
                         'name' => 'MONEI_ACCOUNT_ID',
                         'label' => $this->l('Account ID'),
+                        'placeholder' => 'f47ac10b-58cc-4372-a567-0e02b2c3d479',
                         'class' => 'monei-production-field',
                     ],
                     [
                         'col' => 3,
                         'type' => 'text',
                         'prefix' => '<i class="icon icon-key"></i>',
-                        'desc' => $this->l('Your MONEI real API Key. Available at your MONEI dashboard.'),
+                        'desc' => $this->l('Your MONEI API Key. Available at your MONEI dashboard.'),
                         'name' => 'MONEI_API_KEY',
                         'label' => $this->l('API Key'),
+                        'placeholder' => 'pk_live_7h3m4n1f3st0k3yf0r3x4mpl3purp0s3',
                         'class' => 'monei-production-field',
                     ],
                     [
@@ -1154,6 +1156,7 @@ class Monei extends PaymentModule
                         'desc' => $this->l('Your MONEI Test Account ID. Available at your MONEI dashboard.'),
                         'name' => 'MONEI_TEST_ACCOUNT_ID',
                         'label' => $this->l('Test Account ID'),
+                        'placeholder' => '9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d',
                         'class' => 'monei-test-field',
                     ],
                     [
@@ -1163,6 +1166,7 @@ class Monei extends PaymentModule
                         'desc' => $this->l('Your MONEI Test API Key. Available at your MONEI dashboard.'),
                         'name' => 'MONEI_TEST_API_KEY',
                         'label' => $this->l('Test API Key'),
+                        'placeholder' => 'pk_test_d3m0t3stk3yf0rd3v3l0pm3ntus4g3',
                         'class' => 'monei-test-field',
                     ],
                     [
