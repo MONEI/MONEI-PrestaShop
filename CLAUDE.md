@@ -69,22 +69,38 @@ Then hard refresh browser (Ctrl+F5 or Cmd+Shift+R).
 
 ### Checking Logs (PrestaShop Flashlight)
 When debugging errors in the Docker environment:
+
+#### File-based logs
 ```bash
 # View recent PrestaShop application logs
-docker exec tunnel1-prestashop-1 bash -c "tail -100 /var/www/html/var/logs/prod-$(date +%Y-%m-%d).log"
+docker exec tunnel1-prestashop-1 bash -c "tail -100 /var/www/html/var/logs/dev.log"
 
 # Search for MONEI-specific errors
-docker exec tunnel1-prestashop-1 bash -c "grep -i 'monei' /var/www/html/var/logs/prod-$(date +%Y-%m-%d).log | tail -50"
+docker exec tunnel1-prestashop-1 bash -c "grep -i 'monei' /var/www/html/var/logs/dev.log | tail -50"
 
 # Check PHP error logs
 docker exec tunnel1-prestashop-1 bash -c "tail -100 /var/log/php/error.log"
 
 # Live monitoring of logs
-docker exec tunnel1-prestashop-1 bash -c "tail -f /var/www/html/var/logs/prod-$(date +%Y-%m-%d).log"
+docker exec tunnel1-prestashop-1 bash -c "tail -f /var/www/html/var/logs/dev.log"
 ```
 
-Log locations inside the container:
-- PrestaShop app logs: `/var/www/html/var/logs/`
+#### Database logs (PrestaShopLogger entries)
+MONEI module uses PrestaShopLogger which writes to the database. To check these logs:
+```bash
+# Check recent MONEI log entries
+docker exec tunnel1-mysql-1 mysql -u root -pprestashop prestashop -e "SELECT id_log, message, date_add FROM ps_log WHERE message LIKE '%MONEI%' ORDER BY id_log DESC LIMIT 20;"
+
+# Check refund-specific logs (includes POST parameters and order slip data)
+docker exec tunnel1-mysql-1 mysql -u root -pprestashop prestashop -e "SELECT id_log, message, date_add FROM ps_log WHERE message LIKE '%MONEI%hookActionOrderSlipAdd%' ORDER BY id_log DESC LIMIT 10;"
+
+# Check payment validation logs
+docker exec tunnel1-mysql-1 mysql -u root -pprestashop prestashop -e "SELECT id_log, message, date_add FROM ps_log WHERE message LIKE '%MONEI%validation%' ORDER BY id_log DESC LIMIT 10;"
+```
+
+Log locations:
+- File logs: `/var/www/html/var/logs/dev.log` (in dev mode) or `prod-{date}.log` (in production)
+- Database logs: `ps_log` table (accessed via MariaDB container)
 - PHP error logs: `/var/log/php/error.log`
 - Cache logs: `/var/www/html/var/cache/dev/admin/AdminKernelDevDebugContainerDeprecations.log`
 

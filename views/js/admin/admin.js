@@ -118,27 +118,43 @@
             },
 
             observeCreditSlipForm: function() {
-                // Use MutationObserver to detect when credit slip form is added to DOM
+                // Use MutationObserver to detect when refund form appears within orderProductsPanel
                 const observer = new MutationObserver((mutations) => {
-                    mutations.forEach((mutation) => {
-                        mutation.addedNodes.forEach((node) => {
-                            if (node.nodeType === 1) { // Element node
-                                // Check for credit slip form elements
-                                const creditSlipForm = $(node).find('#order_credit_slip_form, [name="cancel_product"]').length > 0 ||
-                                                     $(node).is('#order_credit_slip_form, [name="cancel_product"]');
-                                
-                                if (creditSlipForm) {
-                                    setTimeout(() => this.injectRefundReasonField(), 100);
-                                }
-                            }
-                        });
-                    });
+                    // Only look for refund elements within the orderProductsPanel
+                    const $orderPanel = $('#orderProductsPanel, .order-products-panel, [id*="orderProducts"]');
+                    if ($orderPanel.length === 0) return;
+                    
+                    // Check if the refund form table appears within the products panel
+                    const hasRefundTable = $orderPanel.find('table').filter(function() {
+                        return $(this).find('input[id^="cancel_product_amount_"]').length > 0;
+                    }).length > 0;
+                    
+                    // Also check for the refund checkboxes within the panel
+                    const hasRefundCheckboxes = $orderPanel.find('input[name="cancel_product[credit_slip]"]').length > 0;
+                    
+                    if ((hasRefundTable || hasRefundCheckboxes) && $('#monei_credit_slip_reason').length === 0) {
+                        this.injectRefundReasonField();
+                    }
                 });
 
-                // Start observing
-                observer.observe(document.body, {
+                // Observe the specific order panel container if it exists, otherwise observe body
+                const targetElement = document.getElementById('orderProductsPanel') || 
+                                    document.querySelector('.order-products-panel') || 
+                                    document.body;
+                                    
+                observer.observe(targetElement, {
                     childList: true,
                     subtree: true
+                });
+
+                // Also handle button clicks as backup - use class or other attributes
+                $(document).on('click', 'button[data-action="partial-refund"], button.js-partial-refund-btn, button.partial-refund-btn', () => {
+                    // Simple delay to ensure DOM is ready
+                    setTimeout(() => {
+                        if ($('#monei_credit_slip_reason').length === 0) {
+                            this.injectRefundReasonField();
+                        }
+                    }, 100);
                 });
             },
 
@@ -158,30 +174,27 @@
                 // Build the select field HTML
                 const selectHtml = this.buildRefundReasonSelect();
                 
-                // Find suitable injection points for PrestaShop 8 order page
-                const injectionPoints = [
-                    '.cancel-product-element:last', // New order page
-                    '.standard-refund-fields:last', // Standard refund
-                    '.partial-refund-fields:last', // Partial refund
-                    '[name="cancel_product_credit_slip"]:last', // Credit slip checkbox
-                    '.form-group:has([name="cancel_product_credit_slip"])', // Form group containing credit slip
-                ];
-
-                let injected = false;
-                for (const selector of injectionPoints) {
-                    const $element = $(selector);
-                    if ($element.length > 0) {
-                        $element.after(selectHtml);
-                        injected = true;
-                        break;
+                // Find the orderProductsPanel first
+                const $orderPanel = $('#orderProductsPanel, .order-products-panel, [id*="orderProducts"]').first();
+                
+                if ($orderPanel.length > 0) {
+                    // Find the specific refund table within the panel - the one containing refund amount inputs
+                    const $refundTable = $orderPanel.find('table').filter(function() {
+                        return $(this).find('input[id^="cancel_product_amount_"]').length > 0;
+                    }).first();
+                    
+                    if ($refundTable.length > 0) {
+                        // Insert directly after the table within the panel
+                        $refundTable.after(selectHtml);
                     }
-                }
-
-                // If no suitable injection point found, try to append to form
-                if (!injected) {
-                    const $form = $('#order_credit_slip_form, form[name="cancel_product"]');
-                    if ($form.length > 0) {
-                        $form.append(selectHtml);
+                } else {
+                    // Fallback: if no panel found, use the original approach
+                    const $refundTable = $('table').filter(function() {
+                        return $(this).find('input[id^="cancel_product_amount_"]').length > 0;
+                    }).first();
+                    
+                    if ($refundTable.length > 0) {
+                        $refundTable.after(selectHtml);
                     }
                 }
 
@@ -190,23 +203,51 @@
             },
 
             buildRefundReasonSelect: function() {
-                let optionsHtml = '<option value="">-- Select refund reason --</option>';
+                let optionsHtml = '';
                 this.refundReasons.forEach(reason => {
-                    optionsHtml += `<option value="${reason.value}">${reason.label}</option>`;
+                    const selected = reason.value === 'requested_by_customer' ? 'selected' : '';
+                    optionsHtml += `<option value="${reason.value}" ${selected}>${reason.label}</option>`;
                 });
 
+                // Use the same layout structure as other fields: row mb-3 > col-md-12 > col-md-12 > info-block
                 return `
-                    <div class="form-group" id="monei_refund_reason_group">
-                        <label class="control-label">MONEI Refund Reason</label>
-                        <select id="monei_credit_slip_reason" name="monei_refund_reason" class="form-control">
-                            ${optionsHtml}
-                        </select>
+                    <div class="row mb-3" id="monei_refund_reason_container">
+                        <div class="col-md-12">
+                            <div class="col-md-12">
+                                <div class="info-block">
+                                    <div class="d-flex align-items-center">
+                                        <label for="monei_credit_slip_reason" class="mb-0 mr-2">
+                                            <strong>MONEI refund reason</strong>
+                                        </label>
+                                        <select id="monei_credit_slip_reason" name="monei_refund_reason" class="form-control" style="width: auto;">
+                                            ${optionsHtml}
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 `;
             },
 
             interceptFormSubmission: function() {
-                // Intercept form submission to include refund reason
+                // Intercept refund button click for PrestaShop 8 AJAX submission
+                // Use attribute selectors instead of text content
+                $(document).off('click.monei').on('click.monei', 'button[type="submit"][name*="cancel"], button[type="submit"][name*="refund"], button.btn-partial-refund, button.btn-standard-refund', function(e) {
+                    const refundReason = $('#monei_credit_slip_reason').val() || 'requested_by_customer';
+                    
+                    // Add to form data if form exists
+                    const $form = $('form[name="cancel_product"]');
+                    if ($form.length > 0) {
+                        if ($form.find('input[name="monei_refund_reason"]').length === 0) {
+                            $form.append(`<input type="hidden" name="monei_refund_reason" value="${refundReason}" />`);
+                        } else {
+                            $form.find('input[name="monei_refund_reason"]').val(refundReason);
+                        }
+                    }
+                });
+                
+                // Also handle traditional form submission for older PrestaShop versions
                 $(document).off('submit.monei').on('submit.monei', '#order_credit_slip_form, form[name="cancel_product"]', function(e) {
                     const $form = $(this);
                     const refundReason = $('#monei_credit_slip_reason').val() || 'requested_by_customer';
