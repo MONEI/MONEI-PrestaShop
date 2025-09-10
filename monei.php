@@ -18,7 +18,7 @@ class Monei extends PaymentModule
     protected $moneiClient = false;
 
     const NAME = 'monei';
-    const VERSION = '2.0.7';
+    const VERSION = '2.0.8';
 
     private static $serviceContainer;
     private static $serviceList;
@@ -28,7 +28,7 @@ class Monei extends PaymentModule
         $this->displayName = 'MONEI Payments';
         $this->name = 'monei';
         $this->tab = 'payments_gateways';
-        $this->version = '2.0.7';
+        $this->version = '2.0.8';
         $this->author = 'MONEI';
         $this->need_instance = 0;
         $this->ps_versions_compliancy = ['min' => '8', 'max' => _PS_VERSION_];
@@ -1021,7 +1021,7 @@ class Monei extends PaymentModule
                         'desc' => $this->l('Your MONEI Test Account ID. Available at your MONEI dashboard.'),
                         'name' => 'MONEI_TEST_ACCOUNT_ID',
                         'label' => $this->l('Test Account ID'),
-                        'placeholder' => '9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d',
+                        'placeholder' => '9b1deb4d-3b7d-4bad-9bdd-2.0.8b3dcb6d',
                         'class' => 'monei-test-field',
                     ],
                     [
