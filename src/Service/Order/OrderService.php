@@ -124,7 +124,7 @@ class OrderService
     {
         $statusMap = [
             PaymentStatus::REFUNDED => 'MONEI_STATUS_REFUNDED',
-            PaymentStatus::PARTIALLY_REFUNDED => 'MONEI_STATUS_REFUNDED',
+            PaymentStatus::PARTIALLY_REFUNDED => 'MONEI_STATUS_PARTIALLY_REFUNDED',
             PaymentStatus::PENDING => 'MONEI_STATUS_PENDING',
             PaymentStatus::SUCCEEDED => 'MONEI_STATUS_SUCCEEDED',
             PaymentStatus::AUTHORIZED => 'MONEI_STATUS_AUTHORIZED',

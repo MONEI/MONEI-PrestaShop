@@ -6,14 +6,16 @@ class MoneiCreatePaymentModuleFrontController extends ModuleFrontController
 {
     public function postProcess()
     {
-        if (!$this->isAuthorizedRequest()) {
+        // Read input once to avoid issues with read-once streams
+        $json = file_get_contents('php://input');
+        $data = json_decode($json, true);
+        
+        if (!$this->isAuthorizedRequest($data)) {
+            header('Content-Type: application/json');
             http_response_code(403);
             echo json_encode(['error' => 'Unauthorized access']);
             exit;
         }
-
-        $json = file_get_contents('php://input');
-        $data = json_decode($json, true);
 
         // Get payment method from request if provided
         $paymentMethod = isset($data['paymentMethod']) ? $data['paymentMethod'] : '';
@@ -33,23 +35,28 @@ class MoneiCreatePaymentModuleFrontController extends ModuleFrontController
             header('Content-Type: application/json');
             echo json_encode(['moneiPaymentId' => $paymentResponse->getId()]);
         } else {
+            header('Content-Type: application/json');
             http_response_code(400);
             echo json_encode(['error' => 'Payment creation failed']);
         }
         exit;
     }
 
-    private function isAuthorizedRequest()
+    private function isAuthorizedRequest($data = null)
     {
-        $json = file_get_contents('php://input');
-
-        $data = json_decode($json, true);
+        // If data not provided, read it (backward compatibility)
+        if ($data === null) {
+            $json = file_get_contents('php://input');
+            $data = json_decode($json, true);
+        }
 
         if (isset($data['token'])) {
             return $data['token'] === Tools::getToken(false);
         } else {
+            header('Content-Type: application/json');
             http_response_code(400);
             echo json_encode(['error' => 'Token not provided']);
+            return false;
         }
     }
 }
