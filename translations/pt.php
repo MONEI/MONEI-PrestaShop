@@ -1,5 +1,4 @@
 <?php
-
 global $_MODULE;
 $_MODULE = array();
 $_MODULE['<{monei}prestashop>monei_99cc282fb6fdb65298dacac1bfe0b1e6'] = 'Aceite Cartão, Apple Pay, Google Pay, Bizum, PayPal e muitos outros métodos de pagamento na sua loja.';
@@ -338,3 +337,5 @@ $_MODULE['<{monei}prestashop>statuscodehandler_57ee3debbb1e12cf62cb502eb3861566'
 $_MODULE['<{monei}prestashop>statuscodehandler_a4e2c33f5123a8b3f176129cdeb350d4'] = 'Configuração incorreta do ClickToPay';
 $_MODULE['<{monei}prestashop>statuscodehandler_d4bae019657857613ef1319ca317df02'] = 'Transação recusada durante o processo de pagamento Cofidis';
 $_MODULE['<{monei}prestashop>statuscodehandler_792b8408bc86b3b99606fe1ab71805d3'] = 'Código de estado desconhecido: %s';
+$_MODULE['<{monei}prestashop>monei_40dbad35e95e6a1b02e0f3a32ffb5c8e'] = 'MONEI refund reason';
+$_MODULE['<{monei}prestashop>monei_43cc1c54b2b3cd52cfd9e5f338638dee'] = 'Refund failed in MONEI payment gateway. Please try again or contact support.';
