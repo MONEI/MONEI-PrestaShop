@@ -16,9 +16,6 @@ composer install
 # Fix PHP code style
 ./vendor/bin/php-cs-fixer fix
 
-# Build JavaScript assets (from /build directory)
-cd build && yarn install && yarn build
-
 # Create release (from /build directory) - bumps version in monei.php
 cd build && yarn release
 ```
@@ -121,12 +118,12 @@ $paymentService = Monei::getService('monei.service.payment');
 ```
 
 ### Frontend JavaScript Architecture
-- Development files in `/views/js/_dev/` use vanilla JavaScript
+- JavaScript files in `/views/js/` use vanilla JavaScript (no build step required)
 - Key files:
   - `checkout.js`: Payment form handling, Apple/Google Pay detection
   - `saved-cards.js`: Tokenized card management
-  - `admin.js`: Admin panel functionality
-- Built with uglifyjs-folder (no bundler/transpilation)
+  - `admin/admin.js`: Admin panel functionality, refund handling
+- No bundler or transpilation - files are used directly
 
 ## Version Compatibility
 - PHP: ≥7.4 (composer platform configured)

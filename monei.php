@@ -60,7 +60,7 @@ class Monei extends PaymentModule
         Configuration::updateValue('MONEI_TEST_API_KEY', '');
         Configuration::updateValue('MONEI_TEST_ACCOUNT_ID', '');
         Configuration::updateValue('MONEI_EXPIRE_TIME', 600);
-        
+
         // Clean up deprecated configurations
         Configuration::deleteByName('MONEI_CART_TO_ORDER');
         // Gateways
@@ -2237,9 +2237,43 @@ class Monei extends PaymentModule
             return;
         }
 
+        // Get refund reasons from MONEI SDK with translations
+        $refundReasons = [];
+        if (class_exists('\Monei\Model\PaymentRefundReason')) {
+            $allowableValues = Monei\Model\PaymentRefundReason::getAllowableEnumValues();
+            foreach ($allowableValues as $value) {
+                // Translate each refund reason
+                switch ($value) {
+                    case 'requested_by_customer':
+                        $label = $this->l('Requested by customer');
+
+                        break;
+                    case 'duplicated':
+                        $label = $this->l('Duplicated');
+
+                        break;
+                    case 'fraudulent':
+                        $label = $this->l('Fraudulent');
+
+                        break;
+                    default:
+                        // Fallback: convert snake_case to human-readable format
+                        $label = ucwords(str_replace('_', ' ', $value));
+
+                        break;
+                }
+                $refundReasons[] = [
+                    'value' => $value,
+                    'label' => $label,
+                ];
+            }
+        }
+
         Media::addJsDef([
             'MoneiVars' => [
                 'adminMoneiControllerUrl' => $this->context->link->getAdminLink('AdminMonei'),
+                'refundReasons' => $refundReasons,
+                'refundReasonLabel' => $this->l('MONEI refund reason'),
             ],
         ]);
 
@@ -2331,8 +2365,8 @@ class Monei extends PaymentModule
                 PrestaShopLogger::LOG_SEVERITY_LEVEL_INFORMATIVE
             );
 
-            // Get refund reason from POST data or default to requested_by_customer
-            $refundReason = Tools::getValue('monei_refund_reason', 'requested_by_customer');
+            // Get and validate refund reason from POST data
+            $refundReason = $this->getValidatedRefundReason();
 
             // Process the refund through MONEI
             $moneiService = self::getService('service.monei');
@@ -2353,6 +2387,47 @@ class Monei extends PaymentModule
                 (int) $order->id
             );
         }
+    }
+
+    /**
+     * Validates the refund reason against allowed MONEI SDK values
+     *
+     * @return string Valid refund reason
+     */
+    private function getValidatedRefundReason()
+    {
+        $inputReason = Tools::getValue('monei_refund_reason', 'requested_by_customer');
+
+        // Get allowed values from SDK or use fallback
+        $allowedReasons = ['requested_by_customer', 'duplicated', 'fraudulent'];
+
+        if (class_exists('\Monei\Model\PaymentRefundReason')
+            && method_exists('\Monei\Model\PaymentRefundReason', 'getAllowableEnumValues')) {
+            try {
+                $allowedReasons = Monei\Model\PaymentRefundReason::getAllowableEnumValues();
+            } catch (Throwable $e) {
+                PrestaShopLogger::addLog(
+                    'MONEI SDK: Failed to get refund reasons: ' . $e->getMessage(),
+                    PrestaShopLogger::LOG_SEVERITY_LEVEL_WARNING,
+                    null,
+                    'Monei'
+                );
+            }
+        }
+
+        // Validate input against allowed values
+        if (!in_array($inputReason, $allowedReasons, true)) {
+            PrestaShopLogger::addLog(
+                'MONEI: Invalid refund reason attempted: ' . $inputReason,
+                PrestaShopLogger::LOG_SEVERITY_LEVEL_WARNING,
+                null,
+                'Monei'
+            );
+
+            return 'requested_by_customer'; // Safe default
+        }
+
+        return $inputReason;
     }
 
     /**
