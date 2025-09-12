@@ -20,6 +20,21 @@ class MoneiRedirectModuleFrontController extends ModuleFrontController
             $moneiCardId = (int) Tools::getValue('id_monei_card', 0);
             $paymentMethod = Tools::getValue('method', '');
 
+            // Validate cart exists and is valid before using it
+            if (!$cart || !\Validate::isLoadedObject($cart)
+                || $cart->id_customer == 0
+                || $cart->id_address_delivery == 0
+                || $cart->id_address_invoice == 0
+                || !$this->module->active
+            ) {
+                PrestaShopLogger::addLog(
+                    '[MONEI] Payment initiation failed - Invalid or missing cart [method=' . $paymentMethod . ']',
+                    PrestaShopLogger::LOG_SEVERITY_LEVEL_ERROR
+                );
+                Tools::redirect($this->context->link->getPageLink('index'));
+                exit;
+            }
+
             PrestaShopLogger::addLog(
                 '[MONEI] Payment initiation started [cart_id=' . $cart->id . ', customer_id=' . $cart->id_customer . ', method=' . $paymentMethod . ']',
                 PrestaShopLogger::LOG_SEVERITY_LEVEL_INFORMATIVE
@@ -27,14 +42,6 @@ class MoneiRedirectModuleFrontController extends ModuleFrontController
 
             $crypto = ServiceLocator::get('\\PrestaShop\\PrestaShop\\Core\\Crypto\\Hashing');
             $check_encrypt = $crypto->checkHash((int) $cart->id . (int) $cart->id_customer, $transactionId);
-
-            if ($cart->id_customer == 0
-                || $cart->id_address_delivery == 0
-                || $cart->id_address_invoice == 0
-                || !$this->module->active
-            ) {
-                Tools::redirect($this->context->link->getPageLink('index'));
-            }
 
             try {
                 if (!$check_encrypt) {
