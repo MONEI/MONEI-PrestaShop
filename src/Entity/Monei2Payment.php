@@ -566,10 +566,10 @@ class Monei2Payment extends \ObjectModel
      * Find multiple entities by criteria
      * 
      * @param array $criteria Associative array of field => value pairs
-     * @param string $orderBy Order by clause (e.g., 'date_add DESC')
+     * @param string $orderBy Order by clause (ignored for simplicity, always uses date_add DESC)
      * @return array Array of Monei2Payment objects
      */
-    public static function findBy($criteria, $orderBy = 'date_add DESC')
+    public static function findBy($criteria, $orderBy = null)
     {
         $where_parts = [];
         foreach ($criteria as $field => $value) {
@@ -584,20 +584,7 @@ class Monei2Payment extends \ObjectModel
         if (!empty($where_parts)) {
             $sql .= ' WHERE ' . implode(' AND ', $where_parts);
         }
-
-        // Simple whitelist for order by
-        $orderSql = ' ORDER BY `date_add` DESC';
-        if (!empty($orderBy)) {
-            $parts = preg_split('/\s+/', trim($orderBy));
-            $field = $parts[0];
-            $dir = isset($parts[1]) ? strtoupper($parts[1]) : 'ASC';
-            $allowedFields = ['date_add', 'date_upd', 'id_order', 'id_cart', 'status'];
-            $allowedDir = ['ASC', 'DESC'];
-            if (in_array($field, $allowedFields, true) && in_array($dir, $allowedDir, true)) {
-                $orderSql = ' ORDER BY `' . $field . '` ' . $dir;
-            }
-        }
-        $sql .= $orderSql;
+        $sql .= ' ORDER BY `date_add` DESC';
 
         $results = \Db::getInstance()->executeS($sql);
         $payments = [];
