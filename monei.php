@@ -2365,8 +2365,8 @@ class Monei extends PaymentModule
                 PrestaShopLogger::LOG_SEVERITY_LEVEL_INFORMATIVE
             );
 
-            // Get and validate refund reason from POST data
-            $refundReason = $this->getValidatedRefundReason();
+            // Get refund reason from POST data or default to requested_by_customer
+            $refundReason = Tools::getValue('monei_refund_reason', 'requested_by_customer');
 
             // Process the refund through MONEI
             $moneiService = self::getService('service.monei');
@@ -2387,47 +2387,6 @@ class Monei extends PaymentModule
                 (int) $order->id
             );
         }
-    }
-
-    /**
-     * Validates the refund reason against allowed MONEI SDK values
-     *
-     * @return string Valid refund reason
-     */
-    private function getValidatedRefundReason()
-    {
-        $inputReason = Tools::getValue('monei_refund_reason', 'requested_by_customer');
-
-        // Get allowed values from SDK or use fallback
-        $allowedReasons = ['requested_by_customer', 'duplicated', 'fraudulent'];
-
-        if (class_exists('\Monei\Model\PaymentRefundReason')
-            && method_exists('\Monei\Model\PaymentRefundReason', 'getAllowableEnumValues')) {
-            try {
-                $allowedReasons = Monei\Model\PaymentRefundReason::getAllowableEnumValues();
-            } catch (Throwable $e) {
-                PrestaShopLogger::addLog(
-                    'MONEI SDK: Failed to get refund reasons: ' . $e->getMessage(),
-                    PrestaShopLogger::LOG_SEVERITY_LEVEL_WARNING,
-                    null,
-                    'Monei'
-                );
-            }
-        }
-
-        // Validate input against allowed values
-        if (!in_array($inputReason, $allowedReasons, true)) {
-            PrestaShopLogger::addLog(
-                'MONEI: Invalid refund reason attempted: ' . $inputReason,
-                PrestaShopLogger::LOG_SEVERITY_LEVEL_WARNING,
-                null,
-                'Monei'
-            );
-
-            return 'requested_by_customer'; // Safe default
-        }
-
-        return $inputReason;
     }
 
     /**
