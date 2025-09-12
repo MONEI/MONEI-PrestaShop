@@ -17,7 +17,15 @@ class MoneiCreatePaymentModuleFrontController extends ModuleFrontController
             );
             header('Content-Type: application/json');
             http_response_code(403);
-            echo json_encode(['error' => 'Unauthorized access']);
+            
+            // Provide specific error based on the issue
+            if ($data === null) {
+                echo json_encode(['error' => 'Invalid request data']);
+            } elseif (!isset($data['token'])) {
+                echo json_encode(['error' => 'Token not provided']);
+            } else {
+                echo json_encode(['error' => 'Invalid token']);
+            }
             exit;
         }
 
@@ -114,21 +122,17 @@ class MoneiCreatePaymentModuleFrontController extends ModuleFrontController
         exit;
     }
 
-    private function isAuthorizedRequest($data = null)
+    private function isAuthorizedRequest($data)
     {
-        // If data not provided, read it (backward compatibility)
+        // Treat null data as invalid request
         if ($data === null) {
-            $json = file_get_contents('php://input');
-            $data = json_decode($json, true);
+            return false;
         }
 
         if (isset($data['token'])) {
             return $data['token'] === Tools::getToken(false);
-        } else {
-            header('Content-Type: application/json');
-            http_response_code(400);
-            echo json_encode(['error' => 'Token not provided']);
-            exit; // Stop execution immediately to prevent double-response
         }
+        
+        return false;
     }
 }
