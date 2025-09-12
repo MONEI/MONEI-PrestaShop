@@ -2308,31 +2308,33 @@ class Monei extends PaymentModule
             // Get dynamic refund reasons from MONEI SDK
             $refundReasons = [];
             if (class_exists('\Monei\Model\PaymentRefundReason')) {
-                try {
-                    $allowedReasons = Monei\Model\PaymentRefundReason::getAllowableEnumValues();
-                    foreach ($allowedReasons as $reason) {
-                        // Format the reason for display
-                        $label = ucwords(str_replace('_', ' ', $reason));
-                        $refundReasons[] = [
-                            'value' => $reason,
-                            'label' => $label,
-                        ];
+                $allowableValues = Monei\Model\PaymentRefundReason::getAllowableEnumValues();
+                foreach ($allowableValues as $value) {
+                    // Translate each refund reason
+                    switch ($value) {
+                        case 'requested_by_customer':
+                            $label = $this->l('Requested by customer');
+
+                            break;
+                        case 'duplicated':
+                            $label = $this->l('Duplicated');
+
+                            break;
+                        case 'fraudulent':
+                            $label = $this->l('Fraudulent');
+
+                            break;
+                        default:
+                            // Fallback: convert snake_case to human-readable format
+                            $label = ucwords(str_replace('_', ' ', $value));
+
+                            break;
                     }
-                } catch (Exception $e) {
-                    // Fallback to default reasons if SDK fails
-                    $refundReasons = [
-                        ['value' => 'requested_by_customer', 'label' => 'Requested by customer'],
-                        ['value' => 'duplicated', 'label' => 'Duplicated'],
-                        ['value' => 'fraudulent', 'label' => 'Fraudulent'],
+                    $refundReasons[] = [
+                        'value' => $value,
+                        'label' => $label,
                     ];
                 }
-            } else {
-                // Fallback for older SDK versions
-                $refundReasons = [
-                    ['value' => 'requested_by_customer', 'label' => 'Requested by customer'],
-                    ['value' => 'duplicated', 'label' => 'Duplicated'],
-                    ['value' => 'fraudulent', 'label' => 'Fraudulent'],
-                ];
             }
 
             Media::addJsDef([
@@ -2340,7 +2342,7 @@ class Monei extends PaymentModule
                     // Decode HTML entities as URLs should not be escaped in JavaScript
                     'adminMoneiControllerUrl' => html_entity_decode($this->context->link->getAdminLink('AdminMonei')),
                     'refundReasons' => $refundReasons,
-                    'refundReasonTitle' => $this->l('MONEI refund reason'),
+                    'refundReasonLabel' => $this->l('MONEI refund reason'),
                 ],
             ]);
 

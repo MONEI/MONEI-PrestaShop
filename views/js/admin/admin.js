@@ -88,7 +88,7 @@
                     beforeShow: function() {
                         const jsonInfoCoded = atob($(this.element).data("moneijson"));
                         $(CONFIG.selectors.jsonLog).jsonViewer(JSON.parse(jsonInfoCoded), {
-                            collapsed: true,
+                            collapsed: false,
                             rootCollapsable: false
                         });
                         $.fancybox.update();
@@ -102,11 +102,14 @@
 
         // Credit slip refund reason handler
         const creditSlipHandler = {
-            refundReasons: (typeof MoneiVars !== 'undefined' && MoneiVars.refundReasons) ? MoneiVars.refundReasons : [
-                { value: 'requested_by_customer', label: 'Requested by customer' },
-                { value: 'duplicated', label: 'Duplicated' },
-                { value: 'fraudulent', label: 'Fraudulent' }
-            ],
+            // Get refund reasons from PHP (MONEI SDK), fallback to defaults if not available
+            refundReasons: (typeof MoneiVars !== 'undefined' && MoneiVars.refundReasons && MoneiVars.refundReasons.length > 0) 
+                ? MoneiVars.refundReasons 
+                : [
+                    { value: 'requested_by_customer', label: 'Requested By Customer' },
+                    { value: 'duplicated', label: 'Duplicated' },
+                    { value: 'fraudulent', label: 'Fraudulent' }
+                ],
 
             init: function() {
                 // Watch for partial refund button clicks
@@ -192,7 +195,7 @@
                             <div class="col-md-12">
                                 <div class="d-flex align-items-center justify-content-end">
                                     <label for="monei_credit_slip_reason" class="mb-0 mr-2">
-                                        <strong>MONEI refund reason</strong>
+                                        <strong>${(typeof MoneiVars !== 'undefined' && MoneiVars.refundReasonLabel) ? MoneiVars.refundReasonLabel : 'MONEI refund reason'}</strong>
                                     </label>
                                     <select id="monei_credit_slip_reason" name="monei_refund_reason" class="form-control" style="width: auto;">
                                         ${optionsHtml}
