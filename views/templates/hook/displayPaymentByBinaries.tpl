@@ -558,11 +558,6 @@
             }
           };
           
-          // Debug logging for PayPal configuration
-          console.log('[MONEI Debug] PayPal Configuration:', paypalConfig);
-          console.log('[MONEI Debug] Payment Action:', moneiPaymentAction);
-          console.log('[MONEI Debug] Transaction Type:', paypalConfig.transactionType);
-          
           monei.PayPal(paypalConfig).render(moneiPayPalRenderContainer);
         }
       </script>

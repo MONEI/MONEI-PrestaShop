@@ -198,16 +198,18 @@ class MoneiService
 
     public function createMoneiOrderId(int $cartId)
     {
-        // Generate a unique 9-character reference compatible with PrestaShop
-        // Each payment attempt gets a unique ID to avoid conflicts
+        // Generate a deterministic 9-character reference for the same cart ID
+        // This ensures idempotency - same cart always gets same reference
         
-        $salt = \Configuration::get('PS_SHOP_DOMAIN') ?: \Configuration::get('PS_SHOP_NAME');
+        $shopId = \Context::getContext()->shop->id;
+        $cookieKey = \Configuration::get('PS_COOKIE_KEY');
         
-        // Include timestamp and random number to ensure uniqueness
-        $uniqueString = $cartId . $salt . time() . mt_rand(100, 999);
+        // Create deterministic string with enough entropy
+        $uniqueString = $cartId . '-' . $shopId . '-' . $cookieKey;
         
-        // Create a unique hash limited to 9 chars
-        $hash = strtoupper(substr(sha1($uniqueString), 0, 9));
+        // Use base36 encoding (0-9, A-Z) for maximum entropy in 9 chars
+        // This gives us 36^9 = 101,559,956,668,416 possible combinations
+        $hash = strtoupper(substr(base_convert(sha1($uniqueString), 16, 36), 0, 9));
         
         return $hash;
     }

@@ -438,6 +438,47 @@ class Monei extends PaymentModule
 
     public function uninstall()
     {
+        // Remove Order override if it's ours
+        try {
+            $overrideFile = _PS_OVERRIDE_DIR_ . 'classes/order/Order.php';
+            if (file_exists($overrideFile)) {
+                $content = file_get_contents($overrideFile);
+                // Check if this is our override (contains monei_order_reference)
+                if (strpos($content, 'monei_order_reference') !== false) {
+                    // Check if there are other overrides in the file
+                    $hasOtherOverrides = false;
+                    
+                    // Simple check: if the file only extends OrderCore with our method, remove it
+                    // Otherwise, just log a warning
+                    if (preg_match('/class\s+Order\s+extends\s+OrderCore\s*{[^}]*monei_order_reference[^}]*}/', $content)) {
+                        // This looks like it only contains our override
+                        unlink($overrideFile);
+                        
+                        // Clear cache to ensure override removal takes effect
+                        Tools::clearCache();
+                        Tools::clearCompileCache();
+                        
+                        PrestaShopLogger::addLog(
+                            '[MONEI] Order override removed during uninstall',
+                            PrestaShopLogger::LOG_SEVERITY_LEVEL_INFORMATIVE
+                        );
+                    } else {
+                        // File contains other overrides, log warning
+                        PrestaShopLogger::addLog(
+                            '[MONEI] Order override contains other modifications, manual removal may be required',
+                            PrestaShopLogger::LOG_SEVERITY_LEVEL_WARNING
+                        );
+                    }
+                }
+            }
+        } catch (Exception $e) {
+            // Log error but don't fail the uninstall
+            PrestaShopLogger::addLog(
+                '[MONEI] Warning: Could not remove Order override during uninstall: ' . $e->getMessage(),
+                PrestaShopLogger::LOG_SEVERITY_LEVEL_WARNING
+            );
+        }
+        
         // Remove MONEI OrderStates
         $moneiOrderStates = [
             'MONEI_STATUS_PENDING',
