@@ -170,14 +170,15 @@
           // Add container div to match page width
           containerDiv = document.createElement('div');
           containerDiv.className = 'container';
-        } else {
-          // Clear existing content
-          containerDiv.innerHTML = '';
+          notificationContainer.appendChild(containerDiv);
         }
+        
+        // Remove only previous MONEI alerts, keep other notices intact
+        containerDiv.querySelectorAll('.monei-payment-alert').forEach(el => el.remove());
         
         // Create the alert structure
         const alert = document.createElement('article');
-        alert.className = 'alert alert-danger';
+        alert.className = 'alert alert-danger monei-payment-alert';
         alert.setAttribute('role', 'alert');
         alert.setAttribute('data-alert', 'danger');
         
@@ -191,12 +192,6 @@
         // Add alert to container
         containerDiv.appendChild(alert);
         
-        // If we created a new container, add it to notifications
-        if (!notificationContainer.querySelector('.container, .notifications-container')) {
-          notificationContainer.innerHTML = '';
-          notificationContainer.appendChild(containerDiv);
-        }
-        
         // Scroll to the notification
         notificationContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
       } else {
@@ -205,10 +200,7 @@
         
         if (paymentSection) {
           // Remove any existing MONEI alerts
-          const existingAlert = paymentSection.querySelector('.monei-payment-alert');
-          if (existingAlert) {
-            existingAlert.remove();
-          }
+          paymentSection.querySelectorAll('.monei-payment-alert').forEach(el => el.remove());
           
           // Create alert
           const alert = document.createElement('div');
@@ -235,12 +227,12 @@
     };
 
     var moneiTokenHandler = async (parameters = {}) => {
-      const { paymentToken, cardholderName = null, moneiConfirmationButton = null } = parameters;
+      const { paymentToken, cardholderName = null, moneiConfirmationButton = null, paymentMethod = '' } = parameters;
 
       const createMoneiPayment = async () => {
         try {
           const data = await moneiAjaxRequest(moneiCreatePaymentUrlController, {
-            body: JSON.stringify({ token: moneiToken })
+            body: JSON.stringify({ token: moneiToken, paymentMethod })
           });
           
           // Check if we got a valid response
@@ -389,7 +381,7 @@
             },
             onSubmit({token}) {
               if (token) {
-                moneiTokenHandler({paymentToken: token});
+                moneiTokenHandler({paymentToken: token, paymentMethod: 'bizum'});
               }
             },
             onError({status, statusCode, message}) {
@@ -594,7 +586,7 @@
                 moneiLog('error', 'PayPal', 'Payment submission error', result.error);
                 processingMoneiPayPalPayment = false;
               } else if (result.token) {
-                moneiTokenHandler({ paymentToken: result.token });
+                moneiTokenHandler({ paymentToken: result.token, paymentMethod: 'paypal' });
               }
             },
             onError(error) {
