@@ -52,7 +52,12 @@ class MoneiRedirectModuleFrontController extends ModuleFrontController
                         if ($moneiPayment->getStatusCode()) {
                             $this->context->cookie->monei_error_code = $moneiPayment->getStatusCode();
                         }
-                        $redirectURL .= '&message=' . $moneiPayment->getStatusMessage();
+                        // Safely append the message parameter with proper URL encoding
+                        if ($statusMessage = $moneiPayment->getStatusMessage()) {
+                            // Check if URL already has query parameters
+                            $separator = (strpos($redirectURL, '?') !== false) ? '&' : '?';
+                            $redirectURL .= $separator . 'message=' . rawurlencode($statusMessage);
+                        }
                     }
 
                     Tools::redirect($redirectURL);
