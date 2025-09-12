@@ -320,17 +320,18 @@ class MoneiService
         // Note: Removing colons from email addresses may break valid emails
         // Consider using proper email validation instead
         // For now, keeping the behavior but adding a warning log
-        if (strpos($customer->email, ':') !== false) {
+        $email = $customer->email;
+        if (strpos($email, ':') !== false) {
             \PrestaShopLogger::addLog(
-                'MONEI - getCustomerData - Email contains colon, which will be removed: ' . $customer->email,
+                'MONEI - getCustomerData - Email contains colon, which will be removed: ' . $email,
                 \PrestaShopLogger::LOG_SEVERITY_LEVEL_WARNING
             );
+            $email = str_replace(':', '', $email);
         }
-        $customer->email = str_replace(':', '', $customer->email);
 
         $customerData = [
             'name' => $customer->firstname . ' ' . $customer->lastname,
-            'email' => $customer->email,
+            'email' => $email,
             'phone' => $addressInvoice->phone_mobile ?: $addressInvoice->phone,
         ];
 
