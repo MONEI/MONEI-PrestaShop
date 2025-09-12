@@ -56,7 +56,8 @@ $_MODULE['<{monei}prestashop>displayadminorder_36a688e72b6ebf5dec55e55339a5b649'
 $_MODULE['<{monei}prestashop>displayadminorder_39a36f33efa5a7b626ae28cb54e09162'] = 'Makse autoriseeritud';
 $_MODULE['<{monei}prestashop>displayadminorder_3f4c5d9e70c4e4bd1b06f72c1caf5e22'] = 'Autoriseeritud summa:';
 $_MODULE['<{monei}prestashop>displayadminorder_44749712dbec183e983dcd78a7736c41'] = 'Kuupäev';
-$_MODULE['<{monei}prestashop>displayadminorder_549fa398acc100796592d7be0e8634d1'] = 'Üksikasjad...';
+$_MODULE['<{monei}prestashop>displayadminorder_1e63d1811556fc2dad106dcbd4217a69'] = 'Makse ID';
+$_MODULE['<{monei}prestashop>displayadminorder_3ec365dd533ddb7ef3d1c111186ce872'] = 'Üksikasjad';
 $_MODULE['<{monei}prestashop>displayadminorder_55052f5c1b1e04c1d7539852ce12a82e'] = 'MONEI maksed';
 $_MODULE['<{monei}prestashop>displayadminorder_5c3a57360eb40f414ca5eb2ad527117e'] = 'Kinnitatav jääk:';
 $_MODULE['<{monei}prestashop>displayadminorder_707436a5aa13b82a4d777f64c717a625'] = 'Maksemeetod';
@@ -68,6 +69,7 @@ $_MODULE['<{monei}prestashop>displayadminorder_923974d7eb22e4ab5670c3d2b2b01ea9'
 $_MODULE['<{monei}prestashop>displayadminorder_955ad3298db330b5ee880c2c9e6f23a0'] = 'Reaalajas';
 $_MODULE['<{monei}prestashop>displayadminorder_9b650d2ee428e59b8cfd7e543400b157'] = 'Peate makse kinnitama 7 päeva jooksul, muidu autoriseering aegub ja vahendid vabastatakse kliendile tagasi.';
 $_MODULE['<{monei}prestashop>displayadminorder_a12a3079e14ced46e69ba52b8a90b21a'] = 'IP';
+$_MODULE['<{monei}prestashop>displayadminorder_59716c97497eb9694541f7c3d37b1a4d'] = 'Riik';
 $_MODULE['<{monei}prestashop>displayadminorder_c29ed1ee12f1d5886cf04f84efa332c4'] = 'Summa ei saa ületada järelejäänud kinnitatavat summat.';
 $_MODULE['<{monei}prestashop>displayadminorder_c3d2b1c9aef86f179c7ee5657f7b755a'] = 'Kinnita makse';
 $_MODULE['<{monei}prestashop>displayadminorder_cfa22c94ed7417cf7cd863b74191c4fc'] = 'Oleku sõnum';
@@ -165,6 +167,8 @@ $_MODULE['<{monei}prestashop>monei_88183b946cc5f0e8c96b2e66e1c74a7e'] = 'Teadmat
 $_MODULE['<{monei}prestashop>monei_8e214426ecf5d348f2e7d6085f5ce928'] = 'Veenduge, et fail on kättesaadav HTTPS kaudu kehtiva SSL sertifikaadiga';
 $_MODULE['<{monei}prestashop>monei_8f3fd7585ac6731602fbd9d43255c37f'] = 'Levinud probleemid:';
 $_MODULE['<{monei}prestashop>monei_92d4773a9f32fc3333cb8238471cf763'] = 'Selle mooduli installimiseks peate oma serveris lubama cURL laiendi';
+$_MODULE['<{monei}prestashop>monei_c6b5b32e7b1ba86db753eca7ae10b187'] = 'Hoiatus: Mõned tellimuse olekud puuduvad või on kehtetud:';
+$_MODULE['<{monei}prestashop>monei_fa38e67541a54303a671421ba73f7cc3'] = '. Ostukorvist tellimuseks funktsioon ei pruugi korralikult töötada. Palun installige moodul uuesti või võtke ühendust toega.';
 $_MODULE['<{monei}prestashop>monei_93cba07454f06a4a960172bbd6e2a435'] = 'Jah';
 $_MODULE['<{monei}prestashop>monei_95678574c75e9ff4635adcccdba14fbf'] = 'Teie MONEI päris API võti. Saadaval teie MONEI juhtpaneelil.';
 $_MODULE['<{monei}prestashop>monei_973f31eb8d5e7cbeaf97be99e5ebf607'] = 'HTTP staatus:';

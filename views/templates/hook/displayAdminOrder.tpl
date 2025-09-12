@@ -1,3 +1,12 @@
+<style>
+    .monei-status-badge {
+        padding: 0 5px;
+        font-size: .875rem;
+        font-weight: 600;
+        line-height: 1.5;
+    }
+</style>
+
 <div class="row">
     <div class="col-lg-12">
         <div class="card">
@@ -29,12 +38,13 @@
                         <thead>
                             <tr>
                                 <th>{l s='Date' mod='monei'}</th>
+                                <th>{l s='Payment ID' mod='monei'}</th>
                                 <th>{l s='Payment Method' mod='monei'}</th>
                                 <th>{l s='Status Code' mod='monei'}</th>
                                 <th>{l s='Status' mod='monei'}</th>
                                 <th>{l s='Status Message' mod='monei'}</th>
                                 <th>{l s='IP' mod='monei'}</th>
-                                <th>{l s='Live' mod='monei'}</th>
+                                <th>{l s='Country' mod='monei'}</th>
                                 <th></th>
                             </tr>
                         </thead>
@@ -42,6 +52,15 @@
                             {foreach from=$paymentHistoryLogs item=paymentHistory}
                                 <tr>
                                     <td>{$paymentHistory.date_add|escape:'html':'UTF-8'}</td>
+                                    <td>
+                                        <code style="font-size: 0.85em;">
+                                            {if isset($paymentHistory.payment_id)}
+                                                {$paymentHistory.payment_id|escape:'html':'UTF-8'}
+                                            {else}
+                                                -
+                                            {/if}
+                                        </code>
+                                    </td>
                                     <td>
                                         {if $paymentHistory.paymentDetails}
                                             <span class="d-inline-flex align-items-center">
@@ -55,17 +74,36 @@
                                         {/if}
                                     </td>
                                     <td>{$paymentHistory.status_code|escape:'html':'UTF-8'}</td>
-                                    <td>{$paymentHistory.status|escape:'html':'UTF-8'}</td>
+                                    <td>
+                                        {if $paymentHistory.status == 'SUCCEEDED'}
+                                            <span class="badge badge-success monei-status-badge">{$paymentHistory.status|escape:'html':'UTF-8'}</span>
+                                        {elseif $paymentHistory.status == 'FAILED'}
+                                            <span class="badge badge-danger monei-status-badge">{$paymentHistory.status|escape:'html':'UTF-8'}</span>
+                                        {elseif $paymentHistory.status == 'PENDING'}
+                                            <span class="badge badge-warning monei-status-badge">{$paymentHistory.status|escape:'html':'UTF-8'}</span>
+                                        {elseif $paymentHistory.status == 'AUTHORIZED'}
+                                            <span class="badge badge-info monei-status-badge">{$paymentHistory.status|escape:'html':'UTF-8'}</span>
+                                        {elseif $paymentHistory.status == 'REFUNDED'}
+                                            <span class="badge badge-secondary monei-status-badge">{$paymentHistory.status|escape:'html':'UTF-8'}</span>
+                                        {elseif $paymentHistory.status == 'PARTIALLY_REFUNDED'}
+                                            <span class="badge badge-secondary monei-status-badge">{$paymentHistory.status|escape:'html':'UTF-8'}</span>
+                                        {elseif $paymentHistory.status == 'CANCELED'}
+                                            <span class="badge badge-dark monei-status-badge">{$paymentHistory.status|escape:'html':'UTF-8'}</span>
+                                        {elseif $paymentHistory.status == 'EXPIRED'}
+                                            <span class="badge badge-light monei-status-badge">{$paymentHistory.status|escape:'html':'UTF-8'}</span>
+                                        {else}
+                                            <span class="badge badge-secondary monei-status-badge">{$paymentHistory.status|escape:'html':'UTF-8'}</span>
+                                        {/if}
+                                    </td>
                                     <td>{if isset($paymentHistory.responseDecoded.statusMessage) and $paymentHistory.responseDecoded.statusMessage}{$paymentHistory.responseDecoded.statusMessage|escape:'html':'UTF-8'}{else}-{/if}
                                     </td>
-                                    <td>{if isset($paymentHistory.responseDecoded.traceDetails.ip) and $paymentHistory.responseDecoded.traceDetails.ip}{$paymentHistory.responseDecoded.traceDetails.ip|escape:'html':'UTF-8'}{else}-{/if}
+                                    <td>{if isset($paymentHistory.responseDecoded.sessionDetails.ip) and $paymentHistory.responseDecoded.sessionDetails.ip}{$paymentHistory.responseDecoded.sessionDetails.ip|escape:'html':'UTF-8'}{else}-{/if}
                                     </td>
-                                    <td>{if isset($paymentHistory.responseDecoded.livemode) and $paymentHistory.responseDecoded.livemode}Yes{else}No{/if}
+                                    <td>{if isset($paymentHistory.responseDecoded.sessionDetails.countryCode) and $paymentHistory.responseDecoded.sessionDetails.countryCode}{$paymentHistory.responseDecoded.sessionDetails.countryCode|escape:'html':'UTF-8'}{else}-{/if}
                                     </td>
                                     <td class="text-right">
-                                        <a class="fancybox"
-                                            data-moneijson="{$paymentHistory.responseB64|escape:'html':'UTF-8'}"><span
-                                                class="btn btn-primary">{l s='Details...' mod='monei'}</span></a>
+                                        <a class="fancybox btn btn-sm btn-outline-secondary"
+                                            data-moneijson="{$paymentHistory.responseB64|escape:'html':'UTF-8'}">{l s='Details' mod='monei'}</a>
                                     </td>
                                 </tr>
                             {/foreach}

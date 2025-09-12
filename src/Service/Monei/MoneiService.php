@@ -198,19 +198,26 @@ class MoneiService
 
     public function createMoneiOrderId(int $cartId)
     {
-        $suffix = time() % 1000;
+        $salt = \Configuration::get('PS_SHOP_DOMAIN') ?: \Configuration::get('PS_SHOP_NAME');
+        $hash = substr(strtoupper(md5($cartId . $salt)), 0, 6);
 
-        return str_pad($cartId . 'm' . $suffix, 12, '0', STR_PAD_LEFT);
+        return $cartId . '-' . $hash;
     }
 
     public function extractCartIdFromMoneiOrderId($moneiOrderId)
     {
-        $pos = strpos($moneiOrderId, 'm');
-        if ($pos === false) {
-            throw new MoneiException('Invalid MONEI order ID format: ' . $moneiOrderId, MoneiException::INVALID_ORDER_ID_FORMAT);
+        if (strpos($moneiOrderId, '-') !== false) {
+            $parts = explode('-', $moneiOrderId);
+
+            return (int) $parts[0];
         }
 
-        return (int) substr($moneiOrderId, 0, $pos);
+        $pos = strpos($moneiOrderId, 'm');
+        if ($pos !== false) {
+            return (int) substr($moneiOrderId, 0, $pos);
+        }
+
+        throw new MoneiException('Invalid MONEI order ID format: ' . $moneiOrderId, MoneiException::INVALID_ORDER_ID_FORMAT);
     }
 
     public function getCartAmount(array $cartSummaryDetails, int $currencyId, bool $withoutFormatting = false)
@@ -344,13 +351,8 @@ class MoneiService
 
     public function saveMoneiPayment(Payment $moneiPayment, int $orderId = 0, int $employeeId = 0)
     {
-        // Skip saving pending payments to history
+        // Skip saving pending payments - we don't need them in history
         if ($moneiPayment->getStatus() === \Monei\Model\PaymentStatus::PENDING) {
-            \PrestaShopLogger::addLog(
-                'MONEI - saveMoneiPayment - Skipping pending payment: ' . $moneiPayment->getId(),
-                \PrestaShopLogger::LOG_SEVERITY_LEVEL_INFORMATIVE
-            );
-
             return;
         }
 
@@ -415,7 +417,12 @@ class MoneiService
                 $paymentData['paymentMethod'] = $moneiPayment->getPaymentMethod()->jsonSerialize();
             }
 
-            // Add trace details if available
+            // Add session details if available (customer browser/device info)
+            if ($moneiPayment->getSessionDetails()) {
+                $paymentData['sessionDetails'] = $moneiPayment->getSessionDetails()->jsonSerialize();
+            }
+
+            // Add trace details if available (server-side info)
             if ($moneiPayment->getTraceDetails()) {
                 $paymentData['traceDetails'] = $moneiPayment->getTraceDetails()->jsonSerialize();
             }

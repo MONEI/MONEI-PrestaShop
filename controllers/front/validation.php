@@ -44,13 +44,11 @@ class MoneiValidationModuleFrontController extends ModuleFrontController
                 throw new MoneiException('Invalid JSON', MoneiException::INVALID_JSON_RESPONSE);
             }
 
-            // Log the JSON array for debugging
             PrestaShopLogger::addLog(
                 'MONEI - validation.php - postProcess - JSON Data: ' . json_encode($json_array),
                 PrestaShopLogger::LOG_SEVERITY_LEVEL_INFORMATIVE
             );
 
-            // Parse the JSON to a MoneiPayment object
             $moneiPayment = new Payment($json_array);
 
             // Create or update the order

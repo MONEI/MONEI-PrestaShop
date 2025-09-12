@@ -48,8 +48,6 @@ class OrderService
         $lockName = 'payment_' . $moneiPaymentId . '_shop_' . $shopId;
 
         if (!$this->lockService->acquireLock($lockName, 30)) {
-            \PrestaShopLogger::addLog('MONEI - createOrUpdateOrder - Could not acquire lock for payment: ' . $moneiPaymentId, \PrestaShopLogger::LOG_SEVERITY_LEVEL_WARNING);
-
             // Another process is handling this payment, so we can safely return
             return;
         }
@@ -59,8 +57,6 @@ class OrderService
             $query = 'SELECT * FROM ' . _DB_PREFIX_ . 'monei2_order_payment WHERE id_payment = "' . pSQL($moneiPaymentId) . '"';
             $orderPaymentExists = $connection->getRow($query);
             if ($orderPaymentExists) {
-                \PrestaShopLogger::addLog('MONEI - createOrUpdateOrder - Order: (' . $orderPaymentExists['id_order'] . ') already exists. Payment ID: ' . $moneiPaymentId . ' Date: ' . $orderPaymentExists['date_add'], \PrestaShopLogger::LOG_SEVERITY_LEVEL_WARNING);
-
                 // If order already exists and redirect is requested, redirect to confirmation page
                 if ($redirectToConfirmationPage) {
                     $existingOrder = new \Order($orderPaymentExists['id_order']);
@@ -70,11 +66,12 @@ class OrderService
                         $this->handlePostOrderCreation($redirectToConfirmationPage, $cart, $customer, $existingOrder);
                     }
                 }
-                
+
                 return;
             }
 
             $moneiPayment = $this->moneiService->getMoneiPayment($moneiPaymentId);
+
             $cartId = $this->moneiService->extractCartIdFromMoneiOrderId($moneiPayment->getOrderId());
             $cart = $this->validateCart($cartId);
             $customer = $this->validateCustomer($cart->id_customer);
@@ -84,7 +81,13 @@ class OrderService
 
             $order = $this->handleExistingOrder($cartId, $orderStateId, $moneiPayment);
 
-            if (!$order && !$failed) {
+            // Create order for non-failed payments OR when Cart to Order is enabled (even for failed payments)
+            $cartToOrder = \Configuration::get('MONEI_CART_TO_ORDER');
+            if (!$order && (!$failed || $cartToOrder)) {
+                \PrestaShopLogger::addLog(
+                    'MONEI DEBUG - Creating order. Failed: ' . ($failed ? 'YES' : 'NO') . ', Cart to Order: ' . var_export($cartToOrder, true),
+                    \PrestaShopLogger::LOG_SEVERITY_LEVEL_INFORMATIVE
+                );
                 $order = $this->createNewOrder($cart, $customer, $orderStateId, $moneiPayment);
                 // Update payment method name and details for new orders
                 $this->updateOrderPaymentMethodName($order, $moneiPayment);
@@ -147,6 +150,10 @@ class OrderService
             \Configuration::get('MONEI_STATUS_AUTHORIZED') => [
                 \Configuration::get('MONEI_STATUS_SUCCEEDED'),
                 \Configuration::get('MONEI_STATUS_FAILED'),
+            ],
+            \Configuration::get('MONEI_STATUS_FAILED') => [
+                \Configuration::get('MONEI_STATUS_SUCCEEDED'),
+                \Configuration::get('MONEI_STATUS_AUTHORIZED'),
             ],
             \Configuration::get('MONEI_STATUS_SUCCEEDED') => [
                 \Configuration::get('MONEI_STATUS_REFUNDED'),
@@ -334,6 +341,8 @@ class OrderService
             }
         }
 
+        \Order::$moneiOrderReference = $moneiPayment->getOrderId();
+
         $this->moneiInstance->validateOrder(
             $cart->id,
             $orderStateId,
@@ -357,7 +366,7 @@ class OrderService
                 . '&id_module=' . $this->moneiInstance->id
                 . '&id_order=' . $order->id
                 . '&key=' . $customer->secure_key;
-            
+
             \Tools::redirect($redirectUrl);
         } else {
             header('HTTP/1.1 200 OK');

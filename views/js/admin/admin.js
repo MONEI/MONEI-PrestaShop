@@ -46,7 +46,7 @@
                 beforeShow: function() {
                     const jsonInfoCoded = atob($(this.element).data("moneijson"));
                     $(CONFIG.selectors.jsonLog).jsonViewer(JSON.parse(jsonInfoCoded), {
-                        collapsed: true,
+                        collapsed: false,
                         rootCollapsable: false
                     });
                     $.fancybox.update();

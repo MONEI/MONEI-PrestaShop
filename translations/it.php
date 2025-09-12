@@ -56,7 +56,8 @@ $_MODULE['<{monei}prestashop>displayadminorder_36a688e72b6ebf5dec55e55339a5b649'
 $_MODULE['<{monei}prestashop>displayadminorder_39a36f33efa5a7b626ae28cb54e09162'] = 'Pagamento Autorizzato';
 $_MODULE['<{monei}prestashop>displayadminorder_3f4c5d9e70c4e4bd1b06f72c1caf5e22'] = 'Importo autorizzato:';
 $_MODULE['<{monei}prestashop>displayadminorder_44749712dbec183e983dcd78a7736c41'] = 'Data';
-$_MODULE['<{monei}prestashop>displayadminorder_549fa398acc100796592d7be0e8634d1'] = 'Dettagli...';
+$_MODULE['<{monei}prestashop>displayadminorder_1e63d1811556fc2dad106dcbd4217a69'] = 'ID Pagamento';
+$_MODULE['<{monei}prestashop>displayadminorder_3ec365dd533ddb7ef3d1c111186ce872'] = 'Dettagli';
 $_MODULE['<{monei}prestashop>displayadminorder_55052f5c1b1e04c1d7539852ce12a82e'] = 'Pagamenti MONEI';
 $_MODULE['<{monei}prestashop>displayadminorder_5c3a57360eb40f414ca5eb2ad527117e'] = 'Rimanente catturabile:';
 $_MODULE['<{monei}prestashop>displayadminorder_707436a5aa13b82a4d777f64c717a625'] = 'Metodo di Pagamento';
@@ -68,6 +69,7 @@ $_MODULE['<{monei}prestashop>displayadminorder_923974d7eb22e4ab5670c3d2b2b01ea9'
 $_MODULE['<{monei}prestashop>displayadminorder_955ad3298db330b5ee880c2c9e6f23a0'] = 'Live';
 $_MODULE['<{monei}prestashop>displayadminorder_9b650d2ee428e59b8cfd7e543400b157'] = 'Devi catturare il pagamento entro 7 giorni o l\'autorizzazione scadrà e i fondi saranno rilasciati al cliente.';
 $_MODULE['<{monei}prestashop>displayadminorder_a12a3079e14ced46e69ba52b8a90b21a'] = 'IP';
+$_MODULE['<{monei}prestashop>displayadminorder_59716c97497eb9694541f7c3d37b1a4d'] = 'Paese';
 $_MODULE['<{monei}prestashop>displayadminorder_c29ed1ee12f1d5886cf04f84efa332c4'] = 'L\'importo non può superare l\'importo rimanente catturabile.';
 $_MODULE['<{monei}prestashop>displayadminorder_c3d2b1c9aef86f179c7ee5657f7b755a'] = 'Cattura Pagamento';
 $_MODULE['<{monei}prestashop>displayadminorder_cfa22c94ed7417cf7cd863b74191c4fc'] = 'Messaggio Stato';
@@ -165,6 +167,8 @@ $_MODULE['<{monei}prestashop>monei_88183b946cc5f0e8c96b2e66e1c74a7e'] = 'Sconosc
 $_MODULE['<{monei}prestashop>monei_8e214426ecf5d348f2e7d6085f5ce928'] = 'Assicurati che il file sia accessibile via HTTPS con un certificato SSL valido';
 $_MODULE['<{monei}prestashop>monei_8f3fd7585ac6731602fbd9d43255c37f'] = 'Problemi comuni:';
 $_MODULE['<{monei}prestashop>monei_92d4773a9f32fc3333cb8238471cf763'] = 'Devi abilitare l\'estensione cURL sul tuo server per installare questo modulo';
+$_MODULE['<{monei}prestashop>monei_c6b5b32e7b1ba86db753eca7ae10b187'] = 'Avviso: Alcuni stati dell\'ordine mancano o non sono validi:';
+$_MODULE['<{monei}prestashop>monei_fa38e67541a54303a671421ba73f7cc3'] = '. La funzione Carrello a Ordine potrebbe non funzionare correttamente. Si prega di reinstallare il modulo o contattare il supporto.';
 $_MODULE['<{monei}prestashop>monei_93cba07454f06a4a960172bbd6e2a435'] = 'Sì';
 $_MODULE['<{monei}prestashop>monei_95678574c75e9ff4635adcccdba14fbf'] = 'La tua Chiave API reale MONEI. Disponibile nel tuo dashboard MONEI.';
 $_MODULE['<{monei}prestashop>monei_973f31eb8d5e7cbeaf97be99e5ebf607'] = 'Stato HTTP:';

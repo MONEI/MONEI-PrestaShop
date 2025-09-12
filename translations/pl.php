@@ -56,7 +56,8 @@ $_MODULE['<{monei}prestashop>displayadminorder_36a688e72b6ebf5dec55e55339a5b649'
 $_MODULE['<{monei}prestashop>displayadminorder_39a36f33efa5a7b626ae28cb54e09162'] = 'Płatność autoryzowana';
 $_MODULE['<{monei}prestashop>displayadminorder_3f4c5d9e70c4e4bd1b06f72c1caf5e22'] = 'Kwota autoryzowana:';
 $_MODULE['<{monei}prestashop>displayadminorder_44749712dbec183e983dcd78a7736c41'] = 'Data';
-$_MODULE['<{monei}prestashop>displayadminorder_549fa398acc100796592d7be0e8634d1'] = 'Szczegóły...';
+$_MODULE['<{monei}prestashop>displayadminorder_1e63d1811556fc2dad106dcbd4217a69'] = 'ID płatności';
+$_MODULE['<{monei}prestashop>displayadminorder_3ec365dd533ddb7ef3d1c111186ce872'] = 'Szczegóły';
 $_MODULE['<{monei}prestashop>displayadminorder_55052f5c1b1e04c1d7539852ce12a82e'] = 'Płatności MONEI';
 $_MODULE['<{monei}prestashop>displayadminorder_5c3a57360eb40f414ca5eb2ad527117e'] = 'Pozostało do realizacji:';
 $_MODULE['<{monei}prestashop>displayadminorder_707436a5aa13b82a4d777f64c717a625'] = 'Metoda płatności';
@@ -68,6 +69,7 @@ $_MODULE['<{monei}prestashop>displayadminorder_923974d7eb22e4ab5670c3d2b2b01ea9'
 $_MODULE['<{monei}prestashop>displayadminorder_955ad3298db330b5ee880c2c9e6f23a0'] = 'Na żywo';
 $_MODULE['<{monei}prestashop>displayadminorder_9b650d2ee428e59b8cfd7e543400b157'] = 'Musisz zrealizować płatność w ciągu 7 dni, w przeciwnym razie autoryzacja wygaśnie i środki zostaną zwrócone klientowi.';
 $_MODULE['<{monei}prestashop>displayadminorder_a12a3079e14ced46e69ba52b8a90b21a'] = 'IP';
+$_MODULE['<{monei}prestashop>displayadminorder_59716c97497eb9694541f7c3d37b1a4d'] = 'Kraj';
 $_MODULE['<{monei}prestashop>displayadminorder_c29ed1ee12f1d5886cf04f84efa332c4'] = 'Kwota nie może przekroczyć pozostałej kwoty do realizacji.';
 $_MODULE['<{monei}prestashop>displayadminorder_c3d2b1c9aef86f179c7ee5657f7b755a'] = 'Zrealizuj płatność';
 $_MODULE['<{monei}prestashop>displayadminorder_cfa22c94ed7417cf7cd863b74191c4fc'] = 'Wiadomość statusu';
@@ -165,6 +167,8 @@ $_MODULE['<{monei}prestashop>monei_88183b946cc5f0e8c96b2e66e1c74a7e'] = 'Nieznan
 $_MODULE['<{monei}prestashop>monei_8e214426ecf5d348f2e7d6085f5ce928'] = 'Upewnij się, że plik jest dostępny przez HTTPS z ważnym certyfikatem SSL';
 $_MODULE['<{monei}prestashop>monei_8f3fd7585ac6731602fbd9d43255c37f'] = 'Typowe problemy:';
 $_MODULE['<{monei}prestashop>monei_92d4773a9f32fc3333cb8238471cf763'] = 'Musisz włączyć rozszerzenie cURL na swoim serwerze, aby zainstalować ten moduł';
+$_MODULE['<{monei}prestashop>monei_c6b5b32e7b1ba86db753eca7ae10b187'] = 'Ostrzeżenie: Niektóre statusy zamówień brakują lub są nieprawidłowe:';
+$_MODULE['<{monei}prestashop>monei_fa38e67541a54303a671421ba73f7cc3'] = '. Funkcja Koszyk do zamówienia może nie działać poprawnie. Proszę ponownie zainstalować moduł lub skontaktować się z pomocą techniczną.';
 $_MODULE['<{monei}prestashop>monei_93cba07454f06a4a960172bbd6e2a435'] = 'Tak';
 $_MODULE['<{monei}prestashop>monei_95678574c75e9ff4635adcccdba14fbf'] = 'Twój rzeczywisty klucz API MONEI. Dostępny w panelu MONEI.';
 $_MODULE['<{monei}prestashop>monei_973f31eb8d5e7cbeaf97be99e5ebf607'] = 'Status HTTP:';

@@ -507,6 +507,29 @@ class Monei extends PaymentModule
         return Db::getInstance()->getValue($sql) > 0 ? true : false;
     }
 
+    public function validateOrderStates()
+    {
+        $missingStates = [];
+
+        $states = [
+            'MONEI_STATUS_PENDING',
+            'MONEI_STATUS_SUCCEEDED',
+            'MONEI_STATUS_FAILED',
+            'MONEI_STATUS_REFUNDED',
+            'MONEI_STATUS_PARTIALLY_REFUNDED',
+            'MONEI_STATUS_AUTHORIZED',
+        ];
+
+        foreach ($states as $stateConfig) {
+            $stateId = Configuration::get($stateConfig);
+            if ($stateId && !Validate::isLoadedObject(new OrderState($stateId))) {
+                $missingStates[] = $stateConfig;
+            }
+        }
+
+        return $missingStates;
+    }
+
     /**
      * Load the configuration form
      */
@@ -534,6 +557,16 @@ class Monei extends PaymentModule
         $applePayNotification = $this->checkApplePayDomainVerification();
         if ($applePayNotification) {
             $message = $applePayNotification . $message;
+        }
+
+        // Check for missing order states
+        $missingStates = $this->validateOrderStates();
+        if (!empty($missingStates)) {
+            $stateNames = implode(', ', $missingStates);
+            $message = $this->displayWarning(
+                $this->l('Warning: Some order states are missing or invalid: ') . $stateNames
+                . $this->l('. Cart to Order feature may not work properly. Please reinstall the module or contact support.')
+            ) . $message;
         }
 
         // Assign values
@@ -1802,10 +1835,14 @@ class Monei extends PaymentModule
     {
         $orderId = (int) $params['id_order'];
 
-        $monei2PaymentEntity = $this->getRepository(Monei2Payment::class)->findOneBy(['id_order' => $orderId]);
-        if (!$monei2PaymentEntity) {
+        // Get ALL payments for this order (including failed and successful retries)
+        $monei2PaymentEntities = $this->getRepository(Monei2Payment::class)->findBy(['id_order' => $orderId], ['date_add' => 'DESC']);
+        if (empty($monei2PaymentEntities)) {
             return;
         }
+
+        // Use the most recent payment for calculations (first in array when sorted DESC)
+        $monei2PaymentEntity = $monei2PaymentEntities[0];
 
         $order = new Order($orderId);
         if (!Validate::isLoadedObject($order)) {
@@ -1823,45 +1860,54 @@ class Monei extends PaymentModule
         // Get payment method formatter service
         $paymentMethodFormatter = self::getService('helper.payment_method_formatter');
 
-        $paymentHistory = $monei2PaymentEntity->getHistoryList();
-        if (!$paymentHistory->isEmpty()) {
-            foreach ($paymentHistory as $history) {
-                $paymentHistoryLog = $history->toArrayLegacy();
-                $paymentHistoryLog['responseDecoded'] = $history->getResponseDecoded();
-                $paymentHistoryLog['responseB64'] = Mbstring::mb_convert_encoding($history->getResponse(), 'BASE64');
+        // Process history for ALL payments (including failed ones)
+        foreach ($monei2PaymentEntities as $paymentEntity) {
+            $paymentHistory = $paymentEntity->getHistoryList();
+            if (!$paymentHistory->isEmpty()) {
+                foreach ($paymentHistory as $history) {
+                    $paymentHistoryLog = $history->toArrayLegacy();
+                    $paymentHistoryLog['responseDecoded'] = $history->getResponseDecoded();
+                    $paymentHistoryLog['responseB64'] = Mbstring::mb_convert_encoding($history->getResponse(), 'BASE64');
+                    $paymentHistoryLog['payment_id'] = $paymentEntity->getId(); // Add payment ID for reference
 
-                // Extract payment method details from response
-                $response = $history->getResponseDecoded();
-                if ($response && isset($response['paymentMethod'])) {
-                    // Flatten the payment method data structure like Magento does
-                    $paymentInfo = $this->flattenPaymentMethodData($response['paymentMethod']);
+                    // Extract payment method details from response
+                    $response = $history->getResponseDecoded();
+                    if ($response && isset($response['paymentMethod'])) {
+                        // Flatten the payment method data structure like Magento does
+                        $paymentInfo = $this->flattenPaymentMethodData($response['paymentMethod']);
 
-                    // Add additional fields from the response
-                    $paymentInfo['authorizationCode'] = $response['authorizationCode'] ?? null;
+                        // Add additional fields from the response
+                        $paymentInfo['authorizationCode'] = $response['authorizationCode'] ?? null;
 
-                    $paymentHistoryLog['paymentDetails'] = $paymentMethodFormatter->formatAdminPaymentDetails($paymentInfo);
-                }
-
-                $paymentHistoryLogs[] = $paymentHistoryLog;
-
-                $paymentRefund = $monei2PaymentEntity->getRefundByHistoryId($history->getId());
-                if ($paymentRefund) {
-                    $paymentRefundLog = $paymentRefund->toArrayLegacy();
-                    $paymentRefundLog['paymentHistory'] = $paymentHistoryLog;
-                    $paymentRefundLog['amountFormatted'] = $this->formatPrice($paymentRefundLog['amount_in_decimal'], $currency->iso_code);
-
-                    $employeeEmail = '';
-                    if ($paymentRefundLog['id_employee']) {
-                        $employee = new Employee($paymentRefundLog['id_employee']);
-                        $employeeEmail = $employee->email;
+                        $paymentHistoryLog['paymentDetails'] = $paymentMethodFormatter->formatAdminPaymentDetails($paymentInfo);
                     }
 
-                    $paymentRefundLog['employeeEmail'] = $employeeEmail;
+                    $paymentHistoryLogs[] = $paymentHistoryLog;
 
-                    $paymentRefundLogs[] = $paymentRefundLog;
+                    $paymentRefund = $paymentEntity->getRefundByHistoryId($history->getId());
+                    if ($paymentRefund) {
+                        $paymentRefundLog = $paymentRefund->toArrayLegacy();
+                        $paymentRefundLog['paymentHistory'] = $paymentHistoryLog;
+                        $paymentRefundLog['amountFormatted'] = $this->formatPrice($paymentRefundLog['amount_in_decimal'], $currency->iso_code);
+
+                        $employeeEmail = '';
+                        if ($paymentRefundLog['id_employee']) {
+                            $employee = new Employee($paymentRefundLog['id_employee']);
+                            $employeeEmail = $employee->email;
+                        }
+
+                        $paymentRefundLog['employeeEmail'] = $employeeEmail;
+
+                        $paymentRefundLogs[] = $paymentRefundLog;
+                    }
                 }
             }
         }
+
+        // Sort payment history logs by date in descending order (newest first)
+        usort($paymentHistoryLogs, function ($a, $b) {
+            return strtotime($b['date_add']) - strtotime($a['date_add']);
+        });
 
         // Check if payment is capturable (AUTHORIZED status and not captured)
         $isCapturable = $monei2PaymentEntity->getStatus() === 'AUTHORIZED' && !$monei2PaymentEntity->getIsCaptured();

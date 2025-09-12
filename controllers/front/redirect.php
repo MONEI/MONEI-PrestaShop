@@ -43,8 +43,11 @@ class MoneiRedirectModuleFrontController extends ModuleFrontController
             }
 
             // Convert the cart to order
-            $orderState = new OrderState(Configuration::get('MONEI_STATUS_PENDING'));
-            if (Configuration::get('MONEI_CART_TO_ORDER') && Validate::isLoadedObject($orderState)) {
+            $cartToOrder = Configuration::get('MONEI_CART_TO_ORDER');
+            $pendingStateId = Configuration::get('MONEI_STATUS_PENDING');
+            $orderState = new OrderState($pendingStateId);
+
+            if ($cartToOrder && Validate::isLoadedObject($orderState)) {
                 $orderService = Monei::getService('service.order');
                 $orderService->createOrUpdateOrder($moneiPayment->getId());
             }
