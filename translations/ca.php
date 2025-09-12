@@ -338,3 +338,7 @@ $_MODULE['<{monei}prestashop>monei_db0e52c1a6f726df55f66ec6512ef7a1'] = 'L\'ento
 $_MODULE['<{monei}prestashop>monei_6210620c681755728a3b67312d59cba4'] = 'Invalid production credentials. Please check your Account ID and API Key.';
 $_MODULE['<{monei}prestashop>monei_baaba5cc3f2fe12e8a890b16169144bc'] = 'Test environment requires valid Test Account ID and Test API Key.';
 $_MODULE['<{monei}prestashop>monei_702859487450ebeb92148b7b36b3c94c'] = 'Invalid test credentials. Please check your Test Account ID and Test API Key.';
+$_MODULE['<{monei}prestashop>monei_40dbad35e95e6a1b02e0f3a32ffb5c8e'] = 'MONEI refund reason';
+$_MODULE['<{monei}prestashop>monei_a506e19461a2d97b8fb4c664b1c64188'] = 'Requested by customer';
+$_MODULE['<{monei}prestashop>monei_43cc1c54b2b3cd52cfd9e5f338638dee'] = 'Duplicated';
+$_MODULE['<{monei}prestashop>monei_cc5e0cf5f17bfd7c83fb9eb946a0f15d'] = 'Fraudulent';
