@@ -14,6 +14,7 @@ class MoneiRedirectModuleFrontController extends ModuleFrontController
     public function postProcess()
     {
         try {
+            $cart = $this->context->cart;
             $transactionId = Tools::getValue('transaction_id');
             $tokenizeCard = (bool) Tools::getValue('tokenize_card', false);
             $moneiCardId = (int) Tools::getValue('id_monei_card', 0);
@@ -25,7 +26,6 @@ class MoneiRedirectModuleFrontController extends ModuleFrontController
             );
 
             $crypto = ServiceLocator::get('\\PrestaShop\\PrestaShop\\Core\\Crypto\\Hashing');
-            $cart = $this->context->cart;
             $check_encrypt = $crypto->checkHash((int) $cart->id . (int) $cart->id_customer, $transactionId);
 
             if ($cart->id_customer == 0
@@ -53,7 +53,13 @@ class MoneiRedirectModuleFrontController extends ModuleFrontController
                         '[MONEI] Payment creation failed - No payment object returned [cart_id=' . $cart->id . ']',
                         PrestaShopLogger::LOG_SEVERITY_LEVEL_ERROR
                     );
+                    
+                    // Store user-friendly error message for display on checkout page
+                    $this->context->cookie->monei_checkout_error = $this->module->l('Unable to process payment. Please try again or use a different payment method.');
+                    $this->context->cookie->write();
+                    
                     Tools::redirect($this->context->link->getPageLink('order'));
+                    exit;
                 }
 
                 PrestaShopLogger::addLog(
@@ -83,27 +89,35 @@ class MoneiRedirectModuleFrontController extends ModuleFrontController
                     '[MONEI] Payment creation exception [cart_id=' . $cart->id . ', error=' . $ex->getMessage() . ']',
                     PrestaShopLogger::LOG_SEVERITY_LEVEL_ERROR
                 );
-                // Store the exception message for technical errors
-                $this->context->cookie->monei_error = $ex->getMessage();
-
+                
                 // If it's a MoneiException with a payment response, try to extract status code
                 if ($ex instanceof MoneiException && method_exists($ex, 'getPaymentData')) {
                     $paymentData = $ex->getPaymentData();
                     if ($paymentData && isset($paymentData['statusCode'])) {
                         $this->context->cookie->monei_error_code = $paymentData['statusCode'];
+                        // Status code handler will provide localized message
+                        Tools::redirect($this->context->link->getModuleLink($this->module->name, 'errors'));
+                        exit;
                     }
                 }
-
-                Tools::redirect($this->context->link->getModuleLink($this->module->name, 'errors'));
+                
+                // For other exceptions, provide a user-friendly generic message
+                // Don't expose technical details to users
+                $this->context->cookie->monei_checkout_error = $this->module->l('Payment could not be processed. Please try again or contact support.');
+                $this->context->cookie->write();
+                Tools::redirect($this->context->link->getPageLink('order'));
+                exit;
             }
         } catch (Exception $ex) {
             PrestaShopLogger::addLog(
                 '[MONEI] Redirect controller critical error [error=' . $ex->getMessage() . ']',
                 PrestaShopLogger::LOG_SEVERITY_LEVEL_ERROR
             );
-            // Handle outer exception
-            $this->context->cookie->monei_error = $ex->getMessage();
-            Tools::redirect($this->context->link->getModuleLink($this->module->name, 'errors'));
+            // Handle outer exception - don't expose technical details
+            $this->context->cookie->monei_checkout_error = $this->module->l('An error occurred while processing your payment. Please try again.');
+            $this->context->cookie->write();
+            Tools::redirect($this->context->link->getPageLink('order'));
+            exit;
         }
 
         exit;

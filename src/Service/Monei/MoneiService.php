@@ -198,26 +198,66 @@ class MoneiService
 
     public function createMoneiOrderId(int $cartId)
     {
+        // Generate a unique 9-character reference compatible with PrestaShop
+        // Each payment attempt gets a unique ID to avoid conflicts
+        
         $salt = \Configuration::get('PS_SHOP_DOMAIN') ?: \Configuration::get('PS_SHOP_NAME');
-        $hash = substr(strtoupper(md5($cartId . $salt)), 0, 6);
-
-        return $cartId . '-' . $hash;
+        
+        // Include timestamp and random number to ensure uniqueness
+        $uniqueString = $cartId . $salt . time() . mt_rand(100, 999);
+        
+        // Create a unique hash limited to 9 chars
+        $hash = strtoupper(substr(sha1($uniqueString), 0, 9));
+        
+        return $hash;
     }
 
     public function extractCartIdFromMoneiOrderId($moneiOrderId)
     {
+        // Legacy support for old format (cartId-hash)
         if (strpos($moneiOrderId, '-') !== false) {
             $parts = explode('-', $moneiOrderId);
-
-            return (int) $parts[0];
+            if (is_numeric($parts[0])) {
+                return (int) $parts[0];
+            }
         }
 
+        // Legacy support for old format with 'm'
         $pos = strpos($moneiOrderId, 'm');
         if ($pos !== false) {
             return (int) substr($moneiOrderId, 0, $pos);
         }
 
-        throw new MoneiException('Invalid MONEI order ID format: ' . $moneiOrderId, MoneiException::INVALID_ORDER_ID_FORMAT);
+        // For new format, cart ID should be retrieved from payment metadata
+        // This method is kept for backward compatibility
+        return 0;
+    }
+    
+    public function getCartIdFromPayment(\Monei\Model\Payment $payment)
+    {
+        // Try to get cart ID from metadata first (new approach)
+        $metadata = $payment->getMetadata();
+        
+        if ($metadata) {
+            // Handle both object and array formats
+            if (is_object($metadata)) {
+                if (property_exists($metadata, 'cart_id')) {
+                    return (int) $metadata->cart_id;
+                }
+            } elseif (is_array($metadata)) {
+                if (isset($metadata['cart_id'])) {
+                    return (int) $metadata['cart_id'];
+                }
+            }
+        }
+        
+        // Fallback to extracting from order ID (legacy approach)
+        $cartId = $this->extractCartIdFromMoneiOrderId($payment->getOrderId());
+        if ($cartId > 0) {
+            return $cartId;
+        }
+        
+        throw new MoneiException('Unable to determine cart ID from payment', MoneiException::INVALID_ORDER_ID_FORMAT);
     }
 
     public function getCartAmount(array $cartSummaryDetails, int $currencyId, bool $withoutFormatting = false)
@@ -356,7 +396,7 @@ class MoneiService
             return;
         }
 
-        $cartId = $this->extractCartIdFromMoneiOrderId($moneiPayment->getOrderId());
+        $cartId = $this->getCartIdFromPayment($moneiPayment);
 
         $monei2PaymentEntity = $this->moneiPaymentRepository->findOneById($moneiPayment->getId()) ?? new Monei2Payment();
 
@@ -514,10 +554,18 @@ class MoneiService
         $orderId = $this->createMoneiOrderId($cart->id);
 
         $createPaymentRequest = new CreatePaymentRequest();
+        
+        // Convert metadata to object format as expected by MONEI API
+        $metadata = new \stdClass();
+        $metadata->cart_id = $cart->id;
+        $metadata->shop_id = \Context::getContext()->shop->id;
+        $metadata->shop_name = \Configuration::get('PS_SHOP_NAME');
+        
         $createPaymentRequest
             ->setOrderId($orderId)
             ->setAmount($cartAmount)
             ->setCurrency($currency->iso_code)
+            ->setMetadata($metadata)
             ->setCompleteUrl(
                 $link->getModuleLink('monei', 'confirmation', [
                     'cart_id' => $cart->id,

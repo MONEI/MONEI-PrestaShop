@@ -72,7 +72,7 @@ class OrderService
 
             $moneiPayment = $this->moneiService->getMoneiPayment($moneiPaymentId);
 
-            $cartId = $this->moneiService->extractCartIdFromMoneiOrderId($moneiPayment->getOrderId());
+            $cartId = $this->moneiService->getCartIdFromPayment($moneiPayment);
             $cart = $this->validateCart($cartId);
             $customer = $this->validateCustomer($cart->id_customer);
 
@@ -339,7 +339,7 @@ class OrderService
             }
         }
 
-        // Store the reference in Context for thread-safe access
+        // Store the MONEI order ID in context to use as PrestaShop order reference
         $context = \Context::getContext();
         $context->monei_order_reference = $moneiPayment->getOrderId();
 

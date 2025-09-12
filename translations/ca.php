@@ -169,7 +169,6 @@ $_MODULE['<{monei}prestashop>monei_8f3fd7585ac6731602fbd9d43255c37f'] = 'Problem
 $_MODULE['<{monei}prestashop>monei_92d4773a9f32fc3333cb8238471cf763'] = 'Has d\'activar l\'extensió cURL al teu servidor per instal·lar aquest mòdul';
 $_MODULE['<{monei}prestashop>monei_ad4b30b583f4be4520f916f48920e9b6'] = 'Alguns estats de comanda faltaven i no s\'han pogut recuperar:';
 $_MODULE['<{monei}prestashop>monei_c6b5b32e7b1ba86db753eca7ae10b187'] = 'Advertència: Alguns estats de comanda falten o són invàlids:';
-$_MODULE['<{monei}prestashop>monei_fa38e67541a54303a671421ba73f7cc3'] = '. La funció Cart to Order pot no funcionar correctament. Si us plau, reinstal·leu el mòdul o contacteu amb el suport.';
 $_MODULE['<{monei}prestashop>monei_93cba07454f06a4a960172bbd6e2a435'] = 'Sí';
 $_MODULE['<{monei}prestashop>monei_95678574c75e9ff4635adcccdba14fbf'] = 'La teva Clau API real MONEI. Disponible al teu tauler de MONEI.';
 $_MODULE['<{monei}prestashop>monei_973f31eb8d5e7cbeaf97be99e5ebf607'] = 'Estat HTTP:';

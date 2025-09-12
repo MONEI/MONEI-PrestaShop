@@ -32,4 +32,5 @@ class MoneiException extends \Exception
     const CAPTURE_AMOUNT_EXCEEDS_AUTHORIZED = 125;
     const CAPTURE_FAILED = 126;
     const API_KEY_NOT_CONFIGURED = 127;
+    const INVALID_ORDER_ID_FORMAT = 128;
 }

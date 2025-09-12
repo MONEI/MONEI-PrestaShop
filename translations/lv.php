@@ -169,7 +169,6 @@ $_MODULE['<{monei}prestashop>monei_8f3fd7585ac6731602fbd9d43255c37f'] = 'Biežā
 $_MODULE['<{monei}prestashop>monei_92d4773a9f32fc3333cb8238471cf763'] = 'Jums jāiespējo cURL paplašinājums uz jūsu servera, lai instalētu šo moduli';
 $_MODULE['<{monei}prestashop>monei_ad4b30b583f4be4520f916f48920e9b6'] = 'Daži pasūtījuma statusi trūka un tos nevarēja atgūt:';
 $_MODULE['<{monei}prestashop>monei_c6b5b32e7b1ba86db753eca7ae10b187'] = 'Brīdinājums: Daži pasūtījuma statusi trūkst vai nav derīgi:';
-$_MODULE['<{monei}prestashop>monei_fa38e67541a54303a671421ba73f7cc3'] = '. Grozs uz pasūtījumu funkcija var nedarboties pareizi. Lūdzu, pārinstalējiet moduli vai sazinieties ar atbalstu.';
 $_MODULE['<{monei}prestashop>monei_93cba07454f06a4a960172bbd6e2a435'] = 'Jā';
 $_MODULE['<{monei}prestashop>monei_95678574c75e9ff4635adcccdba14fbf'] = 'Jūsu MONEI reālā API atslēga. Pieejama jūsu MONEI vadības panelī.';
 $_MODULE['<{monei}prestashop>monei_973f31eb8d5e7cbeaf97be99e5ebf607'] = 'HTTP statuss:';

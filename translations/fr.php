@@ -169,7 +169,6 @@ $_MODULE['<{monei}prestashop>monei_8f3fd7585ac6731602fbd9d43255c37f'] = 'Problè
 $_MODULE['<{monei}prestashop>monei_92d4773a9f32fc3333cb8238471cf763'] = 'Vous devez activer l\'extension cURL sur votre serveur pour installer ce module';
 $_MODULE['<{monei}prestashop>monei_ad4b30b583f4be4520f916f48920e9b6'] = 'Certains états de commande étaient manquants et n\'ont pas pu être récupérés :';
 $_MODULE['<{monei}prestashop>monei_c6b5b32e7b1ba86db753eca7ae10b187'] = 'Avertissement : Certains états de commande sont manquants ou invalides :';
-$_MODULE['<{monei}prestashop>monei_fa38e67541a54303a671421ba73f7cc3'] = '. La fonction Panier vers Commande peut ne pas fonctionner correctement. Veuillez réinstaller le module ou contacter le support.';
 $_MODULE['<{monei}prestashop>monei_93cba07454f06a4a960172bbd6e2a435'] = 'Oui';
 $_MODULE['<{monei}prestashop>monei_95678574c75e9ff4635adcccdba14fbf'] = 'Votre clé API réelle MONEI. Disponible dans votre tableau de bord MONEI.';
 $_MODULE['<{monei}prestashop>monei_973f31eb8d5e7cbeaf97be99e5ebf607'] = 'Statut HTTP :';

@@ -168,7 +168,6 @@ $_MODULE['<{monei}prestashop>monei_8e214426ecf5d348f2e7d6085f5ce928'] = 'Upewnij
 $_MODULE['<{monei}prestashop>monei_8f3fd7585ac6731602fbd9d43255c37f'] = 'Typowe problemy:';
 $_MODULE['<{monei}prestashop>monei_92d4773a9f32fc3333cb8238471cf763'] = 'Musisz włączyć rozszerzenie cURL na swoim serwerze, aby zainstalować ten moduł';
 $_MODULE['<{monei}prestashop>monei_c6b5b32e7b1ba86db753eca7ae10b187'] = 'Ostrzeżenie: Brakuje niektórych statusów zamówień lub są nieprawidłowe:';
-$_MODULE['<{monei}prestashop>monei_fa38e67541a54303a671421ba73f7cc3'] = '. Funkcja "Koszyk do zamówienia" może nie działać poprawnie. Proszę ponownie zainstalować moduł lub skontaktować się z pomocą techniczną.';
 $_MODULE['<{monei}prestashop>monei_93cba07454f06a4a960172bbd6e2a435'] = 'Tak';
 $_MODULE['<{monei}prestashop>monei_95678574c75e9ff4635adcccdba14fbf'] = 'Twój rzeczywisty klucz API MONEI. Dostępny w panelu MONEI.';
 $_MODULE['<{monei}prestashop>monei_973f31eb8d5e7cbeaf97be99e5ebf607'] = 'Status HTTP:';

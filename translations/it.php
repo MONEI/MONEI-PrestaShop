@@ -169,7 +169,6 @@ $_MODULE['<{monei}prestashop>monei_8f3fd7585ac6731602fbd9d43255c37f'] = 'Problem
 $_MODULE['<{monei}prestashop>monei_92d4773a9f32fc3333cb8238471cf763'] = 'Devi abilitare l\'estensione cURL sul tuo server per installare questo modulo';
 $_MODULE['<{monei}prestashop>monei_ad4b30b583f4be4520f916f48920e9b6'] = 'Alcuni stati dell\'ordine mancavano e non sono stati recuperati:';
 $_MODULE['<{monei}prestashop>monei_c6b5b32e7b1ba86db753eca7ae10b187'] = 'Avviso: Alcuni stati dell\'ordine mancano o non sono validi:';
-$_MODULE['<{monei}prestashop>monei_fa38e67541a54303a671421ba73f7cc3'] = '. La funzione Carrello a Ordine potrebbe non funzionare correttamente. Si prega di reinstallare il modulo o contattare il supporto.';
 $_MODULE['<{monei}prestashop>monei_93cba07454f06a4a960172bbd6e2a435'] = 'Sì';
 $_MODULE['<{monei}prestashop>monei_95678574c75e9ff4635adcccdba14fbf'] = 'La tua Chiave API reale MONEI. Disponibile nel tuo dashboard MONEI.';
 $_MODULE['<{monei}prestashop>monei_973f31eb8d5e7cbeaf97be99e5ebf607'] = 'Stato HTTP:';

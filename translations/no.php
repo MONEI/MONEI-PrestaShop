@@ -169,7 +169,6 @@ $_MODULE['<{monei}prestashop>monei_8f3fd7585ac6731602fbd9d43255c37f'] = 'Vanlige
 $_MODULE['<{monei}prestashop>monei_92d4773a9f32fc3333cb8238471cf763'] = 'Du må aktivere cURL-utvidelsen på serveren for å installere denne modulen';
 $_MODULE['<{monei}prestashop>monei_ad4b30b583f4be4520f916f48920e9b6'] = 'Noen ordrestatuser manglet og kunne ikke gjenopprettes:';
 $_MODULE['<{monei}prestashop>monei_c6b5b32e7b1ba86db753eca7ae10b187'] = 'Advarsel: Noen ordrestatuser mangler eller er ugyldige:';
-$_MODULE['<{monei}prestashop>monei_fa38e67541a54303a671421ba73f7cc3'] = '. Handlekurv til ordre-funksjonen fungerer kanskje ikke riktig. Vennligst installer modulen på nytt eller kontakt support.';
 $_MODULE['<{monei}prestashop>monei_93cba07454f06a4a960172bbd6e2a435'] = 'Ja';
 $_MODULE['<{monei}prestashop>monei_95678574c75e9ff4635adcccdba14fbf'] = 'Din ekte MONEI API-nøkkel. Tilgjengelig i ditt MONEI kontrollpanel.';
 $_MODULE['<{monei}prestashop>monei_973f31eb8d5e7cbeaf97be99e5ebf607'] = 'HTTP Status:';

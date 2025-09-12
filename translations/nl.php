@@ -169,7 +169,6 @@ $_MODULE['<{monei}prestashop>monei_8f3fd7585ac6731602fbd9d43255c37f'] = 'Veelvoo
 $_MODULE['<{monei}prestashop>monei_92d4773a9f32fc3333cb8238471cf763'] = 'U moet de cURL-extensie op uw server inschakelen om deze module te installeren';
 $_MODULE['<{monei}prestashop>monei_ad4b30b583f4be4520f916f48920e9b6'] = 'Sommige bestelstatussen ontbraken en konden niet worden hersteld:';
 $_MODULE['<{monei}prestashop>monei_c6b5b32e7b1ba86db753eca7ae10b187'] = 'Waarschuwing: Sommige bestelstatussen ontbreken of zijn ongeldig:';
-$_MODULE['<{monei}prestashop>monei_fa38e67541a54303a671421ba73f7cc3'] = '. De Winkelwagen naar Bestelling functie werkt mogelijk niet correct. Installeer de module opnieuw of neem contact op met support.';
 $_MODULE['<{monei}prestashop>monei_93cba07454f06a4a960172bbd6e2a435'] = 'Ja';
 $_MODULE['<{monei}prestashop>monei_95678574c75e9ff4635adcccdba14fbf'] = 'Uw echte MONEI API-sleutel. Beschikbaar in uw MONEI dashboard.';
 $_MODULE['<{monei}prestashop>monei_973f31eb8d5e7cbeaf97be99e5ebf607'] = 'HTTP Status:';

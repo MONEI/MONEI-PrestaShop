@@ -25,6 +25,50 @@
       }
     };
     
+    // Reusable AJAX request handler with error handling
+    var moneiAjaxRequest = async function(url, options = {}) {
+      const defaultOptions = {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        ...options
+      };
+      
+      try {
+        moneiLog('info', 'Ajax', `Making request to ${url}`, defaultOptions);
+        const response = await fetch(url, defaultOptions);
+        const data = await response.json();
+        
+        if (!response.ok) {
+          // Extract error message from response
+          const errorMessage = data.message || data.error || 'An error occurred';
+          moneiLog('error', 'Ajax', `Request failed: ${errorMessage}`, data);
+          
+          // Display error to user
+          showMoneiError(errorMessage);
+          
+          // Throw error for caller to handle if needed
+          const error = new Error(errorMessage);
+          error.response = response;
+          error.data = data;
+          throw error;
+        }
+        
+        moneiLog('info', 'Ajax', 'Request successful', data);
+        return data;
+        
+      } catch (error) {
+        // Handle network errors or JSON parsing errors
+        if (!error.response) {
+          const networkError = 'Network error. Please check your connection and try again.';
+          moneiLog('error', 'Ajax', networkError, error);
+          showMoneiError(networkError);
+          throw new Error(networkError);
+        }
+        // Re-throw if it's already a handled error
+        throw error;
+      }
+    };
+    
     // Show loading overlay
     var showMoneiLoading = function() {
       // Create loading overlay
@@ -70,19 +114,82 @@
       }
     };
     
-    // Show error using PrestaShop's native system
+    // Show error using PrestaShop's native notification structure
     var showMoneiError = function(message) {
       hideMoneiLoading();
       
-      // Use PrestaShop's notification system if available
-      if (typeof prestashop !== 'undefined' && prestashop.emit) {
-        prestashop.emit('showNotification', {
-          type: 'error',
-          message: message
-        });
+      // Find the existing notifications container
+      let notificationContainer = document.querySelector('#notifications');
+      
+      if (notificationContainer) {
+        // Check if notifications container already has a container class div
+        let containerDiv = notificationContainer.querySelector('.container, .notifications-container');
+        
+        if (!containerDiv) {
+          // Add container div to match page width
+          containerDiv = document.createElement('div');
+          containerDiv.className = 'container';
+        } else {
+          // Clear existing content
+          containerDiv.innerHTML = '';
+        }
+        
+        // Create the alert structure
+        const alert = document.createElement('article');
+        alert.className = 'alert alert-danger';
+        alert.setAttribute('role', 'alert');
+        alert.setAttribute('data-alert', 'danger');
+        
+        const list = document.createElement('ul');
+        const listItem = document.createElement('li');
+        listItem.textContent = message;
+        
+        list.appendChild(listItem);
+        alert.appendChild(list);
+        
+        // Add alert to container
+        containerDiv.appendChild(alert);
+        
+        // If we created a new container, add it to notifications
+        if (!notificationContainer.querySelector('.container, .notifications-container')) {
+          notificationContainer.innerHTML = '';
+          notificationContainer.appendChild(containerDiv);
+        }
+        
+        // Scroll to the notification
+        notificationContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
       } else {
-        // Fallback to alert
-        alert(message);
+        // If no notifications container exists, insert alert in the payment section
+        const paymentSection = document.querySelector('#checkout-payment-step, .checkout-step.-current, .payment-options');
+        
+        if (paymentSection) {
+          // Remove any existing MONEI alerts
+          const existingAlert = paymentSection.querySelector('.monei-payment-alert');
+          if (existingAlert) {
+            existingAlert.remove();
+          }
+          
+          // Create alert
+          const alert = document.createElement('div');
+          alert.className = 'alert alert-danger monei-payment-alert';
+          alert.setAttribute('role', 'alert');
+          
+          const list = document.createElement('ul');
+          const listItem = document.createElement('li');
+          listItem.textContent = message;
+          
+          list.appendChild(listItem);
+          alert.appendChild(list);
+          
+          // Insert at the top of payment section
+          paymentSection.insertBefore(alert, paymentSection.firstChild);
+          
+          // Scroll to the alert
+          alert.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        } else {
+          // Last resort: use JavaScript alert
+          alert(message);
+        }
       }
     };
 
@@ -91,18 +198,13 @@
 
       const createMoneiPayment = async () => {
         try {
-          const response = await fetch(moneiCreatePaymentUrlController, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ token: moneiToken }),
+          const data = await moneiAjaxRequest(moneiCreatePaymentUrlController, {
+            body: JSON.stringify({ token: moneiToken })
           });
-
-          if (!response.ok) throw new Error(typeof moneiPaymentCreationFailed !== 'undefined' ? moneiPaymentCreationFailed : 'Payment creation failed');
-
-          const { moneiPaymentId } = await response.json();
-          return moneiPaymentId;
+          
+          return data.moneiPaymentId;
         } catch (error) {
-          showMoneiError(error.message);
+          // Error is already displayed by moneiAjaxRequest
           throw error;
         }
       };

@@ -21,7 +21,9 @@ class MoneiValidationModuleFrontController extends ModuleFrontController
                 '[MONEI] Webhook validation failed - Missing signature header',
                 PrestaShopLogger::LOG_SEVERITY_LEVEL_WARNING
             );
-            die('Unauthorized error');
+            http_response_code(401);
+            echo 'Unauthorized';
+            exit;
         }
 
         $requestBody = Tools::file_get_contents('php://input');
@@ -35,9 +37,8 @@ class MoneiValidationModuleFrontController extends ModuleFrontController
                 PrestaShopLogger::LOG_SEVERITY_LEVEL_ERROR
             );
 
-            header('HTTP/1.1 401 Unauthorized');
-            echo '<h1>Unauthorized</h1>';
-            echo $e->getMessage();
+            http_response_code(401);
+            echo 'Unauthorized';
             exit;
         }
 
@@ -76,9 +77,8 @@ class MoneiValidationModuleFrontController extends ModuleFrontController
                 PrestaShopLogger::LOG_SEVERITY_LEVEL_ERROR
             );
 
-            header('HTTP/1.1 400 Bad Request');
-            echo '<h1>Internal Monei Exception</h1>';
-            echo $ex->getMessage();
+            http_response_code(400);
+            echo 'Bad Request';
         }
 
         exit;
