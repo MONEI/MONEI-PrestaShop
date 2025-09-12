@@ -227,12 +227,12 @@
     };
 
     var moneiTokenHandler = async (parameters = {}) => {
-      const { paymentToken, cardholderName = null, moneiConfirmationButton = null, paymentMethod = '' } = parameters;
+      const { paymentToken, cardholderName = null, moneiConfirmationButton = null } = parameters;
 
       const createMoneiPayment = async () => {
         try {
           const data = await moneiAjaxRequest(moneiCreatePaymentUrlController, {
-            body: JSON.stringify({ token: moneiToken, paymentMethod })
+            body: JSON.stringify({ token: moneiToken })
           });
           
           // Check if we got a valid response
@@ -381,7 +381,7 @@
             },
             onSubmit({token}) {
               if (token) {
-                moneiTokenHandler({paymentToken: token, paymentMethod: 'bizum'});
+                moneiTokenHandler({paymentToken: token});
               }
             },
             onError({status, statusCode, message}) {
@@ -586,7 +586,7 @@
                 moneiLog('error', 'PayPal', 'Payment submission error', result.error);
                 processingMoneiPayPalPayment = false;
               } else if (result.token) {
-                moneiTokenHandler({ paymentToken: result.token, paymentMethod: 'paypal' });
+                moneiTokenHandler({ paymentToken: result.token });
               }
             },
             onError(error) {
