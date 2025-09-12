@@ -205,7 +205,6 @@ class Monei extends PaymentModule
         Configuration::updateValue('MONEI_ACCOUNT_ID', '');
         Configuration::updateValue('MONEI_TEST_API_KEY', '');
         Configuration::updateValue('MONEI_TEST_ACCOUNT_ID', '');
-        Configuration::updateValue('MONEI_CART_TO_ORDER', false);
         Configuration::updateValue('MONEI_EXPIRE_TIME', 600);
         // Gateways
         Configuration::updateValue('MONEI_ALLOW_CARD', true);
@@ -1017,7 +1016,6 @@ class Monei extends PaymentModule
             'MONEI_API_KEY' => Configuration::get('MONEI_API_KEY', ''),
             'MONEI_TEST_ACCOUNT_ID' => Configuration::get('MONEI_TEST_ACCOUNT_ID', ''),
             'MONEI_TEST_API_KEY' => Configuration::get('MONEI_TEST_API_KEY', ''),
-            'MONEI_CART_TO_ORDER' => Configuration::get('MONEI_CART_TO_ORDER', true),
             'MONEI_PAYMENT_ACTION' => Configuration::get('MONEI_PAYMENT_ACTION', 'sale'),
         ];
     }
@@ -1206,25 +1204,6 @@ class Monei extends PaymentModule
                             ],
                             'id' => 'id',
                             'name' => 'name',
-                        ],
-                    ],
-                    [
-                        'type' => 'switch',
-                        'label' => $this->l('Cart to order'),
-                        'name' => 'MONEI_CART_TO_ORDER',
-                        'is_bool' => true,
-                        'desc' => $this->l('Convert the customer cart into an order before the payment.'),
-                        'values' => [
-                            [
-                                'id' => 'active_on',
-                                'value' => true,
-                                'label' => $this->l('Enabled'),
-                            ],
-                            [
-                                'id' => 'active_off',
-                                'value' => false,
-                                'label' => $this->l('Disabled'),
-                            ],
                         ],
                     ],
                     [
