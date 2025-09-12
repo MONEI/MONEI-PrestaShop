@@ -271,7 +271,7 @@ class MoneiService
 
             // Also check in payments table in case order hasn't been created yet
             $sql = 'SELECT id_cart FROM ' . _DB_PREFIX_ . 'monei2_payment 
-                    WHERE id_order = "' . pSQL($orderId) . '" 
+                    WHERE id_order_monei = "' . pSQL($orderId) . '" 
                     LIMIT 1';
             $cartIdFromPayment = (int) \Db::getInstance()->getValue($sql);
             if ($cartIdFromPayment > 0) {
