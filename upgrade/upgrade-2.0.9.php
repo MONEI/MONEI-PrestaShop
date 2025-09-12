@@ -198,7 +198,7 @@ function upgrade_module_2_0_9($module)
     }
     
     // 6. ENSURE APPLE PAY DOMAIN VERIFICATION FILE
-    if (is_callable([$module, 'copyApplePayDomainVerificationFile'])) {
+    if (method_exists($module, 'copyApplePayDomainVerificationFile')) {
         $module->copyApplePayDomainVerificationFile();
         PrestaShopLogger::addLog(
             '[MONEI] Apple Pay domain verification file checked',

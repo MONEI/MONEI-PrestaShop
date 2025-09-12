@@ -2522,7 +2522,7 @@ class Monei extends PaymentModule
      *
      * @return bool
      */
-    private function copyApplePayDomainVerificationFile()
+    public function copyApplePayDomainVerificationFile()
     {
         $sourceFile = _PS_MODULE_DIR_ . $this->name . '/files/apple-developer-merchantid-domain-association';
 
