@@ -31,7 +31,8 @@ class MoneiValidationModuleFrontController extends ModuleFrontController
 
         try {
             $this->module->getMoneiClient()->verifySignature($requestBody, $sigHeader);
-        } catch (MoneiException $e) {
+        } catch (\Throwable $e) {
+            // Catch any exception during signature verification to ensure consistent response
             PrestaShopLogger::addLog(
                 '[MONEI] Webhook signature verification failed [error=' . $e->getMessage() . ']',
                 PrestaShopLogger::LOG_SEVERITY_LEVEL_ERROR
