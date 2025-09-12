@@ -2378,7 +2378,7 @@ class Monei extends PaymentModule
             $orderService = self::getService('service.order');
             $orderService->updateOrderStateAfterRefund((int) $order->id);
         } catch (Exception $e) {
-            // Log the error but don't interrupt the credit slip creation
+            // Log the error
             PrestaShopLogger::addLog(
                 'MONEI - Failed to process refund on credit slip creation: ' . $e->getMessage(),
                 3, // Error severity
@@ -2386,6 +2386,9 @@ class Monei extends PaymentModule
                 'Order',
                 (int) $order->id
             );
+            
+            // Re-throw the exception to prevent credit slip creation
+            throw new PrestaShopException('Refund failed in MONEI: ' . $e->getMessage());
         }
     }
 
