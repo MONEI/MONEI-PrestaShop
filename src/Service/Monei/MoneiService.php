@@ -486,10 +486,7 @@ class MoneiService
                 $paymentData['sessionDetails'] = $moneiPayment->getSessionDetails()->jsonSerialize();
             }
 
-            // Add trace details if available (server-side info)
-            if ($moneiPayment->getTraceDetails()) {
-                $paymentData['traceDetails'] = $moneiPayment->getTraceDetails()->jsonSerialize();
-            }
+            // Skip trace details - always contains PrestaShop server info which doesn't change
 
             $monei2HistoryEntity->setResponse(json_encode($paymentData));
             $monei2PaymentEntity->addHistory($monei2HistoryEntity);
