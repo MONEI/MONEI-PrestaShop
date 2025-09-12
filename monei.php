@@ -1962,7 +1962,7 @@ class Monei extends PaymentModule
                 foreach ($paymentHistory as $history) {
                     $paymentHistoryLog = $history->toArrayLegacy();
                     $paymentHistoryLog['responseDecoded'] = $history->getResponseDecoded();
-                    $paymentHistoryLog['responseB64'] = Mbstring::mb_convert_encoding($history->getResponse(), 'BASE64');
+                    $paymentHistoryLog['responseB64'] = base64_encode((string) $history->getResponse());
                     $paymentHistoryLog['payment_id'] = $paymentEntity->getId(); // Add payment ID for reference
 
                     // Extract payment method details from response
