@@ -64,11 +64,10 @@ class MoneiValidationModuleFrontController extends ModuleFrontController
             $moneiPayment = new Payment($json_array);
 
             // Create or update the order
-            $orderId = Monei::getService('service.order')->createOrUpdateOrder($moneiPayment->getId());
+            Monei::getService('service.order')->createOrUpdateOrder($moneiPayment->getId());
             
             PrestaShopLogger::addLog(
-                '[MONEI] Webhook processed successfully [payment_id=' . $moneiPayment->getId() . 
-                ', order_id=' . ($orderId ? $orderId : 'pending') . ']',
+                '[MONEI] Webhook processed successfully [payment_id=' . $moneiPayment->getId() . ']',
                 PrestaShopLogger::LOG_SEVERITY_LEVEL_INFORMATIVE
             );
         } catch (MoneiException $ex) {
