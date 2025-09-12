@@ -337,4 +337,7 @@ $_MODULE['<{monei}prestashop>statuscodehandler_3164536cb674f4a1a2b8e0bfb8acebc7'
 $_MODULE['<{monei}prestashop>statuscodehandler_57ee3debbb1e12cf62cb502eb3861566'] = 'Transaction refusée pendant le processus de paiement ClickToPay';
 $_MODULE['<{monei}prestashop>statuscodehandler_a4e2c33f5123a8b3f176129cdeb350d4'] = 'Configuration ClickToPay incorrecte';
 $_MODULE['<{monei}prestashop>statuscodehandler_d4bae019657857613ef1319ca317df02'] = 'Transaction refusée pendant le processus de paiement Cofidis';
-$_MODULE['<{monei}prestashop>statuscodehandler_792b8408bc86b3b99606fe1ab71805d3'] = 'Code de statut inconnu : %s';
+$_MODULE['<{monei}prestashop>statuscodehandler_792b8408bc86b3b99606fe1ab71805d3'] = 'Code de statut inconnu : %s';$_MODULE['<{monei}prestashop>monei_40dbad35e95e6a1b02e0f3a32ffb5c8e'] = 'MONEI refund reason';
+$_MODULE['<{monei}prestashop>monei_a506e19461a2d97b8fb4c664b1c64188'] = 'Requested by customer';
+$_MODULE['<{monei}prestashop>monei_43cc1c54b2b3cd52cfd9e5f338638dee'] = 'Duplicated';
+$_MODULE['<{monei}prestashop>monei_cc5e0cf5f17bfd7c83fb9eb946a0f15d'] = 'Fraudulent';
