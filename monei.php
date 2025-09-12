@@ -59,8 +59,10 @@ class Monei extends PaymentModule
         Configuration::updateValue('MONEI_ACCOUNT_ID', '');
         Configuration::updateValue('MONEI_TEST_API_KEY', '');
         Configuration::updateValue('MONEI_TEST_ACCOUNT_ID', '');
-        Configuration::updateValue('MONEI_CART_TO_ORDER', false);
         Configuration::updateValue('MONEI_EXPIRE_TIME', 600);
+        
+        // Clean up deprecated configurations
+        Configuration::deleteByName('MONEI_CART_TO_ORDER');
         // Gateways
         Configuration::updateValue('MONEI_ALLOW_CARD', true);
         Configuration::updateValue('MONEI_CARD_WITH_REDIRECT', false);
@@ -110,6 +112,9 @@ class Monei extends PaymentModule
 
         // Copy Apple Pay domain verification file to .well-known directory
         if ($result) {
+            // Validate order states after installation
+            $this->validateOrderStates();
+
             $this->copyApplePayDomainVerificationFile();
 
             // Regenerate .htaccess to include the new route
@@ -220,6 +225,160 @@ class Monei extends PaymentModule
     }
 
     /**
+     * Get translations for order state names
+     *
+     * @param string $stateName The English name of the state
+     *
+     * @return array Translations indexed by language ISO code
+     */
+    private function getOrderStateTranslations($stateName)
+    {
+        $translations = [
+            'Awaiting payment' => [
+                'en' => 'Awaiting payment',
+                'es' => 'Pendiente de pago',
+                'fr' => 'En attente de paiement',
+                'de' => 'Warte auf Zahlung',
+                'it' => 'In attesa di pagamento',
+                'pt' => 'Aguardando pagamento',
+                'nl' => 'Wacht op betaling',
+                'pl' => 'Oczekiwanie na płatność',
+                'ru' => 'Ожидание оплаты',
+            ],
+            'Payment authorized' => [
+                'en' => 'Payment authorized',
+                'es' => 'Pago autorizado',
+                'fr' => 'Paiement autorisé',
+                'de' => 'Zahlung autorisiert',
+                'it' => 'Pagamento autorizzato',
+                'pt' => 'Pagamento autorizado',
+                'nl' => 'Betaling geautoriseerd',
+                'pl' => 'Płatność autoryzowana',
+                'ru' => 'Платеж авторизован',
+            ],
+        ];
+
+        return $translations[$stateName] ?? ['en' => $stateName];
+    }
+
+    /**
+     * Create or update a MONEI order state
+     *
+     * @param string $configKey Configuration key for the state
+     * @param string $englishName English name of the state
+     * @param string $color Hex color for the state
+     * @param array $properties Additional OrderState properties
+     *
+     * @return bool Success status
+     */
+    private function createOrUpdateOrderState($configKey, $englishName, $color, $properties = [])
+    {
+        // First, check if we have a valid existing state
+        $stateId = (int) Configuration::get($configKey);
+        if ($stateId > 0 && Validate::isLoadedObject(new OrderState($stateId))) {
+            PrestaShopLogger::addLog(
+                'MONEI - Order state ' . $configKey . ' already exists with ID: ' . $stateId,
+                PrestaShopLogger::LOG_SEVERITY_LEVEL_INFORMATIVE
+            );
+
+            return true;
+        }
+
+        // Try to find an existing state with the same name
+        $existingStateId = $this->findOrderStateByName($englishName);
+        if ($existingStateId) {
+            Configuration::updateValue($configKey, (int) $existingStateId);
+            PrestaShopLogger::addLog(
+                'MONEI - Found existing state for ' . $configKey . ' with ID: ' . $existingStateId,
+                PrestaShopLogger::LOG_SEVERITY_LEVEL_INFORMATIVE
+            );
+
+            return true;
+        }
+
+        // Create new state
+        $order_state = new OrderState();
+        $order_state->name = [];
+
+        // Get translations for this state
+        $translations = $this->getOrderStateTranslations($englishName);
+        $spanish_isos = ['es', 'mx', 'co', 'pe', 'ar', 'cl', 've', 'py', 'uy', 'bo', 'ag', 'cb'];
+
+        foreach (Language::getLanguages() as $language) {
+            $iso = Tools::strtolower($language['iso_code']);
+
+            // Use specific translation if available
+            if (isset($translations[$iso])) {
+                $order_state->name[$language['id_lang']] = $translations[$iso];
+            } elseif (in_array($iso, $spanish_isos) && isset($translations['es'])) {
+                // Use Spanish translation for Spanish-speaking countries
+                $order_state->name[$language['id_lang']] = $translations['es'];
+            } else {
+                // Default to English
+                $order_state->name[$language['id_lang']] = $translations['en'] ?? $englishName;
+            }
+        }
+
+        // Set default properties
+        $order_state->send_email = false;
+        $order_state->color = $color;
+        $order_state->hidden = false;
+        $order_state->delivery = false;
+        $order_state->logable = false;
+        $order_state->invoice = false;
+        $order_state->module_name = $this->name;
+
+        // Apply custom properties
+        foreach ($properties as $key => $value) {
+            if (property_exists($order_state, $key)) {
+                $order_state->$key = $value;
+            }
+        }
+
+        // For PrestaShop 8+ compatibility
+        if (property_exists($order_state, 'template')) {
+            $order_state->template = '';
+        }
+
+        if ($order_state->add()) {
+            // Copy icon
+            $source = _PS_MODULE_DIR_ . $this->name . '/views/img/mini_monei.gif';
+            $destination = _PS_ROOT_DIR_ . '/img/os/' . (int) $order_state->id . '.gif';
+            @copy($source, $destination);
+
+            // Update configuration
+            if (Shop::isFeatureActive()) {
+                $shops = Shop::getShops();
+                foreach ($shops as $shop) {
+                    Configuration::updateValue(
+                        $configKey,
+                        (int) $order_state->id,
+                        false,
+                        null,
+                        (int) $shop['id_shop']
+                    );
+                }
+            } else {
+                Configuration::updateValue($configKey, (int) $order_state->id);
+            }
+
+            PrestaShopLogger::addLog(
+                'MONEI - Created new order state ' . $configKey . ' with ID: ' . $order_state->id,
+                PrestaShopLogger::LOG_SEVERITY_LEVEL_INFORMATIVE
+            );
+
+            return true;
+        }
+
+        PrestaShopLogger::addLog(
+            'MONEI - Failed to create order state ' . $configKey,
+            PrestaShopLogger::LOG_SEVERITY_LEVEL_ERROR
+        );
+
+        return false;
+    }
+
+    /**
      * Create order state
      *
      * @return bool
@@ -231,132 +390,22 @@ class Monei extends PaymentModule
             PrestaShopLogger::LOG_SEVERITY_LEVEL_INFORMATIVE
         );
 
-        // Check for existing "Awaiting payment" state
-        $existingPendingStateId = $this->findOrderStateByName('Awaiting payment');
-        PrestaShopLogger::addLog(
-            'MONEI - installOrderState - Existing pending state ID: ' . ($existingPendingStateId ?: 'none'),
-            PrestaShopLogger::LOG_SEVERITY_LEVEL_INFORMATIVE
-        );
-
-        if ($existingPendingStateId) {
-            Configuration::updateValue('MONEI_STATUS_PENDING', (int) $existingPendingStateId);
-            PrestaShopLogger::addLog(
-                'MONEI - Using existing pending order state ID: ' . $existingPendingStateId,
-                PrestaShopLogger::LOG_SEVERITY_LEVEL_INFORMATIVE
-            );
-        } elseif ((int) Configuration::get('MONEI_STATUS_PENDING') === 0) {
-            $order_state = new OrderState();
-            $order_state->name = [];
-            $spanish_isos = ['es', 'mx', 'co', 'pe', 'ar', 'cl', 've', 'py', 'uy', 'bo', 've', 'ag', 'cb'];
-
-            foreach (Language::getLanguages() as $language) {
-                if (Tools::strtolower($language['iso_code']) == 'fr') {
-                    $order_state->name[$language['id_lang']] = 'En attente de paiement';
-                } elseif (in_array(Tools::strtolower($language['iso_code']), $spanish_isos)) {
-                    $order_state->name[$language['id_lang']] = 'Pendiente de pago';
-                } else {
-                    $order_state->name[$language['id_lang']] = 'Awaiting payment';
-                }
-            }
-
-            $order_state->send_email = false;
-            $order_state->color = '#8961A5';
-            $order_state->hidden = false;
-            $order_state->delivery = false;
-            $order_state->logable = false;
-            $order_state->invoice = false;
-            $order_state->module_name = $this->name;
-
-            if ($order_state->add()) {
-                $source = _PS_MODULE_DIR_ . $this->name . '/views/img/mini_monei.gif';
-                $destination = _PS_ROOT_DIR_ . '/img/os/' . (int) $order_state->id . '.gif';
-                @copy($source, $destination);
-
-                if (Shop::isFeatureActive()) {
-                    $shops = Shop::getShops();
-                    foreach ($shops as $shop) {
-                        Configuration::updateValue(
-                            'MONEI_STATUS_PENDING',
-                            (int) $order_state->id,
-                            false,
-                            null,
-                            (int) $shop['id_shop']
-                        );
-                    }
-                } else {
-                    Configuration::updateValue('MONEI_STATUS_PENDING', (int) $order_state->id);
-                }
-            } else {
-                return false;
-            }
+        // Install pending state
+        if (!$this->createOrUpdateOrderState(
+            'MONEI_STATUS_PENDING',
+            'Awaiting payment',
+            '#8961A5'
+        )) {
+            return false;
         }
 
-        // Install authorized order state
-        $existingAuthorizedStateId = $this->findOrderStateByName('Payment authorized');
-        PrestaShopLogger::addLog(
-            'MONEI - installOrderState - Existing authorized state ID: ' . ($existingAuthorizedStateId ?: 'none'),
-            PrestaShopLogger::LOG_SEVERITY_LEVEL_INFORMATIVE
-        );
-
-        if ($existingAuthorizedStateId) {
-            Configuration::updateValue('MONEI_STATUS_AUTHORIZED', (int) $existingAuthorizedStateId);
-            PrestaShopLogger::addLog(
-                'MONEI - Using existing authorized order state ID: ' . $existingAuthorizedStateId,
-                PrestaShopLogger::LOG_SEVERITY_LEVEL_INFORMATIVE
-            );
-        } else {
-            $authorizedStateId = (int) Configuration::get('MONEI_STATUS_AUTHORIZED');
-            if ($authorizedStateId === 0 || !Validate::isLoadedObject(new OrderState($authorizedStateId))) {
-                $order_state = new OrderState();
-                $order_state->name = [];
-                $spanish_isos = ['es', 'mx', 'co', 'pe', 'ar', 'cl', 've', 'py', 'uy', 'bo', 've', 'ag', 'cb'];
-
-                foreach (Language::getLanguages() as $language) {
-                    if (Tools::strtolower($language['iso_code']) == 'fr') {
-                        $order_state->name[$language['id_lang']] = 'Paiement autorisé';
-                    } elseif (in_array(Tools::strtolower($language['iso_code']), $spanish_isos)) {
-                        $order_state->name[$language['id_lang']] = 'Pago autorizado';
-                    } else {
-                        $order_state->name[$language['id_lang']] = 'Payment authorized';
-                    }
-                }
-
-                $order_state->send_email = false;
-                $order_state->color = '#4169E1';
-                $order_state->hidden = false;
-                $order_state->delivery = false;
-                $order_state->logable = false;
-                $order_state->invoice = false;
-                $order_state->module_name = $this->name;
-
-                // For PrestaShop 8+ compatibility - ensure color is properly formatted
-                if (property_exists($order_state, 'template')) {
-                    $order_state->template = '';
-                }
-
-                if ($order_state->add()) {
-                    $source = _PS_MODULE_DIR_ . $this->name . '/views/img/mini_monei.gif';
-                    $destination = _PS_ROOT_DIR_ . '/img/os/' . (int) $order_state->id . '.gif';
-                    @copy($source, $destination);
-
-                    if (Shop::isFeatureActive()) {
-                        $shops = Shop::getShops();
-                        foreach ($shops as $shop) {
-                            Configuration::updateValue(
-                                'MONEI_STATUS_AUTHORIZED',
-                                (int) $order_state->id,
-                                false,
-                                null,
-                                (int) $shop['id_shop']
-                            );
-                        }
-                    } else {
-                        Configuration::updateValue('MONEI_STATUS_AUTHORIZED', (int) $order_state->id);
-                    }
-                } else {
-                    return false;
-                }
-            }
+        // Install authorized state
+        if (!$this->createOrUpdateOrderState(
+            'MONEI_STATUS_AUTHORIZED',
+            'Payment authorized',
+            '#4169E1'
+        )) {
+            return false;
         }
 
         return true;
@@ -414,7 +463,6 @@ class Monei extends PaymentModule
         Configuration::deleteByName('MONEI_ACCOUNT_ID');
         Configuration::deleteByName('MONEI_TEST_API_KEY');
         Configuration::deleteByName('MONEI_TEST_ACCOUNT_ID');
-        Configuration::deleteByName('MONEI_CART_TO_ORDER');
         Configuration::deleteByName('MONEI_EXPIRE_TIME');
         // Gateways
         Configuration::deleteByName('MONEI_ALLOW_CARD');
@@ -454,13 +502,16 @@ class Monei extends PaymentModule
     }
 
     /**
-     * Reset module - ensures Apple Pay file is copied
+     * Reset module - ensures Apple Pay file is copied and validates states
      */
     public function reset()
     {
         $result = parent::reset();
 
         if ($result) {
+            // Validate and recover order states
+            $this->validateOrderStates();
+
             $this->copyApplePayDomainVerificationFile();
 
             // Regenerate .htaccess to ensure the route is included
@@ -473,13 +524,16 @@ class Monei extends PaymentModule
     }
 
     /**
-     * Enable module - ensures Apple Pay file is copied
+     * Enable module - ensures Apple Pay file is copied and validates states
      */
     public function enable($force_all = false)
     {
         $result = parent::enable($force_all);
 
         if ($result) {
+            // Validate and recover order states
+            $this->validateOrderStates();
+
             $this->copyApplePayDomainVerificationFile();
 
             // Regenerate .htaccess to ensure the route is included
@@ -507,24 +561,77 @@ class Monei extends PaymentModule
         return Db::getInstance()->getValue($sql) > 0 ? true : false;
     }
 
+    /**
+     * Validate and recover missing order states
+     *
+     * @return array Missing states that couldn't be recovered
+     */
     public function validateOrderStates()
     {
         $missingStates = [];
+        $recoveredStates = [];
 
         $states = [
-            'MONEI_STATUS_PENDING',
-            'MONEI_STATUS_SUCCEEDED',
-            'MONEI_STATUS_FAILED',
-            'MONEI_STATUS_REFUNDED',
-            'MONEI_STATUS_PARTIALLY_REFUNDED',
-            'MONEI_STATUS_AUTHORIZED',
+            'MONEI_STATUS_PENDING' => ['name' => 'Awaiting payment', 'color' => '#8961A5'],
+            'MONEI_STATUS_SUCCEEDED' => ['native' => 'PS_OS_PAYMENT'],
+            'MONEI_STATUS_FAILED' => ['native' => 'PS_OS_ERROR'],
+            'MONEI_STATUS_REFUNDED' => ['native' => 'PS_OS_REFUND'],
+            'MONEI_STATUS_PARTIALLY_REFUNDED' => ['native' => 'PS_OS_REFUND'],
+            'MONEI_STATUS_AUTHORIZED' => ['name' => 'Payment authorized', 'color' => '#4169E1'],
         ];
 
-        foreach ($states as $stateConfig) {
-            $stateId = Configuration::get($stateConfig);
-            if ($stateId && !Validate::isLoadedObject(new OrderState($stateId))) {
+        foreach ($states as $stateConfig => $stateInfo) {
+            $stateId = (int) Configuration::get($stateConfig);
+
+            // Check if state exists and is valid
+            if ($stateId > 0 && Validate::isLoadedObject(new OrderState($stateId))) {
+                continue; // State is valid
+            }
+
+            // For native PrestaShop states, try to use them
+            if (isset($stateInfo['native'])) {
+                $nativeStateId = (int) Configuration::get($stateInfo['native']);
+                if ($nativeStateId > 0 && Validate::isLoadedObject(new OrderState($nativeStateId))) {
+                    Configuration::updateValue($stateConfig, $nativeStateId);
+                    PrestaShopLogger::addLog(
+                        'MONEI - Recovered ' . $stateConfig . ' using native state ' . $stateInfo['native'],
+                        PrestaShopLogger::LOG_SEVERITY_LEVEL_INFORMATIVE
+                    );
+                    $recoveredStates[] = $stateConfig;
+
+                    continue;
+                }
+            }
+
+            // For custom states, try to recover or recreate
+            if (isset($stateInfo['name'])) {
+                if ($this->createOrUpdateOrderState($stateConfig, $stateInfo['name'], $stateInfo['color'])) {
+                    PrestaShopLogger::addLog(
+                        'MONEI - Recovered ' . $stateConfig . ' by recreating state',
+                        PrestaShopLogger::LOG_SEVERITY_LEVEL_INFORMATIVE
+                    );
+                    $recoveredStates[] = $stateConfig;
+                } else {
+                    $missingStates[] = $stateConfig;
+                }
+            } else {
+                // Native state is missing and can't be recovered
                 $missingStates[] = $stateConfig;
             }
+        }
+
+        if (count($recoveredStates) > 0) {
+            PrestaShopLogger::addLog(
+                'MONEI - Recovered states: ' . implode(', ', $recoveredStates),
+                PrestaShopLogger::LOG_SEVERITY_LEVEL_INFORMATIVE
+            );
+        }
+
+        if (count($missingStates) > 0) {
+            PrestaShopLogger::addLog(
+                'MONEI - Missing states that could not be recovered: ' . implode(', ', $missingStates),
+                PrestaShopLogger::LOG_SEVERITY_LEVEL_WARNING
+            );
         }
 
         return $missingStates;
@@ -537,20 +644,28 @@ class Monei extends PaymentModule
     {
         $message = '';
 
+        // Validate and recover order states on configuration page load
+        $missingStates = $this->validateOrderStates();
+        if (!empty($missingStates)) {
+            $message .= $this->displayWarning(
+                $this->l('Some order states were missing and could not be recovered: ') . implode(', ', $missingStates)
+            );
+        }
+
         /*
          * If values have been submitted in the form, process.
          */
         if ((bool) Tools::isSubmit('submitMoneiModule')) {
             PrestaShopLogger::addLog('MONEI - submitMoneiModule detected, calling postProcess(1)', 1);
-            $message = $this->postProcess(1);
+            $message .= $this->postProcess(1);
         } elseif (Tools::isSubmit('submitMoneiModuleGateways')) {
             PrestaShopLogger::addLog('MONEI - submitMoneiModuleGateways detected, calling postProcess(2)', 1);
-            $message = $this->postProcess(2);
+            $message .= $this->postProcess(2);
         } elseif (Tools::isSubmit('submitMoneiModuleStatus')) {
             PrestaShopLogger::addLog('MONEI - submitMoneiModuleStatus detected, calling postProcess(3)', 1);
-            $message = $this->postProcess(3);
+            $message .= $this->postProcess(3);
         } elseif (Tools::isSubmit('submitMoneiModuleComponentStyle')) {
-            $message = $this->postProcess(4);
+            $message .= $this->postProcess(4);
         }
 
         // Check Apple Pay domain verification status
@@ -915,7 +1030,6 @@ class Monei extends PaymentModule
             'MONEI_API_KEY' => Configuration::get('MONEI_API_KEY', ''),
             'MONEI_TEST_ACCOUNT_ID' => Configuration::get('MONEI_TEST_ACCOUNT_ID', ''),
             'MONEI_TEST_API_KEY' => Configuration::get('MONEI_TEST_API_KEY', ''),
-            'MONEI_CART_TO_ORDER' => Configuration::get('MONEI_CART_TO_ORDER', true),
             'MONEI_PAYMENT_ACTION' => Configuration::get('MONEI_PAYMENT_ACTION', 'sale'),
         ];
     }
@@ -1104,25 +1218,6 @@ class Monei extends PaymentModule
                             ],
                             'id' => 'id',
                             'name' => 'name',
-                        ],
-                    ],
-                    [
-                        'type' => 'switch',
-                        'label' => $this->l('Cart to order'),
-                        'name' => 'MONEI_CART_TO_ORDER',
-                        'is_bool' => true,
-                        'desc' => $this->l('Convert the customer cart into an order before the payment.'),
-                        'values' => [
-                            [
-                                'id' => 'active_on',
-                                'value' => true,
-                                'label' => $this->l('Enabled'),
-                            ],
-                            [
-                                'id' => 'active_off',
-                                'value' => false,
-                                'label' => $this->l('Disabled'),
-                            ],
                         ],
                     ],
                     [

@@ -476,7 +476,16 @@ class MoneiService
             throw new MoneiException('The cart could not be loaded correctly');
         }
 
-        $cartAmount = $this->getCartAmount($cart->getSummaryDetails(null, true), $cart->id_currency);
+        $summaryDetails = $cart->getSummaryDetails(null, true);
+        \PrestaShopLogger::addLog('MONEI - Cart summary details: ' . json_encode($summaryDetails), \PrestaShopLogger::LOG_SEVERITY_LEVEL_INFORMATIVE);
+
+        if (empty($summaryDetails)) {
+            \PrestaShopLogger::addLog('MONEI - Cart summary is empty. Cart ID: ' . $cart->id . ', Products: ' . count($cart->getProducts()), \PrestaShopLogger::LOG_SEVERITY_LEVEL_ERROR);
+
+            throw new MoneiException('The cart summary is empty', MoneiException::CART_AMOUNT_EMPTY);
+        }
+
+        $cartAmount = $this->getCartAmount($summaryDetails, $cart->id_currency);
         if (empty($cartAmount)) {
             throw new MoneiException('The cart amount is empty', MoneiException::CART_AMOUNT_EMPTY);
         }

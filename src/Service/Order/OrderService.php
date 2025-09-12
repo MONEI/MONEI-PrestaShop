@@ -81,13 +81,8 @@ class OrderService
 
             $order = $this->handleExistingOrder($cartId, $orderStateId, $moneiPayment);
 
-            // Create order for non-failed payments OR when Cart to Order is enabled (even for failed payments)
-            $cartToOrder = \Configuration::get('MONEI_CART_TO_ORDER');
-            if (!$order && (!$failed || $cartToOrder)) {
-                \PrestaShopLogger::addLog(
-                    'MONEI DEBUG - Creating order. Failed: ' . ($failed ? 'YES' : 'NO') . ', Cart to Order: ' . var_export($cartToOrder, true),
-                    \PrestaShopLogger::LOG_SEVERITY_LEVEL_INFORMATIVE
-                );
+            // Create order only for non-failed payments
+            if (!$order && !$failed) {
                 $order = $this->createNewOrder($cart, $customer, $orderStateId, $moneiPayment);
                 // Update payment method name and details for new orders
                 $this->updateOrderPaymentMethodName($order, $moneiPayment);

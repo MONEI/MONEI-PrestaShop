@@ -18,6 +18,11 @@ class MoneiCreatePaymentModuleFrontController extends ModuleFrontController
         // Get payment method from request if provided
         $paymentMethod = isset($data['paymentMethod']) ? $data['paymentMethod'] : '';
 
+        // Debug cart state
+        PrestaShopLogger::addLog('MONEI - createPayment - Cart ID: ' . $this->context->cart->id, PrestaShopLogger::LOG_SEVERITY_LEVEL_INFORMATIVE);
+        PrestaShopLogger::addLog('MONEI - createPayment - Cart products count: ' . count($this->context->cart->getProducts()), PrestaShopLogger::LOG_SEVERITY_LEVEL_INFORMATIVE);
+        PrestaShopLogger::addLog('MONEI - createPayment - Customer ID: ' . $this->context->cart->id_customer, PrestaShopLogger::LOG_SEVERITY_LEVEL_INFORMATIVE);
+
         $paymentResponse = Monei::getService('service.monei')->createMoneiPayment(
             $this->context->cart,
             false,  // tokenizeCard
