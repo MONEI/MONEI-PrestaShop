@@ -417,11 +417,6 @@ class MoneiService
 
     public function saveMoneiPayment(Payment $moneiPayment, int $orderId = 0, int $employeeId = 0)
     {
-        // Skip saving pending payments - we don't need them in history
-        if ($moneiPayment->getStatus() === \Monei\Model\PaymentStatus::PENDING) {
-            return;
-        }
-
         $cartId = $this->getCartIdFromPayment($moneiPayment);
 
         $monei2PaymentEntity = $this->moneiPaymentRepository->findOneById($moneiPayment->getId()) ?? new Monei2Payment();
@@ -440,24 +435,27 @@ class MoneiService
         $monei2PaymentEntity->setDateUpd($moneiPayment->getUpdatedAt());
 
         // Check if we should add a new history entry
-        $shouldAddHistory = true;
+        // Skip history for PENDING payments to avoid clutter, but still save the payment entity
+        $shouldAddHistory = $moneiPayment->getStatus() !== \Monei\Model\PaymentStatus::PENDING;
         $currentStatus = $moneiPayment->getStatus();
         $currentStatusCode = $moneiPayment->getStatusCode();
 
-        // Get existing history entries
-        $historyList = $monei2PaymentEntity->getHistoryList();
-        if ($historyList && count($historyList) > 0) {
-            // Get the last history entry efficiently using Doctrine's last() method
-            $lastHistory = $historyList->last();
+        // Get existing history entries - only check if we're planning to add history
+        if ($shouldAddHistory) {
+            $historyList = $monei2PaymentEntity->getHistoryList();
+            if ($historyList && count($historyList) > 0) {
+                // Get the last history entry efficiently using Doctrine's last() method
+                $lastHistory = $historyList->last();
 
-            // Only add new history if status has changed
-            if ($lastHistory && $lastHistory->getStatus() === $currentStatus && $lastHistory->getStatusCode() === $currentStatusCode) {
-                $shouldAddHistory = false;
-                \PrestaShopLogger::addLog(
-                    'MONEI - saveMoneiPayment - Skipping duplicate history entry for payment: ' . $moneiPayment->getId()
-                        . ' with status: ' . $currentStatus,
-                    \PrestaShopLogger::LOG_SEVERITY_LEVEL_INFORMATIVE
-                );
+                // Only add new history if status has changed
+                if ($lastHistory && $lastHistory->getStatus() === $currentStatus && $lastHistory->getStatusCode() === $currentStatusCode) {
+                    $shouldAddHistory = false;
+                    \PrestaShopLogger::addLog(
+                        'MONEI - saveMoneiPayment - Skipping duplicate history entry for payment: ' . $moneiPayment->getId()
+                            . ' with status: ' . $currentStatus,
+                        \PrestaShopLogger::LOG_SEVERITY_LEVEL_INFORMATIVE
+                    );
+                }
             }
         }
 
