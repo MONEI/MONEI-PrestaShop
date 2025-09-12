@@ -118,12 +118,12 @@ $paymentService = Monei::getService('monei.service.payment');
 ```
 
 ### Frontend JavaScript Architecture
-- JavaScript files in `/views/js/` use vanilla JavaScript (no build step required)
+- Runtime uses JavaScript files in `/views/js/` directly (vanilla JavaScript, no build required)
 - Key files:
   - `checkout.js`: Payment form handling, Apple/Google Pay detection
   - `saved-cards.js`: Tokenized card management
   - `admin/admin.js`: Admin panel functionality, refund handling
-- No bundler or transpilation - files are used directly
+- **Development Note**: A legacy build pipeline exists (`/views/js/_dev/` → uglifyjs-folder → `/views/js/`) but is deprecated. The files in `/views/js/` are used directly in production without requiring any build step
 
 ## Version Compatibility
 - PHP: ≥7.4 (composer platform configured)

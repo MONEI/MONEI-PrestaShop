@@ -436,6 +436,18 @@ class Monei extends PaymentModule
         return $tab->add();
     }
 
+    /**
+     * Complete data cleanup - removes ALL module data including customer cards
+     * WARNING: This will delete all tokenized cards and customer payment data
+     * 
+     * @return bool
+     */
+    public function purgeAllData()
+    {
+        $sql = 'DROP TABLE IF EXISTS `' . _DB_PREFIX_ . 'monei2_customer_card`';
+        return Db::getInstance()->execute($sql);
+    }
+
     public function uninstall()
     {
         // Remove MONEI OrderStates

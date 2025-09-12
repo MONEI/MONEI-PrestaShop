@@ -46,7 +46,9 @@ class MoneiRedirectModuleFrontController extends ModuleFrontController
                 }
 
 
-                if ($redirectURL = $moneiPayment->getNextAction()->getRedirectUrl()) {
+                $nextAction = $moneiPayment->getNextAction();
+                $redirectURL = $nextAction ? $nextAction->getRedirectUrl() : null;
+                if ($redirectURL) {
                     if ($moneiPayment->getStatus() === PaymentStatus::FAILED) {
                         // Store status code for failed payments before redirect
                         if ($moneiPayment->getStatusCode()) {
