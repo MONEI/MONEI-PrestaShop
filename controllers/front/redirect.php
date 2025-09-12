@@ -13,68 +13,180 @@ class MoneiRedirectModuleFrontController extends ModuleFrontController
 
     public function postProcess()
     {
-        $transactionId = Tools::getValue('transaction_id');
-        $tokenizeCard = (bool) Tools::getValue('tokenize_card', false);
-        $moneiCardId = (int) Tools::getValue('id_monei_card', 0);
-        $paymentMethod = Tools::getValue('method', '');
-
-        $crypto = ServiceLocator::get('\\PrestaShop\\PrestaShop\\Core\\Crypto\\Hashing');
-        $cart = $this->context->cart;
-        $check_encrypt = $crypto->checkHash((int) $cart->id . (int) $cart->id_customer, $transactionId);
-
-        if ($cart->id_customer == 0
-            || $cart->id_address_delivery == 0
-            || $cart->id_address_invoice == 0
-            || !$this->module->active
-        ) {
-            Tools::redirect($this->context->link->getPageLink('index'));
-        }
-
         try {
-            if (!$check_encrypt) {
-                throw new MoneiException('Invalid crypto hash', MoneiException::INVALID_CRYPTO_HASH);
+            $cart = $this->context->cart;
+            $transactionId = Tools::getValue('transaction_id');
+            $tokenizeCard = (bool) Tools::getValue('tokenize_card', false);
+            $moneiCardId = (int) Tools::getValue('id_monei_card', 0);
+            $paymentMethod = Tools::getValue('method', '');
+
+            // Validate cart exists and is valid before using it
+            if (!$cart || !\Validate::isLoadedObject($cart)
+                || $cart->id_customer == 0
+                || $cart->id_address_delivery == 0
+                || $cart->id_address_invoice == 0
+                || !$this->module->active
+            ) {
+                PrestaShopLogger::addLog(
+                    '[MONEI] Payment initiation failed - Invalid or missing cart [method=' . $paymentMethod . ']',
+                    PrestaShopLogger::LOG_SEVERITY_LEVEL_ERROR
+                );
+                Tools::redirect($this->context->link->getPageLink('index'));
+                exit;
             }
 
-            $moneiService = Monei::getService('service.monei');
+            PrestaShopLogger::addLog(
+                '[MONEI] Payment initiation started [cart_id=' . $cart->id . ', customer_id=' . $cart->id_customer . ', method=' . $paymentMethod . ']',
+                PrestaShopLogger::LOG_SEVERITY_LEVEL_INFORMATIVE
+            );
 
-            $moneiPayment = $moneiService->createMoneiPayment($cart, $tokenizeCard, $moneiCardId, $paymentMethod);
-            if (!$moneiPayment) {
-                Tools::redirect($this->context->link->getPageLink('order'));
-            }
+            $crypto = ServiceLocator::get('\\PrestaShop\\PrestaShop\\Core\\Crypto\\Hashing');
+            $check_encrypt = $crypto->checkHash((int) $cart->id . (int) $cart->id_customer, $transactionId);
 
-            // Convert the cart to order
-            $orderState = new OrderState(Configuration::get('MONEI_STATUS_PENDING'));
-            if (Configuration::get('MONEI_CART_TO_ORDER') && Validate::isLoadedObject($orderState)) {
-                $orderService = Monei::getService('service.order');
-                $orderService->createOrUpdateOrder($moneiPayment->getId());
-            }
-
-            if ($redirectURL = $moneiPayment->getNextAction()->getRedirectUrl()) {
-                if ($moneiPayment->getStatus() === PaymentStatus::FAILED) {
-                    // Store status code for failed payments before redirect
-                    if ($moneiPayment->getStatusCode()) {
-                        $this->context->cookie->monei_error_code = $moneiPayment->getStatusCode();
-                    }
-                    $redirectURL .= '&message=' . $moneiPayment->getStatusMessage();
+            try {
+                if (!$check_encrypt) {
+                    PrestaShopLogger::addLog(
+                        '[MONEI] Payment initiation failed - Invalid crypto hash [cart_id=' . $cart->id . ']',
+                        PrestaShopLogger::LOG_SEVERITY_LEVEL_ERROR
+                    );
+                    throw new MoneiException('Invalid crypto hash', MoneiException::INVALID_CRYPTO_HASH);
                 }
 
-                Tools::redirect($redirectURL);
+                $moneiService = Monei::getService('service.monei');
+
+                $moneiPayment = $moneiService->createMoneiPayment($cart, $tokenizeCard, $moneiCardId, $paymentMethod);
+                if (!$moneiPayment) {
+                    PrestaShopLogger::addLog(
+                        '[MONEI] Payment creation failed - No payment object returned [cart_id=' . $cart->id . ']',
+                        PrestaShopLogger::LOG_SEVERITY_LEVEL_ERROR
+                    );
+                    
+                    // Store user-friendly error message for display on checkout page
+                    $this->context->cookie->monei_checkout_error = $this->module->l('Unable to process payment. Please try again or use a different payment method.');
+                    $this->context->cookie->write();
+                    
+                    Tools::redirect($this->context->link->getPageLink('order'));
+                    exit;
+                }
+
+                PrestaShopLogger::addLog(
+                    '[MONEI] Payment created successfully [payment_id=' . $moneiPayment->getId() . ', cart_id=' . $cart->id . ', status=' . $moneiPayment->getStatus() . ']',
+                    PrestaShopLogger::LOG_SEVERITY_LEVEL_INFORMATIVE
+                );
+
+
+                $nextAction = $moneiPayment->getNextAction();
+                $redirectURL = $nextAction ? $nextAction->getRedirectUrl() : null;
+                if ($redirectURL) {
+                    if ($moneiPayment->getStatus() === PaymentStatus::FAILED) {
+                        // Store status code for failed payments before redirect
+                        if ($moneiPayment->getStatusCode()) {
+                            $this->context->cookie->monei_error_code = $moneiPayment->getStatusCode();
+                        }
+                        // Safely append the message parameter using proper URL handling
+                        if ($statusMessage = $moneiPayment->getStatusMessage()) {
+                            $redirectURL = $this->addQueryParam($redirectURL, 'message', $statusMessage);
+                        }
+                    }
+
+                    Tools::redirect($redirectURL);
+                }
+            } catch (Exception $ex) {
+                PrestaShopLogger::addLog(
+                    '[MONEI] Payment creation exception [cart_id=' . $cart->id . ', error=' . $ex->getMessage() . ']',
+                    PrestaShopLogger::LOG_SEVERITY_LEVEL_ERROR
+                );
+                
+                // If it's a MoneiException with a payment response, try to extract status code
+                if ($ex instanceof MoneiException && method_exists($ex, 'getPaymentData')) {
+                    $paymentData = $ex->getPaymentData();
+                    if ($paymentData && isset($paymentData['statusCode'])) {
+                        $this->context->cookie->monei_error_code = $paymentData['statusCode'];
+                        // Status code handler will provide localized message
+                        Tools::redirect($this->context->link->getModuleLink($this->module->name, 'errors'));
+                        exit;
+                    }
+                }
+                
+                // For other exceptions, provide a user-friendly generic message
+                // Don't expose technical details to users
+                $this->context->cookie->monei_checkout_error = $this->module->l('Payment could not be processed. Please try again or contact support.');
+                $this->context->cookie->write();
+                Tools::redirect($this->context->link->getPageLink('order'));
+                exit;
             }
         } catch (Exception $ex) {
-            // Store the exception message for technical errors
-            $this->context->cookie->monei_error = $ex->getMessage();
-
-            // If it's a MoneiException with a payment response, try to extract status code
-            if ($ex instanceof MoneiException && method_exists($ex, 'getPaymentData')) {
-                $paymentData = $ex->getPaymentData();
-                if ($paymentData && isset($paymentData['statusCode'])) {
-                    $this->context->cookie->monei_error_code = $paymentData['statusCode'];
-                }
-            }
-
-            Tools::redirect($this->context->link->getModuleLink($this->module->name, 'errors'));
+            PrestaShopLogger::addLog(
+                '[MONEI] Redirect controller critical error [error=' . $ex->getMessage() . ']',
+                PrestaShopLogger::LOG_SEVERITY_LEVEL_ERROR
+            );
+            // Handle outer exception - don't expose technical details
+            $this->context->cookie->monei_checkout_error = $this->module->l('An error occurred while processing your payment. Please try again.');
+            $this->context->cookie->write();
+            Tools::redirect($this->context->link->getPageLink('order'));
+            exit;
         }
 
         exit;
+    }
+
+    /**
+     * Safely add a query parameter to a URL
+     * 
+     * @param string $url The URL to modify
+     * @param string $key The parameter key
+     * @param string $value The parameter value
+     * @return string The modified URL
+     */
+    private function addQueryParam($url, $key, $value)
+    {
+        $urlParts = parse_url($url);
+        
+        // Parse existing query parameters
+        $queryParams = [];
+        if (isset($urlParts['query'])) {
+            parse_str($urlParts['query'], $queryParams);
+        }
+        
+        // Add/update the parameter
+        $queryParams[$key] = $value;
+        
+        // Rebuild query string - http_build_query handles encoding automatically
+        $urlParts['query'] = http_build_query($queryParams);
+        
+        // Rebuild the URL using the built-in function if available
+        if (function_exists('http_build_url')) {
+            return http_build_url($urlParts);
+        }
+        
+        // Manual rebuild if http_build_url is not available
+        $url = '';
+        if (isset($urlParts['scheme'])) {
+            $url .= $urlParts['scheme'] . '://';
+        }
+        if (isset($urlParts['user'])) {
+            $url .= $urlParts['user'];
+            if (isset($urlParts['pass'])) {
+                $url .= ':' . $urlParts['pass'];
+            }
+            $url .= '@';
+        }
+        if (isset($urlParts['host'])) {
+            $url .= $urlParts['host'];
+        }
+        if (isset($urlParts['port'])) {
+            $url .= ':' . $urlParts['port'];
+        }
+        if (isset($urlParts['path'])) {
+            $url .= $urlParts['path'];
+        }
+        if (isset($urlParts['query'])) {
+            $url .= '?' . $urlParts['query'];
+        }
+        if (isset($urlParts['fragment'])) {
+            $url .= '#' . $urlParts['fragment'];
+        }
+        
+        return $url;
     }
 }

@@ -1,6 +1,8 @@
 <?php
 $sql = [];
 
+// Drop ALL module tables on uninstall (GDPR compliant - data minimization)
+// This ensures complete removal of all customer data when module is uninstalled
 $sql[] = 'DROP TABLE IF EXISTS `' . _DB_PREFIX_ . 'monei2_payment`;';
 $sql[] = 'DROP TABLE IF EXISTS `' . _DB_PREFIX_ . 'monei2_history`;';
 $sql[] = 'DROP TABLE IF EXISTS `' . _DB_PREFIX_ . 'monei2_refund`;';

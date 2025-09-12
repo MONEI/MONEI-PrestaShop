@@ -48,8 +48,6 @@ class OrderService
         $lockName = 'payment_' . $moneiPaymentId . '_shop_' . $shopId;
 
         if (!$this->lockService->acquireLock($lockName, 30)) {
-            \PrestaShopLogger::addLog('MONEI - createOrUpdateOrder - Could not acquire lock for payment: ' . $moneiPaymentId, \PrestaShopLogger::LOG_SEVERITY_LEVEL_WARNING);
-
             // Another process is handling this payment, so we can safely return
             return;
         }
@@ -59,8 +57,6 @@ class OrderService
             $query = 'SELECT * FROM ' . _DB_PREFIX_ . 'monei2_order_payment WHERE id_payment = "' . pSQL($moneiPaymentId) . '"';
             $orderPaymentExists = $connection->getRow($query);
             if ($orderPaymentExists) {
-                \PrestaShopLogger::addLog('MONEI - createOrUpdateOrder - Order: (' . $orderPaymentExists['id_order'] . ') already exists. Payment ID: ' . $moneiPaymentId . ' Date: ' . $orderPaymentExists['date_add'], \PrestaShopLogger::LOG_SEVERITY_LEVEL_WARNING);
-
                 // If order already exists and redirect is requested, redirect to confirmation page
                 if ($redirectToConfirmationPage) {
                     $existingOrder = new \Order($orderPaymentExists['id_order']);
@@ -70,12 +66,13 @@ class OrderService
                         $this->handlePostOrderCreation($redirectToConfirmationPage, $cart, $customer, $existingOrder);
                     }
                 }
-                
+
                 return;
             }
 
             $moneiPayment = $this->moneiService->getMoneiPayment($moneiPaymentId);
-            $cartId = $this->moneiService->extractCartIdFromMoneiOrderId($moneiPayment->getOrderId());
+
+            $cartId = $this->moneiService->getCartIdFromPayment($moneiPayment);
             $cart = $this->validateCart($cartId);
             $customer = $this->validateCustomer($cart->id_customer);
 
@@ -84,6 +81,7 @@ class OrderService
 
             $order = $this->handleExistingOrder($cartId, $orderStateId, $moneiPayment);
 
+            // Create order only for non-failed payments
             if (!$order && !$failed) {
                 $order = $this->createNewOrder($cart, $customer, $orderStateId, $moneiPayment);
                 // Update payment method name and details for new orders
@@ -105,20 +103,51 @@ class OrderService
             $sql = 'INSERT IGNORE INTO ' . _DB_PREFIX_ . 'monei2_order_payment (id_order, id_payment, date_add)
                 VALUES (' . (int) $order->id . ', "' . pSQL($moneiPaymentId) . '", NOW())';
             if ($connection->execute($sql)) {
-                \PrestaShopLogger::addLog('MONEI - createOrUpdateOrder - Order (' . $order->id . ') created or updated.', \PrestaShopLogger::LOG_SEVERITY_LEVEL_INFORMATIVE);
+                \PrestaShopLogger::addLog(
+                    '[MONEI] Order processed [order_id=' . $order->id . ', payment_id=' . $moneiPaymentId . ', status=' . $moneiPayment->getStatus() . ']',
+                    \PrestaShopLogger::LOG_SEVERITY_LEVEL_INFORMATIVE
+                );
             }
-
-            $this->handlePostOrderCreation($redirectToConfirmationPage, $cart, $customer, $order);
+            
+            // Store variables for post-processing
+            $postProcessData = [
+                'redirect' => $redirectToConfirmationPage,
+                'cart' => $cart,
+                'customer' => $customer,
+                'order' => $order
+            ];
         } catch (OrderException $e) {
             \PrestaShopLogger::addLog(
-                'MONEI - CreateOrderService - ' . $e->getMessage(),
+                '[MONEI] Order processing warning [payment_id=' . $moneiPaymentId . ', error=' . $e->getMessage() . ']',
                 \PrestaShopLogger::LOG_SEVERITY_LEVEL_WARNING
             );
 
             throw $e;
+        } catch (\Throwable $e) {
+            // Catch any unexpected exceptions to ensure they're logged before lock release
+            \PrestaShopLogger::addLog(
+                '[MONEI] Unexpected error during order processing [payment_id=' . $moneiPaymentId . 
+                ', error=' . $e->getMessage() . 
+                ', file=' . $e->getFile() . 
+                ', line=' . $e->getLine() . ']',
+                \PrestaShopLogger::LOG_SEVERITY_LEVEL_ERROR
+            );
+
+            throw $e;
         } finally {
-            // Always release the lock
+            // Always release the lock before any operation that might exit
             $this->lockService->releaseLock($lockName);
+        }
+        
+        // Call handlePostOrderCreation only if no exception was thrown
+        // Variables are guaranteed to be set here since we only reach this point on success
+        if (isset($postProcessData)) {
+            $this->handlePostOrderCreation(
+                $postProcessData['redirect'],
+                $postProcessData['cart'],
+                $postProcessData['customer'],
+                $postProcessData['order']
+            );
         }
     }
 
@@ -126,7 +155,7 @@ class OrderService
     {
         $statusMap = [
             PaymentStatus::REFUNDED => 'MONEI_STATUS_REFUNDED',
-            PaymentStatus::PARTIALLY_REFUNDED => 'MONEI_STATUS_REFUNDED',
+            PaymentStatus::PARTIALLY_REFUNDED => 'MONEI_STATUS_PARTIALLY_REFUNDED',
             PaymentStatus::PENDING => 'MONEI_STATUS_PENDING',
             PaymentStatus::SUCCEEDED => 'MONEI_STATUS_SUCCEEDED',
             PaymentStatus::AUTHORIZED => 'MONEI_STATUS_AUTHORIZED',
@@ -147,6 +176,10 @@ class OrderService
             \Configuration::get('MONEI_STATUS_AUTHORIZED') => [
                 \Configuration::get('MONEI_STATUS_SUCCEEDED'),
                 \Configuration::get('MONEI_STATUS_FAILED'),
+            ],
+            \Configuration::get('MONEI_STATUS_FAILED') => [
+                \Configuration::get('MONEI_STATUS_SUCCEEDED'),
+                \Configuration::get('MONEI_STATUS_AUTHORIZED'),
             ],
             \Configuration::get('MONEI_STATUS_SUCCEEDED') => [
                 \Configuration::get('MONEI_STATUS_REFUNDED'),
@@ -184,7 +217,7 @@ class OrderService
         if (\Validate::isLoadedObject($existingOrder)) {
             if ($existingOrder->module !== $this->moneiInstance->name) {
                 \PrestaShopLogger::addLog(
-                    'MONEI - CreateOrderService - Order (' . $existingOrder->id . ') already exists with a different payment method.',
+                    '[MONEI] Order conflict - Different payment method [order_id=' . $existingOrder->id . ', existing_module=' . $existingOrder->module . ']',
                     \PrestaShopLogger::LOG_SEVERITY_LEVEL_WARNING
                 );
 
@@ -192,7 +225,7 @@ class OrderService
             }
 
             \PrestaShopLogger::addLog(
-                'MONEI - CreateOrderService - Order (' . $existingOrder->id . ') already exists.',
+                '[MONEI] Updating existing order [order_id=' . $existingOrder->id . ', payment_id=' . $moneiPayment->getId() . ']',
                 \PrestaShopLogger::LOG_SEVERITY_LEVEL_INFORMATIVE
             );
 
@@ -215,7 +248,7 @@ class OrderService
                 $this->updateOrderPaymentDetails($order, $moneiPayment);
             } else {
                 \PrestaShopLogger::addLog(
-                    'MONEI - Invalid state transition from ' . $order->current_state . ' to ' . $orderStateId,
+                    '[MONEI] Invalid order state transition [order_id=' . $order->id . ', from_state=' . $order->current_state . ', to_state=' . $orderStateId . ']',
                     \PrestaShopLogger::LOG_SEVERITY_LEVEL_WARNING
                 );
             }
@@ -334,6 +367,10 @@ class OrderService
             }
         }
 
+        // Store the MONEI order ID in context to use as PrestaShop order reference
+        $context = \Context::getContext();
+        $context->monei_order_reference = $moneiPayment->getOrderId();
+
         $this->moneiInstance->validateOrder(
             $cart->id,
             $orderStateId,
@@ -357,7 +394,7 @@ class OrderService
                 . '&id_module=' . $this->moneiInstance->id
                 . '&id_order=' . $order->id
                 . '&key=' . $customer->secure_key;
-            
+
             \Tools::redirect($redirectUrl);
         } else {
             header('HTTP/1.1 200 OK');

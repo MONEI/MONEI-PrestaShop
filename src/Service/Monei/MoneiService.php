@@ -198,19 +198,91 @@ class MoneiService
 
     public function createMoneiOrderId(int $cartId)
     {
-        $suffix = time() % 1000;
-
-        return str_pad($cartId . 'm' . $suffix, 12, '0', STR_PAD_LEFT);
+        // Generate a deterministic 9-character reference for the same cart ID
+        // This ensures idempotency - same cart always gets same reference
+        
+        $shopId = \Context::getContext()->shop->id;
+        $cookieKey = \Configuration::get('PS_COOKIE_KEY');
+        
+        // Create deterministic string with enough entropy
+        $uniqueString = $cartId . '-' . $shopId . '-' . $cookieKey;
+        
+        // Use base36 encoding (0-9, A-Z) for maximum entropy in 9 chars
+        // This gives us 36^9 = 101,559,956,668,416 possible combinations
+        $hash = strtoupper(substr(base_convert(sha1($uniqueString), 16, 36), 0, 9));
+        
+        return $hash;
     }
 
     public function extractCartIdFromMoneiOrderId($moneiOrderId)
     {
-        $pos = strpos($moneiOrderId, 'm');
-        if ($pos === false) {
-            throw new MoneiException('Invalid MONEI order ID format: ' . $moneiOrderId, MoneiException::INVALID_ORDER_ID_FORMAT);
+        // Legacy support for old format (cartId-hash)
+        if (strpos($moneiOrderId, '-') !== false) {
+            $parts = explode('-', $moneiOrderId);
+            if (is_numeric($parts[0])) {
+                return (int) $parts[0];
+            }
         }
 
-        return (int) substr($moneiOrderId, 0, $pos);
+        // Legacy support for old format with 'm'
+        $pos = strpos($moneiOrderId, 'm');
+        if ($pos !== false) {
+            return (int) substr($moneiOrderId, 0, $pos);
+        }
+
+        // For new format, cart ID should be retrieved from payment metadata
+        // This method is kept for backward compatibility
+        return 0;
+    }
+    
+    public function getCartIdFromPayment(\Monei\Model\Payment $payment)
+    {
+        // Try to get cart ID from metadata first (new approach)
+        $metadata = $payment->getMetadata();
+        
+        if ($metadata) {
+            // Handle both object and array formats
+            if (is_object($metadata)) {
+                if (property_exists($metadata, 'cart_id')) {
+                    return (int) $metadata->cart_id;
+                }
+            } elseif (is_array($metadata)) {
+                if (isset($metadata['cart_id'])) {
+                    return (int) $metadata['cart_id'];
+                }
+            }
+        }
+        
+        // Fallback to extracting from order ID (legacy approach)
+        $cartId = $this->extractCartIdFromMoneiOrderId($payment->getOrderId());
+        if ($cartId > 0) {
+            return $cartId;
+        }
+        
+        // Last resort: Try to find cart by matching the order reference in database
+        // This handles new hash format when metadata is missing
+        $orderId = $payment->getOrderId();
+        if (!empty($orderId)) {
+            // Check if an order exists with this reference
+            $sql = 'SELECT id_cart FROM ' . _DB_PREFIX_ . 'orders 
+                    WHERE reference = "' . pSQL($orderId) . '" 
+                    LIMIT 1';
+            $cartIdFromOrder = (int) \Db::getInstance()->getValue($sql);
+            if ($cartIdFromOrder > 0) {
+                return $cartIdFromOrder;
+            }
+            
+            // Also check in payments table in case order hasn't been created yet
+            $sql = 'SELECT id_cart FROM ' . _DB_PREFIX_ . 'monei2_payment 
+                    WHERE id_order = "' . pSQL($orderId) . '" 
+                    LIMIT 1';
+            $cartIdFromPayment = (int) \Db::getInstance()->getValue($sql);
+            if ($cartIdFromPayment > 0) {
+                return $cartIdFromPayment;
+            }
+        }
+        
+        throw new MoneiException('Unable to determine cart ID from payment', MoneiException::INVALID_ORDER_ID_FORMAT);
     }
 
     public function getCartAmount(array $cartSummaryDetails, int $currencyId, bool $withoutFormatting = false)
@@ -248,17 +320,18 @@ class MoneiService
         // Note: Removing colons from email addresses may break valid emails
         // Consider using proper email validation instead
         // For now, keeping the behavior but adding a warning log
-        if (strpos($customer->email, ':') !== false) {
+        $email = $customer->email;
+        if (strpos($email, ':') !== false) {
             \PrestaShopLogger::addLog(
-                'MONEI - getCustomerData - Email contains colon, which will be removed: ' . $customer->email,
+                'MONEI - getCustomerData - Email contains colon, which will be removed: ' . $email,
                 \PrestaShopLogger::LOG_SEVERITY_LEVEL_WARNING
             );
+            $email = str_replace(':', '', $email);
         }
-        $customer->email = str_replace(':', '', $customer->email);
 
         $customerData = [
             'name' => $customer->firstname . ' ' . $customer->lastname,
-            'email' => $customer->email,
+            'email' => $email,
             'phone' => $addressInvoice->phone_mobile ?: $addressInvoice->phone,
         ];
 
@@ -344,17 +417,7 @@ class MoneiService
 
     public function saveMoneiPayment(Payment $moneiPayment, int $orderId = 0, int $employeeId = 0)
     {
-        // Skip saving pending payments to history
-        if ($moneiPayment->getStatus() === \Monei\Model\PaymentStatus::PENDING) {
-            \PrestaShopLogger::addLog(
-                'MONEI - saveMoneiPayment - Skipping pending payment: ' . $moneiPayment->getId(),
-                \PrestaShopLogger::LOG_SEVERITY_LEVEL_INFORMATIVE
-            );
-
-            return;
-        }
-
-        $cartId = $this->extractCartIdFromMoneiOrderId($moneiPayment->getOrderId());
+        $cartId = $this->getCartIdFromPayment($moneiPayment);
 
         $monei2PaymentEntity = $this->moneiPaymentRepository->findOneById($moneiPayment->getId()) ?? new Monei2Payment();
 
@@ -372,24 +435,27 @@ class MoneiService
         $monei2PaymentEntity->setDateUpd($moneiPayment->getUpdatedAt());
 
         // Check if we should add a new history entry
-        $shouldAddHistory = true;
+        // Skip history for PENDING payments to avoid clutter, but still save the payment entity
+        $shouldAddHistory = $moneiPayment->getStatus() !== \Monei\Model\PaymentStatus::PENDING;
         $currentStatus = $moneiPayment->getStatus();
         $currentStatusCode = $moneiPayment->getStatusCode();
 
-        // Get existing history entries
-        $historyList = $monei2PaymentEntity->getHistoryList();
-        if ($historyList && count($historyList) > 0) {
-            // Get the last history entry efficiently using Doctrine's last() method
-            $lastHistory = $historyList->last();
+        // Get existing history entries - only check if we're planning to add history
+        if ($shouldAddHistory) {
+            $historyList = $monei2PaymentEntity->getHistoryList();
+            if ($historyList && count($historyList) > 0) {
+                // Get the last history entry efficiently using Doctrine's last() method
+                $lastHistory = $historyList->last();
 
-            // Only add new history if status has changed
-            if ($lastHistory && $lastHistory->getStatus() === $currentStatus && $lastHistory->getStatusCode() === $currentStatusCode) {
-                $shouldAddHistory = false;
-                \PrestaShopLogger::addLog(
-                    'MONEI - saveMoneiPayment - Skipping duplicate history entry for payment: ' . $moneiPayment->getId()
-                        . ' with status: ' . $currentStatus,
-                    \PrestaShopLogger::LOG_SEVERITY_LEVEL_INFORMATIVE
-                );
+                // Only add new history if status has changed
+                if ($lastHistory && $lastHistory->getStatus() === $currentStatus && $lastHistory->getStatusCode() === $currentStatusCode) {
+                    $shouldAddHistory = false;
+                    \PrestaShopLogger::addLog(
+                        'MONEI - saveMoneiPayment - Skipping duplicate history entry for payment: ' . $moneiPayment->getId()
+                            . ' with status: ' . $currentStatus,
+                        \PrestaShopLogger::LOG_SEVERITY_LEVEL_INFORMATIVE
+                    );
+                }
             }
         }
 
@@ -415,9 +481,9 @@ class MoneiService
                 $paymentData['paymentMethod'] = $moneiPayment->getPaymentMethod()->jsonSerialize();
             }
 
-            // Add trace details if available
-            if ($moneiPayment->getTraceDetails()) {
-                $paymentData['traceDetails'] = $moneiPayment->getTraceDetails()->jsonSerialize();
+            // Add session details if available (customer browser/device info)
+            if ($moneiPayment->getSessionDetails()) {
+                $paymentData['sessionDetails'] = $moneiPayment->getSessionDetails()->jsonSerialize();
             }
 
             $monei2HistoryEntity->setResponse(json_encode($paymentData));
@@ -469,7 +535,25 @@ class MoneiService
             throw new MoneiException('The cart could not be loaded correctly');
         }
 
-        $cartAmount = $this->getCartAmount($cart->getSummaryDetails(null, true), $cart->id_currency);
+        $summaryDetails = $cart->getSummaryDetails(null, true);
+        // Only log in dev mode to avoid logging sensitive cart data
+        if (defined('_PS_MODE_DEV_') && _PS_MODE_DEV_) {
+            \PrestaShopLogger::addLog(
+                '[MONEI] Cart validation [cart_id=' . $cart->id . ', products=' . count($cart->getProducts()) . ', total=' . $summaryDetails['total_price'] . ']',
+                \PrestaShopLogger::LOG_SEVERITY_LEVEL_INFORMATIVE
+            );
+        }
+
+        if (empty($summaryDetails)) {
+            \PrestaShopLogger::addLog(
+                '[MONEI] Cart validation failed - Empty cart [cart_id=' . $cart->id . ', products=' . count($cart->getProducts()) . ']',
+                \PrestaShopLogger::LOG_SEVERITY_LEVEL_ERROR
+            );
+
+            throw new MoneiException('The cart summary is empty', MoneiException::CART_AMOUNT_EMPTY);
+        }
+
+        $cartAmount = $this->getCartAmount($summaryDetails, $cart->id_currency);
         if (empty($cartAmount)) {
             throw new MoneiException('The cart amount is empty', MoneiException::CART_AMOUNT_EMPTY);
         }
@@ -489,10 +573,18 @@ class MoneiService
         $orderId = $this->createMoneiOrderId($cart->id);
 
         $createPaymentRequest = new CreatePaymentRequest();
+        
+        // Convert metadata to object format as expected by MONEI API
+        $metadata = new \stdClass();
+        $metadata->cart_id = $cart->id;
+        $metadata->shop_id = \Context::getContext()->shop->id;
+        $metadata->shop_name = \Configuration::get('PS_SHOP_NAME');
+        
         $createPaymentRequest
             ->setOrderId($orderId)
             ->setAmount($cartAmount)
             ->setCurrency($currency->iso_code)
+            ->setMetadata($metadata)
             ->setCompleteUrl(
                 $link->getModuleLink('monei', 'confirmation', [
                     'cart_id' => $cart->id,
@@ -595,11 +687,23 @@ class MoneiService
             $moneiPaymentResponse = $moneiClient->payments->create($createPaymentRequest);
 
             $this->saveMoneiPayment($moneiPaymentResponse);
+            
+            // Log successful payment creation with key details
+            \PrestaShopLogger::addLog(
+                '[MONEI] Payment created [payment_id=' . $moneiPaymentResponse->getId() . 
+                ', order_id=' . $orderId . 
+                ', amount=' . $cartAmount . 
+                ', currency=' . $currency->iso_code . 
+                ', status=' . $moneiPaymentResponse->getStatus() . ']',
+                \PrestaShopLogger::LOG_SEVERITY_LEVEL_INFORMATIVE
+            );
 
             return $moneiPaymentResponse;
         } catch (\Exception $ex) {
             \PrestaShopLogger::addLog(
-                'MONEI - Exception - MoneiService.php - createMoneiPayment: ' . $ex->getMessage() . ' - ' . $ex->getFile(),
+                '[MONEI] Payment creation failed [cart_id=' . $cart->id . 
+                ', order_id=' . $orderId . 
+                ', error=' . $ex->getMessage() . ']',
                 \PrestaShopLogger::LOG_SEVERITY_LEVEL_ERROR
             );
 

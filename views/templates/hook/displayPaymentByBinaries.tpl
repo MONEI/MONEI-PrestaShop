@@ -25,6 +25,91 @@
       }
     };
     
+    // Reusable AJAX request handler with error handling
+    var moneiAjaxRequest = async function(url, options = {}) {
+      const defaultOptions = {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        credentials: 'same-origin', // Include cookies for same-origin requests
+        ...options
+      };
+      
+      try {
+        moneiLog('info', 'Ajax', `Making request to ${url}`, defaultOptions);
+        const response = await fetch(url, defaultOptions);
+        
+        // Handle empty responses (204, etc.)
+        if (response.status === 204 || response.headers.get('content-length') === '0') {
+          moneiLog('info', 'Ajax', 'Request successful (empty response)');
+          return null;
+        }
+        
+        // Parse response based on Content-Type
+        const contentType = response.headers.get('content-type') || '';
+        let data;
+        
+        if (contentType.includes('application/json')) {
+          try {
+            data = await response.json();
+          } catch (jsonError) {
+            // JSON parsing failed
+            moneiLog('error', 'Ajax', 'Invalid JSON response', jsonError);
+            data = { error: 'Invalid server response format' };
+          }
+        } else if (contentType.includes('text/')) {
+          // Handle text responses (HTML error pages, plain text, etc.)
+          const text = await response.text();
+          data = { 
+            error: 'Server returned non-JSON response',
+            message: text.substring(0, 200), // Limit text length for display
+            contentType: contentType
+          };
+        } else {
+          // Handle other content types
+          data = { 
+            error: 'Unexpected response type',
+            contentType: contentType
+          };
+        }
+        
+        if (!response.ok) {
+          // Extract error message from response
+          const errorMessage = data.message || data.error || `HTTP ${response.status}: ${response.statusText}`;
+          moneiLog('error', 'Ajax', `Request failed: ${errorMessage}`, { status: response.status, data });
+          
+          // Display error to user
+          showMoneiError(errorMessage);
+          
+          // Throw error for caller to handle if needed
+          const error = new Error(errorMessage);
+          error.response = response;
+          error.data = data;
+          error.status = response.status;
+          throw error;
+        }
+        
+        moneiLog('info', 'Ajax', 'Request successful', data);
+        return data;
+        
+      } catch (error) {
+        // If error already has a response, it was handled above
+        if (error.response) {
+          throw error;
+        }
+        
+        // This is a true network error (connection failed, CORS, etc.)
+        const errorMessage = error.message || 'Request failed. Please check your connection and try again.';
+        moneiLog('error', 'Ajax', `Network/Request error: ${errorMessage}`, error);
+        showMoneiError(errorMessage);
+        
+        // Preserve original error
+        throw error;
+      }
+    };
+    
     // Show loading overlay
     var showMoneiLoading = function() {
       // Create loading overlay
@@ -70,19 +155,74 @@
       }
     };
     
-    // Show error using PrestaShop's native system
+    // Show error using PrestaShop's native notification structure
     var showMoneiError = function(message) {
       hideMoneiLoading();
       
-      // Use PrestaShop's notification system if available
-      if (typeof prestashop !== 'undefined' && prestashop.emit) {
-        prestashop.emit('showNotification', {
-          type: 'error',
-          message: message
-        });
+      // Find the existing notifications container
+      let notificationContainer = document.querySelector('#notifications');
+      
+      if (notificationContainer) {
+        // Check if notifications container already has a container class div
+        let containerDiv = notificationContainer.querySelector('.container, .notifications-container');
+        
+        if (!containerDiv) {
+          // Add container div to match page width
+          containerDiv = document.createElement('div');
+          containerDiv.className = 'container';
+          notificationContainer.appendChild(containerDiv);
+        }
+        
+        // Remove only previous MONEI alerts, keep other notices intact
+        containerDiv.querySelectorAll('.monei-payment-alert').forEach(el => el.remove());
+        
+        // Create the alert structure
+        const alert = document.createElement('article');
+        alert.className = 'alert alert-danger monei-payment-alert';
+        alert.setAttribute('role', 'alert');
+        alert.setAttribute('data-alert', 'danger');
+        
+        const list = document.createElement('ul');
+        const listItem = document.createElement('li');
+        listItem.textContent = message;
+        
+        list.appendChild(listItem);
+        alert.appendChild(list);
+        
+        // Add alert to container
+        containerDiv.appendChild(alert);
+        
+        // Scroll to the notification
+        notificationContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
       } else {
-        // Fallback to alert
-        alert(message);
+        // If no notifications container exists, insert alert in the payment section
+        const paymentSection = document.querySelector('#checkout-payment-step, .checkout-step.-current, .payment-options');
+        
+        if (paymentSection) {
+          // Remove any existing MONEI alerts
+          paymentSection.querySelectorAll('.monei-payment-alert').forEach(el => el.remove());
+          
+          // Create alert
+          const alert = document.createElement('div');
+          alert.className = 'alert alert-danger monei-payment-alert';
+          alert.setAttribute('role', 'alert');
+          
+          const list = document.createElement('ul');
+          const listItem = document.createElement('li');
+          listItem.textContent = message;
+          
+          list.appendChild(listItem);
+          alert.appendChild(list);
+          
+          // Insert at the top of payment section
+          paymentSection.insertBefore(alert, paymentSection.firstChild);
+          
+          // Scroll to the alert
+          alert.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        } else {
+          // Last resort: use JavaScript alert
+          alert(message);
+        }
       }
     };
 
@@ -91,18 +231,18 @@
 
       const createMoneiPayment = async () => {
         try {
-          const response = await fetch(moneiCreatePaymentUrlController, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ token: moneiToken }),
+          const data = await moneiAjaxRequest(moneiCreatePaymentUrlController, {
+            body: JSON.stringify({ token: moneiToken })
           });
-
-          if (!response.ok) throw new Error(typeof moneiPaymentCreationFailed !== 'undefined' ? moneiPaymentCreationFailed : 'Payment creation failed');
-
-          const { moneiPaymentId } = await response.json();
-          return moneiPaymentId;
+          
+          // Check if we got a valid response
+          if (!data || !data.moneiPaymentId) {
+            throw new Error('Invalid payment response from server');
+          }
+          
+          return data.moneiPaymentId;
         } catch (error) {
-          showMoneiError(error.message);
+          // Error is already displayed by moneiAjaxRequest
           throw error;
         }
       };
@@ -455,11 +595,6 @@
               processingMoneiPayPalPayment = false;
             }
           };
-          
-          // Debug logging for PayPal configuration
-          console.log('[MONEI Debug] PayPal Configuration:', paypalConfig);
-          console.log('[MONEI Debug] Payment Action:', moneiPaymentAction);
-          console.log('[MONEI Debug] Transaction Type:', paypalConfig.transactionType);
           
           monei.PayPal(paypalConfig).render(moneiPayPalRenderContainer);
         }
