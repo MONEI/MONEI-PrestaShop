@@ -17,7 +17,7 @@ class MoneiConfirmationModuleFrontController extends ModuleFrontController
         $orderId = Tools::getValue('order_id');
 
         PrestaShopLogger::addLog(
-            'MONEI - confirmation.php - Payment completion received: payment_id=' . $moneiPaymentId . ', cart_id=' . $cartId . ', order_id=' . $orderId,
+            '[MONEI] Payment confirmation page loaded [payment_id=' . $moneiPaymentId . ', cart_id=' . $cartId . ', order_id=' . $orderId . ']',
             PrestaShopLogger::LOG_SEVERITY_LEVEL_INFORMATIVE
         );
 
@@ -25,7 +25,7 @@ class MoneiConfirmationModuleFrontController extends ModuleFrontController
             // Handle missing payment ID case
             if (!$moneiPaymentId) {
                 PrestaShopLogger::addLog(
-                    'MONEI - confirmation.php - Missing payment ID, URL params: ' . json_encode($_GET),
+                    '[MONEI] Confirmation error - Missing payment ID in request',
                     PrestaShopLogger::LOG_SEVERITY_LEVEL_ERROR
                 );
 
@@ -37,10 +37,6 @@ class MoneiConfirmationModuleFrontController extends ModuleFrontController
             }
 
             // Fetch payment data from MONEI API to determine actual status
-            PrestaShopLogger::addLog(
-                'MONEI - confirmation.php - About to fetch payment from API: ' . $moneiPaymentId,
-                PrestaShopLogger::LOG_SEVERITY_LEVEL_INFORMATIVE
-            );
 
             $moneiService = Monei::getService('service.monei');
             $payment = null;
@@ -49,12 +45,13 @@ class MoneiConfirmationModuleFrontController extends ModuleFrontController
                 $payment = $moneiService->getMoneiPayment($moneiPaymentId);
 
                 PrestaShopLogger::addLog(
-                    'MONEI - confirmation.php - Payment retrieved from API: status=' . $payment->getStatus() . ', statusCode=' . $payment->getStatusCode(),
+                    '[MONEI] Payment status retrieved [payment_id=' . $payment->getId() . ', status=' . $payment->getStatus() . 
+                    ($payment->getStatusCode() ? ', status_code=' . $payment->getStatusCode() : '') . ']',
                     PrestaShopLogger::LOG_SEVERITY_LEVEL_INFORMATIVE
                 );
             } catch (Exception $e) {
                 PrestaShopLogger::addLog(
-                    'MONEI - confirmation.php - Error retrieving payment from API: ' . $e->getMessage() . ' - Stack: ' . $e->getTraceAsString(),
+                    '[MONEI] Failed to retrieve payment [payment_id=' . $moneiPaymentId . ', error=' . $e->getMessage() . ']',
                     PrestaShopLogger::LOG_SEVERITY_LEVEL_ERROR
                 );
 
@@ -90,7 +87,7 @@ class MoneiConfirmationModuleFrontController extends ModuleFrontController
             }
         } catch (Exception $ex) {
             PrestaShopLogger::addLog(
-                'MONEI - Exception - confirmation.php - initContent: ' . $ex->getMessage() . ' - ' . $ex->getFile(),
+                '[MONEI] Confirmation page exception [payment_id=' . $moneiPaymentId . ', error=' . $ex->getMessage() . ']',
                 PrestaShopLogger::LOG_SEVERITY_LEVEL_ERROR
             );
 
@@ -109,22 +106,17 @@ class MoneiConfirmationModuleFrontController extends ModuleFrontController
     private function handleSuccessfulPayment($moneiPaymentId)
     {
         PrestaShopLogger::addLog(
-            'MONEI - confirmation.php - Processing successful payment: ' . $moneiPaymentId,
+            '[MONEI] Processing successful payment [payment_id=' . $moneiPaymentId . ']',
             PrestaShopLogger::LOG_SEVERITY_LEVEL_INFORMATIVE
         );
 
         try {
             // Process the order through the order service
             $orderService = Monei::getService('service.order');
-            PrestaShopLogger::addLog(
-                'MONEI - confirmation.php - Got order service, calling createOrUpdateOrder',
-                PrestaShopLogger::LOG_SEVERITY_LEVEL_INFORMATIVE
-            );
-
             $orderService->createOrUpdateOrder($moneiPaymentId, true);
 
             PrestaShopLogger::addLog(
-                'MONEI - confirmation.php - Order creation/update completed successfully',
+                '[MONEI] Payment confirmation completed [payment_id=' . $moneiPaymentId . ']',
                 PrestaShopLogger::LOG_SEVERITY_LEVEL_INFORMATIVE
             );
 
@@ -134,7 +126,7 @@ class MoneiConfirmationModuleFrontController extends ModuleFrontController
             exit;
         } catch (Exception $e) {
             PrestaShopLogger::addLog(
-                'MONEI - confirmation.php - ERROR in handleSuccessfulPayment: ' . $e->getMessage() . ' - File: ' . $e->getFile() . ' - Line: ' . $e->getLine() . ' - Trace: ' . $e->getTraceAsString(),
+                '[MONEI] Order creation failed [payment_id=' . $moneiPaymentId . ', error=' . $e->getMessage() . ']',
                 PrestaShopLogger::LOG_SEVERITY_LEVEL_ERROR
             );
 
@@ -150,7 +142,7 @@ class MoneiConfirmationModuleFrontController extends ModuleFrontController
         $paymentId = $payment->getId();
 
         PrestaShopLogger::addLog(
-            'MONEI - confirmation.php - Payment still in pending state: ' . $paymentId,
+            '[MONEI] Payment pending [payment_id=' . $paymentId . ', method=' . ($payment->getPaymentMethod() ? $payment->getPaymentMethod()->getType() : 'unknown') . ']',
             PrestaShopLogger::LOG_SEVERITY_LEVEL_INFORMATIVE
         );
 
@@ -179,8 +171,9 @@ class MoneiConfirmationModuleFrontController extends ModuleFrontController
         $statusCode = $payment->getStatusCode();
 
         PrestaShopLogger::addLog(
-            'MONEI - confirmation.php - Payment failed: status=' . $paymentStatus . ', statusCode=' . $statusCode,
-            PrestaShopLogger::LOG_SEVERITY_LEVEL_INFORMATIVE
+            '[MONEI] Payment failed [payment_id=' . $payment->getId() . ', status=' . $paymentStatus . 
+            ($statusCode ? ', status_code=' . $statusCode : '') . ']',
+            PrestaShopLogger::LOG_SEVERITY_LEVEL_WARNING
         );
 
         // Get localized error message based on status code

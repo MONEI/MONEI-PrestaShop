@@ -103,13 +103,16 @@ class OrderService
             $sql = 'INSERT IGNORE INTO ' . _DB_PREFIX_ . 'monei2_order_payment (id_order, id_payment, date_add)
                 VALUES (' . (int) $order->id . ', "' . pSQL($moneiPaymentId) . '", NOW())';
             if ($connection->execute($sql)) {
-                \PrestaShopLogger::addLog('MONEI - createOrUpdateOrder - Order (' . $order->id . ') created or updated.', \PrestaShopLogger::LOG_SEVERITY_LEVEL_INFORMATIVE);
+                \PrestaShopLogger::addLog(
+                    '[MONEI] Order processed [order_id=' . $order->id . ', payment_id=' . $moneiPaymentId . ', status=' . $moneiPayment->getStatus() . ']',
+                    \PrestaShopLogger::LOG_SEVERITY_LEVEL_INFORMATIVE
+                );
             }
 
             $this->handlePostOrderCreation($redirectToConfirmationPage, $cart, $customer, $order);
         } catch (OrderException $e) {
             \PrestaShopLogger::addLog(
-                'MONEI - CreateOrderService - ' . $e->getMessage(),
+                '[MONEI] Order processing warning [payment_id=' . $moneiPaymentId . ', error=' . $e->getMessage() . ']',
                 \PrestaShopLogger::LOG_SEVERITY_LEVEL_WARNING
             );
 
@@ -186,7 +189,7 @@ class OrderService
         if (\Validate::isLoadedObject($existingOrder)) {
             if ($existingOrder->module !== $this->moneiInstance->name) {
                 \PrestaShopLogger::addLog(
-                    'MONEI - CreateOrderService - Order (' . $existingOrder->id . ') already exists with a different payment method.',
+                    '[MONEI] Order conflict - Different payment method [order_id=' . $existingOrder->id . ', existing_module=' . $existingOrder->module . ']',
                     \PrestaShopLogger::LOG_SEVERITY_LEVEL_WARNING
                 );
 
@@ -194,7 +197,7 @@ class OrderService
             }
 
             \PrestaShopLogger::addLog(
-                'MONEI - CreateOrderService - Order (' . $existingOrder->id . ') already exists.',
+                '[MONEI] Updating existing order [order_id=' . $existingOrder->id . ', payment_id=' . $moneiPayment->getId() . ']',
                 \PrestaShopLogger::LOG_SEVERITY_LEVEL_INFORMATIVE
             );
 
@@ -217,7 +220,7 @@ class OrderService
                 $this->updateOrderPaymentDetails($order, $moneiPayment);
             } else {
                 \PrestaShopLogger::addLog(
-                    'MONEI - Invalid state transition from ' . $order->current_state . ' to ' . $orderStateId,
+                    '[MONEI] Invalid order state transition [order_id=' . $order->id . ', from_state=' . $order->current_state . ', to_state=' . $orderStateId . ']',
                     \PrestaShopLogger::LOG_SEVERITY_LEVEL_WARNING
                 );
             }

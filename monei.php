@@ -686,16 +686,6 @@ class Monei extends PaymentModule
             $message = $applePayNotification . $message;
         }
 
-        // Check for missing order states
-        $missingStates = $this->validateOrderStates();
-        if (!empty($missingStates)) {
-            $stateNames = implode(', ', $missingStates);
-            $message = $this->displayWarning(
-                $this->l('Warning: Some order states are missing or invalid: ') . $stateNames
-                . $this->l('. Cart to Order feature may not work properly. Please reinstall the module or contact support.')
-            ) . $message;
-        }
-
         // Assign values
         $this->context->smarty->assign([
             'module_dir' => $this->_path,

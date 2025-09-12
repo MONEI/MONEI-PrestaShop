@@ -17,6 +17,10 @@ class MoneiValidationModuleFrontController extends ModuleFrontController
         }
 
         if (!isset($_SERVER['HTTP_MONEI_SIGNATURE'])) {
+            PrestaShopLogger::addLog(
+                '[MONEI] Webhook validation failed - Missing signature header',
+                PrestaShopLogger::LOG_SEVERITY_LEVEL_WARNING
+            );
             die('Unauthorized error');
         }
 
@@ -27,7 +31,7 @@ class MoneiValidationModuleFrontController extends ModuleFrontController
             $this->module->getMoneiClient()->verifySignature($requestBody, $sigHeader);
         } catch (MoneiException $e) {
             PrestaShopLogger::addLog(
-                'MONEI - Exception - validation.php - postProcess: ' . $e->getMessage() . ' - ' . $e->getFile(),
+                '[MONEI] Webhook signature verification failed [error=' . $e->getMessage() . ']',
                 PrestaShopLogger::LOG_SEVERITY_LEVEL_ERROR
             );
 
@@ -44,18 +48,31 @@ class MoneiValidationModuleFrontController extends ModuleFrontController
                 throw new MoneiException('Invalid JSON', MoneiException::INVALID_JSON_RESPONSE);
             }
 
+            // Log webhook received with minimal data (avoid logging full payload)
+            $paymentId = isset($json_array['id']) ? $json_array['id'] : 'unknown';
+            $status = isset($json_array['status']) ? $json_array['status'] : 'unknown';
+            $statusCode = isset($json_array['statusCode']) ? $json_array['statusCode'] : null;
+            
             PrestaShopLogger::addLog(
-                'MONEI - validation.php - postProcess - JSON Data: ' . json_encode($json_array),
+                '[MONEI] Webhook received [payment_id=' . $paymentId . ', status=' . $status . 
+                ($statusCode ? ', status_code=' . $statusCode : '') . ']',
                 PrestaShopLogger::LOG_SEVERITY_LEVEL_INFORMATIVE
             );
 
             $moneiPayment = new Payment($json_array);
 
             // Create or update the order
-            Monei::getService('service.order')->createOrUpdateOrder($moneiPayment->getId());
-        } catch (MoneiException $ex) {
+            $orderId = Monei::getService('service.order')->createOrUpdateOrder($moneiPayment->getId());
+            
             PrestaShopLogger::addLog(
-                'MONEI - Exception - validation.php - postProcess: ' . $ex->getMessage() . ' - ' . $ex->getFile(),
+                '[MONEI] Webhook processed successfully [payment_id=' . $moneiPayment->getId() . 
+                ', order_id=' . ($orderId ? $orderId : 'pending') . ']',
+                PrestaShopLogger::LOG_SEVERITY_LEVEL_INFORMATIVE
+            );
+        } catch (MoneiException $ex) {
+            $paymentId = isset($json_array['id']) ? $json_array['id'] : 'unknown';
+            PrestaShopLogger::addLog(
+                '[MONEI] Webhook processing failed [payment_id=' . $paymentId . ', error=' . $ex->getMessage() . ']',
                 PrestaShopLogger::LOG_SEVERITY_LEVEL_ERROR
             );
 

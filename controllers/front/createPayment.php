@@ -11,6 +11,10 @@ class MoneiCreatePaymentModuleFrontController extends ModuleFrontController
         $data = json_decode($json, true);
         
         if (!$this->isAuthorizedRequest($data)) {
+            PrestaShopLogger::addLog(
+                '[MONEI] CreatePayment unauthorized access attempt [cart_id=' . $this->context->cart->id . ']',
+                PrestaShopLogger::LOG_SEVERITY_LEVEL_WARNING
+            );
             header('Content-Type: application/json');
             http_response_code(403);
             echo json_encode(['error' => 'Unauthorized access']);
@@ -20,24 +24,51 @@ class MoneiCreatePaymentModuleFrontController extends ModuleFrontController
         // Get payment method from request if provided
         $paymentMethod = isset($data['paymentMethod']) ? $data['paymentMethod'] : '';
 
-        // Debug cart state
-        PrestaShopLogger::addLog('MONEI - createPayment - Cart ID: ' . $this->context->cart->id, PrestaShopLogger::LOG_SEVERITY_LEVEL_INFORMATIVE);
-        PrestaShopLogger::addLog('MONEI - createPayment - Cart products count: ' . count($this->context->cart->getProducts()), PrestaShopLogger::LOG_SEVERITY_LEVEL_INFORMATIVE);
-        PrestaShopLogger::addLog('MONEI - createPayment - Customer ID: ' . $this->context->cart->id_customer, PrestaShopLogger::LOG_SEVERITY_LEVEL_INFORMATIVE);
-
-        $paymentResponse = Monei::getService('service.monei')->createMoneiPayment(
-            $this->context->cart,
-            false,  // tokenizeCard
-            0,      // cardTokenId
-            $paymentMethod
+        // Log payment creation attempt with context
+        $cartProducts = $this->context->cart->getProducts();
+        PrestaShopLogger::addLog(
+            '[MONEI] CreatePayment API called [cart_id=' . $this->context->cart->id . 
+            ', customer_id=' . $this->context->cart->id_customer . 
+            ', products=' . count($cartProducts) . 
+            ', method=' . $paymentMethod . 
+            ', total=' . $this->context->cart->getOrderTotal(true, Cart::BOTH) . ']',
+            PrestaShopLogger::LOG_SEVERITY_LEVEL_INFORMATIVE
         );
-        if ($paymentResponse) {
+
+        try {
+            $paymentResponse = Monei::getService('service.monei')->createMoneiPayment(
+                $this->context->cart,
+                false,  // tokenizeCard
+                0,      // cardTokenId
+                $paymentMethod
+            );
+            
+            if ($paymentResponse) {
+                PrestaShopLogger::addLog(
+                    '[MONEI] Payment created via API [payment_id=' . $paymentResponse->getId() . 
+                    ', cart_id=' . $this->context->cart->id . 
+                    ', status=' . $paymentResponse->getStatus() . ']',
+                    PrestaShopLogger::LOG_SEVERITY_LEVEL_INFORMATIVE
+                );
+                header('Content-Type: application/json');
+                echo json_encode(['moneiPaymentId' => $paymentResponse->getId()]);
+            } else {
+                PrestaShopLogger::addLog(
+                    '[MONEI] Payment creation via API failed [cart_id=' . $this->context->cart->id . ']',
+                    PrestaShopLogger::LOG_SEVERITY_LEVEL_ERROR
+                );
+                header('Content-Type: application/json');
+                http_response_code(400);
+                echo json_encode(['error' => 'Payment creation failed']);
+            }
+        } catch (Exception $e) {
+            PrestaShopLogger::addLog(
+                '[MONEI] Payment creation API exception [cart_id=' . $this->context->cart->id . ', error=' . $e->getMessage() . ']',
+                PrestaShopLogger::LOG_SEVERITY_LEVEL_ERROR
+            );
             header('Content-Type: application/json');
-            echo json_encode(['moneiPaymentId' => $paymentResponse->getId()]);
-        } else {
-            header('Content-Type: application/json');
-            http_response_code(400);
-            echo json_encode(['error' => 'Payment creation failed']);
+            http_response_code(500);
+            echo json_encode(['error' => 'Payment creation error']);
         }
         exit;
     }

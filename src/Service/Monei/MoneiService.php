@@ -477,10 +477,19 @@ class MoneiService
         }
 
         $summaryDetails = $cart->getSummaryDetails(null, true);
-        \PrestaShopLogger::addLog('MONEI - Cart summary details: ' . json_encode($summaryDetails), \PrestaShopLogger::LOG_SEVERITY_LEVEL_INFORMATIVE);
+        // Only log in dev mode to avoid logging sensitive cart data
+        if (defined('_PS_MODE_DEV_') && _PS_MODE_DEV_) {
+            \PrestaShopLogger::addLog(
+                '[MONEI] Cart validation [cart_id=' . $cart->id . ', products=' . count($cart->getProducts()) . ', total=' . $summaryDetails['total_price'] . ']',
+                \PrestaShopLogger::LOG_SEVERITY_LEVEL_INFORMATIVE
+            );
+        }
 
         if (empty($summaryDetails)) {
-            \PrestaShopLogger::addLog('MONEI - Cart summary is empty. Cart ID: ' . $cart->id . ', Products: ' . count($cart->getProducts()), \PrestaShopLogger::LOG_SEVERITY_LEVEL_ERROR);
+            \PrestaShopLogger::addLog(
+                '[MONEI] Cart validation failed - Empty cart [cart_id=' . $cart->id . ', products=' . count($cart->getProducts()) . ']',
+                \PrestaShopLogger::LOG_SEVERITY_LEVEL_ERROR
+            );
 
             throw new MoneiException('The cart summary is empty', MoneiException::CART_AMOUNT_EMPTY);
         }
@@ -611,11 +620,23 @@ class MoneiService
             $moneiPaymentResponse = $moneiClient->payments->create($createPaymentRequest);
 
             $this->saveMoneiPayment($moneiPaymentResponse);
+            
+            // Log successful payment creation with key details
+            \PrestaShopLogger::addLog(
+                '[MONEI] Payment created [payment_id=' . $moneiPaymentResponse->getId() . 
+                ', order_id=' . $orderId . 
+                ', amount=' . $cartAmount . 
+                ', currency=' . $currency->iso_code . 
+                ', status=' . $moneiPaymentResponse->getStatus() . ']',
+                \PrestaShopLogger::LOG_SEVERITY_LEVEL_INFORMATIVE
+            );
 
             return $moneiPaymentResponse;
         } catch (\Exception $ex) {
             \PrestaShopLogger::addLog(
-                'MONEI - Exception - MoneiService.php - createMoneiPayment: ' . $ex->getMessage() . ' - ' . $ex->getFile(),
+                '[MONEI] Payment creation failed [cart_id=' . $cart->id . 
+                ', order_id=' . $orderId . 
+                ', error=' . $ex->getMessage() . ']',
                 \PrestaShopLogger::LOG_SEVERITY_LEVEL_ERROR
             );
 
