@@ -561,4 +561,52 @@ class Monei2Payment extends \ObjectModel
             'date_upd' => $this->getDateUpdFormatted(),
         ];
     }
+
+    /**
+     * Find multiple entities by criteria
+     * 
+     * @param array $criteria Associative array of field => value pairs
+     * @param string $orderBy Order by clause (e.g., 'date_add DESC')
+     * @return array Array of Monei2Payment objects
+     */
+    public static function findBy($criteria, $orderBy = 'date_add DESC')
+    {
+        $where_parts = [];
+        foreach ($criteria as $field => $value) {
+            if (is_int($value)) {
+                $where_parts[] = '`' . pSQL($field) . '` = ' . (int) $value;
+            } else {
+                $where_parts[] = '`' . pSQL($field) . '` = \'' . pSQL($value) . '\'';
+            }
+        }
+
+        $sql = 'SELECT `id_payment` FROM `' . _DB_PREFIX_ . 'monei2_payment`';
+        if (!empty($where_parts)) {
+            $sql .= ' WHERE ' . implode(' AND ', $where_parts);
+        }
+
+        // Simple whitelist for order by
+        $orderSql = ' ORDER BY `date_add` DESC';
+        if (!empty($orderBy)) {
+            $parts = preg_split('/\s+/', trim($orderBy));
+            $field = $parts[0];
+            $dir = isset($parts[1]) ? strtoupper($parts[1]) : 'ASC';
+            $allowedFields = ['date_add', 'date_upd', 'id_order', 'id_cart', 'status'];
+            $allowedDir = ['ASC', 'DESC'];
+            if (in_array($field, $allowedFields, true) && in_array($dir, $allowedDir, true)) {
+                $orderSql = ' ORDER BY `' . $field . '` ' . $dir;
+            }
+        }
+        $sql .= $orderSql;
+
+        $results = \Db::getInstance()->executeS($sql);
+        $payments = [];
+        if ($results) {
+            foreach ($results as $row) {
+                $payments[] = new self($row['id_payment']);
+            }
+        }
+
+        return $payments;
+    }
 }
