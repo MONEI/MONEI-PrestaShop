@@ -2305,10 +2305,44 @@ class Monei extends PaymentModule
 
         // Add additional JS/vars only for Orders controller
         if ($this->context->controller->controller_name === 'AdminOrders') {
+            // Get refund reasons from MONEI SDK with translations
+            $refundReasons = [];
+            if (class_exists('\Monei\Model\PaymentRefundReason')) {
+                $allowableValues = Monei\Model\PaymentRefundReason::getAllowableEnumValues();
+                foreach ($allowableValues as $value) {
+                    // Translate each refund reason
+                    switch ($value) {
+                        case 'requested_by_customer':
+                            $label = $this->l('Requested by customer');
+
+                            break;
+                        case 'duplicated':
+                            $label = $this->l('Duplicated');
+
+                            break;
+                        case 'fraudulent':
+                            $label = $this->l('Fraudulent');
+
+                            break;
+                        default:
+                            // Fallback: convert snake_case to human-readable format
+                            $label = ucwords(str_replace('_', ' ', $value));
+
+                            break;
+                    }
+                    $refundReasons[] = [
+                        'value' => $value,
+                        'label' => $label,
+                    ];
+                }
+            }
+
             Media::addJsDef([
                 'MoneiVars' => [
                     // Decode HTML entities as URLs should not be escaped in JavaScript
                     'adminMoneiControllerUrl' => html_entity_decode($this->context->link->getAdminLink('AdminMonei')),
+                    'refundReasons' => $refundReasons,
+                    'refundReasonTitle' => $this->l('MONEI refund reason'),
                 ],
             ]);
 
@@ -2403,7 +2437,7 @@ class Monei extends PaymentModule
             $moneiService->createRefund((int) $order->id, $refundAmount, $employeeId, $refundReason);
 
             PrestaShopLogger::addLog(
-                'MONEI - Refund processed successfully for order ID: ' . $order->id 
+                'MONEI - Refund processed successfully for order ID: ' . $order->id
                 . ', Amount: ' . ($refundAmount / 100) . ' EUR',
                 self::getLogLevel('info')
             );
@@ -2412,13 +2446,20 @@ class Monei extends PaymentModule
             $orderService = self::getService('service.order');
             $orderService->updateOrderStateAfterRefund((int) $order->id);
         } catch (Exception $e) {
-            // Log the error but don't interrupt the credit slip creation
+            // Log the error
             PrestaShopLogger::addLog(
                 'MONEI - Failed to process refund on credit slip creation: ' . $e->getMessage(),
                 3, // Error severity
                 null,
                 'Order',
                 (int) $order->id
+            );
+
+            // Re-throw the exception to prevent credit slip creation
+            // Include the actual error message for debugging
+            throw new PrestaShopException(
+                $this->l('Refund failed in MONEI payment gateway. Please try again or contact support.')
+                . ' (' . $e->getMessage() . ')'
             );
         }
     }
@@ -2554,7 +2595,7 @@ class Monei extends PaymentModule
      *
      * @return bool
      */
-    private function copyApplePayDomainVerificationFile()
+    public function copyApplePayDomainVerificationFile()
     {
         $sourceFile = _PS_MODULE_DIR_ . $this->name . '/files/apple-developer-merchantid-domain-association';
 

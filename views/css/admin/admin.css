@@ -25,3 +25,11 @@ span[style*="width: 20px"] .payment-method-icon {
     margin-bottom: 0.5rem;
 }
 
+/* Status badge styling from PR #86 */
+.monei-status-badge {
+    padding: 0 5px;
+    font-size: .875rem;
+    font-weight: 600;
+    line-height: 1.5;
+}
+
