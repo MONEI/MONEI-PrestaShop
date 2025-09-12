@@ -52,11 +52,9 @@ class MoneiRedirectModuleFrontController extends ModuleFrontController
                         if ($moneiPayment->getStatusCode()) {
                             $this->context->cookie->monei_error_code = $moneiPayment->getStatusCode();
                         }
-                        // Safely append the message parameter with proper URL encoding
+                        // Safely append the message parameter using proper URL handling
                         if ($statusMessage = $moneiPayment->getStatusMessage()) {
-                            // Check if URL already has query parameters
-                            $separator = (strpos($redirectURL, '?') !== false) ? '&' : '?';
-                            $redirectURL .= $separator . 'message=' . rawurlencode($statusMessage);
+                            $redirectURL = $this->addQueryParam($redirectURL, 'message', $statusMessage);
                         }
                     }
 
@@ -83,5 +81,65 @@ class MoneiRedirectModuleFrontController extends ModuleFrontController
         }
 
         exit;
+    }
+
+    /**
+     * Safely add a query parameter to a URL
+     * 
+     * @param string $url The URL to modify
+     * @param string $key The parameter key
+     * @param string $value The parameter value
+     * @return string The modified URL
+     */
+    private function addQueryParam($url, $key, $value)
+    {
+        $urlParts = parse_url($url);
+        
+        // Parse existing query parameters
+        $queryParams = [];
+        if (isset($urlParts['query'])) {
+            parse_str($urlParts['query'], $queryParams);
+        }
+        
+        // Add/update the parameter
+        $queryParams[$key] = $value;
+        
+        // Rebuild query string - http_build_query handles encoding automatically
+        $urlParts['query'] = http_build_query($queryParams);
+        
+        // Rebuild the URL using the built-in function if available
+        if (function_exists('http_build_url')) {
+            return http_build_url($urlParts);
+        }
+        
+        // Manual rebuild if http_build_url is not available
+        $url = '';
+        if (isset($urlParts['scheme'])) {
+            $url .= $urlParts['scheme'] . '://';
+        }
+        if (isset($urlParts['user'])) {
+            $url .= $urlParts['user'];
+            if (isset($urlParts['pass'])) {
+                $url .= ':' . $urlParts['pass'];
+            }
+            $url .= '@';
+        }
+        if (isset($urlParts['host'])) {
+            $url .= $urlParts['host'];
+        }
+        if (isset($urlParts['port'])) {
+            $url .= ':' . $urlParts['port'];
+        }
+        if (isset($urlParts['path'])) {
+            $url .= $urlParts['path'];
+        }
+        if (isset($urlParts['query'])) {
+            $url .= '?' . $urlParts['query'];
+        }
+        if (isset($urlParts['fragment'])) {
+            $url .= '#' . $urlParts['fragment'];
+        }
+        
+        return $url;
     }
 }
