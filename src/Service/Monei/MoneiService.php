@@ -259,6 +259,29 @@ class MoneiService
             return $cartId;
         }
         
+        // Last resort: Try to find cart by matching the order reference in database
+        // This handles new hash format when metadata is missing
+        $orderId = $payment->getOrderId();
+        if (!empty($orderId)) {
+            // Check if an order exists with this reference
+            $sql = 'SELECT id_cart FROM ' . _DB_PREFIX_ . 'orders 
+                    WHERE reference = "' . pSQL($orderId) . '" 
+                    LIMIT 1';
+            $cartIdFromOrder = (int) \Db::getInstance()->getValue($sql);
+            if ($cartIdFromOrder > 0) {
+                return $cartIdFromOrder;
+            }
+            
+            // Also check in payments table in case order hasn't been created yet
+            $sql = 'SELECT id_cart FROM ' . _DB_PREFIX_ . 'monei2_payment 
+                    WHERE id_order = "' . pSQL($orderId) . '" 
+                    LIMIT 1';
+            $cartIdFromPayment = (int) \Db::getInstance()->getValue($sql);
+            if ($cartIdFromPayment > 0) {
+                return $cartIdFromPayment;
+            }
+        }
+        
         throw new MoneiException('Unable to determine cart ID from payment', MoneiException::INVALID_ORDER_ID_FORMAT);
     }
 
