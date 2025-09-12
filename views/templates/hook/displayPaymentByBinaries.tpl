@@ -29,19 +29,56 @@
     var moneiAjaxRequest = async function(url, options = {}) {
       const defaultOptions = {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        credentials: 'same-origin', // Include cookies for same-origin requests
         ...options
       };
       
       try {
         moneiLog('info', 'Ajax', `Making request to ${url}`, defaultOptions);
         const response = await fetch(url, defaultOptions);
-        const data = await response.json();
+        
+        // Handle empty responses (204, etc.)
+        if (response.status === 204 || response.headers.get('content-length') === '0') {
+          moneiLog('info', 'Ajax', 'Request successful (empty response)');
+          return null;
+        }
+        
+        // Parse response based on Content-Type
+        const contentType = response.headers.get('content-type') || '';
+        let data;
+        
+        if (contentType.includes('application/json')) {
+          try {
+            data = await response.json();
+          } catch (jsonError) {
+            // JSON parsing failed
+            moneiLog('error', 'Ajax', 'Invalid JSON response', jsonError);
+            data = { error: 'Invalid server response format' };
+          }
+        } else if (contentType.includes('text/')) {
+          // Handle text responses (HTML error pages, plain text, etc.)
+          const text = await response.text();
+          data = { 
+            error: 'Server returned non-JSON response',
+            message: text.substring(0, 200), // Limit text length for display
+            contentType: contentType
+          };
+        } else {
+          // Handle other content types
+          data = { 
+            error: 'Unexpected response type',
+            contentType: contentType
+          };
+        }
         
         if (!response.ok) {
           // Extract error message from response
-          const errorMessage = data.message || data.error || 'An error occurred';
-          moneiLog('error', 'Ajax', `Request failed: ${errorMessage}`, data);
+          const errorMessage = data.message || data.error || `HTTP ${response.status}: ${response.statusText}`;
+          moneiLog('error', 'Ajax', `Request failed: ${errorMessage}`, { status: response.status, data });
           
           // Display error to user
           showMoneiError(errorMessage);
@@ -50,6 +87,7 @@
           const error = new Error(errorMessage);
           error.response = response;
           error.data = data;
+          error.status = response.status;
           throw error;
         }
         
@@ -57,14 +95,17 @@
         return data;
         
       } catch (error) {
-        // Handle network errors or JSON parsing errors
-        if (!error.response) {
-          const networkError = 'Network error. Please check your connection and try again.';
-          moneiLog('error', 'Ajax', networkError, error);
-          showMoneiError(networkError);
-          throw new Error(networkError);
+        // If error already has a response, it was handled above
+        if (error.response) {
+          throw error;
         }
-        // Re-throw if it's already a handled error
+        
+        // This is a true network error (connection failed, CORS, etc.)
+        const errorMessage = error.message || 'Request failed. Please check your connection and try again.';
+        moneiLog('error', 'Ajax', `Network/Request error: ${errorMessage}`, error);
+        showMoneiError(errorMessage);
+        
+        // Preserve original error
         throw error;
       }
     };
@@ -201,6 +242,11 @@
           const data = await moneiAjaxRequest(moneiCreatePaymentUrlController, {
             body: JSON.stringify({ token: moneiToken })
           });
+          
+          // Check if we got a valid response
+          if (!data || !data.moneiPaymentId) {
+            throw new Error('Invalid payment response from server');
+          }
           
           return data.moneiPaymentId;
         } catch (error) {
