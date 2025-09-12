@@ -486,8 +486,6 @@ class MoneiService
                 $paymentData['sessionDetails'] = $moneiPayment->getSessionDetails()->jsonSerialize();
             }
 
-            // Skip trace details - always contains PrestaShop server info which doesn't change
-
             $monei2HistoryEntity->setResponse(json_encode($paymentData));
             $monei2PaymentEntity->addHistory($monei2HistoryEntity);
         }
