@@ -1971,10 +1971,14 @@ class Monei extends PaymentModule
 
         $orderId = (int) $params['id_order'];
 
-        $monei2PaymentEntity = Monei2Payment::findOneBy(['id_order' => $orderId]);
-        if (!$monei2PaymentEntity) {
+        // Get ALL payments for this order (including failed and successful retries)
+        $monei2PaymentEntities = Monei2Payment::findBy(['id_order' => $orderId], 'date_add DESC');
+        if (empty($monei2PaymentEntities)) {
             return;
         }
+
+        // Use the most recent payment for calculations (first in array when sorted DESC)
+        $monei2PaymentEntity = $monei2PaymentEntities[0];
 
         $order = new Order($orderId);
         if (!Validate::isLoadedObject($order)) {
@@ -1992,43 +1996,46 @@ class Monei extends PaymentModule
         // Get payment method formatter service
         $paymentMethodFormatter = self::getService('helper.payment_method_formatter');
 
-        $paymentHistory = $monei2PaymentEntity->getHistoryList();
-        if (!empty($paymentHistory)) {
-            foreach ($paymentHistory as $history) {
-                $paymentHistoryLog = $history->toArrayLegacy();
-                $paymentHistoryLog['responseDecoded'] = $history->getResponseDecoded();
-                $paymentHistoryLog['responseB64'] = base64_encode($history->getResponse());
+        // Process history for ALL payments (including failed ones)
+        foreach ($monei2PaymentEntities as $paymentEntity) {
+            $paymentHistory = $paymentEntity->getHistoryList();
+            if (!empty($paymentHistory)) {
+                foreach ($paymentHistory as $history) {
+                    $paymentHistoryLog = $history->toArrayLegacy();
+                    $paymentHistoryLog['responseDecoded'] = $history->getResponseDecoded();
+                    $paymentHistoryLog['responseB64'] = base64_encode($history->getResponse());
 
-                // Extract payment method details from response
-                $response = $history->getResponseDecoded();
-                if ($response && isset($response['paymentMethod'])) {
-                    // Flatten the payment method data structure like Magento does
-                    $paymentInfo = $this->flattenPaymentMethodData($response['paymentMethod']);
+                    // Extract payment method details from response
+                    $response = $history->getResponseDecoded();
+                    if ($response && isset($response['paymentMethod'])) {
+                        // Flatten the payment method data structure like Magento does
+                        $paymentInfo = $this->flattenPaymentMethodData($response['paymentMethod']);
 
-                    // Add additional fields from the response
-                    $paymentInfo['authorizationCode'] = $response['authorizationCode'] ?? null;
+                        // Add additional fields from the response
+                        $paymentInfo['authorizationCode'] = $response['authorizationCode'] ?? null;
 
-                    $paymentHistoryLog['paymentDetails'] = $paymentMethodFormatter->formatAdminPaymentDetails($paymentInfo);
-                }
-
-                $paymentHistoryLogs[] = $paymentHistoryLog;
-
-                $paymentRefund = $monei2PaymentEntity->getRefundByHistoryId($history->getId());
-                if ($paymentRefund) {
-                    $paymentRefundLog = $paymentRefund->toArrayLegacy();
-                    $paymentRefundLog['paymentHistory'] = $paymentHistoryLog;
-                    $refundAmount = isset($paymentRefundLog['amount_in_decimal']) ? $paymentRefundLog['amount_in_decimal'] : 0;
-                    $paymentRefundLog['amountFormatted'] = $this->formatPrice($refundAmount, $currency->iso_code);
-
-                    $employeeEmail = '';
-                    if ($paymentRefundLog['id_employee']) {
-                        $employee = new Employee($paymentRefundLog['id_employee']);
-                        $employeeEmail = $employee->email;
+                        $paymentHistoryLog['paymentDetails'] = $paymentMethodFormatter->formatAdminPaymentDetails($paymentInfo);
                     }
 
-                    $paymentRefundLog['employeeEmail'] = $employeeEmail;
+                    $paymentHistoryLogs[] = $paymentHistoryLog;
 
-                    $paymentRefundLogs[] = $paymentRefundLog;
+                    $paymentRefund = $paymentEntity->getRefundByHistoryId($history->getId());
+                    if ($paymentRefund) {
+                        $paymentRefundLog = $paymentRefund->toArrayLegacy();
+                        $paymentRefundLog['paymentHistory'] = $paymentHistoryLog;
+                        $refundAmount = isset($paymentRefundLog['amount_in_decimal']) ? $paymentRefundLog['amount_in_decimal'] : 0;
+                        $paymentRefundLog['amountFormatted'] = $this->formatPrice($refundAmount, $currency->iso_code);
+
+                        $employeeEmail = '';
+                        if ($paymentRefundLog['id_employee']) {
+                            $employee = new Employee($paymentRefundLog['id_employee']);
+                            $employeeEmail = $employee->email;
+                        }
+
+                        $paymentRefundLog['employeeEmail'] = $employeeEmail;
+
+                        $paymentRefundLogs[] = $paymentRefundLog;
+                    }
                 }
             }
         }
