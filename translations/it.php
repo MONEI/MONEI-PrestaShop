@@ -194,6 +194,7 @@ $_MODULE['<{monei}prestashop>monei_a506e19461a2d97b8fb4c664b1c64188'] = 'Richies
 $_MODULE['<{monei}prestashop>monei_5ca95d54c2594160a4dde45c00cf668d'] = 'Duplicato';
 $_MODULE['<{monei}prestashop>monei_fee8a9ba48c321a5cb9673e50192f2ce'] = 'Fraudolento';
 $_MODULE['<{monei}prestashop>monei_40dbad35e95e6a1b02e0f3a32ffb5c8e'] = 'Motivo del rimborso MONEI';
+$_MODULE['<{monei}prestashop>monei_43cc1c54b2b3cd52cfd9e5f338638dee'] = 'Il rimborso è fallito nel gateway di pagamento MONEI. Si prega di riprovare o contattare il supporto.';
 $_MODULE['<{monei}prestashop>monei_b205a9d79610de7f4b956fef9ac70279'] = 'Devi selezionare qui lo stato per un pagamento completato.';
 $_MODULE['<{monei}prestashop>monei_b316327e084afdb11326a75a68114259'] = 'Per abilitare Apple Pay sul tuo sito web, devi:';
 $_MODULE['<{monei}prestashop>monei_b5e2dd381b2e4955bdc4871af20e7c8f'] = 'Document root:';

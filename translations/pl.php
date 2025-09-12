@@ -194,6 +194,7 @@ $_MODULE['<{monei}prestashop>monei_a506e19461a2d97b8fb4c664b1c64188'] = 'Na żą
 $_MODULE['<{monei}prestashop>monei_5ca95d54c2594160a4dde45c00cf668d'] = 'Zduplikowany';
 $_MODULE['<{monei}prestashop>monei_fee8a9ba48c321a5cb9673e50192f2ce'] = 'Oszukańczy';
 $_MODULE['<{monei}prestashop>monei_40dbad35e95e6a1b02e0f3a32ffb5c8e'] = 'Powód zwrotu MONEI';
+$_MODULE['<{monei}prestashop>monei_43cc1c54b2b3cd52cfd9e5f338638dee'] = 'Zwrot nie powiódł się w bramce płatności MONEI. Spróbuj ponownie lub skontaktuj się z pomocą techniczną.';
 $_MODULE['<{monei}prestashop>monei_b205a9d79610de7f4b956fef9ac70279'] = 'Musisz wybrać tutaj status dla zakończonej płatności.';
 $_MODULE['<{monei}prestashop>monei_b316327e084afdb11326a75a68114259'] = 'Aby włączyć Apple Pay na swojej stronie, musisz:';
 $_MODULE['<{monei}prestashop>monei_b5e2dd381b2e4955bdc4871af20e7c8f'] = 'Katalog główny dokumentów:';

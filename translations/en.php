@@ -114,6 +114,7 @@ $_MODULE['<{monei}prestashop>monei_a506e19461a2d97b8fb4c664b1c64188'] = 'Request
 $_MODULE['<{monei}prestashop>monei_5ca95d54c2594160a4dde45c00cf668d'] = 'Duplicated';
 $_MODULE['<{monei}prestashop>monei_fee8a9ba48c321a5cb9673e50192f2ce'] = 'Fraudulent';
 $_MODULE['<{monei}prestashop>monei_40dbad35e95e6a1b02e0f3a32ffb5c8e'] = 'MONEI refund reason';
+$_MODULE['<{monei}prestashop>monei_43cc1c54b2b3cd52cfd9e5f338638dee'] = 'Refund failed in MONEI payment gateway. Please try again or contact support.';
 $_MODULE['<{monei}prestashop>monei_c30620fb073241eb5bf1db41ca2a7707'] = '%s style configuration contains invalid JSON: %s';
 $_MODULE['<{monei}prestashop>monei_eb7431d253e289bd63b3d73927cd40c1'] = 'No errors';
 $_MODULE['<{monei}prestashop>monei_a3cc7f77c57c5fd6920226cca80f3667'] = 'Maximum stack depth exceeded';

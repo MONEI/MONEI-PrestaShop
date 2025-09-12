@@ -2388,7 +2388,11 @@ class Monei extends PaymentModule
             );
             
             // Re-throw the exception to prevent credit slip creation
-            throw new PrestaShopException($this->l('Refund failed in MONEI payment gateway. Please try again or contact support.'));
+            // Include the actual error message for debugging
+            throw new PrestaShopException(
+                $this->l('Refund failed in MONEI payment gateway. Please try again or contact support.') 
+                . ' (' . $e->getMessage() . ')'
+            );
         }
     }
 

@@ -194,6 +194,7 @@ $_MODULE['<{monei}prestashop>monei_a506e19461a2d97b8fb4c664b1c64188'] = 'Kliendi
 $_MODULE['<{monei}prestashop>monei_5ca95d54c2594160a4dde45c00cf668d'] = 'Dubleeritud';
 $_MODULE['<{monei}prestashop>monei_fee8a9ba48c321a5cb9673e50192f2ce'] = 'Petturlik';
 $_MODULE['<{monei}prestashop>monei_40dbad35e95e6a1b02e0f3a32ffb5c8e'] = 'MONEI tagasimakse põhjus';
+$_MODULE['<{monei}prestashop>monei_43cc1c54b2b3cd52cfd9e5f338638dee'] = 'Tagasimakse ebaõnnestus MONEI makseväravas. Palun proovige uuesti või võtke ühendust toega.';
 $_MODULE['<{monei}prestashop>monei_b205a9d79610de7f4b956fef9ac70279'] = 'Peate siia valima oleku lõpetatud maksele.';
 $_MODULE['<{monei}prestashop>monei_b316327e084afdb11326a75a68114259'] = 'Apple Pay lubamiseks oma veebisaidil peate:';
 $_MODULE['<{monei}prestashop>monei_b5e2dd381b2e4955bdc4871af20e7c8f'] = 'Dokumendi juur:';

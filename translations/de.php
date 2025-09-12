@@ -194,6 +194,7 @@ $_MODULE['<{monei}prestashop>monei_a506e19461a2d97b8fb4c664b1c64188'] = 'Vom Kun
 $_MODULE['<{monei}prestashop>monei_5ca95d54c2594160a4dde45c00cf668d'] = 'Dupliziert';
 $_MODULE['<{monei}prestashop>monei_fee8a9ba48c321a5cb9673e50192f2ce'] = 'Betrügerisch';
 $_MODULE['<{monei}prestashop>monei_40dbad35e95e6a1b02e0f3a32ffb5c8e'] = 'MONEI Rückerstattungsgrund';
+$_MODULE['<{monei}prestashop>monei_43cc1c54b2b3cd52cfd9e5f338638dee'] = 'Rückerstattung im MONEI-Zahlungsgateway fehlgeschlagen. Bitte versuchen Sie es erneut oder kontaktieren Sie den Support.';
 $_MODULE['<{monei}prestashop>monei_b205a9d79610de7f4b956fef9ac70279'] = 'Sie müssen hier den Status für eine abgeschlossene Zahlung auswählen.';
 $_MODULE['<{monei}prestashop>monei_b316327e084afdb11326a75a68114259'] = 'Um Apple Pay auf Ihrer Website zu aktivieren, müssen Sie:';
 $_MODULE['<{monei}prestashop>monei_b5e2dd381b2e4955bdc4871af20e7c8f'] = 'Dokument-Root:';
