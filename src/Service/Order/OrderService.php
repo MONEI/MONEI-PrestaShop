@@ -108,8 +108,6 @@ class OrderService
                     \PrestaShopLogger::LOG_SEVERITY_LEVEL_INFORMATIVE
                 );
             }
-
-            $this->handlePostOrderCreation($redirectToConfirmationPage, $cart, $customer, $order);
         } catch (OrderException $e) {
             \PrestaShopLogger::addLog(
                 '[MONEI] Order processing warning [payment_id=' . $moneiPaymentId . ', error=' . $e->getMessage() . ']',
@@ -118,9 +116,12 @@ class OrderService
 
             throw $e;
         } finally {
-            // Always release the lock
+            // Always release the lock before any operation that might exit
             $this->lockService->releaseLock($lockName);
         }
+        
+        // Call handlePostOrderCreation outside the try-finally block to ensure lock is always released
+        $this->handlePostOrderCreation($redirectToConfirmationPage, $cart, $customer, $order);
     }
 
     private function determineOrderStateId($moneiPaymentStatus)
