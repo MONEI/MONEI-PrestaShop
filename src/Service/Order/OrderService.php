@@ -336,7 +336,9 @@ class OrderService
             }
         }
 
-        \Order::$moneiOrderReference = $moneiPayment->getOrderId();
+        // Store the reference in Context for thread-safe access
+        $context = \Context::getContext();
+        $context->monei_order_reference = $moneiPayment->getOrderId();
 
         $this->moneiInstance->validateOrder(
             $cart->id,
