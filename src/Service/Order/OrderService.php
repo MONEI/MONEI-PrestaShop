@@ -123,6 +123,17 @@ class OrderService
             );
 
             throw $e;
+        } catch (\Throwable $e) {
+            // Catch any unexpected exceptions to ensure they're logged before lock release
+            \PrestaShopLogger::addLog(
+                '[MONEI] Unexpected error during order processing [payment_id=' . $moneiPaymentId . 
+                ', error=' . $e->getMessage() . 
+                ', file=' . $e->getFile() . 
+                ', line=' . $e->getLine() . ']',
+                \PrestaShopLogger::LOG_SEVERITY_LEVEL_ERROR
+            );
+
+            throw $e;
         } finally {
             // Always release the lock before any operation that might exit
             $this->lockService->releaseLock($lockName);
