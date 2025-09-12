@@ -2305,10 +2305,42 @@ class Monei extends PaymentModule
 
         // Add additional JS/vars only for Orders controller
         if ($this->context->controller->controller_name === 'AdminOrders') {
+            // Get dynamic refund reasons from MONEI SDK
+            $refundReasons = [];
+            if (class_exists('\Monei\Model\PaymentRefundReason')) {
+                try {
+                    $allowedReasons = Monei\Model\PaymentRefundReason::getAllowableEnumValues();
+                    foreach ($allowedReasons as $reason) {
+                        // Format the reason for display
+                        $label = ucwords(str_replace('_', ' ', $reason));
+                        $refundReasons[] = [
+                            'value' => $reason,
+                            'label' => $label,
+                        ];
+                    }
+                } catch (Exception $e) {
+                    // Fallback to default reasons if SDK fails
+                    $refundReasons = [
+                        ['value' => 'requested_by_customer', 'label' => 'Requested by customer'],
+                        ['value' => 'duplicated', 'label' => 'Duplicated'],
+                        ['value' => 'fraudulent', 'label' => 'Fraudulent'],
+                    ];
+                }
+            } else {
+                // Fallback for older SDK versions
+                $refundReasons = [
+                    ['value' => 'requested_by_customer', 'label' => 'Requested by customer'],
+                    ['value' => 'duplicated', 'label' => 'Duplicated'],
+                    ['value' => 'fraudulent', 'label' => 'Fraudulent'],
+                ];
+            }
+
             Media::addJsDef([
                 'MoneiVars' => [
                     // Decode HTML entities as URLs should not be escaped in JavaScript
                     'adminMoneiControllerUrl' => html_entity_decode($this->context->link->getAdminLink('AdminMonei')),
+                    'refundReasons' => $refundReasons,
+                    'refundReasonTitle' => $this->l('MONEI refund reason'),
                 ],
             ]);
 
@@ -2403,7 +2435,7 @@ class Monei extends PaymentModule
             $moneiService->createRefund((int) $order->id, $refundAmount, $employeeId, $refundReason);
 
             PrestaShopLogger::addLog(
-                'MONEI - Refund processed successfully for order ID: ' . $order->id 
+                'MONEI - Refund processed successfully for order ID: ' . $order->id
                 . ', Amount: ' . ($refundAmount / 100) . ' EUR',
                 self::getLogLevel('info')
             );
