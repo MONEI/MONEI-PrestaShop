@@ -18,6 +18,22 @@ class MoneiRedirectModuleFrontController extends ModuleFrontController
         $paymentMethod = Tools::getValue('method', '');
 
         $cart = $this->context->cart;
+
+        // Validate cart before accessing properties
+        if (!Validate::isLoadedObject($cart)) {
+            PrestaShopLogger::addLog(
+                '[MONEI] Invalid or missing cart in redirect controller',
+                Monei::getLogLevel('error')
+            );
+            Tools::redirect($this->context->link->getPageLink('index'));
+            exit;
+        }
+
+        PrestaShopLogger::addLog(
+            '[MONEI] Redirect initiated [cart_id=' . $cart->id . ']',
+            Monei::getLogLevel('info')
+        );
+
         // Use PS1.7 compatible encryption
         $expected_hash = Tools::encrypt((int) $cart->id . (int) $cart->id_customer);
         $check_encrypt = ($expected_hash === $transactionId);
@@ -28,6 +44,7 @@ class MoneiRedirectModuleFrontController extends ModuleFrontController
             || !$this->module->active
         ) {
             Tools::redirect($this->context->link->getPageLink('index'));
+            exit;
         }
 
         try {
@@ -40,26 +57,30 @@ class MoneiRedirectModuleFrontController extends ModuleFrontController
             $moneiPayment = $moneiService->createMoneiPayment($cart, $tokenizeCard, $moneiCardId, $paymentMethod);
             if (!$moneiPayment) {
                 Tools::redirect($this->context->link->getPageLink('order'));
+                exit;
             }
 
-            // Convert the cart to order
-            $orderState = new OrderState(Configuration::get('MONEI_STATUS_PENDING'));
-            if (Configuration::get('MONEI_CART_TO_ORDER') && Validate::isLoadedObject($orderState)) {
-                $orderService = Monei::getService('service.order');
-                $orderService->createOrUpdateOrder($moneiPayment->getId());
-            }
+            // Note: Cart to Order feature has been removed
+            // Orders are now created only after successful payment confirmation
 
-            if ($redirectURL = $moneiPayment->getNextAction()->getRedirectUrl()) {
+            $nextAction = $moneiPayment->getNextAction();
+            if ($nextAction && $nextAction->getRedirectUrl()) {
+                $redirectURL = $nextAction->getRedirectUrl();
                 if ($moneiPayment->getStatus() === PaymentStatus::FAILED) {
                     // Store status code for failed payments before redirect
                     if ($moneiPayment->getStatusCode()) {
                         $this->context->cookie->monei_error_code = $moneiPayment->getStatusCode();
                     }
-                    $redirectURL .= '&message=' . $moneiPayment->getStatusMessage();
+                    $redirectURL = $this->addQueryParam($redirectURL, 'message', $moneiPayment->getStatusMessage());
                 }
 
                 Tools::redirect($redirectURL);
+                exit;
             }
+
+            // If no redirect URL, go to order page
+            Tools::redirect($this->context->link->getPageLink('order'));
+            exit;
         } catch (Exception $ex) {
             // Store the exception message for technical errors
             $this->context->cookie->monei_error = $ex->getMessage();
@@ -76,5 +97,55 @@ class MoneiRedirectModuleFrontController extends ModuleFrontController
         }
 
         exit;
+    }
+
+    /**
+     * Add query parameter to URL safely
+     *
+     * @param string $url The URL to add parameter to
+     * @param string $key The parameter key
+     * @param string $value The parameter value
+     *
+     * @return string Modified URL
+     */
+    private function addQueryParam($url, $key, $value)
+    {
+        if (empty($value)) {
+            return $url;
+        }
+
+        $parsed = parse_url($url);
+        $query = [];
+
+        if (isset($parsed['query'])) {
+            parse_str($parsed['query'], $query);
+        }
+
+        $query[$key] = $value;
+
+        $parsed['query'] = http_build_query($query);
+
+        // Rebuild URL
+        $url = '';
+        if (isset($parsed['scheme'])) {
+            $url .= $parsed['scheme'] . '://';
+        }
+        if (isset($parsed['host'])) {
+            $url .= $parsed['host'];
+        }
+        if (isset($parsed['port'])) {
+            $url .= ':' . $parsed['port'];
+        }
+        if (isset($parsed['path'])) {
+            $url .= $parsed['path'];
+        }
+        if (isset($parsed['query'])) {
+            $url .= '?' . $parsed['query'];
+        }
+        if (isset($parsed['fragment'])) {
+            $url .= '#' . $parsed['fragment'];
+        }
+
+        return $url;
     }
 }

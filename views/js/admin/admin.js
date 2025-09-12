@@ -102,11 +102,10 @@
 
         // Credit slip refund reason handler
         const creditSlipHandler = {
-            refundReasons: [
+            refundReasons: (typeof MoneiVars !== 'undefined' && MoneiVars.refundReasons) ? MoneiVars.refundReasons : [
                 { value: 'requested_by_customer', label: 'Requested by customer' },
-                { value: 'duplicate', label: 'Duplicate' },
-                { value: 'fraudulent', label: 'Fraudulent' },
-                { value: 'other', label: 'Other' }
+                { value: 'duplicated', label: 'Duplicated' },
+                { value: 'fraudulent', label: 'Fraudulent' }
             ],
 
             init: function() {
