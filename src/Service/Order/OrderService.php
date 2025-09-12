@@ -42,12 +42,6 @@ class OrderService
 
     public function createOrUpdateOrder($moneiPaymentId, bool $redirectToConfirmationPage = false)
     {
-        \PrestaShopLogger::addLog(
-            'MONEI - createOrUpdateOrder - START: payment_id=' . $moneiPaymentId
-            . ', redirectToConfirmationPage=' . ($redirectToConfirmationPage ? 'true' : 'false'),
-            \Monei::getLogLevel('info')
-        );
-
         $connection = \Db::getInstance();
 
         // Get shop ID for multi-shop support
@@ -58,8 +52,6 @@ class OrderService
         $lockName = 'payment_' . $moneiPaymentId . '_shop_' . $shopId;
 
         if (!$this->lockService->acquireLock($lockName, 30)) {
-            \PrestaShopLogger::addLog('MONEI - createOrUpdateOrder - Could not acquire lock for payment: ' . $moneiPaymentId, \Monei::getLogLevel('warning'));
-
             // Another process is handling this payment, so we can safely return
             return;
         }
@@ -70,20 +62,12 @@ class OrderService
             $orderPaymentExists = $connection->getRow($query);
 
             if ($orderPaymentExists) {
-                \PrestaShopLogger::addLog('MONEI - createOrUpdateOrder - Order: (' . $orderPaymentExists['id_order'] . ') already exists. Payment ID: ' . $moneiPaymentId . ' Date: ' . $orderPaymentExists['date_add'], \Monei::getLogLevel('warning'));
-
-                // If order already exists but we need to redirect, handle it
+                // If order already exists and redirect is requested, redirect to confirmation page
                 if ($redirectToConfirmationPage) {
                     $order = new \Order($orderPaymentExists['id_order']);
                     if (\Validate::isLoadedObject($order)) {
                         $cart = new \Cart($order->id_cart);
                         $customer = new \Customer($order->id_customer);
-
-                        \PrestaShopLogger::addLog(
-                            'MONEI - createOrUpdateOrder - Redirecting for existing order_id=' . $order->id,
-                            \Monei::getLogLevel('info')
-                        );
-
                         $this->handlePostOrderCreation($redirectToConfirmationPage, $cart, $customer, $order);
                     }
                 }
@@ -91,23 +75,9 @@ class OrderService
                 return;
             }
 
-            try {
-                $moneiPayment = $this->moneiService->getMoneiPayment($moneiPaymentId);
-            } catch (\Exception $e) {
-                throw $e;
-            }
+            $moneiPayment = $this->moneiService->getMoneiPayment($moneiPaymentId);
 
-            \PrestaShopLogger::addLog(
-                'MONEI - createOrUpdateOrder - Got MONEI payment, status=' . $moneiPayment->getStatus() . ', orderId=' . $moneiPayment->getOrderId(),
-                \Monei::getLogLevel('info')
-            );
-
-            $cartId = $this->moneiService->extractCartIdFromMoneiOrderId($moneiPayment->getOrderId());
-
-            \PrestaShopLogger::addLog(
-                'MONEI - createOrUpdateOrder - Extracted cart_id=' . $cartId . ' from order_id=' . $moneiPayment->getOrderId(),
-                \Monei::getLogLevel('info')
-            );
+            $cartId = $this->moneiService->getCartIdFromPayment($moneiPayment);
 
             $cart = $this->validateCart($cartId);
             $customer = $this->validateCustomer($cart->id_customer);
@@ -117,40 +87,17 @@ class OrderService
 
             $order = $this->handleExistingOrder($cartId, $orderStateId, $moneiPayment);
 
-            \PrestaShopLogger::addLog(
-                'MONEI - createOrUpdateOrder - After handleExistingOrder, order=' . ($order ? 'EXISTS (id=' . $order->id . ')' : 'NULL'),
-                \Monei::getLogLevel('info')
-            );
-
+            // Create order only for non-failed payments
             if (!$order && !$failed) {
-                \PrestaShopLogger::addLog(
-                    'MONEI - createOrUpdateOrder - Creating new order...',
-                    \Monei::getLogLevel('info')
-                );
                 $order = $this->createNewOrder($cart, $customer, $orderStateId, $moneiPayment);
-
-                \PrestaShopLogger::addLog(
-                    'MONEI - createOrUpdateOrder - New order created, order_id=' . ($order ? $order->id : 'NULL'),
-                    \Monei::getLogLevel('info')
-                );
                 // Update payment method name and details for new orders
                 $this->updateOrderPaymentMethodName($order, $moneiPayment);
                 $this->updateOrderPaymentDetails($order, $moneiPayment);
             }
 
             if (!\Validate::isLoadedObject($order)) {
-                \PrestaShopLogger::addLog(
-                    'MONEI - createOrUpdateOrder - ERROR: Order is not a valid object! cart_id=' . $cartId,
-                    \Monei::getLogLevel('error')
-                );
-
                 throw new OrderException('Order not found', OrderException::ORDER_NOT_FOUND);
             }
-
-            \PrestaShopLogger::addLog(
-                'MONEI - createOrUpdateOrder - Order is valid, order_id=' . $order->id,
-                \Monei::getLogLevel('info')
-            );
 
             if (!$failed) {
                 $this->moneiService->saveMoneiToken($moneiPayment, $customer->id);
@@ -162,76 +109,64 @@ class OrderService
             $sql = 'INSERT IGNORE INTO ' . _DB_PREFIX_ . 'monei2_order_payment (id_order, id_payment, date_add)
                 VALUES (' . (int) $order->id . ', "' . pSQL($moneiPaymentId) . '", NOW())';
             if ($connection->execute($sql)) {
-                \PrestaShopLogger::addLog('MONEI - createOrUpdateOrder - Order (' . $order->id . ') created or updated.', \Monei::getLogLevel('info'));
+                \PrestaShopLogger::addLog(
+                    '[MONEI] Order processed [order_id=' . $order->id . ', payment_id=' . $moneiPaymentId . ', status=' . $moneiPayment->getStatus() . ']',
+                    \Monei::getLogLevel('info')
+                );
             }
 
-            \PrestaShopLogger::addLog(
-                'MONEI - createOrUpdateOrder - About to call handlePostOrderCreation with order_id=' . $order->id,
-                \Monei::getLogLevel('info')
-            );
-
-            $this->handlePostOrderCreation($redirectToConfirmationPage, $cart, $customer, $order);
+            // Store variables for post-processing
+            $postProcessData = [
+                'redirect' => $redirectToConfirmationPage,
+                'cart' => $cart,
+                'customer' => $customer,
+                'order' => $order,
+            ];
         } catch (OrderException $e) {
             \PrestaShopLogger::addLog(
-                'MONEI - CreateOrderService - ' . $e->getMessage(),
+                '[MONEI] Order processing warning [payment_id=' . $moneiPaymentId . ', error=' . $e->getMessage() . ']',
                 \Monei::getLogLevel('warning')
             );
 
             throw $e;
+        } catch (\Throwable $e) {
+            // Catch any unexpected exceptions to ensure they're logged before lock release
+            \PrestaShopLogger::addLog(
+                '[MONEI] Unexpected error during order processing [payment_id=' . $moneiPaymentId
+                . ', error=' . $e->getMessage()
+                . ', file=' . $e->getFile()
+                . ', line=' . $e->getLine() . ']',
+                \Monei::getLogLevel('error')
+            );
+
+            throw $e;
         } finally {
-            // Always release the lock
+            // Always release the lock before any operation that might exit
             $this->lockService->releaseLock($lockName);
+        }
+
+        // Call handlePostOrderCreation only if no exception was thrown
+        // Variables are guaranteed to be set here since we only reach this point on success
+        if (isset($postProcessData)) {
+            $this->handlePostOrderCreation(
+                $postProcessData['redirect'],
+                $postProcessData['cart'],
+                $postProcessData['customer'],
+                $postProcessData['order']
+            );
         }
     }
 
     private function determineOrderStateId($moneiPaymentStatus)
     {
-        \PrestaShopLogger::addLog(
-            'MONEI - determineOrderStateId - START: moneiPaymentStatus=' . $moneiPaymentStatus,
-            \Monei::getLogLevel('info')
-        );
-
         $statusMap = [
             PaymentStatus::REFUNDED => 'MONEI_STATUS_REFUNDED',
-            PaymentStatus::PARTIALLY_REFUNDED => 'MONEI_STATUS_REFUNDED',
+            PaymentStatus::PARTIALLY_REFUNDED => 'MONEI_STATUS_PARTIALLY_REFUNDED',
             PaymentStatus::PENDING => 'MONEI_STATUS_PENDING',
             PaymentStatus::SUCCEEDED => 'MONEI_STATUS_SUCCEEDED',
             PaymentStatus::AUTHORIZED => 'MONEI_STATUS_AUTHORIZED',
         ];
         $configKey = $statusMap[$moneiPaymentStatus] ?? 'MONEI_STATUS_FAILED';
-
-        \PrestaShopLogger::addLog(
-            'MONEI - determineOrderStateId - Mapping payment status=' . $moneiPaymentStatus . ' to config_key=' . $configKey,
-            \Monei::getLogLevel('info')
-        );
-
-        $orderStateId = (int) \Configuration::get($configKey);
-
-        \PrestaShopLogger::addLog(
-            'MONEI - determineOrderStateId - Configuration::get(' . $configKey . ') = ' . $orderStateId,
-            \Monei::getLogLevel('info')
-        );
-
-        // Validate that the order state exists in PrestaShop
-        if ($orderStateId > 0) {
-            $orderState = new \OrderState($orderStateId);
-            if (!\Validate::isLoadedObject($orderState)) {
-                \PrestaShopLogger::addLog(
-                    'MONEI - determineOrderStateId - ERROR: OrderState ID ' . $orderStateId . ' does not exist in PrestaShop!',
-                    \Monei::getLogLevel('error')
-                );
-            } else {
-                \PrestaShopLogger::addLog(
-                    'MONEI - determineOrderStateId - OrderState validated: ID=' . $orderStateId . ', name=' . $orderState->name[1],
-                    \Monei::getLogLevel('info')
-                );
-            }
-        } else {
-            \PrestaShopLogger::addLog(
-                'MONEI - determineOrderStateId - ERROR: Invalid order state ID: ' . $orderStateId,
-                \Monei::getLogLevel('error')
-            );
-        }
 
         return $orderStateId;
     }
@@ -247,6 +182,10 @@ class OrderService
             \Configuration::get('MONEI_STATUS_AUTHORIZED') => [
                 \Configuration::get('MONEI_STATUS_SUCCEEDED'),
                 \Configuration::get('MONEI_STATUS_FAILED'),
+            ],
+            \Configuration::get('MONEI_STATUS_FAILED') => [
+                \Configuration::get('MONEI_STATUS_SUCCEEDED'),
+                \Configuration::get('MONEI_STATUS_AUTHORIZED'),
             ],
             \Configuration::get('MONEI_STATUS_SUCCEEDED') => [
                 \Configuration::get('MONEI_STATUS_REFUNDED'),
@@ -284,7 +223,7 @@ class OrderService
         if (\Validate::isLoadedObject($existingOrder)) {
             if ($existingOrder->module !== $this->moneiInstance->name) {
                 \PrestaShopLogger::addLog(
-                    'MONEI - CreateOrderService - Order (' . $existingOrder->id . ') already exists with a different payment method.',
+                    '[MONEI] Order conflict - Different payment method [order_id=' . $existingOrder->id . ', existing_module=' . $existingOrder->module . ']',
                     \Monei::getLogLevel('warning')
                 );
 
@@ -292,7 +231,7 @@ class OrderService
             }
 
             \PrestaShopLogger::addLog(
-                'MONEI - CreateOrderService - Order (' . $existingOrder->id . ') already exists.',
+                '[MONEI] Updating existing order [order_id=' . $existingOrder->id . ', payment_id=' . $moneiPayment->getId() . ']',
                 \Monei::getLogLevel('info')
             );
 
@@ -315,7 +254,7 @@ class OrderService
                 $this->updateOrderPaymentDetails($order, $moneiPayment);
             } else {
                 \PrestaShopLogger::addLog(
-                    'MONEI - Invalid state transition from ' . $order->current_state . ' to ' . $orderStateId,
+                    '[MONEI] Invalid order state transition [order_id=' . $order->id . ', from_state=' . $order->current_state . ', to_state=' . $orderStateId . ']',
                     \Monei::getLogLevel('warning')
                 );
             }
@@ -434,70 +373,30 @@ class OrderService
             }
         }
 
-        \PrestaShopLogger::addLog(
-            'MONEI - createNewOrder - About to call validateOrder with cart_id=' . $cart->id
-            . ', orderStateId=' . $orderStateId
-            . ', amount=' . ($moneiPayment->getAmount() / 100)
-            . ', payment_method=' . $this->getPaymentMethodDisplayName($moneiPayment),
-            \Monei::getLogLevel('info')
+        // Store the MONEI order ID in context to use as PrestaShop order reference
+        $context = \Context::getContext();
+        $context->monei_order_reference = $moneiPayment->getOrderId();
+
+        $this->moneiInstance->validateOrder(
+            $cart->id,
+            $orderStateId,
+            $moneiPayment->getAmount() / 100,
+            $this->getPaymentMethodDisplayName($moneiPayment),
+            '',
+            $extraVars,
+            $cart->id_currency,
+            false,
+            $customer->secure_key
         );
-
-        try {
-            $this->moneiInstance->validateOrder(
-                $cart->id,
-                $orderStateId,
-                $moneiPayment->getAmount() / 100,
-                $this->getPaymentMethodDisplayName($moneiPayment),
-                '',
-                $extraVars,
-                $cart->id_currency,
-                false,
-                $customer->secure_key
-            );
-
-            \PrestaShopLogger::addLog(
-                'MONEI - createNewOrder - validateOrder completed successfully',
-                \Monei::getLogLevel('info')
-            );
-        } catch (\Exception $e) {
-            \PrestaShopLogger::addLog(
-                'MONEI - createNewOrder - ERROR in validateOrder: ' . $e->getMessage() . ' - File: ' . $e->getFile() . ' - Line: ' . $e->getLine(),
-                \Monei::getLogLevel('error')
-            );
-
-            throw $e;
-        }
 
         $order = \Order::getByCartId($cart->id);
-
-        \PrestaShopLogger::addLog(
-            'MONEI - createNewOrder - After validateOrder, order=' . ($order ? 'FOUND (id=' . $order->id . ')' : 'NOT FOUND'),
-            \Monei::getLogLevel('info')
-        );
 
         return $order;
     }
 
     private function handlePostOrderCreation($redirectToConfirmationPage, $cart, $customer, $order)
     {
-        \PrestaShopLogger::addLog(
-            'MONEI - handlePostOrderCreation - START: redirectToConfirmationPage=' . ($redirectToConfirmationPage ? 'true' : 'false')
-            . ', cart_id=' . $cart->id
-            . ', order_id=' . ($order ? $order->id : 'NULL')
-            . ', customer_id=' . $customer->id
-            . ', secure_key=' . $customer->secure_key,
-            \Monei::getLogLevel('info')
-        );
-
         if ($redirectToConfirmationPage) {
-            // Check if order is valid
-            if (!$order || !$order->id) {
-                \PrestaShopLogger::addLog(
-                    'MONEI - handlePostOrderCreation - ERROR: Order is NULL or has no ID!',
-                    \Monei::getLogLevel('error')
-                );
-            }
-
             // Use context link for proper URL generation in PS1.7
             $confirmationUrl = $this->context->link->getPageLink(
                 'order-confirmation',
@@ -511,22 +410,8 @@ class OrderService
                 ]
             );
 
-            \PrestaShopLogger::addLog(
-                'MONEI - handlePostOrderCreation - Generated confirmation URL: ' . $confirmationUrl,
-                \Monei::getLogLevel('info')
-            );
-
-            \PrestaShopLogger::addLog(
-                'MONEI - handlePostOrderCreation - About to redirect to order confirmation page',
-                \Monei::getLogLevel('info')
-            );
-
             \Tools::redirect($confirmationUrl);
         } else {
-            \PrestaShopLogger::addLog(
-                'MONEI - handlePostOrderCreation - Not redirecting, returning OK response',
-                \Monei::getLogLevel('info')
-            );
             header('HTTP/1.1 200 OK');
             echo '<h1>OK</h1>';
         }

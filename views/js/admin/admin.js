@@ -88,7 +88,7 @@
                     beforeShow: function() {
                         const jsonInfoCoded = atob($(this.element).data("moneijson"));
                         $(CONFIG.selectors.jsonLog).jsonViewer(JSON.parse(jsonInfoCoded), {
-                            collapsed: true,
+                            collapsed: false,  // Expanded by default as per PR #86
                             rootCollapsable: false
                         });
                         $.fancybox.update();
@@ -102,11 +102,10 @@
 
         // Credit slip refund reason handler
         const creditSlipHandler = {
-            refundReasons: [
+            refundReasons: (typeof MoneiVars !== 'undefined' && MoneiVars.refundReasons) ? MoneiVars.refundReasons : [
                 { value: 'requested_by_customer', label: 'Requested by customer' },
-                { value: 'duplicate', label: 'Duplicate' },
-                { value: 'fraudulent', label: 'Fraudulent' },
-                { value: 'other', label: 'Other' }
+                { value: 'duplicated', label: 'Duplicated' },
+                { value: 'fraudulent', label: 'Fraudulent' }
             ],
 
             init: function() {
@@ -180,9 +179,11 @@
             },
 
             buildRefundReasonSelect: function() {
+                const defaultReason = 'requested_by_customer';
                 let optionsHtml = '';
+                
                 this.refundReasons.forEach(reason => {
-                    const selected = reason.value === 'requested_by_customer' ? 'selected' : '';
+                    const selected = reason.value === defaultReason ? 'selected' : '';
                     optionsHtml += `<option value="${reason.value}" ${selected}>${reason.label}</option>`;
                 });
 
@@ -193,7 +194,7 @@
                             <div class="col-md-12">
                                 <div class="d-flex align-items-center justify-content-end">
                                     <label for="monei_credit_slip_reason" class="mb-0 mr-2">
-                                        <strong>MONEI refund reason</strong>
+                                        <strong>${(typeof MoneiVars !== 'undefined' && MoneiVars.refundReasonTitle) ? MoneiVars.refundReasonTitle : 'MONEI refund reason'}</strong>
                                     </label>
                                     <select id="monei_credit_slip_reason" name="monei_refund_reason" class="form-control" style="width: auto;">
                                         ${optionsHtml}

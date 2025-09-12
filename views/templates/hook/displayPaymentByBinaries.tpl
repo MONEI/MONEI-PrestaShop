@@ -28,6 +28,80 @@
       }
     };
     
+    // Reusable AJAX request handler with error handling
+    var moneiAjaxRequest = async function(url, options = {}) {
+      const defaultOptions = {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        credentials: 'same-origin', // Include cookies for same-origin requests
+        ...options
+      };
+      
+      try {
+        moneiLog('info', 'Ajax', `Making request to ${url}`, defaultOptions);
+        const response = await fetch(url, defaultOptions);
+        
+        // Handle empty responses (204, etc.)
+        if (response.status === 204 || response.headers.get('content-length') === '0') {
+          moneiLog('info', 'Ajax', 'Request successful (empty response)');
+          return null;
+        }
+        
+        // Parse response based on Content-Type
+        const contentType = response.headers.get('content-type') || '';
+        let data;
+        
+        if (contentType.includes('application/json')) {
+          try {
+            data = await response.json();
+          } catch (jsonError) {
+            // JSON parsing failed
+            moneiLog('error', 'Ajax', 'Invalid JSON response', jsonError);
+            data = { error: 'Invalid server response format' };
+          }
+        } else if (contentType.includes('text/')) {
+          // Handle text responses (HTML error pages, plain text, etc.)
+          const text = await response.text();
+          data = { 
+            error: 'Server returned non-JSON response',
+            message: text.substring(0, 200), // Limit text length for display
+            contentType: contentType
+          };
+        } else {
+          // Handle other content types
+          data = { 
+            error: 'Unexpected response type',
+            contentType: contentType
+          };
+        }
+        
+        if (!response.ok) {
+          // Extract error message from response
+          const errorMessage = data?.error || data?.message || `Server error: ${response.status}`;
+          moneiLog('error', 'Ajax', `Request failed (${response.status})`, data);
+          showMoneiError(errorMessage);
+          throw new Error(errorMessage);
+        }
+        
+        moneiLog('info', 'Ajax', 'Request successful', data);
+        return data;
+      } catch (error) {
+        // Handle network errors or other fetch failures
+        if (error.name === 'NetworkError' || error.message === 'Failed to fetch') {
+          const networkError = typeof moneiNetworkError !== 'undefined' ? moneiNetworkError : 'Network error. Please check your connection.';
+          moneiLog('error', 'Ajax', 'Network error', error);
+          showMoneiError(networkError);
+        } else if (!error.message.includes('Server error')) {
+          // Don't double-display errors already shown above
+          showMoneiError(error.message);
+        }
+        throw error;
+      }
+    };
+    
     // Show loading overlay
     var showMoneiLoading = function() {
       // Create loading overlay
@@ -94,18 +168,18 @@
 
       const createMoneiPayment = async () => {
         try {
-          const response = await fetch(moneiCreatePaymentUrlController, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ token: moneiToken }),
+          const data = await moneiAjaxRequest(moneiCreatePaymentUrlController, {
+            body: JSON.stringify({ token: moneiToken })
           });
-
-          if (!response.ok) throw new Error(typeof moneiPaymentCreationFailed !== 'undefined' ? moneiPaymentCreationFailed : 'Payment creation failed');
-
-          const { moneiPaymentId } = await response.json();
-          return moneiPaymentId;
+          
+          // Check if we got a valid response
+          if (!data || !data.moneiPaymentId) {
+            throw new Error('Invalid payment response from server');
+          }
+          
+          return data.moneiPaymentId;
         } catch (error) {
-          showMoneiError(error.message);
+          // Error is already displayed by moneiAjaxRequest
           throw error;
         }
       };
@@ -458,11 +532,6 @@
               processingMoneiPayPalPayment = false;
             }
           };
-          
-          // Debug logging for PayPal configuration
-          console.log('[MONEI Debug] PayPal Configuration:', paypalConfig);
-          console.log('[MONEI Debug] Payment Action:', moneiPaymentAction);
-          console.log('[MONEI Debug] Transaction Type:', paypalConfig.transactionType);
           
           monei.PayPal(paypalConfig).render(moneiPayPalRenderContainer);
         }
