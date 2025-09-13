@@ -20,11 +20,11 @@ class MoneiCreatePaymentModuleFrontController extends ModuleFrontController
 
             // Provide specific error based on the issue
             if ($data === null) {
-                echo Tools::jsonEncode(['error' => 'Invalid request data']);
+                echo json_encode(['error' => 'Invalid request data']);
             } elseif (!isset($data['token'])) {
-                echo Tools::jsonEncode(['error' => 'Token not provided']);
+                echo json_encode(['error' => 'Token not provided']);
             } else {
-                echo Tools::jsonEncode(['error' => 'Invalid token']);
+                echo json_encode(['error' => 'Invalid token']);
             }
             exit;
         }
@@ -60,37 +60,12 @@ class MoneiCreatePaymentModuleFrontController extends ModuleFrontController
                     PrestaShopLogger::LOG_SEVERITY_LEVEL_INFORMATIVE
                 );
 
-                // Check if payment has failed status
-                if ($paymentResponse->getStatus() === 'FAILED') {
-                    $errorMessage = 'Payment failed';
-
-                    // Get localized error message based on status code
-                    if ($paymentResponse->getStatusCode()) {
-                        $statusCodeHandler = Monei::getService('service.status_code_handler');
-                        $errorMessage = $statusCodeHandler->getStatusMessage($paymentResponse->getStatusCode());
-                    } elseif ($paymentResponse->getStatusMessage()) {
-                        $errorMessage = $paymentResponse->getStatusMessage();
-                    }
-
-                    PrestaShopLogger::addLog(
-                        '[MONEI] Payment failed with status code [payment_id=' . $paymentResponse->getId()
-                        . ', status_code=' . $paymentResponse->getStatusCode()
-                        . ', message=' . $errorMessage . ']',
-                        PrestaShopLogger::LOG_SEVERITY_LEVEL_WARNING
-                    );
-
-                    header('Content-Type: application/json');
-                    http_response_code(400);
-                    echo Tools::jsonEncode([
-                        'error' => 'Payment failed',
-                        'message' => $errorMessage,
-                        'statusCode' => $paymentResponse->getStatusCode(),
-                    ]);
-                } else {
-                    // Payment succeeded or is pending
-                    header('Content-Type: application/json');
-                    echo Tools::jsonEncode(['moneiPaymentId' => $paymentResponse->getId()]);
-                }
+                // Always return the payment ID, even if status is FAILED
+                // The JavaScript will handle the failure through confirmPayment
+                // Important: Cast to string to ensure it's a simple type for JSON encoding
+                $paymentId = (string) $paymentResponse->getId();
+                header('Content-Type: application/json');
+                echo json_encode(['moneiPaymentId' => $paymentId]);
             } else {
                 // Payment creation returned false - check for specific error
                 $lastError = Monei::getService('service.monei')->getLastError();
@@ -101,7 +76,7 @@ class MoneiCreatePaymentModuleFrontController extends ModuleFrontController
                 );
                 header('Content-Type: application/json');
                 http_response_code(400);
-                echo Tools::jsonEncode([
+                echo json_encode([
                     'error' => 'Payment creation failed',
                     'message' => $lastError ?: 'Unknown error',
                 ]);
@@ -175,13 +150,13 @@ class MoneiCreatePaymentModuleFrontController extends ModuleFrontController
 
             // Log what we're sending to frontend
             PrestaShopLogger::addLog(
-                '[MONEI] Sending error response to frontend: ' . Tools::jsonEncode($response),
+                '[MONEI] Sending error response to frontend: ' . json_encode($response),
                 PrestaShopLogger::LOG_SEVERITY_LEVEL_INFORMATIVE
             );
 
             header('Content-Type: application/json');
             http_response_code($statusCode);
-            echo Tools::jsonEncode($response);
+            echo json_encode($response);
         }
         exit;
     }
