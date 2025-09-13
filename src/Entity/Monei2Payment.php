@@ -258,7 +258,8 @@ class Monei2Payment extends \ObjectModel
         $amount = $this->getAmount() ?? 0;
         $refundedAmount = $this->getRefundedAmount() ?? 0;
 
-        return $amount - $refundedAmount;
+        // Clamp to non-negative to avoid issues with rounding/edge cases
+        return max(0, $amount - $refundedAmount);
     }
 
     public function getId()
@@ -564,9 +565,10 @@ class Monei2Payment extends \ObjectModel
 
     /**
      * Find multiple entities by criteria
-     * 
+     *
      * @param array $criteria Associative array of field => value pairs
      * @param string $orderBy Order by clause (ignored for simplicity, always uses date_add DESC)
+     *
      * @return array Array of Monei2Payment objects
      */
     public static function findBy($criteria, $orderBy = null)

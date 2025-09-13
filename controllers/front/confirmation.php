@@ -16,9 +16,6 @@ class MoneiConfirmationModuleFrontController extends ModuleFrontController
         $cartId = Tools::getValue('cart_id');
         $orderId = Tools::getValue('order_id');
 
-        // Get status code from query params if present
-        $statusCode = Tools::getValue('status_code');
-
         PrestaShopLogger::addLog(
             '[MONEI] Payment confirmation page loaded [payment_id=' . $moneiPaymentId . ', cart_id=' . $cartId . ', order_id=' . $orderId . ']',
             Monei::getLogLevel('info')
