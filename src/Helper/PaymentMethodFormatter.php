@@ -97,7 +97,7 @@ class PaymentMethodFormatter
 
     /**
      * Obfuscate email address for privacy protection
-     * Best practice: Show minimal information with fixed-length masking
+     * Best practice: Show minimal local part with full domain for service identification
      */
     public function obfuscateEmail(string $email): string
     {
@@ -131,25 +131,9 @@ class PaymentMethodFormatter
             $obfuscatedLocal = substr($localPart, 0, 1) . '•••';
         }
 
-        // Partially mask domain for enhanced privacy
-        // Keep TLD visible for service identification
-        $domainParts = explode('.', $domain);
-        if (count($domainParts) >= 2) {
-            $mainDomain = $domainParts[0];
-            $tld = end($domainParts);
-
-            // Show first character of domain and TLD
-            if (strlen($mainDomain) <= 2) {
-                $obfuscatedDomain = $mainDomain[0] . '•••.' . $tld;
-            } else {
-                $obfuscatedDomain = $mainDomain[0] . '•••.' . $tld;
-            }
-        } else {
-            // Simple domain without TLD
-            $obfuscatedDomain = $domain[0] . '•••';
-        }
-
-        return $obfuscatedLocal . '@' . $obfuscatedDomain;
+        // Keep full domain visible for service identification
+        // This is standard practice as domain doesn't identify individuals
+        return $obfuscatedLocal . '@' . $domain;
     }
 
     /**
