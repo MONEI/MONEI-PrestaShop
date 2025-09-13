@@ -1238,7 +1238,7 @@ class Monei extends PaymentModule
                         'desc' => $this->l('Your MONEI Test Account ID. Available at your MONEI dashboard.'),
                         'name' => 'MONEI_TEST_ACCOUNT_ID',
                         'label' => $this->l('Test Account ID'),
-                        'placeholder' => '9b1deb4d-3b7d-4bad-9bdd-2.0.9b3dcb6d',
+                        'placeholder' => '9b1deb4d-3b7d-4bad-9bdd-2.0.10b3dcb6d',
                         'class' => 'monei-test-field',
                     ],
                     [
