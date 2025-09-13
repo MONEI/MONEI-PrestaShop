@@ -33,4 +33,6 @@ class MoneiException extends \Exception
     const CAPTURE_FAILED = 126;
     const API_KEY_NOT_CONFIGURED = 127;
     const INVALID_ORDER_ID_FORMAT = 128;
+    const PAYMENT_CREATION_FAILED = 129;
+    const PAYMENT_NOT_FOUND = 130;
 }

@@ -205,7 +205,6 @@ class Monei extends PaymentModule
         Configuration::updateValue('MONEI_ACCOUNT_ID', '');
         Configuration::updateValue('MONEI_TEST_API_KEY', '');
         Configuration::updateValue('MONEI_TEST_ACCOUNT_ID', '');
-        Configuration::updateValue('MONEI_CART_TO_ORDER', false);
         Configuration::updateValue('MONEI_EXPIRE_TIME', 600);
         // Gateways
         Configuration::updateValue('MONEI_ALLOW_CARD', true);
@@ -303,6 +302,144 @@ class Monei extends PaymentModule
     }
 
     /**
+     * Get order status translations
+     *
+     * @return array
+     */
+    public static function getOrderStatusTranslations()
+    {
+        return [
+            'Awaiting payment' => [
+                'en' => 'Awaiting payment',
+                'es' => 'Esperando pago',
+                'ca' => 'Esperant pagament',
+                'fr' => 'En attente de paiement',
+                'de' => 'Zahlung ausstehend',
+                'it' => 'In attesa di pagamento',
+                'pt' => 'Aguardando pagamento',
+                'nl' => 'Wachten op betaling',
+                'pl' => 'Oczekiwanie na płatność',
+                'ru' => 'Ожидание платежа',
+                'no' => 'Venter på betaling',
+                'et' => 'Makse ootel',
+                'fi' => 'Odottaa maksua',
+                'lv' => 'Gaida maksājumu',
+            ],
+            'Payment accepted' => [
+                'en' => 'Payment accepted',
+                'es' => 'Pago aceptado',
+                'ca' => 'Pagament acceptat',
+                'fr' => 'Paiement accepté',
+                'de' => 'Zahlung akzeptiert',
+                'it' => 'Pagamento accettato',
+                'pt' => 'Pagamento aceite',
+                'nl' => 'Betaling geaccepteerd',
+                'pl' => 'Płatność zaakceptowana',
+                'ru' => 'Платеж принят',
+                'no' => 'Betaling godtatt',
+                'et' => 'Makse aktsepteeritud',
+                'fi' => 'Maksu hyväksytty',
+                'lv' => 'Maksājums pieņemts',
+            ],
+            'Payment error' => [
+                'en' => 'Payment error',
+                'es' => 'Error en el pago',
+                'ca' => 'Error en el pagament',
+                'fr' => 'Erreur de paiement',
+                'de' => 'Zahlungsfehler',
+                'it' => 'Errore di pagamento',
+                'pt' => 'Erro de pagamento',
+                'nl' => 'Betalingsfout',
+                'pl' => 'Błąd płatności',
+                'ru' => 'Ошибка платежа',
+                'no' => 'Betalingsfeil',
+                'et' => 'Makse viga',
+                'fi' => 'Maksuvirhe',
+                'lv' => 'Maksājuma kļūda',
+            ],
+            'Refunded' => [
+                'en' => 'Refunded',
+                'es' => 'Reembolsado',
+                'ca' => 'Reemborsat',
+                'fr' => 'Remboursé',
+                'de' => 'Erstattet',
+                'it' => 'Rimborsato',
+                'pt' => 'Reembolsado',
+                'nl' => 'Terugbetaald',
+                'pl' => 'Zwrócono',
+                'ru' => 'Возвращено',
+                'no' => 'Refundert',
+                'et' => 'Tagastatud',
+                'fi' => 'Palautettu',
+                'lv' => 'Atmaksāts',
+            ],
+            'Partially refunded' => [
+                'en' => 'Partially refunded',
+                'es' => 'Parcialmente reembolsado',
+                'ca' => 'Parcialment reemborsat',
+                'fr' => 'Partiellement remboursé',
+                'de' => 'Teilweise erstattet',
+                'it' => 'Parzialmente rimborsato',
+                'pt' => 'Parcialmente reembolsado',
+                'nl' => 'Gedeeltelijk terugbetaald',
+                'pl' => 'Częściowo zwrócono',
+                'ru' => 'Частично возвращено',
+                'no' => 'Delvis refundert',
+                'et' => 'Osaliselt tagastatud',
+                'fi' => 'Osittain palautettu',
+                'lv' => 'Daļēji atmaksāts',
+            ],
+            'Payment authorized' => [
+                'en' => 'Payment authorized',
+                'es' => 'Pago autorizado',
+                'ca' => 'Pagament autoritzat',
+                'fr' => 'Paiement autorisé',
+                'de' => 'Zahlung autorisiert',
+                'it' => 'Pagamento autorizzato',
+                'pt' => 'Pagamento autorizado',
+                'nl' => 'Betaling geautoriseerd',
+                'pl' => 'Płatność autoryzowana',
+                'ru' => 'Платеж авторизован',
+                'no' => 'Betaling autorisert',
+                'et' => 'Makse autoriseeritud',
+                'fi' => 'Maksu valtuutettu',
+                'lv' => 'Maksājums autorizēts',
+            ],
+        ];
+    }
+
+    /**
+     * Get Spanish ISO codes (Spain only)
+     *
+     * @return array
+     */
+    public static function getSpanishIsoCodes()
+    {
+        return ['es'];
+    }
+
+    /**
+     * Get translation for a specific status and language
+     *
+     * @param string $statusName
+     * @param string $isoCode
+     *
+     * @return string
+     */
+    public static function getOrderStatusTranslation($statusName, $isoCode)
+    {
+        $translations = self::getOrderStatusTranslations();
+        $isoCode = Tools::strtolower($isoCode);
+
+        if (!isset($translations[$statusName])) {
+            return $statusName;
+        }
+
+        // Return specific translation or default to English
+        return $translations[$statusName][$isoCode] ?? $translations[$statusName]['en'] ?? $statusName;
+    }
+
+    /**
      * Find existing order state by name in default language
      *
      * @param string $name Name to search for in default language
@@ -314,16 +451,13 @@ class Monei extends PaymentModule
         try {
             $defaultLangId = (int) Configuration::get('PS_LANG_DEFAULT');
 
-            // Map of English names to their translations
-            $nameMap = [
-                'Awaiting payment' => ['en' => 'Awaiting payment', 'es' => 'Pendiente de pago', 'fr' => 'En attente de paiement'],
-                'Payment authorized' => ['en' => 'Payment authorized', 'es' => 'Pago autorizado', 'fr' => 'Paiement autorisé'],
-            ];
+            // Get all translations for this status name
+            $allTranslations = self::getOrderStatusTranslations();
 
             // Build query to search for any of the translated names
             $names = [];
-            if (isset($nameMap[$name])) {
-                $names = array_values($nameMap[$name]);
+            if (isset($allTranslations[$name])) {
+                $names = array_values($allTranslations[$name]);
             } else {
                 $names = [$name];
             }
@@ -381,16 +515,9 @@ class Monei extends PaymentModule
         } elseif ((int) Configuration::get('MONEI_STATUS_PENDING') === 0) {
             $order_state = new OrderState();
             $order_state->name = [];
-            $spanish_isos = ['es', 'mx', 'co', 'pe', 'ar', 'cl', 've', 'py', 'uy', 'bo', 've', 'ag', 'cb'];
 
             foreach (Language::getLanguages() as $language) {
-                if (Tools::strtolower($language['iso_code']) == 'fr') {
-                    $order_state->name[$language['id_lang']] = 'En attente de paiement';
-                } elseif (in_array(Tools::strtolower($language['iso_code']), $spanish_isos)) {
-                    $order_state->name[$language['id_lang']] = 'Pendiente de pago';
-                } else {
-                    $order_state->name[$language['id_lang']] = 'Awaiting payment';
-                }
+                $order_state->name[$language['id_lang']] = self::getOrderStatusTranslation('Awaiting payment', $language['iso_code']);
             }
 
             $order_state->send_email = false;
@@ -443,16 +570,9 @@ class Monei extends PaymentModule
             if ($authorizedStateId === 0 || !Validate::isLoadedObject(new OrderState($authorizedStateId))) {
                 $order_state = new OrderState();
                 $order_state->name = [];
-                $spanish_isos = ['es', 'mx', 'co', 'pe', 'ar', 'cl', 've', 'py', 'uy', 'bo', 've', 'ag', 'cb'];
 
                 foreach (Language::getLanguages() as $language) {
-                    if (Tools::strtolower($language['iso_code']) == 'fr') {
-                        $order_state->name[$language['id_lang']] = 'Paiement autorisé';
-                    } elseif (in_array(Tools::strtolower($language['iso_code']), $spanish_isos)) {
-                        $order_state->name[$language['id_lang']] = 'Pago autorizado';
-                    } else {
-                        $order_state->name[$language['id_lang']] = 'Payment authorized';
-                    }
+                    $order_state->name[$language['id_lang']] = self::getOrderStatusTranslation('Payment authorized', $language['iso_code']);
                 }
 
                 $order_state->send_email = false;
@@ -1017,7 +1137,6 @@ class Monei extends PaymentModule
             'MONEI_API_KEY' => Configuration::get('MONEI_API_KEY', ''),
             'MONEI_TEST_ACCOUNT_ID' => Configuration::get('MONEI_TEST_ACCOUNT_ID', ''),
             'MONEI_TEST_API_KEY' => Configuration::get('MONEI_TEST_API_KEY', ''),
-            'MONEI_CART_TO_ORDER' => Configuration::get('MONEI_CART_TO_ORDER', true),
             'MONEI_PAYMENT_ACTION' => Configuration::get('MONEI_PAYMENT_ACTION', 'sale'),
         ];
     }
@@ -1206,25 +1325,6 @@ class Monei extends PaymentModule
                             ],
                             'id' => 'id',
                             'name' => 'name',
-                        ],
-                    ],
-                    [
-                        'type' => 'switch',
-                        'label' => $this->l('Cart to order'),
-                        'name' => 'MONEI_CART_TO_ORDER',
-                        'is_bool' => true,
-                        'desc' => $this->l('Convert the customer cart into an order before the payment.'),
-                        'values' => [
-                            [
-                                'id' => 'active_on',
-                                'value' => true,
-                                'label' => $this->l('Enabled'),
-                            ],
-                            [
-                                'id' => 'active_off',
-                                'value' => false,
-                                'label' => $this->l('Disabled'),
-                            ],
                         ],
                     ],
                     [
@@ -1992,10 +2092,14 @@ class Monei extends PaymentModule
 
         $orderId = (int) $params['id_order'];
 
-        $monei2PaymentEntity = Monei2Payment::findOneBy(['id_order' => $orderId]);
-        if (!$monei2PaymentEntity) {
+        // Get ALL payments for this order (including failed and successful retries)
+        $monei2PaymentEntities = Monei2Payment::findBy(['id_order' => $orderId], 'date_add DESC');
+        if (empty($monei2PaymentEntities)) {
             return;
         }
+
+        // Use the most recent payment for calculations (first in array when sorted DESC)
+        $monei2PaymentEntity = $monei2PaymentEntities[0];
 
         $order = new Order($orderId);
         if (!Validate::isLoadedObject($order)) {
@@ -2013,43 +2117,47 @@ class Monei extends PaymentModule
         // Get payment method formatter service
         $paymentMethodFormatter = self::getService('helper.payment_method_formatter');
 
-        $paymentHistory = $monei2PaymentEntity->getHistoryList();
-        if (!empty($paymentHistory)) {
-            foreach ($paymentHistory as $history) {
-                $paymentHistoryLog = $history->toArrayLegacy();
-                $paymentHistoryLog['responseDecoded'] = $history->getResponseDecoded();
-                $paymentHistoryLog['responseB64'] = base64_encode($history->getResponse());
+        // Process history for ALL payments (including failed ones)
+        foreach ($monei2PaymentEntities as $paymentEntity) {
+            $paymentHistory = $paymentEntity->getHistoryList();
+            if (!empty($paymentHistory)) {
+                foreach ($paymentHistory as $history) {
+                    $paymentHistoryLog = $history->toArrayLegacy();
+                    $paymentHistoryLog['responseDecoded'] = $history->getResponseDecoded();
+                    $paymentHistoryLog['responseB64'] = base64_encode($history->getResponse());
+                    $paymentHistoryLog['payment_id'] = $paymentEntity->getId(); // Add payment ID for reference
 
-                // Extract payment method details from response
-                $response = $history->getResponseDecoded();
-                if ($response && isset($response['paymentMethod'])) {
-                    // Flatten the payment method data structure like Magento does
-                    $paymentInfo = $this->flattenPaymentMethodData($response['paymentMethod']);
+                    // Extract payment method details from response
+                    $response = $history->getResponseDecoded();
+                    if ($response && isset($response['paymentMethod'])) {
+                        // Flatten the payment method data structure like Magento does
+                        $paymentInfo = $this->flattenPaymentMethodData($response['paymentMethod']);
 
-                    // Add additional fields from the response
-                    $paymentInfo['authorizationCode'] = $response['authorizationCode'] ?? null;
+                        // Add additional fields from the response
+                        $paymentInfo['authorizationCode'] = $response['authorizationCode'] ?? null;
 
-                    $paymentHistoryLog['paymentDetails'] = $paymentMethodFormatter->formatAdminPaymentDetails($paymentInfo);
-                }
-
-                $paymentHistoryLogs[] = $paymentHistoryLog;
-
-                $paymentRefund = $monei2PaymentEntity->getRefundByHistoryId($history->getId());
-                if ($paymentRefund) {
-                    $paymentRefundLog = $paymentRefund->toArrayLegacy();
-                    $paymentRefundLog['paymentHistory'] = $paymentHistoryLog;
-                    $refundAmount = isset($paymentRefundLog['amount_in_decimal']) ? $paymentRefundLog['amount_in_decimal'] : 0;
-                    $paymentRefundLog['amountFormatted'] = $this->formatPrice($refundAmount, $currency->iso_code);
-
-                    $employeeEmail = '';
-                    if ($paymentRefundLog['id_employee']) {
-                        $employee = new Employee($paymentRefundLog['id_employee']);
-                        $employeeEmail = $employee->email;
+                        $paymentHistoryLog['paymentDetails'] = $paymentMethodFormatter->formatAdminPaymentDetails($paymentInfo);
                     }
 
-                    $paymentRefundLog['employeeEmail'] = $employeeEmail;
+                    $paymentHistoryLogs[] = $paymentHistoryLog;
 
-                    $paymentRefundLogs[] = $paymentRefundLog;
+                    $paymentRefund = $paymentEntity->getRefundByHistoryId($history->getId());
+                    if ($paymentRefund) {
+                        $paymentRefundLog = $paymentRefund->toArrayLegacy();
+                        $paymentRefundLog['paymentHistory'] = $paymentHistoryLog;
+                        $refundAmount = isset($paymentRefundLog['amount_in_decimal']) ? $paymentRefundLog['amount_in_decimal'] : 0;
+                        $paymentRefundLog['amountFormatted'] = $this->formatPrice($refundAmount, $currency->iso_code);
+
+                        $employeeEmail = '';
+                        if ($paymentRefundLog['id_employee']) {
+                            $employee = new Employee($paymentRefundLog['id_employee']);
+                            $employeeEmail = $employee->email;
+                        }
+
+                        $paymentRefundLog['employeeEmail'] = $employeeEmail;
+
+                        $paymentRefundLogs[] = $paymentRefundLog;
+                    }
                 }
             }
         }
@@ -2305,7 +2413,7 @@ class Monei extends PaymentModule
 
         // Add additional JS/vars only for Orders controller
         if ($this->context->controller->controller_name === 'AdminOrders') {
-            // Get dynamic refund reasons from MONEI SDK
+            // Get refund reasons from MONEI SDK with translations
             $refundReasons = [];
             if (class_exists('\Monei\Model\PaymentRefundReason')) {
                 $allowableValues = Monei\Model\PaymentRefundReason::getAllowableEnumValues();
@@ -2342,7 +2450,7 @@ class Monei extends PaymentModule
                     // Decode HTML entities as URLs should not be escaped in JavaScript
                     'adminMoneiControllerUrl' => html_entity_decode($this->context->link->getAdminLink('AdminMonei')),
                     'refundReasons' => $refundReasons,
-                    'refundReasonLabel' => $this->l('MONEI refund reason'),
+                    'refundReasonTitle' => $this->l('MONEI refund reason'),
                 ],
             ]);
 
@@ -2446,13 +2554,20 @@ class Monei extends PaymentModule
             $orderService = self::getService('service.order');
             $orderService->updateOrderStateAfterRefund((int) $order->id);
         } catch (Exception $e) {
-            // Log the error but don't interrupt the credit slip creation
+            // Log the error
             PrestaShopLogger::addLog(
                 'MONEI - Failed to process refund on credit slip creation: ' . $e->getMessage(),
                 3, // Error severity
                 null,
                 'Order',
                 (int) $order->id
+            );
+
+            // Re-throw the exception to prevent credit slip creation
+            // Include the actual error message for debugging
+            throw new PrestaShopException(
+                $this->l('Refund failed in MONEI payment gateway. Please try again or contact support.')
+                . ' (' . $e->getMessage() . ')'
             );
         }
     }
@@ -2588,7 +2703,7 @@ class Monei extends PaymentModule
      *
      * @return bool
      */
-    private function copyApplePayDomainVerificationFile()
+    public function copyApplePayDomainVerificationFile()
     {
         $sourceFile = _PS_MODULE_DIR_ . $this->name . '/files/apple-developer-merchantid-domain-association';
 
