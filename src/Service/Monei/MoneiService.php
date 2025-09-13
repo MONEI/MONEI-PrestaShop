@@ -219,7 +219,28 @@ class MoneiService
         // This ensures idempotency - same cart always gets same reference
 
         $shopId = \Context::getContext()->shop->id;
-        $cookieKey = \Configuration::get('PS_COOKIE_KEY');
+
+        // Get the cookie key - it's always defined in PrestaShop after bootstrap
+        // If not defined, load it from parameters.php directly
+        if (!defined('_COOKIE_KEY_')) {
+            // This should only happen in rare cases where bootstrap hasn't run
+            // Load directly from parameters.php (works for PS 1.7.x and 8.x)
+            $parametersFile = _PS_ROOT_DIR_ . '/app/config/parameters.php';
+            if (file_exists($parametersFile)) {
+                $parameters = include $parametersFile;
+                if (isset($parameters['parameters']['cookie_key'])) {
+                    $cookieKey = $parameters['parameters']['cookie_key'];
+                } else {
+                    // This should never happen in a proper PrestaShop installation
+                    throw new \Exception('Cookie key not found in parameters.php');
+                }
+            } else {
+                // This should never happen in a proper PrestaShop installation
+                throw new \Exception('Parameters.php file not found');
+            }
+        } else {
+            $cookieKey = _COOKIE_KEY_;
+        }
 
         // Create deterministic string with enough entropy
         $uniqueString = $cartId . '-' . $shopId . '-' . $cookieKey;
