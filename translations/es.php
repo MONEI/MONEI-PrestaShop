@@ -66,7 +66,7 @@ $_MODULE['<{monei}prestashop>displayadminorder_851bc9d9fbb898dfac8bf16e5fc4c40e'
 $_MODULE['<{monei}prestashop>displayadminorder_86f028bdcea05f77586dc26b3bba667f'] = 'Ocurrió un error inesperado. Por favor, inténtelo de nuevo.';
 $_MODULE['<{monei}prestashop>displayadminorder_8e24b37123b006e6d48c4d89459e8eac'] = 'Capturar pago';
 $_MODULE['<{monei}prestashop>displayadminorder_923974d7eb22e4ab5670c3d2b2b01ea9'] = 'Importante: Solo puedes capturar una vez. Si capturas una cantidad parcial, la autorización restante será liberada.';
-$_MODULE['<{monei}prestashop>displayadminorder_955ad3298db330b5ee880c2c9e6f23a0'] = 'Live';
+$_MODULE['<{monei}prestashop>displayadminorder_955ad3298db330b5ee880c2c9e6f23a0'] = 'Producción';
 $_MODULE['<{monei}prestashop>displayadminorder_9b650d2ee428e59b8cfd7e543400b157'] = 'Debe capturar el pago dentro de 7 días o la autorización expirará y los fondos serán liberados al cliente.';
 $_MODULE['<{monei}prestashop>displayadminorder_a12a3079e14ced46e69ba52b8a90b21a'] = 'IP';
 $_MODULE['<{monei}prestashop>displayadminorder_59716c97497eb9694541f7c3d37b1a4d'] = 'País';
@@ -346,3 +346,7 @@ $_MODULE['<{monei}prestashop>statuscodehandler_f5dd167e9bd2781e78cc7875c05b9abf'
 $_MODULE['<{monei}prestashop>statuscodehandler_f7b417e18728093622dcbbdf8b63297b'] = 'Transacción denegada por el banco emisor';
 $_MODULE['<{monei}prestashop>statuscodehandler_fba258b2909de8d6926e84436dbe7dea'] = 'La tarjeta no permite operaciones de preautorización';
 $_MODULE['<{monei}prestashop>statuscodehandler_fd0c33f756829e5ff2609dfa756221ae'] = 'Importe de pago incorrecto o no permitido';
+$_MODULE['<{monei}prestashop>monei_66dd3423ac5063dcd11abae734038d78'] = 'Tanto el ID de cuenta de prueba como la clave API de prueba deben proporcionarse juntos.';
+$_MODULE['<{monei}prestashop>redirect_452e11439fa6872599a6a7f5a38e20f3'] = 'No se puede procesar el pago. Por favor, inténtelo de nuevo o utilice un método de pago diferente.';
+$_MODULE['<{monei}prestashop>redirect_da8af1619b912d41174f483ad5d830c2'] = 'El pago no pudo ser procesado. Por favor, inténtelo de nuevo o contacte con soporte.';
+$_MODULE['<{monei}prestashop>redirect_f725a2324f33ba02335d07a1cf01cb99'] = 'Se produjo un error al procesar su pago. Por favor, inténtelo de nuevo.';

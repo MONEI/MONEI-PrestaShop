@@ -346,3 +346,7 @@ $_MODULE['<{monei}prestashop>statuscodehandler_f5dd167e9bd2781e78cc7875c05b9abf'
 $_MODULE['<{monei}prestashop>statuscodehandler_f7b417e18728093622dcbbdf8b63297b'] = 'Transaction refusée par la banque émettrice';
 $_MODULE['<{monei}prestashop>statuscodehandler_fba258b2909de8d6926e84436dbe7dea'] = 'La carte n\'autorise pas les opérations de pré-autorisation';
 $_MODULE['<{monei}prestashop>statuscodehandler_fd0c33f756829e5ff2609dfa756221ae'] = 'Montant de paiement incorrect ou non autorisé';
+$_MODULE['<{monei}prestashop>monei_66dd3423ac5063dcd11abae734038d78'] = 'L\'ID de compte de test et la clé API de test doivent être fournis ensemble.';
+$_MODULE['<{monei}prestashop>redirect_452e11439fa6872599a6a7f5a38e20f3'] = 'Impossible de traiter le paiement. Veuillez réessayer ou utiliser un autre mode de paiement.';
+$_MODULE['<{monei}prestashop>redirect_da8af1619b912d41174f483ad5d830c2'] = 'Le paiement n\'a pas pu être traité. Veuillez réessayer ou contacter le support.';
+$_MODULE['<{monei}prestashop>redirect_f725a2324f33ba02335d07a1cf01cb99'] = 'Une erreur s\'est produite lors du traitement de votre paiement. Veuillez réessayer.';
