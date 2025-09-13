@@ -26,6 +26,7 @@ class MoneiService
     const UNSUPPORTED_AUTH_METHODS = ['mbway', 'multibanco'];
 
     private $context;
+    private $lastError;
 
     /**
      * Static cache of payment methods to avoid repeated API calls within a single request
@@ -532,7 +533,25 @@ class MoneiService
             throw new MoneiException('The cart could not be loaded correctly');
         }
 
-        $cartAmount = $this->getCartAmount($cart->getSummaryDetails(null, true), $cart->id_currency);
+        $summaryDetails = $cart->getSummaryDetails(null, true);
+        // Only log in dev mode to avoid logging sensitive cart data
+        if (defined('_PS_MODE_DEV_') && _PS_MODE_DEV_) {
+            \PrestaShopLogger::addLog(
+                '[MONEI] Cart validation [cart_id=' . $cart->id . ', products=' . count($cart->getProducts()) . ', total=' . $summaryDetails['total_price'] . ']',
+                \Monei::getLogLevel('info')
+            );
+        }
+
+        if (empty($summaryDetails)) {
+            \PrestaShopLogger::addLog(
+                '[MONEI] Cart validation failed - Empty cart [cart_id=' . $cart->id . ', products=' . count($cart->getProducts()) . ']',
+                \Monei::getLogLevel('error')
+            );
+
+            throw new MoneiException('The cart summary is empty', MoneiException::CART_AMOUNT_EMPTY);
+        }
+
+        $cartAmount = $this->getCartAmount($summaryDetails, $cart->id_currency);
         if (empty($cartAmount)) {
             throw new MoneiException('The cart amount is empty', MoneiException::CART_AMOUNT_EMPTY);
         }
@@ -552,11 +571,18 @@ class MoneiService
         $orderId = $this->createMoneiOrderId($cart->id);
 
         $createPaymentRequest = new CreatePaymentRequest();
+
+        // Convert metadata to object format as expected by MONEI API
+        $metadata = new \stdClass();
+        $metadata->cart_id = $cart->id;
+        $metadata->shop_id = \Context::getContext()->shop->id;
+        $metadata->shop_name = \Configuration::get('PS_SHOP_NAME');
+
         $createPaymentRequest
             ->setOrderId($orderId)
             ->setAmount($cartAmount)
             ->setCurrency($currency->iso_code)
-            ->setMetadata(['cart_id' => $cart->id])
+            ->setMetadata($metadata)
             ->setCompleteUrl(
                 $link->getModuleLink('monei', 'confirmation', [
                     'cart_id' => $cart->id,
@@ -660,12 +686,27 @@ class MoneiService
 
             $this->saveMoneiPayment($moneiPaymentResponse);
 
+            // Log successful payment creation with key details
+            \PrestaShopLogger::addLog(
+                '[MONEI] Payment created [payment_id=' . $moneiPaymentResponse->getId() .
+                ', order_id=' . $orderId .
+                ', amount=' . $cartAmount .
+                ', currency=' . $currency->iso_code .
+                ', status=' . $moneiPaymentResponse->getStatus() . ']',
+                \Monei::getLogLevel('info')
+            );
+
             return $moneiPaymentResponse;
         } catch (\Exception $ex) {
             \PrestaShopLogger::addLog(
-                'MONEI - Exception - MoneiService.php - createMoneiPayment: ' . $ex->getMessage() . ' - ' . $ex->getFile(),
+                '[MONEI] Payment creation failed [cart_id=' . $cart->id .
+                ', order_id=' . $orderId .
+                ', error=' . $ex->getMessage() . ']',
                 \Monei::getLogLevel('error')
             );
+
+            // Store the last error for retrieval
+            $this->lastError = $ex->getMessage();
 
             return false;
         }
@@ -767,5 +808,15 @@ class MoneiService
         $monei2History->save();
 
         return $capturedPayment;
+    }
+
+    /**
+     * Get the last error message
+     *
+     * @return string|null
+     */
+    public function getLastError()
+    {
+        return $this->lastError;
     }
 }
