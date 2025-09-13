@@ -112,12 +112,31 @@ class MoneiCreatePaymentModuleFrontController extends ModuleFrontController
                 '[MONEI] Payment creation API exception [cart_id=' . $this->context->cart->id . ', error=' . $errorMessage . ']',
                 Monei::getLogLevel('error')
             );
-            header('Content-Type: application/json');
-            http_response_code(500);
-            echo json_encode([
+
+            // Prepare response array
+            $response = [
                 'error' => 'Payment creation error',
                 'message' => $errorMessage
-            ]);
+            ];
+
+            // Log what we're sending to frontend
+            PrestaShopLogger::addLog(
+                '[MONEI] Sending error response to frontend: ' . json_encode($response),
+                Monei::getLogLevel('info')
+            );
+
+            header('Content-Type: application/json');
+            // Use 400 for client errors (like duplicate payment), 500 for server errors
+            $statusCode = 400;
+            if (strpos($errorMessage, 'already been paid') !== false ||
+                strpos($errorMessage, 'duplicate') !== false ||
+                strpos($errorMessage, 'invalid') !== false) {
+                $statusCode = 400;
+            } else {
+                $statusCode = 500;
+            }
+            http_response_code($statusCode);
+            echo json_encode($response);
         }
         exit;
     }
