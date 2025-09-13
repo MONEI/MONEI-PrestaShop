@@ -167,6 +167,7 @@ class OrderService
             PaymentStatus::AUTHORIZED => 'MONEI_STATUS_AUTHORIZED',
         ];
         $configKey = $statusMap[$moneiPaymentStatus] ?? 'MONEI_STATUS_FAILED';
+        $orderStateId = (int) \Configuration::get($configKey);
 
         return $orderStateId;
     }
