@@ -159,7 +159,7 @@ class MoneiCreatePaymentModuleFrontController extends ModuleFrontController
                 '[MONEI] Payment creation API exception [cart_id=' . $this->context->cart->id
                 . ', error=' . $errorMessage
                 . ', status_code=' . ($statusCodeValue ?: 'unknown') . ']',
-                Monei::getLogLevel('error')
+                PrestaShopLogger::LOG_SEVERITY_LEVEL_ERROR
             );
 
             // Prepare response array
@@ -176,7 +176,7 @@ class MoneiCreatePaymentModuleFrontController extends ModuleFrontController
             // Log what we're sending to frontend
             PrestaShopLogger::addLog(
                 '[MONEI] Sending error response to frontend: ' . json_encode($response),
-                Monei::getLogLevel('info')
+                PrestaShopLogger::LOG_SEVERITY_LEVEL_INFORMATIVE
             );
 
             header('Content-Type: application/json');

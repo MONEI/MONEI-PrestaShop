@@ -17,7 +17,7 @@ class Monei extends PaymentModule
     protected $moneiClient = false;
 
     const NAME = 'monei';
-    const VERSION = '2.0.9';
+    const VERSION = '2.0.10';
 
     private static $serviceContainer;
     private static $serviceList;
@@ -27,7 +27,7 @@ class Monei extends PaymentModule
         $this->displayName = 'MONEI Payments';
         $this->name = 'monei';
         $this->tab = 'payments_gateways';
-        $this->version = '2.0.9';
+        $this->version = '2.0.10';
         $this->author = 'MONEI';
         $this->need_instance = 0;
         $this->ps_versions_compliancy = ['min' => '8', 'max' => _PS_VERSION_];
@@ -2456,7 +2456,7 @@ class Monei extends PaymentModule
                 . ', Amount: ' . ($refundAmount / 100) . ' ' . $currencyCode
                 . ' (Products: ' . $currentSlip['amount']
                 . ', Shipping: ' . $shippingRefundAmount . ')',
-                self::getLogLevel('info')
+                PrestaShopLogger::LOG_SEVERITY_LEVEL_INFORMATIVE
             );
 
             // Get refund reason from POST data or default to requested_by_customer

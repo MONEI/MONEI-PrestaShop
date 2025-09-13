@@ -122,6 +122,11 @@ function deduplicateOrderStates()
 
 /**
  * Clean up any orphaned MONEI states that are no longer used
+ * WARNING: Only deletes states that are not referenced in:
+ * - orders.current_state
+ * - order_history.id_order_state
+ * - order_state_lang.id_order_state
+ * This prevents breaking order history viewing
  */
 function cleanupOrphanedStates($module)
 {
@@ -149,29 +154,63 @@ function cleanupOrphanedStates($module)
         foreach ($allMoneiStates as $row) {
             $stateId = (int) $row['id_order_state'];
 
-            // If this state is not in our configured states, it's orphaned
+            // If this state is not in our configured states, it might be orphaned
             if (!in_array($stateId, $configuredStates)) {
-                // Check if any orders are using this state
-                $ordersUsing = Db::getInstance()->getValue(
+                // Check if this state is referenced anywhere in the database
+                $isStateInUse = false;
+
+                // Check current_state in orders table
+                $ordersUsing = (int) Db::getInstance()->getValue(
                     'SELECT COUNT(*) FROM `' . _DB_PREFIX_ . 'orders`
                      WHERE `current_state` = ' . $stateId
                 );
 
-                if ($ordersUsing == 0) {
-                    // Safe to delete this orphaned state
+                if ($ordersUsing > 0) {
+                    $isStateInUse = true;
+                }
+
+                // Check order_history table - CRITICAL CHECK
+                if (!$isStateInUse) {
+                    $historyUsing = (int) Db::getInstance()->getValue(
+                        'SELECT COUNT(*) FROM `' . _DB_PREFIX_ . 'order_history`
+                         WHERE `id_order_state` = ' . $stateId
+                    );
+
+                    if ($historyUsing > 0) {
+                        $isStateInUse = true;
+                    }
+                }
+
+                // Check order_state_lang table for translations
+                if (!$isStateInUse) {
+                    $langUsing = (int) Db::getInstance()->getValue(
+                        'SELECT COUNT(*) FROM `' . _DB_PREFIX_ . 'order_state_lang`
+                         WHERE `id_order_state` = ' . $stateId
+                    );
+
+                    if ($langUsing > 0) {
+                        $isStateInUse = true;
+                    }
+                }
+
+                if (!$isStateInUse) {
+                    // Only delete if truly orphaned (not referenced anywhere)
                     $orderState = new OrderState($stateId);
                     if (Validate::isLoadedObject($orderState)) {
                         $orderState->delete();
 
                         PrestaShopLogger::addLog(
-                            '[MONEI] Deleted orphaned state (ID: ' . $stateId . ')',
+                            '[MONEI] Deleted truly orphaned state (ID: ' . $stateId . ')',
                             PrestaShopLogger::LOG_SEVERITY_LEVEL_INFORMATIVE
                         );
                     }
                 } else {
+                    // State is still referenced, keep it even if not configured
+                    // This is important to preserve order history integrity
                     PrestaShopLogger::addLog(
-                        '[MONEI] Orphaned state (ID: ' . $stateId . ') is still in use by ' . $ordersUsing . ' orders',
-                        PrestaShopLogger::LOG_SEVERITY_LEVEL_WARNING
+                        '[MONEI] Keeping unconfigured state (ID: ' . $stateId .
+                        ') as it is still referenced in database',
+                        PrestaShopLogger::LOG_SEVERITY_LEVEL_INFORMATIVE
                     );
                 }
             }

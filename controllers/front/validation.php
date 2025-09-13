@@ -29,7 +29,7 @@ class MoneiValidationModuleFrontController extends ModuleFrontController
         }
 
         if (!isset($_SERVER['HTTP_MONEI_SIGNATURE'])) {
-            PrestaShopLogger::addLog('[MONEI] Missing webhook signature header', Monei::getLogLevel('warning'));
+            PrestaShopLogger::addLog('[MONEI] Missing webhook signature header', PrestaShopLogger::LOG_SEVERITY_LEVEL_WARNING);
             http_response_code(401);
             header('Content-Type: text/plain; charset=utf-8');
             echo 'Unauthorized';
@@ -45,7 +45,7 @@ class MoneiValidationModuleFrontController extends ModuleFrontController
             // Catch all exceptions during signature verification
             PrestaShopLogger::addLog(
                 '[MONEI] Webhook signature verification failed: ' . $e->getMessage(),
-                Monei::getLogLevel('error')
+                PrestaShopLogger::LOG_SEVERITY_LEVEL_ERROR
             );
 
             http_response_code(401);
@@ -72,7 +72,7 @@ class MoneiValidationModuleFrontController extends ModuleFrontController
 
             PrestaShopLogger::addLog(
                 '[MONEI] Webhook received [payment_id=' . $moneiPayment->getId() . ']',
-                Monei::getLogLevel('info')
+                PrestaShopLogger::LOG_SEVERITY_LEVEL_INFORMATIVE
             );
 
             // Create or update the order (returns void)
@@ -85,7 +85,7 @@ class MoneiValidationModuleFrontController extends ModuleFrontController
         } catch (Exception $e) {
             PrestaShopLogger::addLog(
                 '[MONEI] Webhook processing error: ' . $e->getMessage(),
-                Monei::getLogLevel('error')
+                PrestaShopLogger::LOG_SEVERITY_LEVEL_ERROR
             );
 
             http_response_code(400);
