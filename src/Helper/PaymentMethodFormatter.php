@@ -97,7 +97,7 @@ class PaymentMethodFormatter
 
     /**
      * Obfuscate email address for privacy protection
-     * Standard practice: Show first and last character of local part, full domain
+     * Best practice: Show minimal information with fixed-length masking
      */
     public function obfuscateEmail(string $email): string
     {
@@ -115,24 +115,41 @@ class PaymentMethodFormatter
 
         $localLength = strlen($localPart);
 
-        // Standard obfuscation practice for email addresses:
-        // - For very short emails (1-2 chars): show first char only
-        // - For short emails (3-4 chars): show first and last char
-        // - For longer emails: show first and last char with dots in between
+        // Security-focused obfuscation:
+        // - Use fixed-length dots to prevent length-based guessing
+        // - Show only first character to minimize information leakage
+        // - For very short emails, show even less
         if ($localLength <= 1) {
-            $obfuscatedLocal = $localPart;
+            // Single character email - just show dots
+            $obfuscatedLocal = '•••';
         } elseif ($localLength == 2) {
-            $obfuscatedLocal = substr($localPart, 0, 1) . '•';
-        } elseif ($localLength <= 4) {
-            $obfuscatedLocal = substr($localPart, 0, 1) . '••' . substr($localPart, -1);
+            // Two character email - show first character only
+            $obfuscatedLocal = substr($localPart, 0, 1) . '•••';
         } else {
-            // Show first and last character with 4 dots in between (standard practice)
-            $obfuscatedLocal = substr($localPart, 0, 1) . '••••' . substr($localPart, -1);
+            // Show only first character with fixed 3 dots
+            // This prevents length-based identification
+            $obfuscatedLocal = substr($localPart, 0, 1) . '•••';
         }
 
-        // Standard practice: keep domain visible for context
-        // This helps users identify which service/company the email is from
-        return $obfuscatedLocal . '@' . $domain;
+        // Partially mask domain for enhanced privacy
+        // Keep TLD visible for service identification
+        $domainParts = explode('.', $domain);
+        if (count($domainParts) >= 2) {
+            $mainDomain = $domainParts[0];
+            $tld = end($domainParts);
+
+            // Show first character of domain and TLD
+            if (strlen($mainDomain) <= 2) {
+                $obfuscatedDomain = $mainDomain[0] . '•••.' . $tld;
+            } else {
+                $obfuscatedDomain = $mainDomain[0] . '•••.' . $tld;
+            }
+        } else {
+            // Simple domain without TLD
+            $obfuscatedDomain = $domain[0] . '•••';
+        }
+
+        return $obfuscatedLocal . '@' . $obfuscatedDomain;
     }
 
     /**
