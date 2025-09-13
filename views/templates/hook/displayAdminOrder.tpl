@@ -42,7 +42,13 @@
                             <tr>
                                 <td>{$paymentHistory.date_add|escape:'html':'UTF-8'}</td>
                                 <td>
-                                    <small class="text-muted">{$paymentHistory.id_payment|escape:'html':'UTF-8'|truncate:8:''}</small>
+                                    <code style="font-size: 0.85em;">
+                                        {if isset($paymentHistory.payment_id)}
+                                            {$paymentHistory.payment_id|escape:'html':'UTF-8'}
+                                        {else}
+                                            -
+                                        {/if}
+                                    </code>
                                 </td>
                                 <td>
                                     {if $paymentHistory.paymentDetails}
