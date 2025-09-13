@@ -79,11 +79,18 @@
         }
         
         if (!response.ok) {
-          // Extract error message from response
-          const errorMessage = data?.error || data?.message || `Server error: ${response.status}`;
+          // Extract error message from response - prefer 'message' over 'error' for detailed info
+          const errorMessage = data?.message || data?.error || `Server error: ${response.status}`;
           moneiLog('error', 'Ajax', `Request failed (${response.status})`, data);
+
+          // Show error to user immediately
           showMoneiError(errorMessage);
-          throw new Error(errorMessage);
+
+          // Create error object with additional info
+          const error = new Error(errorMessage);
+          error.status = response.status;
+          error.data = data;
+          throw error;
         }
         
         moneiLog('info', 'Ajax', 'Request successful', data);
@@ -94,8 +101,12 @@
           const networkError = typeof moneiNetworkError !== 'undefined' ? moneiNetworkError : 'Network error. Please check your connection.';
           moneiLog('error', 'Ajax', 'Network error', error);
           showMoneiError(networkError);
-        } else if (!error.message.includes('Server error')) {
-          // Don't double-display errors already shown above
+        } else if (error.status && (error.status === 400 || error.status === 500)) {
+          // Error already shown in the response handling above, just log it
+          moneiLog('error', 'Ajax', 'Error already displayed', error);
+        } else {
+          // Show any other unexpected errors
+          moneiLog('error', 'Ajax', 'Unexpected error', error);
           showMoneiError(error.message);
         }
         throw error;
@@ -147,20 +158,54 @@
       }
     };
     
-    // Show error using PrestaShop's native system
+    // Show error using PrestaShop's native notification structure
     var showMoneiError = function(message) {
       hideMoneiLoading();
-      
-      // Use PrestaShop's notification system if available
-      if (typeof prestashop !== 'undefined' && prestashop.emit) {
-        prestashop.emit('showNotification', {
-          type: 'error',
-          message: message
-        });
-      } else {
-        // Fallback to alert
-        alert(message);
+
+      // Find the existing notifications container
+      let notificationContainer = document.querySelector('#notifications');
+
+      if (!notificationContainer) {
+        // Create notifications container if it doesn't exist
+        notificationContainer = document.createElement('div');
+        notificationContainer.id = 'notifications';
+        notificationContainer.className = 'notifications-container';
+
+        // Insert at the top of the checkout container or body
+        const checkoutContainer = document.querySelector('#checkout') ||
+                                  document.querySelector('.checkout-container') ||
+                                  document.querySelector('#content-wrapper') ||
+                                  document.body;
+        checkoutContainer.insertBefore(notificationContainer, checkoutContainer.firstChild);
       }
+
+      // Remove any existing MONEI error notifications
+      const existingErrors = notificationContainer.querySelectorAll('.monei-error-notification');
+      existingErrors.forEach(error => error.remove());
+
+      // Create the error notification
+      const errorDiv = document.createElement('div');
+      errorDiv.className = 'container monei-error-notification';
+      errorDiv.innerHTML = `
+        <article class="alert alert-danger" role="alert" data-alert="danger">
+          <ul>
+            <li>${message}</li>
+          </ul>
+        </article>
+      `;
+
+      // Add to notifications container
+      notificationContainer.appendChild(errorDiv);
+
+      // Scroll to the error so it's visible
+      errorDiv.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
+      // Auto-hide after 10 seconds
+      setTimeout(() => {
+        errorDiv.style.transition = 'opacity 0.5s';
+        errorDiv.style.opacity = '0';
+        setTimeout(() => errorDiv.remove(), 500);
+      }, 10000);
     };
 
     var moneiTokenHandler = async (parameters = {}) => {
