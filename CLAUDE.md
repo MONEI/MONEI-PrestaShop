@@ -41,24 +41,36 @@ docker exec tunnel1-prestashop-1 bash -c "php /var/www/html/bin/console prestash
 Then hard refresh browser (Ctrl+F5 or Cmd+Shift+R).
 
 ### Checking Logs (PrestaShop Flashlight)
-When debugging errors in the Docker environment:
+
+**IMPORTANT**: MONEI module logs are stored in the database (`ps_log` table), not in log files. Use these commands to check them:
+
+```bash
+# View recent MONEI logs from database (most useful for debugging)
+docker exec tunnel1-prestashop-1 bash -c "mysql -h mysql -u root -pprestashop prestashop -e \"SELECT * FROM ps_log WHERE message LIKE '%MONEI%' ORDER BY id_log DESC LIMIT 20;\" 2>/dev/null"
+
+# View MONEI logs from a specific time period
+docker exec tunnel1-prestashop-1 bash -c "mysql -h mysql -u root -pprestashop prestashop -e \"SELECT * FROM ps_log WHERE message LIKE '%MONEI%' AND date_add >= '$(date +%Y-%m-%d) 00:00:00' ORDER BY id_log DESC;\" 2>/dev/null"
+
+# Check for MONEI errors specifically (severity 3 = error, 2 = warning)
+docker exec tunnel1-prestashop-1 bash -c "mysql -h mysql -u root -pprestashop prestashop -e \"SELECT * FROM ps_log WHERE message LIKE '%MONEI%' AND severity >= 2 ORDER BY id_log DESC LIMIT 20;\" 2>/dev/null"
+```
+
+For general PrestaShop and PHP errors:
 ```bash
 # View recent PrestaShop application logs
 docker exec tunnel1-prestashop-1 bash -c "tail -100 /var/www/html/var/logs/prod-$(date +%Y-%m-%d).log"
 
-# Search for MONEI-specific errors
-docker exec tunnel1-prestashop-1 bash -c "grep -i 'monei' /var/www/html/var/logs/prod-$(date +%Y-%m-%d).log | tail -50"
-
-# Check PHP error logs
-docker exec tunnel1-prestashop-1 bash -c "tail -100 /var/log/php/error.log"
+# Check dev environment logs (often more detailed)
+docker exec tunnel1-prestashop-1 bash -c "tail -100 /var/www/html/var/logs/dev-$(date +%Y-%m-%d).log"
 
 # Live monitoring of logs
 docker exec tunnel1-prestashop-1 bash -c "tail -f /var/www/html/var/logs/prod-$(date +%Y-%m-%d).log"
 ```
 
-Log locations inside the container:
+Log locations:
+- **MONEI module logs**: Database table `ps_log` (use MySQL queries above)
 - PrestaShop app logs: `/var/www/html/var/logs/`
-- PHP error logs: `/var/log/php/error.log`
+- PHP error logs: `/var/log/php/error.log` (if configured)
 - Cache logs: `/var/www/html/var/cache/dev/admin/AdminKernelDevDebugContainerDeprecations.log`
 
 ## Architecture
