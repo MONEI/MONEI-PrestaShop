@@ -184,7 +184,12 @@ class MoneiConfirmationModuleFrontController extends ModuleFrontController
             $errorMessage = $statusCodeHandler->getStatusMessage($statusCode);
         }
 
-        // Fallback error messages based on status
+        // Fallback to API-provided message if available
+        if (!$errorMessage && method_exists($payment, 'getStatusMessage') && $payment->getStatusMessage()) {
+            $errorMessage = (string) $payment->getStatusMessage();
+        }
+
+        // Final fallback messages based on status
         if (!$errorMessage) {
             switch ($paymentStatus) {
                 case PaymentStatus::CANCELED:

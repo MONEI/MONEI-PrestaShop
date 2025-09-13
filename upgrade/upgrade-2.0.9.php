@@ -28,13 +28,9 @@ function upgrade_module_2_0_9($module)
             // Check if destination exists and compare content
             $needsUpdate = true;
             if (file_exists($destOverride)) {
-                $sourceContent = file_get_contents($sourceOverride);
-                $destContent = file_get_contents($destOverride);
-
-                // Check if our override method is present
-                if (strpos($destContent, 'monei_order_reference') !== false) {
-                    $needsUpdate = false;
-                }
+                $destHash = sha1_file($destOverride);
+                $srcHash = sha1_file($sourceOverride);
+                $needsUpdate = ($destHash !== $srcHash);
             }
 
             if ($needsUpdate) {

@@ -182,8 +182,6 @@ class Monei extends PaymentModule
     private function findOrderStateByName($name)
     {
         try {
-            $defaultLangId = (int) Configuration::get('PS_LANG_DEFAULT');
-
             // Get all translations for this state name
             $allTranslations = self::getOrderStateTranslations();
 
@@ -221,11 +219,9 @@ class Monei extends PaymentModule
     }
 
     /**
-     * Get translations for order state names
+     * Get translations for order state names across supported languages.
      *
-     * @param string $stateName The English name of the state
-     *
-     * @return array Translations indexed by language ISO code
+     * @return array<string,array<string,string>> Map: English name => [iso => translation]
      */
     public static function getOrderStateTranslations()
     {
@@ -1858,7 +1854,7 @@ class Monei extends PaymentModule
             'card' => $this->l('Credit Card'),
             'applePay' => $this->l('Apple Pay'),
             'googlePay' => $this->l('Google Pay'),
-            'paypal' => $this->l('Paypal'),
+            'paypal' => $this->l('PayPal'),
             'multibanco' => $this->l('Multibanco'),
             'mbway' => $this->l('MB Way'),
         ];

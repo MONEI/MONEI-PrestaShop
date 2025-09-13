@@ -139,7 +139,7 @@ class MoneiRedirectModuleFrontController extends ModuleFrontController
      *
      * @return string The modified URL
      */
-    private function addQueryParam($url, $key, $value)
+    private function addQueryParam(string $url, string $key, string $value): string
     {
         $urlParts = parse_url($url);
 

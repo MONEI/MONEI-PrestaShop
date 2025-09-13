@@ -20,11 +20,11 @@ class MoneiCreatePaymentModuleFrontController extends ModuleFrontController
 
             // Provide specific error based on the issue
             if ($data === null) {
-                echo json_encode(['error' => 'Invalid request data']);
+                echo Tools::jsonEncode(['error' => 'Invalid request data']);
             } elseif (!isset($data['token'])) {
-                echo json_encode(['error' => 'Token not provided']);
+                echo Tools::jsonEncode(['error' => 'Token not provided']);
             } else {
-                echo json_encode(['error' => 'Invalid token']);
+                echo Tools::jsonEncode(['error' => 'Invalid token']);
             }
             exit;
         }
@@ -81,7 +81,7 @@ class MoneiCreatePaymentModuleFrontController extends ModuleFrontController
 
                     header('Content-Type: application/json');
                     http_response_code(400);
-                    echo json_encode([
+                    echo Tools::jsonEncode([
                         'error' => 'Payment failed',
                         'message' => $errorMessage,
                         'statusCode' => $paymentResponse->getStatusCode(),
@@ -89,7 +89,7 @@ class MoneiCreatePaymentModuleFrontController extends ModuleFrontController
                 } else {
                     // Payment succeeded or is pending
                     header('Content-Type: application/json');
-                    echo json_encode(['moneiPaymentId' => $paymentResponse->getId()]);
+                    echo Tools::jsonEncode(['moneiPaymentId' => $paymentResponse->getId()]);
                 }
             } else {
                 // Payment creation returned false - check for specific error
@@ -101,7 +101,7 @@ class MoneiCreatePaymentModuleFrontController extends ModuleFrontController
                 );
                 header('Content-Type: application/json');
                 http_response_code(400);
-                echo json_encode([
+                echo Tools::jsonEncode([
                     'error' => 'Payment creation failed',
                     'message' => $lastError ?: 'Unknown error',
                 ]);
@@ -175,13 +175,13 @@ class MoneiCreatePaymentModuleFrontController extends ModuleFrontController
 
             // Log what we're sending to frontend
             PrestaShopLogger::addLog(
-                '[MONEI] Sending error response to frontend: ' . json_encode($response),
+                '[MONEI] Sending error response to frontend: ' . Tools::jsonEncode($response),
                 PrestaShopLogger::LOG_SEVERITY_LEVEL_INFORMATIVE
             );
 
             header('Content-Type: application/json');
             http_response_code($statusCode);
-            echo json_encode($response);
+            echo Tools::jsonEncode($response);
         }
         exit;
     }
