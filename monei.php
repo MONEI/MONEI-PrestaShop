@@ -22,7 +22,7 @@ class Monei extends PaymentModule
     public $currencies = true;
 
     const NAME = 'monei';
-    const VERSION = '1.7.5';
+    const VERSION = '1.7.6';
 
     const LOG_SEVERITY_LEVELS = [
         'info' => 1,
@@ -36,7 +36,7 @@ class Monei extends PaymentModule
         $this->displayName = 'MONEI Payments';
         $this->name = 'monei';
         $this->tab = 'payments_gateways';
-        $this->version = '1.7.5';
+        $this->version = '1.7.6';
         $this->author = 'MONEI';
         $this->need_instance = 1;
         $this->ps_versions_compliancy = ['min' => '1.7', 'max' => _PS_VERSION_];
@@ -77,7 +77,7 @@ class Monei extends PaymentModule
             }
         }
 
-        // Fallback for PrestaShop 1.7.5 - use numeric values
+        // Fallback for PrestaShop 1.7.6 - use numeric values
         $levels = [
             'info' => 1,
             'warning' => 2,
@@ -95,7 +95,7 @@ class Monei extends PaymentModule
      */
     public function getBootstrapVersion()
     {
-        // PrestaShop 1.7.5 uses Bootstrap 3 in admin
+        // PrestaShop 1.7.6 uses Bootstrap 3 in admin
         // PrestaShop 1.7.7+ uses Bootstrap 4 in admin
         // Note: All PrestaShop 1.7.x versions use Bootstrap 4 in the frontend (Classic theme)
         // but the admin panel transitioned from Bootstrap 3 to 4 in 1.7.7
@@ -2086,7 +2086,7 @@ class Monei extends PaymentModule
      */
     public function hookDisplayAdminOrder($params)
     {
-        // Load required assets for jsonViewer (needed for PrestaShop 1.7.5 compatibility)
+        // Load required assets for jsonViewer (needed for PrestaShop 1.7.6 compatibility)
         $this->context->controller->addCSS($this->_path . 'views/css/jquery.json-viewer.css');
         $this->context->controller->addJS($this->_path . 'views/js/jquery.json-viewer.js');
 
@@ -2618,7 +2618,7 @@ class Monei extends PaymentModule
             $price = 0;
         }
 
-        // PrestaShop 1.7.5 compatibility - use Tools::displayPrice instead of getContextLocale
+        // PrestaShop 1.7.6 compatibility - use Tools::displayPrice instead of getContextLocale
         $currency = Currency::getCurrencyInstance(Currency::getIdByIsoCode($currencyIso));
 
         return Tools::displayPrice((float) $price, $currency);
