@@ -85,6 +85,9 @@ class MoneiService
      */
     public function getPaymentMethodsResponse()
     {
+        // Initialize accountId outside try block so it's available in catch
+        $accountId = null;
+
         try {
             $moneiClient = $this->getMoneiClient();
 
@@ -123,7 +126,7 @@ class MoneiService
             $errorMessage = $this->extractErrorMessage($e);
 
             \PrestaShopLogger::addLog(
-                '[MONEI] Get payment methods failed [account_id=' . $accountId . ', error=' . $e->getMessage() . ']',
+                '[MONEI] Get payment methods failed [account_id=' . ($accountId ?: 'unknown') . ', error=' . $errorMessage . ']',
                 \Monei::getLogLevel('warning')
             );
 
@@ -202,7 +205,7 @@ class MoneiService
             $errorMessage = $this->extractErrorMessage($ex);
 
             \PrestaShopLogger::addLog(
-                '[MONEI] Get payment failed [payment_id=' . $moneiPaymentId . ', error=' . $ex->getMessage() . ']',
+                '[MONEI] Get payment failed [payment_id=' . $moneiPaymentId . ', error=' . $errorMessage . ']',
                 \Monei::getLogLevel('error')
             );
 
@@ -704,11 +707,11 @@ class MoneiService
 
             // Log successful payment creation with key details
             \PrestaShopLogger::addLog(
-                '[MONEI] Payment created [payment_id=' . $moneiPaymentResponse->getId() .
-                ', order_id=' . $orderId .
-                ', amount=' . $cartAmount .
-                ', currency=' . $currency->iso_code .
-                ', status=' . $moneiPaymentResponse->getStatus() . ']',
+                '[MONEI] Payment created [payment_id=' . $moneiPaymentResponse->getId()
+                . ', order_id=' . $orderId
+                . ', amount=' . $cartAmount
+                . ', currency=' . $currency->iso_code
+                . ', status=' . $moneiPaymentResponse->getStatus() . ']',
                 \Monei::getLogLevel('info')
             );
 
@@ -717,9 +720,9 @@ class MoneiService
             $errorMessage = $this->extractErrorMessage($ex);
 
             \PrestaShopLogger::addLog(
-                '[MONEI] Payment creation failed [cart_id=' . $cart->id .
-                ', order_id=' . $orderId .
-                ', error=' . $ex->getMessage() . ']',
+                '[MONEI] Payment creation failed [cart_id=' . $cart->id
+                . ', order_id=' . $orderId
+                . ', error=' . $errorMessage . ']',
                 \Monei::getLogLevel('error')
             );
 
@@ -759,7 +762,7 @@ class MoneiService
             $errorMessage = $this->extractErrorMessage($ex);
 
             \PrestaShopLogger::addLog(
-                '[MONEI] Refund failed [order_id=' . $orderId . ', error=' . $ex->getMessage() . ']',
+                '[MONEI] Refund failed [order_id=' . $orderId . ', error=' . $errorMessage . ']',
                 \Monei::getLogLevel('error')
             );
 
@@ -806,7 +809,7 @@ class MoneiService
             $errorMessage = $this->extractErrorMessage($ex);
 
             \PrestaShopLogger::addLog(
-                '[MONEI] Capture payment failed [payment_id=' . $paymentId . ', error=' . $ex->getMessage() . ']',
+                '[MONEI] Capture payment failed [payment_id=' . $paymentId . ', error=' . $errorMessage . ']',
                 \Monei::getLogLevel('error')
             );
 
@@ -847,6 +850,7 @@ class MoneiService
      * Extract clean error message from exception
      *
      * @param \Exception $ex
+     *
      * @return string
      */
     private function extractErrorMessage(\Exception $ex)
@@ -863,8 +867,8 @@ class MoneiService
             $responseBody = $ex->getResponseBody();
 
             \PrestaShopLogger::addLog(
-                '[MONEI] extractErrorMessage - ResponseBody type: ' . gettype($responseBody) . ', Content: ' .
-                (is_string($responseBody) ? substr($responseBody, 0, 500) : json_encode($responseBody)),
+                '[MONEI] extractErrorMessage - ResponseBody type: ' . gettype($responseBody) . ', Content: '
+                . (is_string($responseBody) ? substr($responseBody, 0, 500) : json_encode($responseBody)),
                 \Monei::getLogLevel('info')
             );
 
@@ -873,9 +877,9 @@ class MoneiService
                 $decoded = json_decode($responseBody);
 
                 \PrestaShopLogger::addLog(
-                    '[MONEI] extractErrorMessage - Decoded JSON type: ' . gettype($decoded) .
-                    ', JSON error: ' . json_last_error_msg() .
-                    ', Decoded content: ' . json_encode($decoded),
+                    '[MONEI] extractErrorMessage - Decoded JSON type: ' . gettype($decoded)
+                    . ', JSON error: ' . json_last_error_msg()
+                    . ', Decoded content: ' . json_encode($decoded),
                     \Monei::getLogLevel('info')
                 );
 
