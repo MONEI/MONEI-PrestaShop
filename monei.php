@@ -302,6 +302,144 @@ class Monei extends PaymentModule
     }
 
     /**
+     * Get order status translations
+     *
+     * @return array
+     */
+    public static function getOrderStatusTranslations()
+    {
+        return [
+            'Awaiting payment' => [
+                'en' => 'Awaiting payment',
+                'es' => 'Esperando pago',
+                'ca' => 'Esperant pagament',
+                'fr' => 'En attente de paiement',
+                'de' => 'Zahlung ausstehend',
+                'it' => 'In attesa di pagamento',
+                'pt' => 'Aguardando pagamento',
+                'nl' => 'Wachten op betaling',
+                'pl' => 'Oczekiwanie na płatność',
+                'ru' => 'Ожидание платежа',
+                'no' => 'Venter på betaling',
+                'et' => 'Makse ootel',
+                'fi' => 'Odottaa maksua',
+                'lv' => 'Gaida maksājumu',
+            ],
+            'Payment accepted' => [
+                'en' => 'Payment accepted',
+                'es' => 'Pago aceptado',
+                'ca' => 'Pagament acceptat',
+                'fr' => 'Paiement accepté',
+                'de' => 'Zahlung akzeptiert',
+                'it' => 'Pagamento accettato',
+                'pt' => 'Pagamento aceite',
+                'nl' => 'Betaling geaccepteerd',
+                'pl' => 'Płatność zaakceptowana',
+                'ru' => 'Платеж принят',
+                'no' => 'Betaling godtatt',
+                'et' => 'Makse aktsepteeritud',
+                'fi' => 'Maksu hyväksytty',
+                'lv' => 'Maksājums pieņemts',
+            ],
+            'Payment error' => [
+                'en' => 'Payment error',
+                'es' => 'Error en el pago',
+                'ca' => 'Error en el pagament',
+                'fr' => 'Erreur de paiement',
+                'de' => 'Zahlungsfehler',
+                'it' => 'Errore di pagamento',
+                'pt' => 'Erro de pagamento',
+                'nl' => 'Betalingsfout',
+                'pl' => 'Błąd płatności',
+                'ru' => 'Ошибка платежа',
+                'no' => 'Betalingsfeil',
+                'et' => 'Makse viga',
+                'fi' => 'Maksuvirhe',
+                'lv' => 'Maksājuma kļūda',
+            ],
+            'Refunded' => [
+                'en' => 'Refunded',
+                'es' => 'Reembolsado',
+                'ca' => 'Reemborsat',
+                'fr' => 'Remboursé',
+                'de' => 'Erstattet',
+                'it' => 'Rimborsato',
+                'pt' => 'Reembolsado',
+                'nl' => 'Terugbetaald',
+                'pl' => 'Zwrócono',
+                'ru' => 'Возвращено',
+                'no' => 'Refundert',
+                'et' => 'Tagastatud',
+                'fi' => 'Palautettu',
+                'lv' => 'Atmaksāts',
+            ],
+            'Partially refunded' => [
+                'en' => 'Partially refunded',
+                'es' => 'Parcialmente reembolsado',
+                'ca' => 'Parcialment reemborsat',
+                'fr' => 'Partiellement remboursé',
+                'de' => 'Teilweise erstattet',
+                'it' => 'Parzialmente rimborsato',
+                'pt' => 'Parcialmente reembolsado',
+                'nl' => 'Gedeeltelijk terugbetaald',
+                'pl' => 'Częściowo zwrócono',
+                'ru' => 'Частично возвращено',
+                'no' => 'Delvis refundert',
+                'et' => 'Osaliselt tagastatud',
+                'fi' => 'Osittain palautettu',
+                'lv' => 'Daļēji atmaksāts',
+            ],
+            'Payment authorized' => [
+                'en' => 'Payment authorized',
+                'es' => 'Pago autorizado',
+                'ca' => 'Pagament autoritzat',
+                'fr' => 'Paiement autorisé',
+                'de' => 'Zahlung autorisiert',
+                'it' => 'Pagamento autorizzato',
+                'pt' => 'Pagamento autorizado',
+                'nl' => 'Betaling geautoriseerd',
+                'pl' => 'Płatność autoryzowana',
+                'ru' => 'Платеж авторизован',
+                'no' => 'Betaling autorisert',
+                'et' => 'Makse autoriseeritud',
+                'fi' => 'Maksu valtuutettu',
+                'lv' => 'Maksājums autorizēts',
+            ],
+        ];
+    }
+
+    /**
+     * Get Spanish ISO codes (Spain only)
+     *
+     * @return array
+     */
+    public static function getSpanishIsoCodes()
+    {
+        return ['es'];
+    }
+
+    /**
+     * Get translation for a specific status and language
+     *
+     * @param string $statusName
+     * @param string $isoCode
+     *
+     * @return string
+     */
+    public static function getOrderStatusTranslation($statusName, $isoCode)
+    {
+        $translations = self::getOrderStatusTranslations();
+        $isoCode = Tools::strtolower($isoCode);
+
+        if (!isset($translations[$statusName])) {
+            return $statusName;
+        }
+
+        // Return specific translation or default to English
+        return $translations[$statusName][$isoCode] ?? $translations[$statusName]['en'] ?? $statusName;
+    }
+
+    /**
      * Find existing order state by name in default language
      *
      * @param string $name Name to search for in default language
@@ -313,16 +451,13 @@ class Monei extends PaymentModule
         try {
             $defaultLangId = (int) Configuration::get('PS_LANG_DEFAULT');
 
-            // Map of English names to their translations
-            $nameMap = [
-                'Awaiting payment' => ['en' => 'Awaiting payment', 'es' => 'Pendiente de pago', 'fr' => 'En attente de paiement'],
-                'Payment authorized' => ['en' => 'Payment authorized', 'es' => 'Pago autorizado', 'fr' => 'Paiement autorisé'],
-            ];
+            // Get all translations for this status name
+            $allTranslations = self::getOrderStatusTranslations();
 
             // Build query to search for any of the translated names
             $names = [];
-            if (isset($nameMap[$name])) {
-                $names = array_values($nameMap[$name]);
+            if (isset($allTranslations[$name])) {
+                $names = array_values($allTranslations[$name]);
             } else {
                 $names = [$name];
             }
@@ -380,16 +515,9 @@ class Monei extends PaymentModule
         } elseif ((int) Configuration::get('MONEI_STATUS_PENDING') === 0) {
             $order_state = new OrderState();
             $order_state->name = [];
-            $spanish_isos = ['es', 'mx', 'co', 'pe', 'ar', 'cl', 've', 'py', 'uy', 'bo', 've', 'ag', 'cb'];
 
             foreach (Language::getLanguages() as $language) {
-                if (Tools::strtolower($language['iso_code']) == 'fr') {
-                    $order_state->name[$language['id_lang']] = 'En attente de paiement';
-                } elseif (in_array(Tools::strtolower($language['iso_code']), $spanish_isos)) {
-                    $order_state->name[$language['id_lang']] = 'Pendiente de pago';
-                } else {
-                    $order_state->name[$language['id_lang']] = 'Awaiting payment';
-                }
+                $order_state->name[$language['id_lang']] = self::getOrderStatusTranslation('Awaiting payment', $language['iso_code']);
             }
 
             $order_state->send_email = false;
@@ -442,16 +570,9 @@ class Monei extends PaymentModule
             if ($authorizedStateId === 0 || !Validate::isLoadedObject(new OrderState($authorizedStateId))) {
                 $order_state = new OrderState();
                 $order_state->name = [];
-                $spanish_isos = ['es', 'mx', 'co', 'pe', 'ar', 'cl', 've', 'py', 'uy', 'bo', 've', 'ag', 'cb'];
 
                 foreach (Language::getLanguages() as $language) {
-                    if (Tools::strtolower($language['iso_code']) == 'fr') {
-                        $order_state->name[$language['id_lang']] = 'Paiement autorisé';
-                    } elseif (in_array(Tools::strtolower($language['iso_code']), $spanish_isos)) {
-                        $order_state->name[$language['id_lang']] = 'Pago autorizado';
-                    } else {
-                        $order_state->name[$language['id_lang']] = 'Payment authorized';
-                    }
+                    $order_state->name[$language['id_lang']] = self::getOrderStatusTranslation('Payment authorized', $language['iso_code']);
                 }
 
                 $order_state->send_email = false;
