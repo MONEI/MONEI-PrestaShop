@@ -561,4 +561,39 @@ class Monei2Payment extends \ObjectModel
             'date_upd' => $this->getDateUpdFormatted(),
         ];
     }
+
+    /**
+     * Find multiple entities by criteria
+     * 
+     * @param array $criteria Associative array of field => value pairs
+     * @param string $orderBy Order by clause (ignored for simplicity, always uses date_add DESC)
+     * @return array Array of Monei2Payment objects
+     */
+    public static function findBy($criteria, $orderBy = null)
+    {
+        $where_parts = [];
+        foreach ($criteria as $field => $value) {
+            if (is_int($value)) {
+                $where_parts[] = '`' . pSQL($field) . '` = ' . (int) $value;
+            } else {
+                $where_parts[] = '`' . pSQL($field) . '` = \'' . pSQL($value) . '\'';
+            }
+        }
+
+        $sql = 'SELECT `id_payment` FROM `' . _DB_PREFIX_ . 'monei2_payment`';
+        if (!empty($where_parts)) {
+            $sql .= ' WHERE ' . implode(' AND ', $where_parts);
+        }
+        $sql .= ' ORDER BY `date_add` DESC';
+
+        $results = \Db::getInstance()->executeS($sql);
+        $payments = [];
+        if ($results) {
+            foreach ($results as $row) {
+                $payments[] = new self($row['id_payment']);
+            }
+        }
+
+        return $payments;
+    }
 }

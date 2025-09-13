@@ -96,7 +96,8 @@ class PaymentMethodFormatter
     }
 
     /**
-     * Obfuscate email address, showing only first 2 and last 2 characters before @
+     * Obfuscate email address for privacy protection
+     * Best practice: Show minimal local part with full domain for service identification
      */
     public function obfuscateEmail(string $email): string
     {
@@ -113,15 +114,26 @@ class PaymentMethodFormatter
         $domain = $parts[1];
 
         $localLength = strlen($localPart);
-        if ($localLength <= 4) {
-            // For short email addresses, show first character only
-            $obfuscated = substr($localPart, 0, 1) . str_repeat('•', $localLength - 1);
+
+        // Security-focused obfuscation:
+        // - Use fixed-length dots to prevent length-based guessing
+        // - Show only first character to minimize information leakage
+        // - For very short emails, show even less
+        if ($localLength <= 1) {
+            // Single character email - just show dots
+            $obfuscatedLocal = '•••';
+        } elseif ($localLength == 2) {
+            // Two character email - show first character only
+            $obfuscatedLocal = substr($localPart, 0, 1) . '•••';
         } else {
-            // Show first 2 and last 2 characters
-            $obfuscated = substr($localPart, 0, 2) . '••••' . substr($localPart, -2);
+            // Show only first character with fixed 3 dots
+            // This prevents length-based identification
+            $obfuscatedLocal = substr($localPart, 0, 1) . '•••';
         }
 
-        return $obfuscated . '@' . $domain;
+        // Keep full domain visible for service identification
+        // This is standard practice as domain doesn't identify individuals
+        return $obfuscatedLocal . '@' . $domain;
     }
 
     /**
