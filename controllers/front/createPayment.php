@@ -60,37 +60,12 @@ class MoneiCreatePaymentModuleFrontController extends ModuleFrontController
                     Monei::getLogLevel('info')
                 );
 
-                // Check if payment has failed status
-                if ($paymentResponse->getStatus() === 'FAILED') {
-                    $errorMessage = 'Payment failed';
-
-                    // Get localized error message based on status code
-                    if ($paymentResponse->getStatusCode()) {
-                        $statusCodeHandler = Monei::getService('service.status_code_handler');
-                        $errorMessage = $statusCodeHandler->getStatusMessage($paymentResponse->getStatusCode());
-                    } elseif ($paymentResponse->getStatusMessage()) {
-                        $errorMessage = $paymentResponse->getStatusMessage();
-                    }
-
-                    PrestaShopLogger::addLog(
-                        '[MONEI] Payment failed with status code [payment_id=' . $paymentResponse->getId()
-                        . ', status_code=' . $paymentResponse->getStatusCode()
-                        . ', message=' . $errorMessage . ']',
-                        Monei::getLogLevel('warning')
-                    );
-
-                    header('Content-Type: application/json');
-                    http_response_code(400);
-                    echo json_encode([
-                        'error' => 'Payment failed',
-                        'message' => $errorMessage,
-                        'statusCode' => $paymentResponse->getStatusCode(),
-                    ]);
-                } else {
-                    // Payment succeeded or is pending
-                    header('Content-Type: application/json');
-                    echo json_encode(['moneiPaymentId' => $paymentResponse->getId()]);
-                }
+                // Always return the payment ID, even if status is FAILED
+                // The JavaScript will handle the failure through confirmPayment
+                // Important: Cast to string to ensure it's a simple type for JSON encoding
+                $paymentId = (string) $paymentResponse->getId();
+                header('Content-Type: application/json');
+                echo json_encode(['moneiPaymentId' => $paymentId]);
             } else {
                 // Payment creation returned false - check for specific error
                 $lastError = Monei::getService('service.monei')->getLastError();
