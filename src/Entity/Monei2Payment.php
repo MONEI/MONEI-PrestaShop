@@ -119,7 +119,8 @@ class Monei2Payment
         $amount = $this->getAmount() ?? 0;
         $refundedAmount = $this->getRefundedAmount() ?? 0;
 
-        return $amount - $refundedAmount;
+        // Clamp to non-negative to avoid issues with rounding/edge cases
+        return max(0, $amount - $refundedAmount);
     }
 
     public function getId(): string

@@ -21,7 +21,7 @@ class MoneiRedirectModuleFrontController extends ModuleFrontController
             $paymentMethod = Tools::getValue('method', '');
 
             // Validate cart exists and is valid before using it
-            if (!$cart || !\Validate::isLoadedObject($cart)
+            if (!$cart || !Validate::isLoadedObject($cart)
                 || $cart->id_customer == 0
                 || $cart->id_address_delivery == 0
                 || $cart->id_address_invoice == 0
@@ -49,6 +49,7 @@ class MoneiRedirectModuleFrontController extends ModuleFrontController
                         '[MONEI] Payment initiation failed - Invalid crypto hash [cart_id=' . $cart->id . ']',
                         PrestaShopLogger::LOG_SEVERITY_LEVEL_ERROR
                     );
+
                     throw new MoneiException('Invalid crypto hash', MoneiException::INVALID_CRYPTO_HASH);
                 }
 
@@ -60,11 +61,11 @@ class MoneiRedirectModuleFrontController extends ModuleFrontController
                         '[MONEI] Payment creation failed - No payment object returned [cart_id=' . $cart->id . ']',
                         PrestaShopLogger::LOG_SEVERITY_LEVEL_ERROR
                     );
-                    
+
                     // Store user-friendly error message for display on checkout page
                     $this->context->cookie->monei_checkout_error = $this->module->l('Unable to process payment. Please try again or use a different payment method.');
                     $this->context->cookie->write();
-                    
+
                     Tools::redirect($this->context->link->getPageLink('order'));
                     exit;
                 }
@@ -73,7 +74,6 @@ class MoneiRedirectModuleFrontController extends ModuleFrontController
                     '[MONEI] Payment created successfully [payment_id=' . $moneiPayment->getId() . ', cart_id=' . $cart->id . ', status=' . $moneiPayment->getStatus() . ']',
                     PrestaShopLogger::LOG_SEVERITY_LEVEL_INFORMATIVE
                 );
-
 
                 $nextAction = $moneiPayment->getNextAction();
                 $redirectURL = $nextAction ? $nextAction->getRedirectUrl() : null;
@@ -96,7 +96,7 @@ class MoneiRedirectModuleFrontController extends ModuleFrontController
                     '[MONEI] Payment creation exception [cart_id=' . $cart->id . ', error=' . $ex->getMessage() . ']',
                     PrestaShopLogger::LOG_SEVERITY_LEVEL_ERROR
                 );
-                
+
                 // If it's a MoneiException with a payment response, try to extract status code
                 if ($ex instanceof MoneiException && method_exists($ex, 'getPaymentData')) {
                     $paymentData = $ex->getPaymentData();
@@ -107,7 +107,7 @@ class MoneiRedirectModuleFrontController extends ModuleFrontController
                         exit;
                     }
                 }
-                
+
                 // For other exceptions, provide a user-friendly generic message
                 // Don't expose technical details to users
                 $this->context->cookie->monei_checkout_error = $this->module->l('Payment could not be processed. Please try again or contact support.');
@@ -132,33 +132,34 @@ class MoneiRedirectModuleFrontController extends ModuleFrontController
 
     /**
      * Safely add a query parameter to a URL
-     * 
+     *
      * @param string $url The URL to modify
      * @param string $key The parameter key
      * @param string $value The parameter value
+     *
      * @return string The modified URL
      */
     private function addQueryParam($url, $key, $value)
     {
         $urlParts = parse_url($url);
-        
+
         // Parse existing query parameters
         $queryParams = [];
         if (isset($urlParts['query'])) {
             parse_str($urlParts['query'], $queryParams);
         }
-        
+
         // Add/update the parameter
         $queryParams[$key] = $value;
-        
+
         // Rebuild query string - http_build_query handles encoding automatically
         $urlParts['query'] = http_build_query($queryParams);
-        
+
         // Rebuild the URL using the built-in function if available
         if (function_exists('http_build_url')) {
             return http_build_url($urlParts);
         }
-        
+
         // Manual rebuild if http_build_url is not available
         $url = '';
         if (isset($urlParts['scheme'])) {
@@ -186,7 +187,7 @@ class MoneiRedirectModuleFrontController extends ModuleFrontController
         if (isset($urlParts['fragment'])) {
             $url .= '#' . $urlParts['fragment'];
         }
-        
+
         return $url;
     }
 }

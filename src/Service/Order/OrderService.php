@@ -108,13 +108,13 @@ class OrderService
                     \PrestaShopLogger::LOG_SEVERITY_LEVEL_INFORMATIVE
                 );
             }
-            
+
             // Store variables for post-processing
             $postProcessData = [
                 'redirect' => $redirectToConfirmationPage,
                 'cart' => $cart,
                 'customer' => $customer,
-                'order' => $order
+                'order' => $order,
             ];
         } catch (OrderException $e) {
             \PrestaShopLogger::addLog(
@@ -126,10 +126,10 @@ class OrderService
         } catch (\Throwable $e) {
             // Catch any unexpected exceptions to ensure they're logged before lock release
             \PrestaShopLogger::addLog(
-                '[MONEI] Unexpected error during order processing [payment_id=' . $moneiPaymentId . 
-                ', error=' . $e->getMessage() . 
-                ', file=' . $e->getFile() . 
-                ', line=' . $e->getLine() . ']',
+                '[MONEI] Unexpected error during order processing [payment_id=' . $moneiPaymentId
+                . ', error=' . $e->getMessage()
+                . ', file=' . $e->getFile()
+                . ', line=' . $e->getLine() . ']',
                 \PrestaShopLogger::LOG_SEVERITY_LEVEL_ERROR
             );
 
@@ -138,7 +138,7 @@ class OrderService
             // Always release the lock before any operation that might exit
             $this->lockService->releaseLock($lockName);
         }
-        
+
         // Call handlePostOrderCreation only if no exception was thrown
         // Variables are guaranteed to be set here since we only reach this point on success
         if (isset($postProcessData)) {
