@@ -35,6 +35,7 @@ class MoneiService
     private $moneiCustomerCardRepository;
     private $moneiRefundRepository;
     private $moneiHistoryRepository;
+    private $lastError;
 
     /**
      * Static cache of payment methods to avoid repeated API calls within a single request
@@ -87,6 +88,9 @@ class MoneiService
      */
     public function getPaymentMethodsResponse()
     {
+        // Initialize accountId outside try block so it's available in catch
+        $accountId = null;
+
         try {
             $moneiClient = $this->getMoneiClient();
 
@@ -122,7 +126,12 @@ class MoneiService
 
             return $moneiAccountInformation;
         } catch (\Exception $e) {
-            \PrestaShopLogger::addLog('MONEI - getPaymentMethodsResponse - Error: ' . $e->getMessage(), \PrestaShopLogger::LOG_SEVERITY_LEVEL_WARNING);
+            $errorMessage = $this->extractErrorMessage($e);
+
+            \PrestaShopLogger::addLog(
+                '[MONEI] Get payment methods failed [account_id=' . ($accountId ?: 'unknown') . ', error=' . $errorMessage . ']',
+                \PrestaShopLogger::LOG_SEVERITY_LEVEL_WARNING
+            );
 
             return null;
         }
@@ -169,7 +178,12 @@ class MoneiService
             // Normalize brands to lowercase for consistency
             return array_map('strtolower', $brands);
         } catch (\Exception $e) {
-            \PrestaShopLogger::addLog('MONEI - getAvailableCardBrands - Error: ' . $e->getMessage(), \PrestaShopLogger::LOG_SEVERITY_LEVEL_WARNING);
+            $errorMessage = $this->extractErrorMessage($e);
+
+            \PrestaShopLogger::addLog(
+                '[MONEI] Get available card brands failed [error=' . $errorMessage . ']',
+                \PrestaShopLogger::LOG_SEVERITY_LEVEL_WARNING
+            );
 
             return $this->getDefaultCardBrands();
         }
@@ -193,24 +207,56 @@ class MoneiService
             throw new MoneiException('Monei client payments not initialized.', MoneiException::MONEI_CLIENT_NOT_INITIALIZED);
         }
 
-        return $moneiClient->payments->get($moneiPaymentId);
+        try {
+            return $moneiClient->payments->get($moneiPaymentId);
+        } catch (\Exception $ex) {
+            $errorMessage = $this->extractErrorMessage($ex);
+
+            \PrestaShopLogger::addLog(
+                '[MONEI] Get payment failed [payment_id=' . $moneiPaymentId . ', error=' . $errorMessage . ']',
+                \PrestaShopLogger::LOG_SEVERITY_LEVEL_ERROR
+            );
+
+            throw new MoneiException($errorMessage, MoneiException::PAYMENT_NOT_FOUND, $ex);
+        }
     }
 
     public function createMoneiOrderId(int $cartId)
     {
         // Generate a deterministic 9-character reference for the same cart ID
         // This ensures idempotency - same cart always gets same reference
-        
+
         $shopId = \Context::getContext()->shop->id;
-        $cookieKey = \Configuration::get('PS_COOKIE_KEY');
-        
+
+        // Get the cookie key - it's always defined in PrestaShop after bootstrap
+        // If not defined, load it from parameters.php directly
+        if (!defined('_COOKIE_KEY_')) {
+            // This should only happen in rare cases where bootstrap hasn't run
+            // Load directly from parameters.php (works for PS 1.7.x and 8.x)
+            $parametersFile = _PS_ROOT_DIR_ . '/app/config/parameters.php';
+            if (file_exists($parametersFile)) {
+                $parameters = include $parametersFile;
+                if (isset($parameters['parameters']['cookie_key'])) {
+                    $cookieKey = $parameters['parameters']['cookie_key'];
+                } else {
+                    // This should never happen in a proper PrestaShop installation
+                    throw new \Exception('Cookie key not found in parameters.php');
+                }
+            } else {
+                // This should never happen in a proper PrestaShop installation
+                throw new \Exception('Parameters.php file not found');
+            }
+        } else {
+            $cookieKey = _COOKIE_KEY_;
+        }
+
         // Create deterministic string with enough entropy
         $uniqueString = $cartId . '-' . $shopId . '-' . $cookieKey;
-        
+
         // Use base36 encoding (0-9, A-Z) for maximum entropy in 9 chars
         // This gives us 36^9 = 101,559,956,668,416 possible combinations
         $hash = strtoupper(substr(base_convert(sha1($uniqueString), 16, 36), 0, 9));
-        
+
         return $hash;
     }
 
@@ -234,12 +280,12 @@ class MoneiService
         // This method is kept for backward compatibility
         return 0;
     }
-    
-    public function getCartIdFromPayment(\Monei\Model\Payment $payment)
+
+    public function getCartIdFromPayment(Payment $payment)
     {
         // Try to get cart ID from metadata first (new approach)
         $metadata = $payment->getMetadata();
-        
+
         if ($metadata) {
             // Handle both object and array formats
             if (is_object($metadata)) {
@@ -252,13 +298,13 @@ class MoneiService
                 }
             }
         }
-        
+
         // Fallback to extracting from order ID (legacy approach)
         $cartId = $this->extractCartIdFromMoneiOrderId($payment->getOrderId());
         if ($cartId > 0) {
             return $cartId;
         }
-        
+
         // Last resort: Try to find cart by matching the order reference in database
         // This handles new hash format when metadata is missing
         $orderId = $payment->getOrderId();
@@ -271,7 +317,7 @@ class MoneiService
             if ($cartIdFromOrder > 0) {
                 return $cartIdFromOrder;
             }
-            
+
             // Also check in payments table in case order hasn't been created yet
             $sql = 'SELECT id_cart FROM ' . _DB_PREFIX_ . 'monei2_payment 
                     WHERE id_order = "' . pSQL($orderId) . '" 
@@ -281,7 +327,7 @@ class MoneiService
                 return $cartIdFromPayment;
             }
         }
-        
+
         throw new MoneiException('Unable to determine cart ID from payment', MoneiException::INVALID_ORDER_ID_FORMAT);
     }
 
@@ -573,13 +619,13 @@ class MoneiService
         $orderId = $this->createMoneiOrderId($cart->id);
 
         $createPaymentRequest = new CreatePaymentRequest();
-        
+
         // Convert metadata to object format as expected by MONEI API
         $metadata = new \stdClass();
         $metadata->cart_id = $cart->id;
         $metadata->shop_id = \Context::getContext()->shop->id;
         $metadata->shop_name = \Configuration::get('PS_SHOP_NAME');
-        
+
         $createPaymentRequest
             ->setOrderId($orderId)
             ->setAmount($cartAmount)
@@ -687,23 +733,25 @@ class MoneiService
             $moneiPaymentResponse = $moneiClient->payments->create($createPaymentRequest);
 
             $this->saveMoneiPayment($moneiPaymentResponse);
-            
+
             // Log successful payment creation with key details
             \PrestaShopLogger::addLog(
-                '[MONEI] Payment created [payment_id=' . $moneiPaymentResponse->getId() . 
-                ', order_id=' . $orderId . 
-                ', amount=' . $cartAmount . 
-                ', currency=' . $currency->iso_code . 
-                ', status=' . $moneiPaymentResponse->getStatus() . ']',
+                '[MONEI] Payment created [payment_id=' . $moneiPaymentResponse->getId()
+                . ', order_id=' . $orderId
+                . ', amount=' . $cartAmount
+                . ', currency=' . $currency->iso_code
+                . ', status=' . $moneiPaymentResponse->getStatus() . ']',
                 \PrestaShopLogger::LOG_SEVERITY_LEVEL_INFORMATIVE
             );
 
             return $moneiPaymentResponse;
         } catch (\Exception $ex) {
+            $errorMessage = $this->extractErrorMessage($ex);
+
             \PrestaShopLogger::addLog(
-                '[MONEI] Payment creation failed [cart_id=' . $cart->id . 
-                ', order_id=' . $orderId . 
-                ', error=' . $ex->getMessage() . ']',
+                '[MONEI] Payment creation failed [cart_id=' . $cart->id
+                . ', order_id=' . $orderId
+                . ', error=' . $errorMessage . ']',
                 \PrestaShopLogger::LOG_SEVERITY_LEVEL_ERROR
             );
 
@@ -736,12 +784,18 @@ class MoneiService
         try {
             $moneiPayment = $this->getMoneiClient()->payments->refund($moneiPayment->getId(), $refundPaymentRequest);
         } catch (\Exception $ex) {
+            $errorMessage = $this->extractErrorMessage($ex);
+
             \PrestaShopLogger::addLog(
-                'MONEI - Exception - MoneiService.php - createRefund: ' . $ex->getMessage(),
+                '[MONEI] Refund creation failed [order_id=' . $orderId
+                . ', payment_id=' . $moneiPayment->getId()
+                . ', amount=' . $amount
+                . ', reason=' . $reason
+                . ', error=' . $errorMessage . ']',
                 \PrestaShopLogger::LOG_SEVERITY_LEVEL_ERROR
             );
 
-            throw new MoneiException('Failed to create refund: ' . $ex->getMessage(), MoneiException::REFUND_CREATION_FAILED);
+            throw new MoneiException('Failed to create refund: ' . $errorMessage, MoneiException::REFUND_CREATION_FAILED);
         }
 
         $this->saveMoneiPayment($moneiPayment, $orderId, $employeeId);
@@ -781,12 +835,14 @@ class MoneiService
         try {
             $capturedPayment = $this->getMoneiClient()->payments->capture($paymentId, $captureRequest);
         } catch (\Exception $ex) {
+            $errorMessage = $this->extractErrorMessage($ex);
+
             \PrestaShopLogger::addLog(
-                'MONEI - Exception - MoneiService.php - capturePayment: ' . $ex->getMessage(),
+                '[MONEI] Capture payment failed [payment_id=' . $paymentId . ', amount=' . $amount . ', error=' . $errorMessage . ']',
                 \PrestaShopLogger::LOG_SEVERITY_LEVEL_ERROR
             );
 
-            throw new MoneiException('Failed to capture payment: ' . $ex->getMessage(), MoneiException::CAPTURE_FAILED);
+            throw new MoneiException('Failed to capture payment: ' . $errorMessage, MoneiException::CAPTURE_FAILED);
         }
 
         $moneiPayment->setStatus($capturedPayment->getStatus());
@@ -807,5 +863,60 @@ class MoneiService
         $this->moneiHistoryRepository->save($monei2History);
 
         return $capturedPayment;
+    }
+
+    /**
+     * Extract clean error message from API exceptions
+     *
+     * @param \Exception $ex
+     *
+     * @return string
+     */
+    private function extractErrorMessage(\Exception $ex)
+    {
+        $errorMessage = $ex->getMessage();
+
+        // Extract clean error message from MONEI ApiException
+        if ($ex instanceof \Monei\ApiException) {
+            $responseBody = $ex->getResponseBody();
+
+            // The response body might be a string that needs to be decoded
+            if (is_string($responseBody)) {
+                $decoded = json_decode($responseBody);
+                if ($decoded !== null) {
+                    $responseBody = $decoded;
+                }
+            }
+
+            // Extract error message from response body
+            if (is_object($responseBody) && isset($responseBody->error)) {
+                if (is_string($responseBody->error)) {
+                    $errorMessage = $responseBody->error;
+                } elseif (is_object($responseBody->error) && isset($responseBody->error->message)) {
+                    $errorMessage = $responseBody->error->message;
+                }
+            } elseif (is_array($responseBody) && isset($responseBody['error'])) {
+                if (is_string($responseBody['error'])) {
+                    $errorMessage = $responseBody['error'];
+                } elseif (is_array($responseBody['error']) && isset($responseBody['error']['message'])) {
+                    $errorMessage = $responseBody['error']['message'];
+                }
+            }
+        }
+
+        // Store the last error
+        $this->lastError = $errorMessage;
+
+        return $errorMessage;
+    }
+
+    /**
+     * Get the last error message
+     *
+     * @return string|null
+     */
+    public function getLastError()
+    {
+        return $this->lastError;
     }
 }

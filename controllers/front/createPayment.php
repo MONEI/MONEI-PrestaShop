@@ -9,7 +9,7 @@ class MoneiCreatePaymentModuleFrontController extends ModuleFrontController
         // Read input once to avoid issues with read-once streams
         $json = file_get_contents('php://input');
         $data = json_decode($json, true);
-        
+
         if (!$this->isAuthorizedRequest($data)) {
             PrestaShopLogger::addLog(
                 '[MONEI] CreatePayment unauthorized access attempt [cart_id=' . $this->context->cart->id . ']',
@@ -17,14 +17,14 @@ class MoneiCreatePaymentModuleFrontController extends ModuleFrontController
             );
             header('Content-Type: application/json');
             http_response_code(403);
-            
+
             // Provide specific error based on the issue
             if ($data === null) {
-                echo json_encode(['error' => 'Invalid request data']);
+                echo Tools::jsonEncode(['error' => 'Invalid request data']);
             } elseif (!isset($data['token'])) {
-                echo json_encode(['error' => 'Token not provided']);
+                echo Tools::jsonEncode(['error' => 'Token not provided']);
             } else {
-                echo json_encode(['error' => 'Invalid token']);
+                echo Tools::jsonEncode(['error' => 'Invalid token']);
             }
             exit;
         }
@@ -35,11 +35,11 @@ class MoneiCreatePaymentModuleFrontController extends ModuleFrontController
         // Log payment creation attempt with context
         $cartProducts = $this->context->cart->getProducts();
         PrestaShopLogger::addLog(
-            '[MONEI] CreatePayment API called [cart_id=' . $this->context->cart->id . 
-            ', customer_id=' . $this->context->cart->id_customer . 
-            ', products=' . count($cartProducts) . 
-            ', method=' . $paymentMethod . 
-            ', total=' . $this->context->cart->getOrderTotal(true, Cart::BOTH) . ']',
+            '[MONEI] CreatePayment API called [cart_id=' . $this->context->cart->id
+            . ', customer_id=' . $this->context->cart->id_customer
+            . ', products=' . count($cartProducts)
+            . ', method=' . $paymentMethod
+            . ', total=' . $this->context->cart->getOrderTotal(true, Cart::BOTH) . ']',
             PrestaShopLogger::LOG_SEVERITY_LEVEL_INFORMATIVE
         );
 
@@ -50,20 +50,20 @@ class MoneiCreatePaymentModuleFrontController extends ModuleFrontController
                 0,      // cardTokenId
                 $paymentMethod
             );
-            
+
             if ($paymentResponse) {
                 PrestaShopLogger::addLog(
-                    '[MONEI] Payment created via API [payment_id=' . $paymentResponse->getId() . 
-                    ', cart_id=' . $this->context->cart->id . 
-                    ', status=' . $paymentResponse->getStatus() . 
-                    ', status_code=' . $paymentResponse->getStatusCode() . ']',
+                    '[MONEI] Payment created via API [payment_id=' . $paymentResponse->getId()
+                    . ', cart_id=' . $this->context->cart->id
+                    . ', status=' . $paymentResponse->getStatus()
+                    . ', status_code=' . $paymentResponse->getStatusCode() . ']',
                     PrestaShopLogger::LOG_SEVERITY_LEVEL_INFORMATIVE
                 );
-                
+
                 // Check if payment has failed status
                 if ($paymentResponse->getStatus() === 'FAILED') {
                     $errorMessage = 'Payment failed';
-                    
+
                     // Get localized error message based on status code
                     if ($paymentResponse->getStatusCode()) {
                         $statusCodeHandler = Monei::getService('service.status_code_handler');
@@ -71,53 +71,117 @@ class MoneiCreatePaymentModuleFrontController extends ModuleFrontController
                     } elseif ($paymentResponse->getStatusMessage()) {
                         $errorMessage = $paymentResponse->getStatusMessage();
                     }
-                    
+
                     PrestaShopLogger::addLog(
-                        '[MONEI] Payment failed with status code [payment_id=' . $paymentResponse->getId() . 
-                        ', status_code=' . $paymentResponse->getStatusCode() . 
-                        ', message=' . $errorMessage . ']',
+                        '[MONEI] Payment failed with status code [payment_id=' . $paymentResponse->getId()
+                        . ', status_code=' . $paymentResponse->getStatusCode()
+                        . ', message=' . $errorMessage . ']',
                         PrestaShopLogger::LOG_SEVERITY_LEVEL_WARNING
                     );
-                    
+
                     header('Content-Type: application/json');
                     http_response_code(400);
-                    echo json_encode([
+                    echo Tools::jsonEncode([
                         'error' => 'Payment failed',
                         'message' => $errorMessage,
-                        'statusCode' => $paymentResponse->getStatusCode()
+                        'statusCode' => $paymentResponse->getStatusCode(),
                     ]);
                 } else {
                     // Payment succeeded or is pending
                     header('Content-Type: application/json');
-                    echo json_encode(['moneiPaymentId' => $paymentResponse->getId()]);
+                    echo Tools::jsonEncode(['moneiPaymentId' => $paymentResponse->getId()]);
                 }
             } else {
                 // Payment creation returned false - check for specific error
                 $lastError = Monei::getService('service.monei')->getLastError();
                 PrestaShopLogger::addLog(
-                    '[MONEI] Payment creation via API failed [cart_id=' . $this->context->cart->id . 
-                    ', error=' . ($lastError ?: 'Unknown error') . ']',
+                    '[MONEI] Payment creation via API failed [cart_id=' . $this->context->cart->id
+                    . ', error=' . ($lastError ?: 'Unknown error') . ']',
                     PrestaShopLogger::LOG_SEVERITY_LEVEL_ERROR
                 );
                 header('Content-Type: application/json');
                 http_response_code(400);
-                echo json_encode([
+                echo Tools::jsonEncode([
                     'error' => 'Payment creation failed',
-                    'message' => $lastError ?: 'Unknown error'
+                    'message' => $lastError ?: 'Unknown error',
                 ]);
             }
         } catch (Exception $e) {
             $errorMessage = $e->getMessage();
+            $statusCode = 500; // Default to server error
+            $statusCodeValue = null;
+
+            // Extract status code from the API response if available
+            if ($e instanceof Monei\ApiException) {
+                $responseBody = $e->getResponseBody();
+
+                // Parse the response body if it's a JSON string
+                if (is_string($responseBody)) {
+                    $decoded = json_decode($responseBody);
+                    if ($decoded && isset($decoded->statusCode)) {
+                        $statusCode = (int) $decoded->statusCode;
+                        $statusCodeValue = $statusCode;
+                    }
+                } elseif (is_object($responseBody) && isset($responseBody->statusCode)) {
+                    $statusCode = (int) $responseBody->statusCode;
+                    $statusCodeValue = $statusCode;
+                }
+
+                // Also get the HTTP response code directly if available
+                if (method_exists($e, 'getCode') && $e->getCode() > 0) {
+                    // Use the exception code as status if no statusCode in response body
+                    if (!$statusCodeValue) {
+                        $statusCode = (int) $e->getCode();
+                        $statusCodeValue = $statusCode;
+                    }
+                }
+            } elseif ($e instanceof PsMonei\Exception\MoneiException) {
+                // For MoneiException, check if there's a previous exception with status code
+                $previous = $e->getPrevious();
+                if ($previous instanceof Monei\ApiException) {
+                    $responseBody = $previous->getResponseBody();
+
+                    // Parse the response body if it's a JSON string
+                    if (is_string($responseBody)) {
+                        $decoded = json_decode($responseBody);
+                        if ($decoded && isset($decoded->statusCode)) {
+                            $statusCode = (int) $decoded->statusCode;
+                            $statusCodeValue = $statusCode;
+                        }
+                    } elseif (is_object($responseBody) && isset($responseBody->statusCode)) {
+                        $statusCode = (int) $responseBody->statusCode;
+                        $statusCodeValue = $statusCode;
+                    }
+                }
+            }
+
             PrestaShopLogger::addLog(
-                '[MONEI] Payment creation API exception [cart_id=' . $this->context->cart->id . ', error=' . $errorMessage . ']',
+                '[MONEI] Payment creation API exception [cart_id=' . $this->context->cart->id
+                . ', error=' . $errorMessage
+                . ', status_code=' . ($statusCodeValue ?: 'unknown') . ']',
                 PrestaShopLogger::LOG_SEVERITY_LEVEL_ERROR
             );
-            header('Content-Type: application/json');
-            http_response_code(500);
-            echo json_encode([
+
+            // Prepare response array
+            $response = [
                 'error' => 'Payment creation error',
-                'message' => $errorMessage
-            ]);
+                'message' => $errorMessage,
+            ];
+
+            // Include status code in response if available
+            if ($statusCodeValue) {
+                $response['statusCode'] = $statusCodeValue;
+            }
+
+            // Log what we're sending to frontend
+            PrestaShopLogger::addLog(
+                '[MONEI] Sending error response to frontend: ' . Tools::jsonEncode($response),
+                PrestaShopLogger::LOG_SEVERITY_LEVEL_INFORMATIVE
+            );
+
+            header('Content-Type: application/json');
+            http_response_code($statusCode);
+            echo Tools::jsonEncode($response);
         }
         exit;
     }
@@ -132,7 +196,7 @@ class MoneiCreatePaymentModuleFrontController extends ModuleFrontController
         if (isset($data['token'])) {
             return $data['token'] === Tools::getToken(false);
         }
-        
+
         return false;
     }
 }

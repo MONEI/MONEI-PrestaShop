@@ -6,7 +6,6 @@ use Monei\Model\PaymentPaymentMethod;
 use Monei\Model\PaymentStatus;
 use PsMonei\Entity\Monei2CustomerCard;
 use PsMonei\Entity\Monei2Payment;
-use Symfony\Polyfill\Mbstring\Mbstring;
 
 if (!defined('_PS_VERSION_')) {
     exit;
@@ -18,7 +17,7 @@ class Monei extends PaymentModule
     protected $moneiClient = false;
 
     const NAME = 'monei';
-    const VERSION = '2.0.9';
+    const VERSION = '2.0.10';
 
     private static $serviceContainer;
     private static $serviceList;
@@ -28,7 +27,7 @@ class Monei extends PaymentModule
         $this->displayName = 'MONEI Payments';
         $this->name = 'monei';
         $this->tab = 'payments_gateways';
-        $this->version = '2.0.9';
+        $this->version = '2.0.10';
         $this->author = 'MONEI';
         $this->need_instance = 0;
         $this->ps_versions_compliancy = ['min' => '8', 'max' => _PS_VERSION_];
@@ -183,18 +182,13 @@ class Monei extends PaymentModule
     private function findOrderStateByName($name)
     {
         try {
-            $defaultLangId = (int) Configuration::get('PS_LANG_DEFAULT');
-
-            // Map of English names to their translations
-            $nameMap = [
-                'Awaiting payment' => ['en' => 'Awaiting payment', 'es' => 'Pendiente de pago', 'fr' => 'En attente de paiement'],
-                'Payment authorized' => ['en' => 'Payment authorized', 'es' => 'Pago autorizado', 'fr' => 'Paiement autorisé'],
-            ];
+            // Get all translations for this state name
+            $allTranslations = self::getOrderStateTranslations();
 
             // Build query to search for any of the translated names
             $names = [];
-            if (isset($nameMap[$name])) {
-                $names = array_values($nameMap[$name]);
+            if (isset($allTranslations[$name])) {
+                $names = array_values($allTranslations[$name]);
             } else {
                 $names = [$name];
             }
@@ -225,29 +219,65 @@ class Monei extends PaymentModule
     }
 
     /**
-     * Get translations for order state names
+     * Get translations for order state names across supported languages.
      *
-     * @param string $stateName The English name of the state
-     *
-     * @return array Translations indexed by language ISO code
+     * @return array<string,array<string,string>> Map: English name => [iso => translation]
      */
-    private function getOrderStateTranslations($stateName)
+    public static function getOrderStateTranslations()
     {
-        $translations = [
+        return [
             'Awaiting payment' => [
                 'en' => 'Awaiting payment',
-                'es' => 'Pendiente de pago',
+                'es' => 'Esperando pago',
+                'ca' => 'Esperant pagament',
                 'fr' => 'En attente de paiement',
-                'de' => 'Warte auf Zahlung',
+                'de' => 'Zahlung ausstehend',
                 'it' => 'In attesa di pagamento',
                 'pt' => 'Aguardando pagamento',
-                'nl' => 'Wacht op betaling',
+                'nl' => 'Wachten op betaling',
                 'pl' => 'Oczekiwanie na płatność',
-                'ru' => 'Ожидание оплаты',
+                'ru' => 'Ожидание платежа',
+                'no' => 'Venter på betaling',
+                'et' => 'Makse ootel',
+                'fi' => 'Odottaa maksua',
+                'lv' => 'Gaida maksājumu',
+            ],
+            'Payment accepted' => [
+                'en' => 'Payment accepted',
+                'es' => 'Pago aceptado',
+                'ca' => 'Pagament acceptat',
+                'fr' => 'Paiement accepté',
+                'de' => 'Zahlung akzeptiert',
+                'it' => 'Pagamento accettato',
+                'pt' => 'Pagamento aceito',
+                'nl' => 'Betaling geaccepteerd',
+                'pl' => 'Płatność zaakceptowana',
+                'ru' => 'Платеж принят',
+                'no' => 'Betaling godtatt',
+                'et' => 'Makse aktsepteeritud',
+                'fi' => 'Maksu hyväksytty',
+                'lv' => 'Maksājums pieņemts',
+            ],
+            'Refunded' => [
+                'en' => 'Refunded',
+                'es' => 'Reembolsado',
+                'ca' => 'Reemborsat',
+                'fr' => 'Remboursé',
+                'de' => 'Erstattet',
+                'it' => 'Rimborsato',
+                'pt' => 'Reembolsado',
+                'nl' => 'Terugbetaald',
+                'pl' => 'Zwrócono',
+                'ru' => 'Возвращено',
+                'no' => 'Refundert',
+                'et' => 'Tagastatud',
+                'fi' => 'Palautettu',
+                'lv' => 'Atmaksāts',
             ],
             'Payment authorized' => [
                 'en' => 'Payment authorized',
                 'es' => 'Pago autorizado',
+                'ca' => 'Pagament autoritzat',
                 'fr' => 'Paiement autorisé',
                 'de' => 'Zahlung autorisiert',
                 'it' => 'Pagamento autorizzato',
@@ -255,10 +285,33 @@ class Monei extends PaymentModule
                 'nl' => 'Betaling geautoriseerd',
                 'pl' => 'Płatność autoryzowana',
                 'ru' => 'Платеж авторизован',
+                'no' => 'Betaling autorisert',
+                'et' => 'Makse autoriseeritud',
+                'fi' => 'Maksu valtuutettu',
+                'lv' => 'Maksājums autorizēts',
             ],
         ];
+    }
 
-        return $translations[$stateName] ?? ['en' => $stateName];
+    /**
+     * Get order state translation for a specific language
+     *
+     * @param string $statusName The status name in English
+     * @param string $isoCode The language ISO code
+     *
+     * @return string The translated status name
+     */
+    public static function getOrderStatusTranslation($statusName, $isoCode)
+    {
+        $translations = self::getOrderStateTranslations();
+        $isoCode = Tools::strtolower($isoCode);
+
+        if (!isset($translations[$statusName])) {
+            return $statusName;
+        }
+
+        // Return specific translation or default to English
+        return $translations[$statusName][$isoCode] ?? $translations[$statusName]['en'] ?? $statusName;
     }
 
     /**
@@ -300,23 +353,9 @@ class Monei extends PaymentModule
         $order_state = new OrderState();
         $order_state->name = [];
 
-        // Get translations for this state
-        $translations = $this->getOrderStateTranslations($englishName);
-        $spanish_isos = ['es', 'mx', 'co', 'pe', 'ar', 'cl', 've', 'py', 'uy', 'bo', 'ag', 'cb'];
-
+        // Set translated names for all languages
         foreach (Language::getLanguages() as $language) {
-            $iso = Tools::strtolower($language['iso_code']);
-
-            // Use specific translation if available
-            if (isset($translations[$iso])) {
-                $order_state->name[$language['id_lang']] = $translations[$iso];
-            } elseif (in_array($iso, $spanish_isos) && isset($translations['es'])) {
-                // Use Spanish translation for Spanish-speaking countries
-                $order_state->name[$language['id_lang']] = $translations['es'];
-            } else {
-                // Default to English
-                $order_state->name[$language['id_lang']] = $translations['en'] ?? $englishName;
-            }
+            $order_state->name[$language['id_lang']] = self::getOrderStatusTranslation($englishName, $language['iso_code']);
         }
 
         // Set default properties
@@ -447,17 +486,17 @@ class Monei extends PaymentModule
                 if (strpos($content, 'monei_order_reference') !== false) {
                     // Check if there are other overrides in the file
                     $hasOtherOverrides = false;
-                    
+
                     // Simple check: if the file only extends OrderCore with our method, remove it
                     // Otherwise, just log a warning
                     if (preg_match('/class\s+Order\s+extends\s+OrderCore\s*{[^}]*monei_order_reference[^}]*}/', $content)) {
                         // This looks like it only contains our override
                         unlink($overrideFile);
-                        
+
                         // Clear cache to ensure override removal takes effect
                         Tools::clearCache();
                         Tools::clearCompileCache();
-                        
+
                         PrestaShopLogger::addLog(
                             '[MONEI] Order override removed during uninstall',
                             PrestaShopLogger::LOG_SEVERITY_LEVEL_INFORMATIVE
@@ -478,7 +517,7 @@ class Monei extends PaymentModule
                 PrestaShopLogger::LOG_SEVERITY_LEVEL_WARNING
             );
         }
-        
+
         // Remove MONEI OrderStates
         $moneiOrderStates = [
             'MONEI_STATUS_PENDING',
@@ -1799,7 +1838,7 @@ class Monei extends PaymentModule
             'card' => $this->l('Credit Card'),
             'applePay' => $this->l('Apple Pay'),
             'googlePay' => $this->l('Google Pay'),
-            'paypal' => $this->l('Paypal'),
+            'paypal' => $this->l('PayPal'),
             'multibanco' => $this->l('Multibanco'),
             'mbway' => $this->l('MB Way'),
         ];
@@ -2388,9 +2427,13 @@ class Monei extends PaymentModule
 
             $refundAmount = (int) round($totalRefundAmount * 100); // Convert to cents
 
+            // Get currency ISO code for logging
+            $currency = new Currency((int) $order->id_currency);
+            $currencyCode = $currency->iso_code;
+
             PrestaShopLogger::addLog(
                 'MONEI - Processing refund for order ID: ' . $order->id
-                . ', Amount: ' . ($refundAmount / 100) . ' ' . $order->id_currency
+                . ', Amount: ' . ($refundAmount / 100) . ' ' . $currencyCode
                 . ' (Products: ' . $currentSlip['amount']
                 . ', Shipping: ' . $shippingRefundAmount . ')',
                 PrestaShopLogger::LOG_SEVERITY_LEVEL_INFORMATIVE
@@ -2417,11 +2460,11 @@ class Monei extends PaymentModule
                 'Order',
                 (int) $order->id
             );
-            
+
             // Re-throw the exception to prevent credit slip creation
             // Include the actual error message for debugging
             throw new PrestaShopException(
-                $this->l('Refund failed in MONEI payment gateway. Please try again or contact support.') 
+                $this->l('Refund failed in MONEI payment gateway. Please try again or contact support.')
                 . ' (' . $e->getMessage() . ')'
             );
         }

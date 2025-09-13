@@ -45,8 +45,8 @@ class MoneiConfirmationModuleFrontController extends ModuleFrontController
                 $payment = $moneiService->getMoneiPayment($moneiPaymentId);
 
                 PrestaShopLogger::addLog(
-                    '[MONEI] Payment status retrieved [payment_id=' . $payment->getId() . ', status=' . $payment->getStatus() . 
-                    ($payment->getStatusCode() ? ', status_code=' . $payment->getStatusCode() : '') . ']',
+                    '[MONEI] Payment status retrieved [payment_id=' . $payment->getId() . ', status=' . $payment->getStatus()
+                    . ($payment->getStatusCode() ? ', status_code=' . $payment->getStatusCode() : '') . ']',
                     PrestaShopLogger::LOG_SEVERITY_LEVEL_INFORMATIVE
                 );
             } catch (Exception $e) {
@@ -171,8 +171,8 @@ class MoneiConfirmationModuleFrontController extends ModuleFrontController
         $statusCode = $payment->getStatusCode();
 
         PrestaShopLogger::addLog(
-            '[MONEI] Payment failed [payment_id=' . $payment->getId() . ', status=' . $paymentStatus . 
-            ($statusCode ? ', status_code=' . $statusCode : '') . ']',
+            '[MONEI] Payment failed [payment_id=' . $payment->getId() . ', status=' . $paymentStatus
+            . ($statusCode ? ', status_code=' . $statusCode : '') . ']',
             PrestaShopLogger::LOG_SEVERITY_LEVEL_WARNING
         );
 
@@ -184,7 +184,12 @@ class MoneiConfirmationModuleFrontController extends ModuleFrontController
             $errorMessage = $statusCodeHandler->getStatusMessage($statusCode);
         }
 
-        // Fallback error messages based on status
+        // Fallback to API-provided message if available
+        if (!$errorMessage && method_exists($payment, 'getStatusMessage') && $payment->getStatusMessage()) {
+            $errorMessage = (string) $payment->getStatusMessage();
+        }
+
+        // Final fallback messages based on status
         if (!$errorMessage) {
             switch ($paymentStatus) {
                 case PaymentStatus::CANCELED:

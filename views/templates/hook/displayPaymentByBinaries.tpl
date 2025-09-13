@@ -191,9 +191,16 @@
         
         // Add alert to container
         containerDiv.appendChild(alert);
-        
+
         // Scroll to the notification
         notificationContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+        // Auto-dismiss after 10 seconds with fade effect
+        setTimeout(() => {
+          alert.style.transition = 'opacity 0.5s';
+          alert.style.opacity = '0';
+          setTimeout(() => alert.remove(), 500);
+        }, 10000);
       } else {
         // If no notifications container exists, insert alert in the payment section
         const paymentSection = document.querySelector('#checkout-payment-step, .checkout-step.-current, .payment-options');
@@ -216,9 +223,16 @@
           
           // Insert at the top of payment section
           paymentSection.insertBefore(alert, paymentSection.firstChild);
-          
+
           // Scroll to the alert
           alert.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+          // Auto-dismiss after 10 seconds with fade effect
+          setTimeout(() => {
+            alert.style.transition = 'opacity 0.5s';
+            alert.style.opacity = '0';
+            setTimeout(() => alert.remove(), 500);
+          }, 10000);
         } else {
           // Last resort: use JavaScript alert
           alert(message);
