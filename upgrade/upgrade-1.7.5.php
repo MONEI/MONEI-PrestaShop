@@ -250,6 +250,11 @@ function upgrade_module_1_7_5($module)
             ],
         ];
 
+        // Load translation methods if needed
+        if (!class_exists('Monei')) {
+            require_once dirname(__FILE__) . '/../monei.php';
+        }
+
         foreach ($orderStates as $configKey => $stateData) {
             $stateId = Configuration::get($configKey);
             if (!$stateId) {
@@ -257,7 +262,9 @@ function upgrade_module_1_7_5($module)
                 $orderState = new OrderState();
                 $orderState->name = [];
                 foreach (Language::getLanguages() as $language) {
-                    $orderState->name[$language['id_lang']] = $stateData['name'];
+                    $iso_code = Tools::strtolower($language['iso_code']);
+                    // Use centralized translation method to get the correct translation
+                    $orderState->name[$language['id_lang']] = Monei::getOrderStatusTranslation($stateData['name'], $iso_code);
                 }
                 $orderState->color = $stateData['color'];
                 $orderState->send_email = $stateData['send_email'];
