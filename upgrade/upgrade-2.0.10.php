@@ -208,8 +208,8 @@ function cleanupOrphanedStates($module)
                     // State is still referenced, keep it even if not configured
                     // This is important to preserve order history integrity
                     PrestaShopLogger::addLog(
-                        '[MONEI] Keeping unconfigured state (ID: ' . $stateId .
-                        ') as it is still referenced in database',
+                        '[MONEI] Keeping unconfigured state (ID: ' . $stateId
+                        . ') as it is still referenced in database',
                         PrestaShopLogger::LOG_SEVERITY_LEVEL_INFORMATIVE
                     );
                 }
