@@ -35,11 +35,11 @@ class MoneiCreatePaymentModuleFrontController extends ModuleFrontController
         // Log payment creation attempt with context
         $cartProducts = $this->context->cart->getProducts();
         PrestaShopLogger::addLog(
-            '[MONEI] CreatePayment API called [cart_id=' . $this->context->cart->id .
-            ', customer_id=' . $this->context->cart->id_customer .
-            ', products=' . count($cartProducts) .
-            ', method=' . $paymentMethod .
-            ', total=' . $this->context->cart->getOrderTotal(true, Cart::BOTH) . ']',
+            '[MONEI] CreatePayment API called [cart_id=' . $this->context->cart->id
+            . ', customer_id=' . $this->context->cart->id_customer
+            . ', products=' . count($cartProducts)
+            . ', method=' . $paymentMethod
+            . ', total=' . $this->context->cart->getOrderTotal(true, Cart::BOTH) . ']',
             Monei::getLogLevel('info')
         );
 
@@ -53,10 +53,10 @@ class MoneiCreatePaymentModuleFrontController extends ModuleFrontController
 
             if ($paymentResponse) {
                 PrestaShopLogger::addLog(
-                    '[MONEI] Payment created via API [payment_id=' . $paymentResponse->getId() .
-                    ', cart_id=' . $this->context->cart->id .
-                    ', status=' . $paymentResponse->getStatus() .
-                    ', status_code=' . $paymentResponse->getStatusCode() . ']',
+                    '[MONEI] Payment created via API [payment_id=' . $paymentResponse->getId()
+                    . ', cart_id=' . $this->context->cart->id
+                    . ', status=' . $paymentResponse->getStatus()
+                    . ', status_code=' . $paymentResponse->getStatusCode() . ']',
                     Monei::getLogLevel('info')
                 );
 
@@ -73,9 +73,9 @@ class MoneiCreatePaymentModuleFrontController extends ModuleFrontController
                     }
 
                     PrestaShopLogger::addLog(
-                        '[MONEI] Payment failed with status code [payment_id=' . $paymentResponse->getId() .
-                        ', status_code=' . $paymentResponse->getStatusCode() .
-                        ', message=' . $errorMessage . ']',
+                        '[MONEI] Payment failed with status code [payment_id=' . $paymentResponse->getId()
+                        . ', status_code=' . $paymentResponse->getStatusCode()
+                        . ', message=' . $errorMessage . ']',
                         Monei::getLogLevel('warning')
                     );
 
@@ -84,7 +84,7 @@ class MoneiCreatePaymentModuleFrontController extends ModuleFrontController
                     echo json_encode([
                         'error' => 'Payment failed',
                         'message' => $errorMessage,
-                        'statusCode' => $paymentResponse->getStatusCode()
+                        'statusCode' => $paymentResponse->getStatusCode(),
                     ]);
                 } else {
                     // Payment succeeded or is pending
@@ -95,29 +95,83 @@ class MoneiCreatePaymentModuleFrontController extends ModuleFrontController
                 // Payment creation returned false - check for specific error
                 $lastError = Monei::getService('service.monei')->getLastError();
                 PrestaShopLogger::addLog(
-                    '[MONEI] Payment creation via API failed [cart_id=' . $this->context->cart->id .
-                    ', error=' . ($lastError ?: 'Unknown error') . ']',
+                    '[MONEI] Payment creation via API failed [cart_id=' . $this->context->cart->id
+                    . ', error=' . ($lastError ?: 'Unknown error') . ']',
                     Monei::getLogLevel('error')
                 );
                 header('Content-Type: application/json');
                 http_response_code(400);
                 echo json_encode([
                     'error' => 'Payment creation failed',
-                    'message' => $lastError ?: 'Unknown error'
+                    'message' => $lastError ?: 'Unknown error',
                 ]);
             }
         } catch (Exception $e) {
             $errorMessage = $e->getMessage();
+            $statusCode = 500; // Default to server error
+            $statusCodeValue = null;
+
+            // Extract status code from the API response if available
+            if ($e instanceof Monei\ApiException) {
+                $responseBody = $e->getResponseBody();
+
+                // Parse the response body if it's a JSON string
+                if (is_string($responseBody)) {
+                    $decoded = json_decode($responseBody);
+                    if ($decoded && isset($decoded->statusCode)) {
+                        $statusCode = (int) $decoded->statusCode;
+                        $statusCodeValue = $statusCode;
+                    }
+                } elseif (is_object($responseBody) && isset($responseBody->statusCode)) {
+                    $statusCode = (int) $responseBody->statusCode;
+                    $statusCodeValue = $statusCode;
+                }
+
+                // Also get the HTTP response code directly if available
+                if (method_exists($e, 'getCode') && $e->getCode() > 0) {
+                    // Use the exception code as status if no statusCode in response body
+                    if (!$statusCodeValue) {
+                        $statusCode = (int) $e->getCode();
+                        $statusCodeValue = $statusCode;
+                    }
+                }
+            } elseif ($e instanceof PsMonei\Exception\MoneiException) {
+                // For MoneiException, check if there's a previous exception with status code
+                $previous = $e->getPrevious();
+                if ($previous instanceof Monei\ApiException) {
+                    $responseBody = $previous->getResponseBody();
+
+                    // Parse the response body if it's a JSON string
+                    if (is_string($responseBody)) {
+                        $decoded = json_decode($responseBody);
+                        if ($decoded && isset($decoded->statusCode)) {
+                            $statusCode = (int) $decoded->statusCode;
+                            $statusCodeValue = $statusCode;
+                        }
+                    } elseif (is_object($responseBody) && isset($responseBody->statusCode)) {
+                        $statusCode = (int) $responseBody->statusCode;
+                        $statusCodeValue = $statusCode;
+                    }
+                }
+            }
+
             PrestaShopLogger::addLog(
-                '[MONEI] Payment creation API exception [cart_id=' . $this->context->cart->id . ', error=' . $errorMessage . ']',
+                '[MONEI] Payment creation API exception [cart_id=' . $this->context->cart->id
+                . ', error=' . $errorMessage
+                . ', status_code=' . ($statusCodeValue ?: 'unknown') . ']',
                 Monei::getLogLevel('error')
             );
 
             // Prepare response array
             $response = [
                 'error' => 'Payment creation error',
-                'message' => $errorMessage
+                'message' => $errorMessage,
             ];
+
+            // Include status code in response if available
+            if ($statusCodeValue) {
+                $response['statusCode'] = $statusCodeValue;
+            }
 
             // Log what we're sending to frontend
             PrestaShopLogger::addLog(
@@ -126,15 +180,6 @@ class MoneiCreatePaymentModuleFrontController extends ModuleFrontController
             );
 
             header('Content-Type: application/json');
-            // Use 400 for client errors (like duplicate payment), 500 for server errors
-            $statusCode = 400;
-            if (strpos($errorMessage, 'already been paid') !== false ||
-                strpos($errorMessage, 'duplicate') !== false ||
-                strpos($errorMessage, 'invalid') !== false) {
-                $statusCode = 400;
-            } else {
-                $statusCode = 500;
-            }
             http_response_code($statusCode);
             echo json_encode($response);
         }

@@ -219,7 +219,7 @@ class Monei extends PaymentModule
         Configuration::updateValue('MONEI_ALLOW_MBWAY', false);
         // Payment Action
         Configuration::updateValue('MONEI_PAYMENT_ACTION', 'sale');
-        // Status
+        // Status - Use PrestaShop defaults (always available after PS installation)
         Configuration::updateValue('MONEI_STATUS_SUCCEEDED', Configuration::get('PS_OS_PAYMENT'));
         Configuration::updateValue('MONEI_STATUS_FAILED', Configuration::get('PS_OS_ERROR'));
         Configuration::updateValue('MONEI_STATUS_REFUNDED', Configuration::get('PS_OS_REFUND'));
@@ -2527,9 +2527,13 @@ class Monei extends PaymentModule
 
             $refundAmount = (int) round($totalRefundAmount * 100); // Convert to cents
 
+            // Get currency ISO code for logging
+            $currency = new Currency((int) $order->id_currency);
+            $currencyCode = $currency->iso_code;
+
             PrestaShopLogger::addLog(
                 'MONEI - Processing refund for order ID: ' . $order->id
-                . ', Amount: ' . ($refundAmount / 100) . ' ' . $order->id_currency
+                . ', Amount: ' . ($refundAmount / 100) . ' ' . $currencyCode
                 . ' (Products: ' . $currentSlip['amount']
                 . ', Shipping: ' . $shippingRefundAmount . ')',
                 self::getLogLevel('info')
@@ -2546,7 +2550,7 @@ class Monei extends PaymentModule
 
             PrestaShopLogger::addLog(
                 'MONEI - Refund processed successfully for order ID: ' . $order->id
-                . ', Amount: ' . ($refundAmount / 100) . ' EUR',
+                . ', Amount: ' . ($refundAmount / 100) . ' ' . $currencyCode,
                 self::getLogLevel('info')
             );
 
