@@ -220,11 +220,18 @@ function upgrade_module_1_7_5($module)
         foreach ($oldMoneiStates as $oldState) {
             $stateId = (int) $oldState['id_order_state'];
 
-            // Check if this state is used by any orders
-            $isUsed = Db::getInstance()->getValue(
+            // Check if this state is used by any orders (current or historical)
+            $isUsedInOrders = Db::getInstance()->getValue(
                 'SELECT COUNT(*) FROM ' . _DB_PREFIX_ . 'orders
                 WHERE current_state = ' . $stateId
             );
+
+            $isUsedInHistory = Db::getInstance()->getValue(
+                'SELECT COUNT(*) FROM ' . _DB_PREFIX_ . 'order_history
+                WHERE id_order_state = ' . $stateId
+            );
+
+            $isUsed = $isUsedInOrders || $isUsedInHistory;
 
             if (!$isUsed) {
                 // Safe to delete unused MONEI state
