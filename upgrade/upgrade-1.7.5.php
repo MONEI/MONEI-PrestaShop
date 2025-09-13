@@ -292,7 +292,49 @@ function upgrade_module_1_7_5($module)
             }
         }
 
-        // 7. Install Order override for reference synchronization
+        // 7. Update order status translations for all MONEI statuses
+        // Use centralized translation methods from main module
+        if (!class_exists('Monei')) {
+            require_once dirname(__FILE__) . '/../monei.php';
+        }
+
+        $allTranslations = Monei::getOrderStatusTranslations();
+
+        // Map config keys to status names
+        $statusMapping = [
+            'MONEI_STATUS_PENDING' => 'Awaiting payment',
+            'MONEI_STATUS_SUCCEEDED' => 'Payment accepted',
+            'MONEI_STATUS_FAILED' => 'Payment error',
+            'MONEI_STATUS_REFUNDED' => 'Refunded',
+            'MONEI_STATUS_PARTIALLY_REFUNDED' => 'Partially refunded',
+            'MONEI_STATUS_AUTHORIZED' => 'Payment authorized',
+        ];
+
+        // Update translations for each status
+        foreach ($statusMapping as $configKey => $statusName) {
+            $stateId = Configuration::get($configKey);
+            if ($stateId) {
+                foreach (Language::getLanguages(false) as $language) {
+                    $iso_code = Tools::strtolower($language['iso_code']);
+                    $id_lang = (int) $language['id_lang'];
+
+                    // Get translation using centralized method
+                    $translation = Monei::getOrderStatusTranslation($statusName, $iso_code);
+
+                    // Update the order state name
+                    Db::getInstance()->execute(
+                        'INSERT INTO `' . _DB_PREFIX_ . 'order_state_lang`
+                        (`id_order_state`, `id_lang`, `name`, `template`)
+                        VALUES (' . (int) $stateId . ', ' . (int) $id_lang . ',
+                                \'' . pSQL($translation) . '\', \'\')
+                        ON DUPLICATE KEY UPDATE
+                        `name` = \'' . pSQL($translation) . '\''
+                    );
+                }
+            }
+        }
+
+        // 8. Install Order override for reference synchronization
         try {
             // Check if override exists
             $overrideSource = _PS_MODULE_DIR_ . $module->name . '/override/classes/order/Order.php';
