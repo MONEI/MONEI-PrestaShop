@@ -22,7 +22,7 @@ class Monei extends PaymentModule
     public $currencies = true;
 
     const NAME = 'monei';
-    const VERSION = '1.7.7';
+    const VERSION = '1.7.8';
 
     const LOG_SEVERITY_LEVELS = [
         'info' => 1,
@@ -36,7 +36,7 @@ class Monei extends PaymentModule
         $this->displayName = 'MONEI Payments';
         $this->name = 'monei';
         $this->tab = 'payments_gateways';
-        $this->version = '1.7.7';
+        $this->version = '1.7.8';
         $this->author = 'MONEI';
         $this->need_instance = 1;
         $this->ps_versions_compliancy = ['min' => '1.7', 'max' => _PS_VERSION_];
@@ -77,7 +77,7 @@ class Monei extends PaymentModule
             }
         }
 
-        // Fallback for PrestaShop 1.7.7 - use numeric values
+        // Fallback for PrestaShop 1.7.8 - use numeric values
         $levels = [
             'info' => 1,
             'warning' => 2,
@@ -95,11 +95,11 @@ class Monei extends PaymentModule
      */
     public function getBootstrapVersion()
     {
-        // PrestaShop 1.7.7 uses Bootstrap 3 in admin
-        // PrestaShop 1.7.7+ uses Bootstrap 4 in admin
+        // PrestaShop 1.7.8 uses Bootstrap 3 in admin
+        // PrestaShop 1.7.8+ uses Bootstrap 4 in admin
         // Note: All PrestaShop 1.7.x versions use Bootstrap 4 in the frontend (Classic theme)
-        // but the admin panel transitioned from Bootstrap 3 to 4 in 1.7.7
-        return version_compare(_PS_VERSION_, '1.7.7.0', '>=') ? 4 : 3;
+        // but the admin panel transitioned from Bootstrap 3 to 4 in 1.7.8
+        return version_compare(_PS_VERSION_, '1.7.8.0', '>=') ? 4 : 3;
     }
 
     /**
@@ -167,8 +167,8 @@ class Monei extends PaymentModule
             ];
         }
 
-        // PS 1.7.7+ requires PHP 7.1.3+
-        if (version_compare($psVersion, '1.7.7.0', '>=') && version_compare($phpVersion, '7.1.3', '<')) {
+        // PS 1.7.8+ requires PHP 7.1.3+
+        if (version_compare($psVersion, '1.7.8.0', '>=') && version_compare($phpVersion, '7.1.3', '<')) {
             return [
                 'compatible' => false,
                 'message' => sprintf($this->l('PrestaShop %s requires PHP 7.1.3 or higher. Current PHP version: %s'), $psVersion, $phpVersion),
@@ -2086,7 +2086,7 @@ class Monei extends PaymentModule
      */
     public function hookDisplayAdminOrder($params)
     {
-        // Load required assets for jsonViewer (needed for PrestaShop 1.7.7 compatibility)
+        // Load required assets for jsonViewer (needed for PrestaShop 1.7.8 compatibility)
         $this->context->controller->addCSS($this->_path . 'views/css/jquery.json-viewer.css');
         $this->context->controller->addJS($this->_path . 'views/js/jquery.json-viewer.js');
 
@@ -2618,7 +2618,7 @@ class Monei extends PaymentModule
             $price = 0;
         }
 
-        // PrestaShop 1.7.7 compatibility - use Tools::displayPrice instead of getContextLocale
+        // PrestaShop 1.7.8 compatibility - use Tools::displayPrice instead of getContextLocale
         $currency = Currency::getCurrencyInstance(Currency::getIdByIsoCode($currencyIso));
 
         return Tools::displayPrice((float) $price, $currency);
@@ -2964,13 +2964,13 @@ class Monei extends PaymentModule
     }
 
     /**
-     * Hook to add capture payment button to order actions (PS 1.7.7+)
+     * Hook to add capture payment button to order actions (PS 1.7.8+)
      *
      * @param array $params Hook parameters containing order information
      */
     public function hookActionGetAdminOrderButtons(array $params)
     {
-        // This hook only exists in PrestaShop 1.7.7+
+        // This hook only exists in PrestaShop 1.7.8+
         // Check if the required classes exist
         if (!class_exists('PrestaShopBundle\Controller\Admin\Sell\Order\ActionsBarButton')
             || !class_exists('PrestaShopBundle\Controller\Admin\Sell\Order\ActionsBarButtonsCollection')) {
