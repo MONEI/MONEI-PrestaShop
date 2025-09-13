@@ -186,60 +186,71 @@ function upgrade_module_1_7_5($module)
             }
         }
 
-        // 6. Validate and create missing order states
-        $orderStates = [
-            'MONEI_STATUS_PENDING' => [
-                'name' => 'Awaiting payment',
-                'color' => '#8961A5',
-                'send_email' => false,
-                'paid' => false,
-                'invoice' => false,
-                'shipped' => false,
-                'logable' => true,
-                'delivery' => false,
-            ],
-            'MONEI_STATUS_SUCCEEDED' => [
-                'name' => 'Payment accepted',
-                'color' => '#32CD32',
-                'send_email' => true,
-                'paid' => true,
-                'invoice' => true,
-                'shipped' => false,
-                'logable' => true,
-                'delivery' => false,
-            ],
-            'MONEI_STATUS_FAILED' => [
-                'name' => 'Payment error',
-                'color' => '#DC143C',
-                'send_email' => false,
-                'paid' => false,
-                'invoice' => false,
-                'shipped' => false,
-                'logable' => false,
-                'delivery' => false,
-            ],
-            'MONEI_STATUS_REFUNDED' => [
-                'name' => 'Refunded',
-                'color' => '#ec2e15',
-                'send_email' => true,
-                'paid' => false,
-                'invoice' => false,
-                'shipped' => false,
-                'logable' => false,
-                'delivery' => false,
-            ],
-            'MONEI_STATUS_PARTIALLY_REFUNDED' => [
-                'name' => 'Partially refunded',
-                'color' => '#FFA500',
-                'send_email' => true,
-                'paid' => true,
-                'invoice' => true,
-                'shipped' => false,
-                'logable' => false,
-                'delivery' => false,
-            ],
-            'MONEI_STATUS_AUTHORIZED' => [
-                'name' => 'Authorized (not captured)',
+        // 6. Clean up old MONEI order states to avoid duplication
+        // First, check if we're using PrestaShop's default states or custom MONEI states
+        $defaultStates = [
+            'PS_OS_PAYMENT' => 2,  // Payment accepted
+            'PS_OS_PREPARATION' => 3,  // Awaiting payment
+            'PS_OS_REFUND' => 7,  // Refunded
+            'PS_OS_ERROR' => 8,  // Payment error
+        ];
+
+        // Check if we should use default states (preferred to avoid duplication)
+        $useDefaults = true;
+        foreach ($defaultStates as $psConfig => $expectedId) {
+            if (Configuration::get($psConfig) != $expectedId) {
+                $useDefaults = false;
+
+                break;
+            }
+        }
+
+        if ($useDefaults) {
+            // Use PrestaShop's default states to avoid creating duplicates
+            Configuration::updateValue('MONEI_STATUS_SUCCEEDED', Configuration::get('PS_OS_PAYMENT'));
+            Configuration::updateValue('MONEI_STATUS_PENDING', Configuration::get('PS_OS_PREPARATION'));
+            Configuration::updateValue('MONEI_STATUS_REFUNDED', Configuration::get('PS_OS_REFUND'));
+            Configuration::updateValue('MONEI_STATUS_PARTIALLY_REFUNDED', Configuration::get('PS_OS_REFUND'));
+            Configuration::updateValue('MONEI_STATUS_FAILED', Configuration::get('PS_OS_ERROR'));
+
+            // Clean up any old MONEI-created duplicate states
+            $oldMoneiStates = Db::getInstance()->executeS(
+                'SELECT DISTINCT os.id_order_state
+                FROM ' . _DB_PREFIX_ . "order_state os
+                WHERE os.module_name = 'monei'
+                AND os.id_order_state NOT IN (" . (int) Configuration::get('MONEI_STATUS_AUTHORIZED') . ')'
+            );
+
+            foreach ($oldMoneiStates as $oldState) {
+                $stateId = (int) $oldState['id_order_state'];
+
+                // Check if this state is used by any orders
+                $isUsed = Db::getInstance()->getValue(
+                    'SELECT COUNT(*) FROM ' . _DB_PREFIX_ . 'orders
+                    WHERE current_state = ' . $stateId
+                );
+
+                if (!$isUsed) {
+                    // Safe to delete unused MONEI state
+                    $orderState = new OrderState($stateId);
+                    if (Validate::isLoadedObject($orderState) && $orderState->module_name == 'monei') {
+                        $orderState->delete();
+                        PrestaShopLogger::addLog(
+                            '[MONEI] Upgrade 1.7.5 - Deleted unused duplicate order state: ' . $stateId,
+                            1
+                        );
+                    }
+                }
+            }
+        }
+
+        // 7. Create only the MONEI-specific order states (not available in PrestaShop by default)
+        $orderStates = [];
+
+        // Always need the authorized state as it's MONEI-specific
+        if (!Configuration::get('MONEI_STATUS_AUTHORIZED')) {
+            $orderStates['MONEI_STATUS_AUTHORIZED'] = [
+                'name' => 'Payment authorized',
                 'color' => '#4169E1',
                 'send_email' => false,
                 'paid' => false,
@@ -247,16 +258,80 @@ function upgrade_module_1_7_5($module)
                 'shipped' => false,
                 'logable' => true,
                 'delivery' => false,
-            ],
-        ];
+            ];
+        }
+
+        // Only create other states if not using defaults
+        if (!$useDefaults) {
+            // Need to create custom states if PrestaShop defaults aren't available
+            if (!Configuration::get('MONEI_STATUS_PENDING')) {
+                $orderStates['MONEI_STATUS_PENDING'] = [
+                    'name' => 'Awaiting payment',
+                    'color' => '#8961A5',
+                    'send_email' => false,
+                    'paid' => false,
+                    'invoice' => false,
+                    'shipped' => false,
+                    'logable' => true,
+                    'delivery' => false,
+                ];
+            }
+            if (!Configuration::get('MONEI_STATUS_SUCCEEDED')) {
+                $orderStates['MONEI_STATUS_SUCCEEDED'] = [
+                    'name' => 'Payment accepted',
+                    'color' => '#32CD32',
+                    'send_email' => true,
+                    'paid' => true,
+                    'invoice' => true,
+                    'shipped' => false,
+                    'logable' => true,
+                    'delivery' => false,
+                ];
+            }
+            if (!Configuration::get('MONEI_STATUS_FAILED')) {
+                $orderStates['MONEI_STATUS_FAILED'] = [
+                    'name' => 'Payment error',
+                    'color' => '#DC143C',
+                    'send_email' => false,
+                    'paid' => false,
+                    'invoice' => false,
+                    'shipped' => false,
+                    'logable' => false,
+                    'delivery' => false,
+                ];
+            }
+            if (!Configuration::get('MONEI_STATUS_REFUNDED')) {
+                $orderStates['MONEI_STATUS_REFUNDED'] = [
+                    'name' => 'Refunded',
+                    'color' => '#ec2e15',
+                    'send_email' => true,
+                    'paid' => false,
+                    'invoice' => false,
+                    'shipped' => false,
+                    'logable' => false,
+                    'delivery' => false,
+                ];
+            }
+        }
 
         // Load translation methods if needed
         if (!class_exists('Monei')) {
             require_once dirname(__FILE__) . '/../monei.php';
         }
 
+        // Special handling: Both REFUNDED and PARTIALLY_REFUNDED should use the same state
+        $refundedStateId = null;
+
         foreach ($orderStates as $configKey => $stateData) {
             $stateId = Configuration::get($configKey);
+
+            // If this is PARTIALLY_REFUNDED and we already created REFUNDED, use the same state
+            if ($configKey === 'MONEI_STATUS_PARTIALLY_REFUNDED' && $refundedStateId) {
+                Configuration::updateValue($configKey, $refundedStateId);
+
+                continue;
+            }
+
             if (!$stateId) {
                 // Create the order state
                 $orderState = new OrderState();
@@ -280,6 +355,11 @@ function upgrade_module_1_7_5($module)
                 if ($orderState->add()) {
                     Configuration::updateValue($configKey, (int) $orderState->id);
 
+                    // Store the refunded state ID for reuse
+                    if ($configKey === 'MONEI_STATUS_REFUNDED') {
+                        $refundedStateId = (int) $orderState->id;
+                    }
+
                     // Copy logo
                     @copy(
                         dirname(__FILE__) . '/../logo.gif',
@@ -296,15 +376,16 @@ function upgrade_module_1_7_5($module)
                     // Recursive call will recreate it
                     return upgrade_module_1_7_5($module);
                 }
+
+                // Store the refunded state ID if it exists
+                if ($configKey === 'MONEI_STATUS_REFUNDED') {
+                    $refundedStateId = $stateId;
+                }
             }
         }
 
-        // 7. Update order status translations for all MONEI statuses
+        // 8. Update order status translations for all MONEI statuses
         // Use centralized translation methods from main module
-        if (!class_exists('Monei')) {
-            require_once dirname(__FILE__) . '/../monei.php';
-        }
-
         $allTranslations = Monei::getOrderStatusTranslations();
 
         // Map config keys to status names
@@ -313,7 +394,7 @@ function upgrade_module_1_7_5($module)
             'MONEI_STATUS_SUCCEEDED' => 'Payment accepted',
             'MONEI_STATUS_FAILED' => 'Payment error',
             'MONEI_STATUS_REFUNDED' => 'Refunded',
-            'MONEI_STATUS_PARTIALLY_REFUNDED' => 'Partially refunded',
+            'MONEI_STATUS_PARTIALLY_REFUNDED' => 'Refunded',  // Same as REFUNDED
             'MONEI_STATUS_AUTHORIZED' => 'Payment authorized',
         ];
 
@@ -341,7 +422,7 @@ function upgrade_module_1_7_5($module)
             }
         }
 
-        // 8. Install Order override for reference synchronization
+        // 9. Install Order override for reference synchronization
         try {
             // Check if override exists
             $overrideSource = _PS_MODULE_DIR_ . $module->name . '/override/classes/order/Order.php';
@@ -375,7 +456,7 @@ function upgrade_module_1_7_5($module)
             // Continue with upgrade even if override fails
         }
 
-        // 8. Ensure Apple Pay domain verification file exists
+        // 10. Ensure Apple Pay domain verification file exists
         if (method_exists($module, 'copyApplePayDomainVerificationFile')) {
             try {
                 // Use reflection to call the method even if it's private
@@ -399,7 +480,7 @@ function upgrade_module_1_7_5($module)
             }
         }
 
-        // 9. Clean up deprecated configurations
+        // 11. Clean up deprecated configurations
         $deprecatedConfigs = [
             'MONEI_CART_TO_ORDER',
             'MONEI_SHOW_PAYMENT_LOGOS',  // Old config name
@@ -410,7 +491,7 @@ function upgrade_module_1_7_5($module)
             Configuration::deleteByName($configKey);
         }
 
-        // 10. Regenerate .htaccess and clear caches
+        // 12. Regenerate .htaccess and clear caches
         try {
             // Regenerate .htaccess
             if (method_exists('Tools', 'generateHtaccess')) {
