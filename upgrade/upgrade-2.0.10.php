@@ -47,7 +47,7 @@ function updateOrderStateTranslations()
         'MONEI_STATUS_SUCCEEDED' => 'Payment accepted',
         'MONEI_STATUS_FAILED' => 'Payment failed',
         'MONEI_STATUS_REFUNDED' => 'Refunded',
-        'MONEI_STATUS_PARTIALLY_REFUNDED' => 'Partially refunded',
+        // Note: MONEI_STATUS_PARTIALLY_REFUNDED uses the same PS_OS_REFUND state as MONEI_STATUS_REFUNDED
     ];
 
     foreach ($stateMapping as $configKey => $englishName) {
