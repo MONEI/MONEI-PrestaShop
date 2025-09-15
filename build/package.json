@@ -1,6 +1,6 @@
 {
   "name": "monei-prestashop",
-  "version": "1.7.8",
+  "version": "1.7.9",
   "main": "index.js",
   "repository": "git@github.com:MONEI/MONEI-PrestaShop.git",
   "author": "MONEI <support@monei.com>",
