@@ -57,6 +57,21 @@ class MoneiService
         // as we use static methods on ObjectModel classes directly
     }
 
+    /**
+     * Get standardized user agent string for MONEI API requests
+     *
+     * @return string
+     */
+    public static function getUserAgent()
+    {
+        return sprintf(
+            'MONEI/PrestaShop/%s (PrestaShop v%s; PHP v%s)',
+            \Monei::VERSION,
+            _PS_VERSION_,
+            PHP_VERSION
+        );
+    }
+
     public function getMoneiClient()
     {
         if ((bool) \Configuration::get('MONEI_PRODUCTION_MODE')) {
@@ -70,10 +85,7 @@ class MoneiService
         }
 
         $client = new MoneiClient($apiKey);
-
-        // Use module version in User-Agent (required for proper API response)
-        $moduleVersion = \Module::getInstanceByName('monei')->version ?? '1.0.0';
-        $client->setUserAgent('MONEI/PrestaShop/' . $moduleVersion);
+        $client->setUserAgent(self::getUserAgent());
 
         return $client;
     }
