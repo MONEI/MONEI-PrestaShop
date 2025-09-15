@@ -63,6 +63,21 @@ class MoneiService
         $this->moneiHistoryRepository = $moneiHistoryRepository;
     }
 
+    /**
+     * Get standardized user agent string for MONEI API requests
+     *
+     * @return string
+     */
+    public static function getUserAgent()
+    {
+        return sprintf(
+            'MONEI/PrestaShop/%s (PrestaShop v%s; PHP v%s)',
+            \Monei::VERSION,
+            _PS_VERSION_,
+            PHP_VERSION
+        );
+    }
+
     public function getMoneiClient()
     {
         if ((bool) \Configuration::get('MONEI_PRODUCTION_MODE')) {
@@ -76,7 +91,7 @@ class MoneiService
         }
 
         $client = new MoneiClient($apiKey);
-        $client->setUserAgent('MONEI/PrestaShop/' . _PS_VERSION_);
+        $client->setUserAgent(self::getUserAgent());
 
         return $client;
     }

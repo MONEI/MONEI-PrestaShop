@@ -1050,7 +1050,7 @@ class Monei extends PaymentModule
 
             // Create temporary MONEI client with provided credentials
             $moneiClient = new Monei\MoneiClient($apiKey);
-            $moneiClient->setUserAgent('MONEI/PrestaShop/' . _PS_VERSION_);
+            $moneiClient->setUserAgent(\PsMonei\Service\Monei\MoneiService::getUserAgent());
 
             // Test the connection by trying to get payment methods for the account
             // The get() method takes account_id as the first parameter
