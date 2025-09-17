@@ -35,7 +35,7 @@ function upgrade_module_1_7_5($module)
 
         // Create payment table if not exists
         $sql[] = 'CREATE TABLE IF NOT EXISTS `' . _DB_PREFIX_ . 'monei2_payment` (
-            `id` VARCHAR(255) NOT NULL,
+            `id_payment` VARCHAR(255) NOT NULL,
             `id_cart` INT(11) NOT NULL,
             `id_order` INT(11) DEFAULT 0,
             `id_order_monei` VARCHAR(255) DEFAULT NULL,
@@ -48,7 +48,7 @@ function upgrade_module_1_7_5($module)
             `is_captured` TINYINT(1) DEFAULT 0,
             `date_add` DATETIME DEFAULT NULL,
             `date_upd` DATETIME DEFAULT NULL,
-            PRIMARY KEY (`id`),
+            PRIMARY KEY (`id_payment`),
             INDEX `id_cart` (`id_cart`),
             INDEX `id_order` (`id_order`),
             INDEX `id_order_monei` (`id_order_monei`),
@@ -116,10 +116,7 @@ function upgrade_module_1_7_5($module)
 
         foreach ($sql as $query) {
             if (!Db::getInstance()->execute($query)) {
-                PrestaShopLogger::addLog(
-                    '[MONEI] Upgrade 1.7.5 - Failed to create table: ' . $query,
-                    3
-                );
+                Monei::logError('[MONEI] Upgrade 1.7.5 - Failed to create table: ' . $query);
 
                 return false;
             }
@@ -238,10 +235,6 @@ function upgrade_module_1_7_5($module)
                 $orderState = new OrderState($stateId);
                 if (Validate::isLoadedObject($orderState) && $orderState->module_name == 'monei') {
                     $orderState->delete();
-                    PrestaShopLogger::addLog(
-                        '[MONEI] Upgrade 1.7.5 - Deleted unused duplicate order state: ' . $stateId,
-                        1
-                    );
                 }
             }
         }
@@ -447,10 +440,7 @@ function upgrade_module_1_7_5($module)
                 }
             }
         } catch (Exception $e) {
-            PrestaShopLogger::addLog(
-                '[MONEI] Upgrade 1.7.5 - Failed to install Order override: ' . $e->getMessage(),
-                2
-            );
+            Monei::logWarning('[MONEI] Upgrade 1.7.5 - Failed to install Order override: ' . $e->getMessage());
             // Continue with upgrade even if override fails
         }
 
@@ -510,23 +500,12 @@ function upgrade_module_1_7_5($module)
             }
         } catch (Exception $e) {
             // Cache clearing is not critical
-            PrestaShopLogger::addLog(
-                '[MONEI] Upgrade 1.7.5 - Cache clearing warning: ' . $e->getMessage(),
-                2
-            );
+            Monei::logWarning('[MONEI] Upgrade 1.7.5 - Cache clearing warning: ' . $e->getMessage());
         }
-
-        PrestaShopLogger::addLog(
-            '[MONEI] Successfully upgraded module to version 1.7.5',
-            1
-        );
 
         return true;
     } catch (Exception $e) {
-        PrestaShopLogger::addLog(
-            '[MONEI] Upgrade 1.7.5 failed: ' . $e->getMessage(),
-            3
-        );
+        Monei::logError('[MONEI] Upgrade 1.7.5 failed: ' . $e->getMessage());
 
         return false;
     }

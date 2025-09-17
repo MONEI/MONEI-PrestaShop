@@ -218,11 +218,6 @@ class PaymentOptionService
 
                     // Skip cards with brands that are no longer supported
                     if (!in_array($cardBrand, $this->availableCardBrands)) {
-                        \PrestaShopLogger::addLog(
-                            'MONEI - Skipping saved card with unsupported brand: ' . $cardBrand,
-                            \Monei::getLogLevel('info')
-                        );
-
                         continue;
                     }
 
