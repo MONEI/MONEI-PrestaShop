@@ -19,6 +19,12 @@ class MoneiRedirectModuleFrontController extends ModuleFrontController
 
         $cart = $this->context->cart;
 
+        // Debug log for payment initialization
+        Monei::logDebug('[MONEI] Payment redirect initiated [cart_id=' . ($cart ? $cart->id : 'null')
+            . ', method=' . $paymentMethod
+            . ', tokenize=' . ($tokenizeCard ? 'yes' : 'no')
+            . ', card_id=' . $moneiCardId . ']');
+
         // Validate cart before accessing properties
         if (!Validate::isLoadedObject($cart)) {
             Monei::logError('[MONEI] Payment initiation failed - Invalid or missing cart [method=' . $paymentMethod . ']');
@@ -69,6 +75,8 @@ class MoneiRedirectModuleFrontController extends ModuleFrontController
                 if ($moneiPayment->getStatus() === PaymentStatus::FAILED && $moneiPayment->getStatusMessage()) {
                     $redirectURL = $this->addQueryParam($redirectURL, 'message', $moneiPayment->getStatusMessage());
                 }
+                Monei::logDebug('[MONEI] Redirecting to payment gateway [payment_id=' . $moneiPayment->getId()
+                    . ', status=' . $moneiPayment->getStatus() . ']');
                 Tools::redirect($redirectURL);
             }
 
