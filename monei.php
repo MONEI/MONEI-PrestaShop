@@ -703,8 +703,11 @@ class Monei extends PaymentModule
          * If values have been submitted in the form, process.
          */
         if ((bool) Tools::isSubmit('submitMoneiModule')) {
+            $message .= $this->postProcess(1);
         } elseif (Tools::isSubmit('submitMoneiModuleGateways')) {
+            $message .= $this->postProcess(2);
         } elseif (Tools::isSubmit('submitMoneiModuleStatus')) {
+            $message .= $this->postProcess(3);
         } elseif (Tools::isSubmit('submitMoneiModuleComponentStyle')) {
             $message .= $this->postProcess(4);
         }
