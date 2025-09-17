@@ -37,24 +37,24 @@ function upgrade_module_2_0_9($module)
                 // Backup existing override if present
                 if (file_exists($destOverride)) {
                     $backupFile = $destOverride . '.backup.' . time();
-                    if (!copy($destOverride, $backupFile)) {
-                        throw new Exception('Failed to create backup of existing override');
+                    if (!@rename($destOverride, $backupFile)) {
+                        throw new Exception('Failed to backup existing override: ' . $destOverride . ' -> ' . $backupFile);
                     }
                 }
 
                 // Copy our override
-                if (!copy($sourceOverride, $destOverride)) {
+                if (!@copy($sourceOverride, $destOverride)) {
                     // Restore backup if copy failed
                     if (isset($backupFile) && file_exists($backupFile)) {
-                        copy($backupFile, $destOverride);
+                        @rename($backupFile, $destOverride);
                     }
 
-                    throw new Exception('Failed to copy override file');
+                    throw new Exception('Failed to copy override file: ' . $sourceOverride . ' -> ' . $destOverride);
                 }
 
                 // Clear cache to ensure override is loaded
                 Tools::clearCache();
-                Tools::clearCompileCache();
+                Tools::clearSmartyCache();
 
                 // Log the installation
                 Monei::logDebug('[MONEI] Order override installed during upgrade to 2.0.9');

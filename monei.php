@@ -158,6 +158,11 @@ class Monei extends PaymentModule
     {
         $minLogLevel = (int) Configuration::get('MONEI_LOG_LEVEL', 3); // Default to ERROR only
 
+        // Treat 4 (NONE) as disabled
+        if ($minLogLevel === 4) {
+            return;
+        }
+
         // Only log if the severity is at or above the configured minimum level
         // PrestaShop severity levels: 1=INFO, 2=WARNING, 3=ERROR, 4=MAJOR
         if ($severity >= $minLogLevel) {
@@ -496,7 +501,7 @@ class Monei extends PaymentModule
 
                         // Clear cache to ensure override removal takes effect
                         Tools::clearCache();
-                        Tools::clearCompileCache();
+                        Tools::clearSmartyCache();
                     }
                 }
             }
