@@ -46,7 +46,7 @@ class MoneiCreatePaymentModuleFrontController extends ModuleFrontController
                 // Important: Cast to string to ensure it's a simple type for JSON encoding
                 $paymentId = (string) $paymentResponse->getId();
 
-                Monei::logDebug('[MONEI] Payment created successfully [payment_id=' . $paymentId . ', cart_id=' . $this->context->cart->id . ', status=' . $paymentResponse->getStatus() . ']');
+                Monei::logDebug('[MONEI] Payment created successfully [payment_id=' . $paymentId . ', cart_id=' . ($this->context->cart ? (int) $this->context->cart->id : 0) . ', status=' . $paymentResponse->getStatus() . ']');
 
                 header('Content-Type: application/json');
                 echo json_encode(['moneiPaymentId' => $paymentId]);
