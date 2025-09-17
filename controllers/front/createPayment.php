@@ -11,7 +11,7 @@ class MoneiCreatePaymentModuleFrontController extends ModuleFrontController
         $data = json_decode($json, true);
 
         if (!$this->isAuthorizedRequest($data)) {
-            \Monei::logWarning('[MONEI] CreatePayment unauthorized access attempt [cart_id=' . $this->context->cart->id . ']');
+            Monei::logWarning('[MONEI] CreatePayment unauthorized access attempt [cart_id=' . $this->context->cart->id . ']');
             header('Content-Type: application/json');
             http_response_code(403);
 
@@ -41,7 +41,6 @@ class MoneiCreatePaymentModuleFrontController extends ModuleFrontController
             );
 
             if ($paymentResponse) {
-
                 // Always return the payment ID, even if status is FAILED
                 // The JavaScript will handle the failure through confirmPayment
                 // Important: Cast to string to ensure it's a simple type for JSON encoding
@@ -107,7 +106,7 @@ class MoneiCreatePaymentModuleFrontController extends ModuleFrontController
                 }
             }
 
-            \Monei::logError('[MONEI] Payment creation API exception [cart_id=' . $this->context->cart->id
+            Monei::logError('[MONEI] Payment creation API exception [cart_id=' . $this->context->cart->id
                 . ', error=' . $errorMessage
                 . ', status_code=' . ($statusCodeValue ?: 'unknown') . ']');
 

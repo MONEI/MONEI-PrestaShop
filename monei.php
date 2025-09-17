@@ -161,7 +161,7 @@ class Monei extends PaymentModule
         // Only log if the severity is at or above the configured minimum level
         // PrestaShop severity levels: 1=INFO, 2=WARNING, 3=ERROR, 4=MAJOR
         if ($severity >= $minLogLevel) {
-            \PrestaShopLogger::addLog($message, $severity);
+            PrestaShopLogger::addLog($message, $severity);
         }
     }
 
@@ -368,6 +368,7 @@ class Monei extends PaymentModule
         $existingStateId = $this->findOrderStateByName($englishName);
         if ($existingStateId) {
             Configuration::updateValue($configKey, (int) $existingStateId);
+
             return true;
         }
 
@@ -1007,7 +1008,7 @@ class Monei extends PaymentModule
 
             // Create temporary MONEI client with provided credentials
             $moneiClient = new Monei\MoneiClient($apiKey);
-            $moneiClient->setUserAgent(\PsMonei\Service\Monei\MoneiService::getUserAgent());
+            $moneiClient->setUserAgent(PsMonei\Service\Monei\MoneiService::getUserAgent());
 
             // Test the connection by trying to get payment methods for the account
             // The get() method takes account_id as the first parameter

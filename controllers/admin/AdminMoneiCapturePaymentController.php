@@ -114,7 +114,7 @@ class AdminMoneiCapturePaymentController extends ModuleAdminController
 
         try {
             // Log capture attempt
-            \Monei::logDebug('MONEI - Capture payment attempt for order ' . $orderId . ' with amount ' . $amount);
+            Monei::logDebug('MONEI - Capture payment attempt for order ' . $orderId . ' with amount ' . $amount);
 
             // Get the services
             $orderService = Monei::getService('service.order');
@@ -162,7 +162,7 @@ class AdminMoneiCapturePaymentController extends ModuleAdminController
             ]));
         } catch (MoneiException $e) {
             $errorMessage = 'MONEI - Capture payment error: ' . $e->getMessage() . ' | Code: ' . $e->getCode() . ' | Trace: ' . $e->getTraceAsString();
-            \Monei::logError($errorMessage);
+            Monei::logError($errorMessage);
 
             die(json_encode([
                 'success' => false,
@@ -171,7 +171,7 @@ class AdminMoneiCapturePaymentController extends ModuleAdminController
             ]));
         } catch (Exception $e) {
             $errorMessage = 'MONEI - Capture payment general error: ' . $e->getMessage() . ' | File: ' . $e->getFile() . ' | Line: ' . $e->getLine() . ' | Trace: ' . $e->getTraceAsString();
-            \Monei::logError($errorMessage);
+            Monei::logError($errorMessage);
 
             die(json_encode([
                 'success' => false,

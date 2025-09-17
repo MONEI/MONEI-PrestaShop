@@ -66,7 +66,7 @@ function upgrade_module_2_0_0()
 
                 // If still not an array, log and use empty array
                 if (!is_array($moneiPayment)) {
-                    \Monei::logWarning('MONEI - upgrade-2.0.0 - Failed to decode payment response for history ID: ' . $history['id_monei_history']);
+                    Monei::logWarning('MONEI - upgrade-2.0.0 - Failed to decode payment response for history ID: ' . $history['id_monei_history']);
                     $moneiPayment = [];
                 }
 
@@ -99,7 +99,7 @@ function upgrade_module_2_0_0()
                     ->where('id_monei = ' . $refund['id_monei']);
                 $paymentId = $db->getValue($query);
                 if (!$paymentId) {
-                    \Monei::logWarning('MONEI - upgrade-2.0.0 - Skipping refund ID ' . $refund['id_monei_refund'] . ' - no matching payment found');
+                    Monei::logWarning('MONEI - upgrade-2.0.0 - Skipping refund ID ' . $refund['id_monei_refund'] . ' - no matching payment found');
 
                     continue;
                 }
@@ -121,14 +121,14 @@ function upgrade_module_2_0_0()
         // Commit transaction
         $db->execute('COMMIT');
 
-        \Monei::logDebug('MONEI - upgrade-2.0.0 - Migration completed successfully');
+        Monei::logDebug('MONEI - upgrade-2.0.0 - Migration completed successfully');
 
         return true;
     } catch (Exception $e) {
         // Rollback on error
         $db->execute('ROLLBACK');
 
-        \Monei::logError('MONEI - upgrade-2.0.0 - Migration failed: ' . $e->getMessage());
+        Monei::logError('MONEI - upgrade-2.0.0 - Migration failed: ' . $e->getMessage());
 
         return false;
     }

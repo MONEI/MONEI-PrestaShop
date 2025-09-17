@@ -27,7 +27,7 @@ class OrderService
         MoneiService $moneiService,
         PaymentMethodFormatter $paymentMethodFormatter,
         LockService $lockService,
-        LegacyContext $legacyContext
+        LegacyContext $legacyContext,
     ) {
         $this->moneiInstance = $moneiInstance;
         $this->moneiService = $moneiService;

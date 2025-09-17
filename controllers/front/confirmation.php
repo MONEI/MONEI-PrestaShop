@@ -33,7 +33,7 @@ class MoneiConfirmationModuleFrontController extends ModuleFrontController
             try {
                 $payment = $moneiService->getMoneiPayment($moneiPaymentId);
             } catch (Exception $e) {
-                \Monei::logError('[MONEI] Failed to retrieve payment [payment_id=' . $moneiPaymentId . ', error=' . $e->getMessage() . ']');
+                Monei::logError('[MONEI] Failed to retrieve payment [payment_id=' . $moneiPaymentId . ', error=' . $e->getMessage() . ']');
 
                 $this->context->cookie->monei_checkout_error = $this->module->l('An error occurred while processing your payment. Please try again.');
                 $this->context->cookie->write();
@@ -66,7 +66,7 @@ class MoneiConfirmationModuleFrontController extends ModuleFrontController
                     break;
             }
         } catch (Exception $ex) {
-            \Monei::logError('[MONEI] Confirmation page exception [payment_id=' . $moneiPaymentId . ', error=' . $ex->getMessage() . ']');
+            Monei::logError('[MONEI] Confirmation page exception [payment_id=' . $moneiPaymentId . ', error=' . $ex->getMessage() . ']');
 
             // Store the exception message for technical errors
             $this->context->cookie->monei_checkout_error = $this->module->l('An unexpected error occurred. Please try again.');
@@ -82,9 +82,11 @@ class MoneiConfirmationModuleFrontController extends ModuleFrontController
      */
     private function handleSuccessfulPayment($moneiPaymentId)
     {
+        try {
+            $orderService = Monei::getService('service.order');
             $orderService->createOrUpdateOrder($moneiPaymentId, true);
         } catch (Exception $e) {
-            \Monei::logError('[MONEI] Order creation failed [payment_id=' . $moneiPaymentId . ', error=' . $e->getMessage() . ']');
+            Monei::logError('[MONEI] Order creation failed [payment_id=' . $moneiPaymentId . ', error=' . $e->getMessage() . ']');
 
             throw $e; // Re-throw to be caught by outer try-catch
         }

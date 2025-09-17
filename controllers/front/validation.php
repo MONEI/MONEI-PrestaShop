@@ -29,7 +29,7 @@ class MoneiValidationModuleFrontController extends ModuleFrontController
         }
 
         if (!isset($_SERVER['HTTP_MONEI_SIGNATURE'])) {
-            \Monei::logWarning('[MONEI] Missing webhook signature header');
+            Monei::logWarning('[MONEI] Missing webhook signature header');
             http_response_code(401);
             header('Content-Type: text/plain; charset=utf-8');
             echo 'Unauthorized';
@@ -43,7 +43,7 @@ class MoneiValidationModuleFrontController extends ModuleFrontController
             $this->module->getMoneiClient()->verifySignature($requestBody, $sigHeader);
         } catch (Throwable $e) {
             // Catch all exceptions during signature verification
-            \Monei::logError('[MONEI] Webhook signature verification failed: ' . $e->getMessage());
+            Monei::logError('[MONEI] Webhook signature verification failed: ' . $e->getMessage());
 
             http_response_code(401);
             header('Content-Type: text/plain; charset=utf-8');
@@ -74,7 +74,7 @@ class MoneiValidationModuleFrontController extends ModuleFrontController
             header('Content-Type: text/plain; charset=utf-8');
             echo 'OK';
         } catch (Exception $e) {
-            \Monei::logError('[MONEI] Webhook processing error: ' . $e->getMessage());
+            Monei::logError('[MONEI] Webhook processing error: ' . $e->getMessage());
 
             http_response_code(400);
             header('Content-Type: text/plain; charset=utf-8');
