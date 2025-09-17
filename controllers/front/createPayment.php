@@ -124,6 +124,7 @@ class MoneiCreatePaymentModuleFrontController extends ModuleFrontController
 
             // Log what we're sending to frontend
             http_response_code($statusCode);
+            header('Content-Type: application/json');
             echo json_encode($response);
         }
         exit;

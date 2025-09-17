@@ -361,12 +361,14 @@ class Monei extends PaymentModule
         // First, check if we have a valid existing state
         $stateId = (int) Configuration::get($configKey);
         if ($stateId > 0 && Validate::isLoadedObject(new OrderState($stateId))) {
+            return true;
         }
 
         // Try to find an existing state with the same name
         $existingStateId = $this->findOrderStateByName($englishName);
         if ($existingStateId) {
             Configuration::updateValue($configKey, (int) $existingStateId);
+            return true;
         }
 
         // Create new state
@@ -420,6 +422,8 @@ class Monei extends PaymentModule
             } else {
                 Configuration::updateValue($configKey, (int) $order_state->id);
             }
+
+            return true;
         }
 
         Monei::logError('MONEI - Failed to create order state ' . $configKey);

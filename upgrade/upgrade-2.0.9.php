@@ -36,11 +36,20 @@ function upgrade_module_2_0_9($module)
             if ($needsUpdate) {
                 // Backup existing override if present
                 if (file_exists($destOverride)) {
-                    copy($destOverride, $destOverride . '.backup.' . time());
+                    $backupFile = $destOverride . '.backup.' . time();
+                    if (!copy($destOverride, $backupFile)) {
+                        throw new \Exception('Failed to create backup of existing override');
+                    }
                 }
 
                 // Copy our override
-                copy($sourceOverride, $destOverride);
+                if (!copy($sourceOverride, $destOverride)) {
+                    // Restore backup if copy failed
+                    if (isset($backupFile) && file_exists($backupFile)) {
+                        copy($backupFile, $destOverride);
+                    }
+                    throw new \Exception('Failed to copy override file');
+                }
 
                 // Clear cache to ensure override is loaded
                 Tools::clearCache();
