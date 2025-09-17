@@ -19,20 +19,18 @@ class MoneiRedirectModuleFrontController extends ModuleFrontController
 
         $cart = $this->context->cart;
 
+        // Debug log for payment initialization
+        Monei::logDebug('[MONEI] Payment redirect initiated [cart_id=' . ($cart ? $cart->id : 'null')
+            . ', method=' . $paymentMethod
+            . ', tokenize=' . ($tokenizeCard ? 'yes' : 'no')
+            . ', card_id=' . $moneiCardId . ']');
+
         // Validate cart before accessing properties
         if (!Validate::isLoadedObject($cart)) {
-            PrestaShopLogger::addLog(
-                '[MONEI] Invalid or missing cart in redirect controller',
-                Monei::getLogLevel('error')
-            );
+            Monei::logError('[MONEI] Payment initiation failed - Invalid or missing cart [method=' . $paymentMethod . ']');
             Tools::redirect($this->context->link->getPageLink('index'));
             exit;
         }
-
-        PrestaShopLogger::addLog(
-            '[MONEI] Redirect initiated [cart_id=' . $cart->id . ']',
-            Monei::getLogLevel('info')
-        );
 
         // Use PS1.7 compatible encryption
         $expected_hash = Tools::encrypt((int) $cart->id . (int) $cart->id_customer);
@@ -49,13 +47,19 @@ class MoneiRedirectModuleFrontController extends ModuleFrontController
 
         try {
             if (!$check_encrypt) {
-                throw new MoneiException('Invalid crypto hash', MoneiException::INVALID_CRYPTO_HASH);
+                throw new MoneiException('[MONEI] Invalid transaction ID hash', MoneiException::INVALID_CRYPTO_HASH);
             }
 
             $moneiService = Monei::getService('service.monei');
 
             $moneiPayment = $moneiService->createMoneiPayment($cart, $tokenizeCard, $moneiCardId, $paymentMethod);
             if (!$moneiPayment) {
+                Monei::logError('[MONEI] Payment creation failed - No payment object returned [cart_id=' . $cart->id . ']');
+
+                // Store user-friendly error message for display on checkout page
+                $this->context->cookie->monei_checkout_error = $this->module->l('Unable to process payment. Please try again or use a different payment method.');
+                $this->context->cookie->write();
+
                 Tools::redirect($this->context->link->getPageLink('order'));
                 exit;
             }
@@ -64,36 +68,44 @@ class MoneiRedirectModuleFrontController extends ModuleFrontController
             // Orders are now created only after successful payment confirmation
 
             $nextAction = $moneiPayment->getNextAction();
-            if ($nextAction && $nextAction->getRedirectUrl()) {
-                $redirectURL = $nextAction->getRedirectUrl();
-                if ($moneiPayment->getStatus() === PaymentStatus::FAILED) {
-                    // Store status code for failed payments before redirect
-                    if ($moneiPayment->getStatusCode()) {
-                        $this->context->cookie->monei_error_code = $moneiPayment->getStatusCode();
-                    }
+            $redirectURL = $nextAction ? $nextAction->getRedirectUrl() : null;
+
+            if ($redirectURL) {
+                // Append status message for failed payments
+                if ($moneiPayment->getStatus() === PaymentStatus::FAILED && $moneiPayment->getStatusMessage()) {
                     $redirectURL = $this->addQueryParam($redirectURL, 'message', $moneiPayment->getStatusMessage());
                 }
-
+                Monei::logDebug('[MONEI] Redirecting to payment gateway [payment_id=' . $moneiPayment->getId()
+                    . ', status=' . $moneiPayment->getStatus() . ']');
                 Tools::redirect($redirectURL);
-                exit;
             }
 
             // If no redirect URL, go to order page
             Tools::redirect($this->context->link->getPageLink('order'));
             exit;
         } catch (Exception $ex) {
-            // Store the exception message for technical errors
-            $this->context->cookie->monei_error = $ex->getMessage();
+            Monei::logError('[MONEI] Payment creation exception [cart_id=' . $cart->id . ', error=' . $ex->getMessage() . ']');
 
             // If it's a MoneiException with a payment response, try to extract status code
             if ($ex instanceof MoneiException && method_exists($ex, 'getPaymentData')) {
                 $paymentData = $ex->getPaymentData();
                 if ($paymentData && isset($paymentData['statusCode'])) {
-                    $this->context->cookie->monei_error_code = $paymentData['statusCode'];
+                    $statusCodeHandler = Monei::getService('service.status_code_handler');
+                    $errorMessage = $statusCodeHandler->getStatusMessage($paymentData['statusCode']);
+                    if ($errorMessage) {
+                        $this->context->cookie->monei_checkout_error = $errorMessage;
+                        $this->context->cookie->write();
+                        Tools::redirect($this->context->link->getPageLink('order'));
+                        exit;
+                    }
                 }
             }
 
-            Tools::redirect($this->context->link->getModuleLink($this->module->name, 'errors'));
+            // Store user-friendly error message for display on checkout page
+            $this->context->cookie->monei_checkout_error = $this->module->l('An error occurred while processing your payment. Please try again.');
+            $this->context->cookie->write();
+            Tools::redirect($this->context->link->getPageLink('order'));
+            exit;
         }
 
         exit;

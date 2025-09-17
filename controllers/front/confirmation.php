@@ -16,19 +16,8 @@ class MoneiConfirmationModuleFrontController extends ModuleFrontController
         $cartId = Tools::getValue('cart_id');
         $orderId = Tools::getValue('order_id');
 
-        PrestaShopLogger::addLog(
-            '[MONEI] Payment confirmation page loaded [payment_id=' . $moneiPaymentId . ', cart_id=' . $cartId . ', order_id=' . $orderId . ']',
-            Monei::getLogLevel('info')
-        );
-
         try {
-            // Handle missing payment ID case
             if (!$moneiPaymentId) {
-                PrestaShopLogger::addLog(
-                    '[MONEI] Confirmation error - Missing payment ID in request',
-                    Monei::getLogLevel('error')
-                );
-
                 $this->context->cookie->monei_checkout_error = $this->module->l('There was a problem processing your payment. Please try again.');
                 $this->context->cookie->write();
 
@@ -42,17 +31,8 @@ class MoneiConfirmationModuleFrontController extends ModuleFrontController
 
             try {
                 $payment = $moneiService->getMoneiPayment($moneiPaymentId);
-
-                PrestaShopLogger::addLog(
-                    '[MONEI] Payment status retrieved [payment_id=' . $payment->getId() . ', status=' . $payment->getStatus()
-                    . ($payment->getStatusCode() ? ', status_code=' . $payment->getStatusCode() : '') . ']',
-                    Monei::getLogLevel('info')
-                );
             } catch (Exception $e) {
-                PrestaShopLogger::addLog(
-                    '[MONEI] Failed to retrieve payment [payment_id=' . $moneiPaymentId . ', error=' . $e->getMessage() . ']',
-                    Monei::getLogLevel('error')
-                );
+                Monei::logError('[MONEI] Failed to retrieve payment [payment_id=' . $moneiPaymentId . ', error=' . $e->getMessage() . ']');
 
                 $this->context->cookie->monei_checkout_error = $this->module->l('An error occurred while processing your payment. Please try again.');
                 $this->context->cookie->write();
@@ -85,10 +65,7 @@ class MoneiConfirmationModuleFrontController extends ModuleFrontController
                     break;
             }
         } catch (Exception $ex) {
-            PrestaShopLogger::addLog(
-                '[MONEI] Confirmation page exception [payment_id=' . $moneiPaymentId . ', error=' . $ex->getMessage() . ']',
-                Monei::getLogLevel('error')
-            );
+            Monei::logError('[MONEI] Confirmation page exception [payment_id=' . $moneiPaymentId . ', error=' . $ex->getMessage() . ']');
 
             // Store the exception message for technical errors
             $this->context->cookie->monei_checkout_error = $this->module->l('An unexpected error occurred. Please try again.');
@@ -105,19 +82,10 @@ class MoneiConfirmationModuleFrontController extends ModuleFrontController
     private function handleSuccessfulPayment($moneiPaymentId)
     {
         try {
-            // Process the order through the order service
             $orderService = Monei::getService('service.order');
             $orderService->createOrUpdateOrder($moneiPaymentId, true);
-
-            // The createOrUpdateOrder method with redirectToConfirmationPage=true will handle the redirect
-            // We should not reach this point as the method calls Tools::redirect()
-            // But just in case, we'll exit here to prevent Smarty template errors
-            exit;
         } catch (Exception $e) {
-            PrestaShopLogger::addLog(
-                '[MONEI] Error in handleSuccessfulPayment [payment_id=' . $moneiPaymentId . ', error=' . $e->getMessage() . ']',
-                Monei::getLogLevel('error')
-            );
+            Monei::logError('[MONEI] Order creation failed [payment_id=' . $moneiPaymentId . ', error=' . $e->getMessage() . ']');
 
             throw $e; // Re-throw to be caught by outer try-catch
         }
@@ -129,7 +97,6 @@ class MoneiConfirmationModuleFrontController extends ModuleFrontController
     private function handlePendingPayment($payment)
     {
         $paymentId = $payment->getId();
-
         // Check if this is a Multibanco payment (which can remain pending for days)
         $paymentMethod = $payment->getPaymentMethod();
         $isMultibanco = $paymentMethod && strtolower($paymentMethod->getType()) === 'multibanco';
@@ -153,12 +120,6 @@ class MoneiConfirmationModuleFrontController extends ModuleFrontController
     {
         $paymentStatus = $payment->getStatus();
         $statusCode = $payment->getStatusCode();
-
-        PrestaShopLogger::addLog(
-            '[MONEI] Payment failed [payment_id=' . $payment->getId() . ', status=' . $paymentStatus . ', status_code=' . $statusCode . ']',
-            Monei::getLogLevel('warning')
-        );
-
         // Get localized error message based on status code
         $errorMessage = '';
         $statusCodeHandler = Monei::getService('service.status_code_handler');
