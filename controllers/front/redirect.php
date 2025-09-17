@@ -20,6 +20,12 @@ class MoneiRedirectModuleFrontController extends ModuleFrontController
             $moneiCardId = (int) Tools::getValue('id_monei_card', 0);
             $paymentMethod = Tools::getValue('method', '');
 
+            // Debug log for payment initialization
+            Monei::logDebug('[MONEI] Payment redirect initiated [cart_id=' . ($cart ? $cart->id : 'null')
+                . ', method=' . $paymentMethod
+                . ', tokenize=' . ($tokenizeCard ? 'yes' : 'no')
+                . ', card_id=' . $moneiCardId . ']');
+
             // Validate cart exists and is valid before using it
             if (!$cart || !Validate::isLoadedObject($cart)
                 || $cart->id_customer == 0
