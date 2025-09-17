@@ -36,5 +36,5 @@
     "release-it": "^19.0.4",
     "uglifyjs-folder": "^3.3.0"
   },
-  "packageManager": "yarn@4.9.2"
+  "packageManager": "yarn@4.9.4"
 }
