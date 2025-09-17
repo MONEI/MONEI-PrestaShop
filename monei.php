@@ -280,6 +280,11 @@ class Monei extends PaymentModule
      */
     public static function log($message, $severity = 1)
     {
+        // Handle null or empty messages
+        if (empty($message)) {
+            return;
+        }
+
         $minLogLevel = (int) Configuration::get('MONEI_LOG_LEVEL', 3); // Default to ERROR only
 
         // Treat 4 (NONE) as disabled
