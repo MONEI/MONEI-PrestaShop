@@ -151,6 +151,7 @@ class AdminMoneiCapturePaymentController extends ModuleAdminController
                     $orderService->updateOrderPaymentDetails($order, $fullPayment);
                 } catch (Exception $e) {
                     // Log error but don't fail the capture
+                    Monei::logWarning('MONEI - Failed to update order payment details after capture for order ' . $orderId . ': ' . $e->getMessage());
                 }
             }
 
@@ -164,20 +165,26 @@ class AdminMoneiCapturePaymentController extends ModuleAdminController
             $errorMessage = 'MONEI - Capture payment error: ' . $e->getMessage() . ' | Code: ' . $e->getCode() . ' | Trace: ' . $e->getTraceAsString();
             Monei::logError($errorMessage);
 
-            die(json_encode([
+            $payload = [
                 'success' => false,
                 'message' => $this->getErrorMessage($e),
-                'debug' => $errorMessage, // Add debug info for development
-            ]));
+            ];
+            if (defined('_PS_MODE_DEV_') && _PS_MODE_DEV_ || (int) Configuration::get('MONEI_LOG_LEVEL', 3) <= 1) {
+                $payload['debug'] = $errorMessage;
+            }
+            die(json_encode($payload));
         } catch (Exception $e) {
             $errorMessage = 'MONEI - Capture payment general error: ' . $e->getMessage() . ' | File: ' . $e->getFile() . ' | Line: ' . $e->getLine() . ' | Trace: ' . $e->getTraceAsString();
             Monei::logError($errorMessage);
 
-            die(json_encode([
+            $payload = [
                 'success' => false,
                 'message' => $this->module->l('An unexpected error occurred while capturing the payment'),
-                'debug' => $errorMessage, // Add debug info for development
-            ]));
+            ];
+            if (defined('_PS_MODE_DEV_') && _PS_MODE_DEV_ || (int) Configuration::get('MONEI_LOG_LEVEL', 3) <= 1) {
+                $payload['debug'] = $errorMessage;
+            }
+            die(json_encode($payload));
         }
     }
 
