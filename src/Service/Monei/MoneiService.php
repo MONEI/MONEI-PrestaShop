@@ -372,7 +372,7 @@ class MoneiService
         // For now, keeping the behavior but adding a warning log
         $email = $customer->email;
         if (strpos($email, ':') !== false) {
-            \Monei::logWarning('MONEI - getCustomerData - Email contains colon, which will be removed: ' . $email);
+            \Monei::logWarning('[MONEI] getCustomerData - Email contains colon, which will be removed: ' . $email);
             $email = str_replace(':', '', $email);
         }
 

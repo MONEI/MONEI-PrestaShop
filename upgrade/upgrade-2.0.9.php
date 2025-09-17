@@ -50,9 +50,9 @@ function upgrade_module_2_0_9($module)
                 \Monei::logDebug('[MONEI] Order override installed during upgrade to 2.0.9');
             }
         }
-    } catch (Exception $e) {
+    } catch (\Throwable $e) {
         // Log error but don't fail the upgrade
-        \Monei::logWarning('[MONEI] Warning: Could not install Order override during upgrade: ' . $e->getMessage());
+        \Monei::logError('[MONEI] Could not install Order override during upgrade: ' . $e->getMessage());
     }
 
     return true;

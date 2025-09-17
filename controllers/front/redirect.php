@@ -55,7 +55,7 @@ class MoneiRedirectModuleFrontController extends ModuleFrontController
                     exit;
                 }
 
-                \Monei::logError('[MONEI] Payment created successfully [payment_id=' . $moneiPayment->getId() . ', cart_id=' . $cart->id . ', status=' . $moneiPayment->getStatus() . ']');
+                \Monei::logDebug('[MONEI] Payment created successfully [payment_id=' . $moneiPayment->getId() . ', cart_id=' . $cart->id . ', status=' . $moneiPayment->getStatus() . ']');
 
                 $nextAction = $moneiPayment->getNextAction();
                 $redirectURL = $nextAction ? $nextAction->getRedirectUrl() : null;
