@@ -109,10 +109,6 @@ class OrderService
             $sql = 'INSERT IGNORE INTO ' . _DB_PREFIX_ . 'monei2_order_payment (id_order, id_payment, date_add)
                 VALUES (' . (int) $order->id . ', "' . pSQL($moneiPaymentId) . '", NOW())';
             if ($connection->execute($sql)) {
-                \PrestaShopLogger::addLog(
-                    '[MONEI] Order processed [order_id=' . $order->id . ', payment_id=' . $moneiPaymentId . ', status=' . $moneiPayment->getStatus() . ']',
-                    \Monei::getLogLevel('info')
-                );
             }
 
             // Store variables for post-processing
@@ -123,21 +119,15 @@ class OrderService
                 'order' => $order,
             ];
         } catch (OrderException $e) {
-            \PrestaShopLogger::addLog(
-                '[MONEI] Order processing warning [payment_id=' . $moneiPaymentId . ', error=' . $e->getMessage() . ']',
-                \Monei::getLogLevel('warning')
-            );
+            \Monei::logWarning('[MONEI] Order processing warning [payment_id=' . $moneiPaymentId . ', error=' . $e->getMessage() . ']');
 
             throw $e;
         } catch (\Throwable $e) {
             // Catch any unexpected exceptions to ensure they're logged before lock release
-            \PrestaShopLogger::addLog(
-                '[MONEI] Unexpected error during order processing [payment_id=' . $moneiPaymentId
+            \Monei::logError('[MONEI] Unexpected error during order processing [payment_id=' . $moneiPaymentId
                 . ', error=' . $e->getMessage()
                 . ', file=' . $e->getFile()
-                . ', line=' . $e->getLine() . ']',
-                \Monei::getLogLevel('error')
-            );
+                . ', line=' . $e->getLine() . ']');
 
             throw $e;
         } finally {
@@ -222,18 +212,10 @@ class OrderService
         $existingOrder = \Order::getByCartId($cartId);
         if (\Validate::isLoadedObject($existingOrder)) {
             if ($existingOrder->module !== $this->moneiInstance->name) {
-                \PrestaShopLogger::addLog(
-                    '[MONEI] Order conflict - Different payment method [order_id=' . $existingOrder->id . ', existing_module=' . $existingOrder->module . ']',
-                    \Monei::getLogLevel('warning')
-                );
+                \Monei::logWarning('[MONEI] Order conflict - Different payment method [order_id=' . $existingOrder->id . ', existing_module=' . $existingOrder->module . ']');
 
                 throw new OrderException('Order (' . $existingOrder->id . ') already exists with a different payment method.', OrderException::ORDER_ALREADY_EXISTS);
             }
-
-            \PrestaShopLogger::addLog(
-                '[MONEI] Updating existing order [order_id=' . $existingOrder->id . ', payment_id=' . $moneiPayment->getId() . ']',
-                \Monei::getLogLevel('info')
-            );
 
             $this->updateExistingOrder($existingOrder, $orderStateId, $moneiPayment);
 
@@ -253,10 +235,7 @@ class OrderService
                 $this->updateOrderPaymentMethodName($order, $moneiPayment);
                 $this->updateOrderPaymentDetails($order, $moneiPayment);
             } else {
-                \PrestaShopLogger::addLog(
-                    '[MONEI] Invalid order state transition [order_id=' . $order->id . ', from_state=' . $order->current_state . ', to_state=' . $orderStateId . ']',
-                    \Monei::getLogLevel('warning')
-                );
+                \Monei::logWarning('[MONEI] Invalid order state transition [order_id=' . $order->id . ', from_state=' . $order->current_state . ', to_state=' . $orderStateId . ']');
             }
         }
     }

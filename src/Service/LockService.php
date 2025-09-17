@@ -41,10 +41,7 @@ class LockService
             // GET_LOCK returns 1 if lock acquired, 0 if timeout, NULL if error
             return $result === '1' || $result === 1;
         } catch (\PrestaShopException $e) {
-            \PrestaShopLogger::addLog(
-                'MONEI - LockService - Failed to acquire lock: ' . $e->getMessage(),
-                \Monei::getLogLevel('error')
-            );
+            \Monei::logError('MONEI - LockService - Failed to acquire lock: ' . $e->getMessage());
 
             return false;
         }
@@ -68,10 +65,7 @@ class LockService
             // RELEASE_LOCK returns 1 if lock released, 0 if lock not held, NULL if lock doesn't exist
             return $result === '1' || $result === 1;
         } catch (\PrestaShopException $e) {
-            \PrestaShopLogger::addLog(
-                'MONEI - LockService - Failed to release lock: ' . $e->getMessage(),
-                \Monei::getLogLevel('error')
-            );
+            \Monei::logError('MONEI - LockService - Failed to release lock: ' . $e->getMessage());
 
             return false;
         }
@@ -95,10 +89,7 @@ class LockService
             // IS_FREE_LOCK returns 1 if free, 0 if held, NULL if error
             return $result === '1' || $result === 1;
         } catch (\PrestaShopException $e) {
-            \PrestaShopLogger::addLog(
-                'MONEI - LockService - Failed to check lock status: ' . $e->getMessage(),
-                \Monei::getLogLevel('warning')
-            );
+            \Monei::logWarning('MONEI - LockService - Failed to check lock status: ' . $e->getMessage());
 
             return true; // Assume free on error to avoid blocking
         }
