@@ -114,6 +114,7 @@ class AdminMoneiCapturePaymentController extends ModuleAdminController
 
         try {
             // Log capture attempt
+            Monei::logDebug('MONEI - Capture payment attempt for order ' . $orderId . ' with amount ' . $amount);
 
             // Get the services
             $orderService = Monei::getService('service.order');
