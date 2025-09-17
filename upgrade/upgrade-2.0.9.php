@@ -36,29 +36,33 @@ function upgrade_module_2_0_9($module)
             if ($needsUpdate) {
                 // Backup existing override if present
                 if (file_exists($destOverride)) {
-                    copy($destOverride, $destOverride . '.backup.' . time());
+                    $backupFile = $destOverride . '.backup.' . time();
+                    if (!@rename($destOverride, $backupFile)) {
+                        throw new Exception('Failed to backup existing override: ' . $destOverride . ' -> ' . $backupFile);
+                    }
                 }
 
                 // Copy our override
-                copy($sourceOverride, $destOverride);
+                if (!@copy($sourceOverride, $destOverride)) {
+                    // Restore backup if copy failed
+                    if (isset($backupFile) && file_exists($backupFile)) {
+                        @rename($backupFile, $destOverride);
+                    }
+
+                    throw new Exception('Failed to copy override file: ' . $sourceOverride . ' -> ' . $destOverride);
+                }
 
                 // Clear cache to ensure override is loaded
                 Tools::clearCache();
-                Tools::clearCompileCache();
+                Tools::clearSmartyCache();
 
                 // Log the installation
-                PrestaShopLogger::addLog(
-                    '[MONEI] Order override installed during upgrade to 2.0.9',
-                    PrestaShopLogger::LOG_SEVERITY_LEVEL_INFORMATIVE
-                );
+                Monei::logDebug('[MONEI] Order override installed during upgrade to 2.0.9');
             }
         }
-    } catch (Exception $e) {
+    } catch (Throwable $e) {
         // Log error but don't fail the upgrade
-        PrestaShopLogger::addLog(
-            '[MONEI] Warning: Could not install Order override during upgrade: ' . $e->getMessage(),
-            PrestaShopLogger::LOG_SEVERITY_LEVEL_WARNING
-        );
+        Monei::logError('[MONEI] Could not install Order override during upgrade: ' . $e->getMessage());
     }
 
     return true;

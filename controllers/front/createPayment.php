@@ -11,10 +11,7 @@ class MoneiCreatePaymentModuleFrontController extends ModuleFrontController
         $data = json_decode($json, true);
 
         if (!$this->isAuthorizedRequest($data)) {
-            PrestaShopLogger::addLog(
-                '[MONEI] CreatePayment unauthorized access attempt [cart_id=' . $this->context->cart->id . ']',
-                PrestaShopLogger::LOG_SEVERITY_LEVEL_WARNING
-            );
+            Monei::logWarning('[MONEI] CreatePayment unauthorized access attempt [cart_id=' . ($this->context->cart ? (int) $this->context->cart->id : 0) . ']');
             header('Content-Type: application/json');
             http_response_code(403);
 
@@ -34,14 +31,6 @@ class MoneiCreatePaymentModuleFrontController extends ModuleFrontController
 
         // Log payment creation attempt with context
         $cartProducts = $this->context->cart->getProducts();
-        PrestaShopLogger::addLog(
-            '[MONEI] CreatePayment API called [cart_id=' . $this->context->cart->id
-            . ', customer_id=' . $this->context->cart->id_customer
-            . ', products=' . count($cartProducts)
-            . ', method=' . $paymentMethod
-            . ', total=' . $this->context->cart->getOrderTotal(true, Cart::BOTH) . ']',
-            PrestaShopLogger::LOG_SEVERITY_LEVEL_INFORMATIVE
-        );
 
         try {
             $paymentResponse = Monei::getService('service.monei')->createMoneiPayment(
@@ -52,14 +41,6 @@ class MoneiCreatePaymentModuleFrontController extends ModuleFrontController
             );
 
             if ($paymentResponse) {
-                PrestaShopLogger::addLog(
-                    '[MONEI] Payment created via API [payment_id=' . $paymentResponse->getId()
-                    . ', cart_id=' . $this->context->cart->id
-                    . ', status=' . $paymentResponse->getStatus()
-                    . ', status_code=' . $paymentResponse->getStatusCode() . ']',
-                    PrestaShopLogger::LOG_SEVERITY_LEVEL_INFORMATIVE
-                );
-
                 // Always return the payment ID, even if status is FAILED
                 // The JavaScript will handle the failure through confirmPayment
                 // Important: Cast to string to ensure it's a simple type for JSON encoding
@@ -69,11 +50,6 @@ class MoneiCreatePaymentModuleFrontController extends ModuleFrontController
             } else {
                 // Payment creation returned false - check for specific error
                 $lastError = Monei::getService('service.monei')->getLastError();
-                PrestaShopLogger::addLog(
-                    '[MONEI] Payment creation via API failed [cart_id=' . $this->context->cart->id
-                    . ', error=' . ($lastError ?: 'Unknown error') . ']',
-                    PrestaShopLogger::LOG_SEVERITY_LEVEL_ERROR
-                );
                 header('Content-Type: application/json');
                 http_response_code(400);
                 echo json_encode([
@@ -130,12 +106,9 @@ class MoneiCreatePaymentModuleFrontController extends ModuleFrontController
                 }
             }
 
-            PrestaShopLogger::addLog(
-                '[MONEI] Payment creation API exception [cart_id=' . $this->context->cart->id
+            Monei::logError('[MONEI] Payment creation API exception [cart_id=' . ($this->context->cart ? (int) $this->context->cart->id : 'unknown')
                 . ', error=' . $errorMessage
-                . ', status_code=' . ($statusCodeValue ?: 'unknown') . ']',
-                PrestaShopLogger::LOG_SEVERITY_LEVEL_ERROR
-            );
+                . ', status_code=' . ($statusCodeValue ?: 'unknown') . ']');
 
             // Prepare response array
             $response = [
@@ -149,13 +122,8 @@ class MoneiCreatePaymentModuleFrontController extends ModuleFrontController
             }
 
             // Log what we're sending to frontend
-            PrestaShopLogger::addLog(
-                '[MONEI] Sending error response to frontend: ' . json_encode($response),
-                PrestaShopLogger::LOG_SEVERITY_LEVEL_INFORMATIVE
-            );
-
-            header('Content-Type: application/json');
             http_response_code($statusCode);
+            header('Content-Type: application/json');
             echo json_encode($response);
         }
         exit;

@@ -27,40 +27,24 @@ class MoneiRedirectModuleFrontController extends ModuleFrontController
                 || $cart->id_address_invoice == 0
                 || !$this->module->active
             ) {
-                PrestaShopLogger::addLog(
-                    '[MONEI] Payment initiation failed - Invalid or missing cart [method=' . $paymentMethod . ']',
-                    PrestaShopLogger::LOG_SEVERITY_LEVEL_ERROR
-                );
+                Monei::logError('[MONEI] Payment initiation failed - Invalid or missing cart [method=' . $paymentMethod . ']');
                 Tools::redirect($this->context->link->getPageLink('index'));
                 exit;
             }
-
-            PrestaShopLogger::addLog(
-                '[MONEI] Payment initiation started [cart_id=' . $cart->id . ', customer_id=' . $cart->id_customer . ', method=' . $paymentMethod . ']',
-                PrestaShopLogger::LOG_SEVERITY_LEVEL_INFORMATIVE
-            );
 
             $crypto = ServiceLocator::get('\\PrestaShop\\PrestaShop\\Core\\Crypto\\Hashing');
             $check_encrypt = $crypto->checkHash((int) $cart->id . (int) $cart->id_customer, $transactionId);
 
             try {
                 if (!$check_encrypt) {
-                    PrestaShopLogger::addLog(
-                        '[MONEI] Payment initiation failed - Invalid crypto hash [cart_id=' . $cart->id . ']',
-                        PrestaShopLogger::LOG_SEVERITY_LEVEL_ERROR
-                    );
-
-                    throw new MoneiException('Invalid crypto hash', MoneiException::INVALID_CRYPTO_HASH);
+                    throw new MoneiException('[MONEI] Invalid transaction ID hash', MoneiException::INVALID_CRYPTO_HASH);
                 }
 
                 $moneiService = Monei::getService('service.monei');
 
                 $moneiPayment = $moneiService->createMoneiPayment($cart, $tokenizeCard, $moneiCardId, $paymentMethod);
                 if (!$moneiPayment) {
-                    PrestaShopLogger::addLog(
-                        '[MONEI] Payment creation failed - No payment object returned [cart_id=' . $cart->id . ']',
-                        PrestaShopLogger::LOG_SEVERITY_LEVEL_ERROR
-                    );
+                    Monei::logError('[MONEI] Payment creation failed - No payment object returned [cart_id=' . $cart->id . ']');
 
                     // Store user-friendly error message for display on checkout page
                     $this->context->cookie->monei_checkout_error = $this->module->l('Unable to process payment. Please try again or use a different payment method.');
@@ -70,10 +54,7 @@ class MoneiRedirectModuleFrontController extends ModuleFrontController
                     exit;
                 }
 
-                PrestaShopLogger::addLog(
-                    '[MONEI] Payment created successfully [payment_id=' . $moneiPayment->getId() . ', cart_id=' . $cart->id . ', status=' . $moneiPayment->getStatus() . ']',
-                    PrestaShopLogger::LOG_SEVERITY_LEVEL_INFORMATIVE
-                );
+                Monei::logDebug('[MONEI] Payment created successfully [payment_id=' . $moneiPayment->getId() . ', cart_id=' . $cart->id . ', status=' . $moneiPayment->getStatus() . ']');
 
                 $nextAction = $moneiPayment->getNextAction();
                 $redirectURL = $nextAction ? $nextAction->getRedirectUrl() : null;
@@ -92,10 +73,7 @@ class MoneiRedirectModuleFrontController extends ModuleFrontController
                     Tools::redirect($redirectURL);
                 }
             } catch (Exception $ex) {
-                PrestaShopLogger::addLog(
-                    '[MONEI] Payment creation exception [cart_id=' . $cart->id . ', error=' . $ex->getMessage() . ']',
-                    PrestaShopLogger::LOG_SEVERITY_LEVEL_ERROR
-                );
+                Monei::logError('[MONEI] Payment creation exception [cart_id=' . $cart->id . ', error=' . $ex->getMessage() . ']');
 
                 // If it's a MoneiException with a payment response, try to extract status code
                 if ($ex instanceof MoneiException && method_exists($ex, 'getPaymentData')) {
@@ -116,10 +94,7 @@ class MoneiRedirectModuleFrontController extends ModuleFrontController
                 exit;
             }
         } catch (Exception $ex) {
-            PrestaShopLogger::addLog(
-                '[MONEI] Redirect controller critical error [error=' . $ex->getMessage() . ']',
-                PrestaShopLogger::LOG_SEVERITY_LEVEL_ERROR
-            );
+            Monei::logError('[MONEI] Redirect controller critical error [error=' . $ex->getMessage() . ']');
             // Handle outer exception - don't expose technical details
             $this->context->cookie->monei_checkout_error = $this->module->l('An error occurred while processing your payment. Please try again.');
             $this->context->cookie->write();

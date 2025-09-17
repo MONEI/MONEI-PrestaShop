@@ -66,10 +66,7 @@ function upgrade_module_2_0_0()
 
                 // If still not an array, log and use empty array
                 if (!is_array($moneiPayment)) {
-                    PrestaShopLogger::addLog(
-                        'MONEI - upgrade-2.0.0 - Failed to decode payment response for history ID: ' . $history['id_monei_history'],
-                        PrestaShopLogger::LOG_SEVERITY_LEVEL_WARNING
-                    );
+                    Monei::logWarning('MONEI - upgrade-2.0.0 - Failed to decode payment response for history ID: ' . $history['id_monei_history']);
                     $moneiPayment = [];
                 }
 
@@ -102,10 +99,7 @@ function upgrade_module_2_0_0()
                     ->where('id_monei = ' . $refund['id_monei']);
                 $paymentId = $db->getValue($query);
                 if (!$paymentId) {
-                    PrestaShopLogger::addLog(
-                        'MONEI - upgrade-2.0.0 - Skipping refund ID ' . $refund['id_monei_refund'] . ' - no matching payment found',
-                        PrestaShopLogger::LOG_SEVERITY_LEVEL_WARNING
-                    );
+                    Monei::logWarning('MONEI - upgrade-2.0.0 - Skipping refund ID ' . $refund['id_monei_refund'] . ' - no matching payment found');
 
                     continue;
                 }
@@ -127,20 +121,14 @@ function upgrade_module_2_0_0()
         // Commit transaction
         $db->execute('COMMIT');
 
-        PrestaShopLogger::addLog(
-            'MONEI - upgrade-2.0.0 - Migration completed successfully',
-            PrestaShopLogger::LOG_SEVERITY_LEVEL_INFORMATIVE
-        );
+        Monei::logDebug('MONEI - upgrade-2.0.0 - Migration completed successfully');
 
         return true;
     } catch (Exception $e) {
         // Rollback on error
         $db->execute('ROLLBACK');
 
-        PrestaShopLogger::addLog(
-            'MONEI - upgrade-2.0.0 - Migration failed: ' . $e->getMessage(),
-            PrestaShopLogger::LOG_SEVERITY_LEVEL_ERROR
-        );
+        Monei::logError('MONEI - upgrade-2.0.0 - Migration failed: ' . $e->getMessage());
 
         return false;
     }

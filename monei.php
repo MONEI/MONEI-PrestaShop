@@ -54,6 +54,7 @@ class Monei extends PaymentModule
         Configuration::updateValue('MONEI_TOKENIZE', false);
         Configuration::updateValue('MONEI_PRODUCTION_MODE', false);
         Configuration::updateValue('MONEI_SHOW_LOGO', true);
+        Configuration::updateValue('MONEI_LOG_LEVEL', 3); // Default to ERROR only
         Configuration::updateValue('MONEI_API_KEY', '');
         Configuration::updateValue('MONEI_ACCOUNT_ID', '');
         Configuration::updateValue('MONEI_TEST_API_KEY', '');
@@ -147,6 +148,52 @@ class Monei extends PaymentModule
         return self::$serviceList[$serviceName];
     }
 
+    /**
+     * Log a message if it meets the configured minimum log level
+     *
+     * @param string $message
+     * @param int $severity
+     */
+    public static function log($message, $severity = 1)
+    {
+        $minLogLevel = (int) Configuration::get('MONEI_LOG_LEVEL', 3); // Default to ERROR only
+
+        // Treat 4 (NONE) as disabled
+        if ($minLogLevel === 4) {
+            return;
+        }
+
+        // Only log if the severity is at or above the configured minimum level
+        // PrestaShop severity levels: 1=INFO, 2=WARNING, 3=ERROR, 4=MAJOR
+        if ($severity >= $minLogLevel) {
+            PrestaShopLogger::addLog($message, $severity);
+        }
+    }
+
+    /**
+     * Convenience method for debug/info logging
+     */
+    public static function logDebug($message)
+    {
+        self::log($message, 1); // INFO level
+    }
+
+    /**
+     * Convenience method for warning logging
+     */
+    public static function logWarning($message)
+    {
+        self::log($message, 2); // WARNING level
+    }
+
+    /**
+     * Convenience method for error logging
+     */
+    public static function logError($message)
+    {
+        self::log($message, 3); // ERROR level
+    }
+
     public function getRepository($class)
     {
         return $this->get('doctrine.orm.entity_manager')->getRepository($class);
@@ -201,18 +248,8 @@ class Monei extends PaymentModule
                         AND os.`module_name` = \'' . pSQL($this->name) . '\'
                     ORDER BY os.`id_order_state` ASC
                     LIMIT 1';
-
-            PrestaShopLogger::addLog(
-                'MONEI - findOrderStateByName - SQL: ' . $sql,
-                PrestaShopLogger::LOG_SEVERITY_LEVEL_INFORMATIVE
-            );
-
-            return Db::getInstance()->getValue($sql);
         } catch (Exception $e) {
-            PrestaShopLogger::addLog(
-                'MONEI - findOrderStateByName - Error: ' . $e->getMessage(),
-                PrestaShopLogger::LOG_SEVERITY_LEVEL_ERROR
-            );
+            Monei::logError('MONEI - findOrderStateByName - Error: ' . $e->getMessage());
 
             return false;
         }
@@ -329,11 +366,6 @@ class Monei extends PaymentModule
         // First, check if we have a valid existing state
         $stateId = (int) Configuration::get($configKey);
         if ($stateId > 0 && Validate::isLoadedObject(new OrderState($stateId))) {
-            PrestaShopLogger::addLog(
-                'MONEI - Order state ' . $configKey . ' already exists with ID: ' . $stateId,
-                PrestaShopLogger::LOG_SEVERITY_LEVEL_INFORMATIVE
-            );
-
             return true;
         }
 
@@ -341,10 +373,6 @@ class Monei extends PaymentModule
         $existingStateId = $this->findOrderStateByName($englishName);
         if ($existingStateId) {
             Configuration::updateValue($configKey, (int) $existingStateId);
-            PrestaShopLogger::addLog(
-                'MONEI - Found existing state for ' . $configKey . ' with ID: ' . $existingStateId,
-                PrestaShopLogger::LOG_SEVERITY_LEVEL_INFORMATIVE
-            );
 
             return true;
         }
@@ -401,18 +429,10 @@ class Monei extends PaymentModule
                 Configuration::updateValue($configKey, (int) $order_state->id);
             }
 
-            PrestaShopLogger::addLog(
-                'MONEI - Created new order state ' . $configKey . ' with ID: ' . $order_state->id,
-                PrestaShopLogger::LOG_SEVERITY_LEVEL_INFORMATIVE
-            );
-
             return true;
         }
 
-        PrestaShopLogger::addLog(
-            'MONEI - Failed to create order state ' . $configKey,
-            PrestaShopLogger::LOG_SEVERITY_LEVEL_ERROR
-        );
+        Monei::logError('MONEI - Failed to create order state ' . $configKey);
 
         return false;
     }
@@ -424,20 +444,6 @@ class Monei extends PaymentModule
      */
     private function installOrderState()
     {
-        PrestaShopLogger::addLog(
-            'MONEI - installOrderState - Starting order state installation',
-            PrestaShopLogger::LOG_SEVERITY_LEVEL_INFORMATIVE
-        );
-
-        // Install pending state
-        if (!$this->createOrUpdateOrderState(
-            'MONEI_STATUS_PENDING',
-            'Awaiting payment',
-            '#8961A5'
-        )) {
-            return false;
-        }
-
         // Install authorized state
         if (!$this->createOrUpdateOrderState(
             'MONEI_STATUS_AUTHORIZED',
@@ -495,27 +501,13 @@ class Monei extends PaymentModule
 
                         // Clear cache to ensure override removal takes effect
                         Tools::clearCache();
-                        Tools::clearCompileCache();
-
-                        PrestaShopLogger::addLog(
-                            '[MONEI] Order override removed during uninstall',
-                            PrestaShopLogger::LOG_SEVERITY_LEVEL_INFORMATIVE
-                        );
-                    } else {
-                        // File contains other overrides, log warning
-                        PrestaShopLogger::addLog(
-                            '[MONEI] Order override contains other modifications, manual removal may be required',
-                            PrestaShopLogger::LOG_SEVERITY_LEVEL_WARNING
-                        );
+                        Tools::clearSmartyCache();
                     }
                 }
             }
         } catch (Exception $e) {
             // Log error but don't fail the uninstall
-            PrestaShopLogger::addLog(
-                '[MONEI] Warning: Could not remove Order override during uninstall: ' . $e->getMessage(),
-                PrestaShopLogger::LOG_SEVERITY_LEVEL_WARNING
-            );
+            Monei::logWarning('[MONEI] Warning: Could not remove Order override during uninstall: ' . $e->getMessage());
         }
 
         // Remove MONEI OrderStates
@@ -539,6 +531,7 @@ class Monei extends PaymentModule
         Configuration::deleteByName('MONEI_TOKENIZE');
         Configuration::deleteByName('MONEI_PRODUCTION_MODE');
         Configuration::deleteByName('MONEI_SHOW_LOGO');
+        Configuration::deleteByName('MONEI_LOG_LEVEL');
         Configuration::deleteByName('MONEI_API_KEY');
         Configuration::deleteByName('MONEI_ACCOUNT_ID');
         Configuration::deleteByName('MONEI_TEST_API_KEY');
@@ -673,11 +666,6 @@ class Monei extends PaymentModule
                 $nativeStateId = (int) Configuration::get($stateInfo['native']);
                 if ($nativeStateId > 0 && Validate::isLoadedObject(new OrderState($nativeStateId))) {
                     Configuration::updateValue($stateConfig, $nativeStateId);
-                    PrestaShopLogger::addLog(
-                        'MONEI - Recovered ' . $stateConfig . ' using native state ' . $stateInfo['native'],
-                        PrestaShopLogger::LOG_SEVERITY_LEVEL_INFORMATIVE
-                    );
-                    $recoveredStates[] = $stateConfig;
 
                     continue;
                 }
@@ -686,11 +674,6 @@ class Monei extends PaymentModule
             // For custom states, try to recover or recreate
             if (isset($stateInfo['name'])) {
                 if ($this->createOrUpdateOrderState($stateConfig, $stateInfo['name'], $stateInfo['color'])) {
-                    PrestaShopLogger::addLog(
-                        'MONEI - Recovered ' . $stateConfig . ' by recreating state',
-                        PrestaShopLogger::LOG_SEVERITY_LEVEL_INFORMATIVE
-                    );
-                    $recoveredStates[] = $stateConfig;
                 } else {
                     $missingStates[] = $stateConfig;
                 }
@@ -701,17 +684,6 @@ class Monei extends PaymentModule
         }
 
         if (count($recoveredStates) > 0) {
-            PrestaShopLogger::addLog(
-                'MONEI - Recovered states: ' . implode(', ', $recoveredStates),
-                PrestaShopLogger::LOG_SEVERITY_LEVEL_INFORMATIVE
-            );
-        }
-
-        if (count($missingStates) > 0) {
-            PrestaShopLogger::addLog(
-                'MONEI - Missing states that could not be recovered: ' . implode(', ', $missingStates),
-                PrestaShopLogger::LOG_SEVERITY_LEVEL_WARNING
-            );
         }
 
         return $missingStates;
@@ -736,13 +708,10 @@ class Monei extends PaymentModule
          * If values have been submitted in the form, process.
          */
         if ((bool) Tools::isSubmit('submitMoneiModule')) {
-            PrestaShopLogger::addLog('MONEI - submitMoneiModule detected, calling postProcess(1)', 1);
             $message .= $this->postProcess(1);
         } elseif (Tools::isSubmit('submitMoneiModuleGateways')) {
-            PrestaShopLogger::addLog('MONEI - submitMoneiModuleGateways detected, calling postProcess(2)', 1);
             $message .= $this->postProcess(2);
         } elseif (Tools::isSubmit('submitMoneiModuleStatus')) {
-            PrestaShopLogger::addLog('MONEI - submitMoneiModuleStatus detected, calling postProcess(3)', 1);
             $message .= $this->postProcess(3);
         } elseif (Tools::isSubmit('submitMoneiModuleComponentStyle')) {
             $message .= $this->postProcess(4);
@@ -775,9 +744,6 @@ class Monei extends PaymentModule
     protected function postProcess($which)
     {
         // Debug: Log which section is being processed
-        PrestaShopLogger::addLog("MONEI - postProcess called with section: {$which}", 1);
-
-        $section = '';
         $validatedValues = null;
 
         switch ($which) {
@@ -978,7 +944,7 @@ class Monei extends PaymentModule
             return $form_values;
         } catch (Exception $e) {
             // Log error and allow saving
-            PrestaShopLogger::addLog('MONEI - validatePaymentMethods - Error: ' . $e->getMessage(), PrestaShopLogger::LOG_SEVERITY_LEVEL_WARNING);
+            Monei::logWarning('MONEI - validatePaymentMethods - Error: ' . $e->getMessage());
             $this->warning[] = $this->l('Unable to validate payment methods. Please check your API credentials.');
 
             return $form_values;
@@ -1050,7 +1016,7 @@ class Monei extends PaymentModule
 
             // Create temporary MONEI client with provided credentials
             $moneiClient = new Monei\MoneiClient($apiKey);
-            $moneiClient->setUserAgent(\PsMonei\Service\Monei\MoneiService::getUserAgent());
+            $moneiClient->setUserAgent(PsMonei\Service\Monei\MoneiService::getUserAgent());
 
             // Test the connection by trying to get payment methods for the account
             // The get() method takes account_id as the first parameter
@@ -1059,7 +1025,7 @@ class Monei extends PaymentModule
             // If we get any response without exception, credentials are valid
             return $paymentMethods !== null;
         } catch (Exception $e) {
-            PrestaShopLogger::addLog('MONEI - API credentials test failed: ' . $e->getMessage(), PrestaShopLogger::LOG_SEVERITY_LEVEL_WARNING);
+            Monei::logWarning('MONEI - API credentials test failed: ' . $e->getMessage());
 
             return false;
         }
@@ -1096,6 +1062,7 @@ class Monei extends PaymentModule
             'MONEI_TOKENIZE' => Configuration::get('MONEI_TOKENIZE', false),
             'MONEI_PRODUCTION_MODE' => Configuration::get('MONEI_PRODUCTION_MODE', false),
             'MONEI_SHOW_LOGO' => Configuration::get('MONEI_SHOW_LOGO', true),
+            'MONEI_LOG_LEVEL' => Configuration::get('MONEI_LOG_LEVEL', 3),
             'MONEI_ACCOUNT_ID' => Configuration::get('MONEI_ACCOUNT_ID', ''),
             'MONEI_API_KEY' => Configuration::get('MONEI_API_KEY', ''),
             'MONEI_TEST_ACCOUNT_ID' => Configuration::get('MONEI_TEST_ACCOUNT_ID', ''),
@@ -1268,6 +1235,34 @@ class Monei extends PaymentModule
                                 'value' => false,
                                 'label' => $this->l('Disabled'),
                             ],
+                        ],
+                    ],
+                    [
+                        'type' => 'select',
+                        'label' => $this->l('Log Level'),
+                        'name' => 'MONEI_LOG_LEVEL',
+                        'desc' => $this->l('Set minimum log level. Only messages at or above this level will be logged. WARNING: INFO level may impact performance.'),
+                        'options' => [
+                            'query' => [
+                                [
+                                    'id' => '1',
+                                    'name' => $this->l('INFO - All messages (Debug mode)'),
+                                ],
+                                [
+                                    'id' => '2',
+                                    'name' => $this->l('WARNING - Warnings and errors only'),
+                                ],
+                                [
+                                    'id' => '3',
+                                    'name' => $this->l('ERROR - Errors only (Recommended)'),
+                                ],
+                                [
+                                    'id' => '4',
+                                    'name' => $this->l('NONE - Disable logging'),
+                                ],
+                            ],
+                            'id' => 'id',
+                            'name' => 'name',
                         ],
                     ],
                     [
@@ -1782,10 +1777,7 @@ class Monei extends PaymentModule
         try {
             self::getService('service.monei')->getMoneiClient();
         } catch (Exception $e) {
-            PrestaShopLogger::addLog(
-                'MONEI - Exception - monei.php - isMoneiAvailable: ' . $e->getMessage() . ' - ' . $e->getFile(),
-                PrestaShopLogger::LOG_SEVERITY_LEVEL_ERROR
-            );
+            Monei::logError('MONEI - Exception - monei.php - isMoneiAvailable: ' . $e->getMessage() . ' - ' . $e->getFile());
 
             return false;
         }
@@ -2375,13 +2367,8 @@ class Monei extends PaymentModule
 
             // Get MONEI payment from repository
             $moneiPayment = $this->getRepository(Monei2Payment::class)->findOneBy(['id_order' => $order->id]);
-            if (!$moneiPayment) {
-                PrestaShopLogger::addLog(
-                    'MONEI - hookActionOrderSlipAdd - No MONEI payment found for order ID: ' . $order->id,
-                    PrestaShopLogger::LOG_SEVERITY_LEVEL_INFORMATIVE
-                );
-
-                return; // Not a MONEI order, skip
+            if (!$moneiPayment) { // Not a MONEI order, skip
+                return;
             }
             $paymentId = $moneiPayment->getId();
 
@@ -2430,15 +2417,6 @@ class Monei extends PaymentModule
             // Get currency ISO code for logging
             $currency = new Currency((int) $order->id_currency);
             $currencyCode = $currency->iso_code;
-
-            PrestaShopLogger::addLog(
-                'MONEI - Processing refund for order ID: ' . $order->id
-                . ', Amount: ' . ($refundAmount / 100) . ' ' . $currencyCode
-                . ' (Products: ' . $currentSlip['amount']
-                . ', Shipping: ' . $shippingRefundAmount . ')',
-                PrestaShopLogger::LOG_SEVERITY_LEVEL_INFORMATIVE
-            );
-
             // Get refund reason from POST data or default to requested_by_customer
             $refundReason = Tools::getValue('monei_refund_reason', 'requested_by_customer');
 
@@ -2453,13 +2431,7 @@ class Monei extends PaymentModule
             $orderService->updateOrderStateAfterRefund((int) $order->id);
         } catch (Exception $e) {
             // Log the error
-            PrestaShopLogger::addLog(
-                'MONEI - Failed to process refund on credit slip creation: ' . $e->getMessage(),
-                3, // Error severity
-                null,
-                'Order',
-                (int) $order->id
-            );
+            Monei::logError('MONEI - Failed to process refund on credit slip creation: ' . $e->getMessage());
 
             // Re-throw the exception to prevent credit slip creation
             // Include the actual error message for debugging
