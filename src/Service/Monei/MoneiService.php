@@ -556,6 +556,11 @@ class MoneiService
             ]);
 
             if (!$monei2CustomerCard) {
+                \Monei::logDebug('[MONEI] Saving tokenized card [customer_id=' . $customerId
+                    . ', brand=' . $cardPayment->getBrand()
+                    . ', last_four=' . $cardPayment->getLast4()
+                    . ', expiration=' . $cardPayment->getExpiration() . ']');
+
                 $monei2CustomerCard = new Monei2CustomerCard();
                 $monei2CustomerCard->setCustomerId($customerId);
                 $monei2CustomerCard->setBrand($cardPayment->getBrand());
@@ -678,6 +683,10 @@ class MoneiService
             ]);
 
             if ($monei2CustomerCard) {
+                \Monei::logDebug('[MONEI] Using tokenized card [card_id=' . $cardTokenId
+                    . ', brand=' . $monei2CustomerCard->getBrand()
+                    . ', last_four=' . $monei2CustomerCard->getLastFour() . ']');
+
                 $createPaymentRequest->setPaymentToken($monei2CustomerCard->getTokenized());
                 $createPaymentRequest->setGeneratePaymentToken(false);
             }
@@ -760,8 +769,15 @@ class MoneiService
         $refundPaymentRequest->setAmount($amount);
         $refundPaymentRequest->setRefundReason($reason);
 
+        \Monei::logDebug('[MONEI] Initiating refund [payment_id=' . $moneiPayment->getId()
+            . ', order_id=' . $orderId
+            . ', amount=' . $amount
+            . ', reason=' . $reason . ']');
+
         try {
             $moneiPayment = $this->getMoneiClient()->payments->refund($moneiPayment->getId(), $refundPaymentRequest);
+            \Monei::logDebug('[MONEI] Refund successful [payment_id=' . $moneiPayment->getId()
+                . ', refunded_amount=' . $moneiPayment->getRefundedAmount() . ']');
         } catch (\Exception $ex) {
             $errorMessage = $this->extractErrorMessage($ex);
 

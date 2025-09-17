@@ -230,6 +230,11 @@ class OrderService
         $orderState = new \OrderState($orderStateId);
         if (\Validate::isLoadedObject($orderState)) {
             if ($this->isValidStateTransition($order->current_state, $orderStateId)) {
+                \Monei::logDebug('[MONEI] Order status transition [order_id=' . $order->id
+                    . ', from_state=' . $order->current_state
+                    . ', to_state=' . $orderStateId
+                    . ', payment_status=' . $moneiPayment->getStatus() . ']');
+
                 $order->setCurrentState($orderStateId);
                 $this->updateOrderPaymentTransactionId($order, $moneiPayment->getId());
                 $this->updateOrderPaymentMethodName($order, $moneiPayment);
@@ -249,9 +254,16 @@ class OrderService
         $order = new \Order($orderId);
         $totalOrderRefunded = $this->moneiService->getTotalRefundedByIdOrder($orderId);
         if ($order->getTotalPaid() > $totalOrderRefunded) {
-            $order->setCurrentState(\Configuration::get('MONEI_STATUS_PARTIALLY_REFUNDED'));
+            $newState = \Configuration::get('MONEI_STATUS_PARTIALLY_REFUNDED');
+            \Monei::logDebug('[MONEI] Order partially refunded [order_id=' . $orderId
+                . ', total_paid=' . $order->getTotalPaid()
+                . ', total_refunded=' . $totalOrderRefunded . ']');
+            $order->setCurrentState($newState);
         } else {
-            $order->setCurrentState(\Configuration::get('MONEI_STATUS_REFUNDED'));
+            $newState = \Configuration::get('MONEI_STATUS_REFUNDED');
+            \Monei::logDebug('[MONEI] Order fully refunded [order_id=' . $orderId
+                . ', total_refunded=' . $totalOrderRefunded . ']');
+            $order->setCurrentState($newState);
         }
     }
 
@@ -356,6 +368,12 @@ class OrderService
         $context = \Context::getContext();
         $context->monei_order_reference = $moneiPayment->getOrderId();
 
+        \Monei::logDebug('[MONEI] Creating new order [cart_id=' . $cart->id
+            . ', payment_id=' . $moneiPayment->getId()
+            . ', amount=' . ($moneiPayment->getAmount() / 100)
+            . ', currency=' . $cart->id_currency
+            . ', payment_status=' . $moneiPayment->getStatus() . ']');
+
         $this->moneiInstance->validateOrder(
             $cart->id,
             $orderStateId,
@@ -369,6 +387,11 @@ class OrderService
         );
 
         $order = \Order::getByCartId($cart->id);
+
+        if ($order && \Validate::isLoadedObject($order)) {
+            \Monei::logDebug('[MONEI] Order created successfully [order_id=' . $order->id
+                . ', reference=' . $order->reference . ']');
+        }
 
         return $order;
     }
