@@ -23,7 +23,7 @@ function upgrade_module_2_0_10($module)
 
         return true;
     } catch (Exception $e) {
-        \Monei::logDebug('[MONEI] Upgrade to 2.0.10 failed: ' . $e->getMessage());
+        \Monei::logError('[MONEI] Upgrade to 2.0.10 failed: ' . $e->getMessage());
 
         return false;
     }
