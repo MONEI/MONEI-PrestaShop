@@ -19,17 +19,11 @@ function upgrade_module_2_0_10($module)
         // 3. Clean up any orphaned states
         cleanupOrphanedStates($module);
 
-        PrestaShopLogger::addLog(
-            '[MONEI] Upgrade to 2.0.10 completed successfully',
-            PrestaShopLogger::LOG_SEVERITY_LEVEL_INFORMATIVE
-        );
+        \Monei::logDebug('[MONEI] Upgrade to 2.0.10 completed successfully');
 
         return true;
     } catch (Exception $e) {
-        PrestaShopLogger::addLog(
-            '[MONEI] Upgrade to 2.0.10 failed: ' . $e->getMessage(),
-            PrestaShopLogger::LOG_SEVERITY_LEVEL_ERROR
-        );
+        \Monei::logDebug('[MONEI] Upgrade to 2.0.10 failed: ' . $e->getMessage());
 
         return false;
     }
@@ -67,10 +61,7 @@ function updateOrderStateTranslations()
 
                 $orderState->save();
 
-                PrestaShopLogger::addLog(
-                    '[MONEI] Updated translations for state: ' . $englishName,
-                    PrestaShopLogger::LOG_SEVERITY_LEVEL_INFORMATIVE
-                );
+                \Monei::logDebug('[MONEI] Updated translations for state: ' . $englishName);
             }
         }
     }
@@ -88,10 +79,7 @@ function deduplicateOrderStates()
         Configuration::updateValue('MONEI_STATUS_REFUNDED', $refundStateId);
         Configuration::updateValue('MONEI_STATUS_PARTIALLY_REFUNDED', $refundStateId);
 
-        PrestaShopLogger::addLog(
-            '[MONEI] Using PrestaShop default refund state (ID: ' . $refundStateId . ')',
-            PrestaShopLogger::LOG_SEVERITY_LEVEL_INFORMATIVE
-        );
+        \Monei::logDebug('[MONEI] Using PrestaShop default refund state (ID: ' . $refundStateId . ')');
     }
 
     // Check if we can use PrestaShop defaults for other states
@@ -111,10 +99,7 @@ function deduplicateOrderStates()
             if ($currentStateId !== $psStateId) {
                 Configuration::updateValue($moneiConfig, $psStateId);
 
-                PrestaShopLogger::addLog(
-                    '[MONEI] Updated ' . $moneiConfig . ' to use PrestaShop default state (ID: ' . $psStateId . ')',
-                    PrestaShopLogger::LOG_SEVERITY_LEVEL_INFORMATIVE
-                );
+                \Monei::logDebug('[MONEI] Updated ' . $moneiConfig . ' to use PrestaShop default state (ID: ' . $psStateId . ')');
             }
         }
     }
@@ -199,19 +184,13 @@ function cleanupOrphanedStates($module)
                     if (Validate::isLoadedObject($orderState)) {
                         $orderState->delete();
 
-                        PrestaShopLogger::addLog(
-                            '[MONEI] Deleted truly orphaned state (ID: ' . $stateId . ')',
-                            PrestaShopLogger::LOG_SEVERITY_LEVEL_INFORMATIVE
-                        );
+                        \Monei::logDebug('[MONEI] Deleted truly orphaned state (ID: ' . $stateId . ')');
                     }
                 } else {
                     // State is still referenced, keep it even if not configured
                     // This is important to preserve order history integrity
-                    PrestaShopLogger::addLog(
-                        '[MONEI] Keeping unconfigured state (ID: ' . $stateId
-                        . ') as it is still referenced in database',
-                        PrestaShopLogger::LOG_SEVERITY_LEVEL_INFORMATIVE
-                    );
+                    \Monei::logDebug('[MONEI] Keeping unconfigured state (ID: ' . $stateId
+                        . ') as it is still referenced in database');
                 }
             }
         }

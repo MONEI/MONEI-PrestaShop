@@ -29,7 +29,7 @@ class MoneiValidationModuleFrontController extends ModuleFrontController
         }
 
         if (!isset($_SERVER['HTTP_MONEI_SIGNATURE'])) {
-            PrestaShopLogger::addLog('[MONEI] Missing webhook signature header', PrestaShopLogger::LOG_SEVERITY_LEVEL_WARNING);
+            \Monei::logWarning('[MONEI] Missing webhook signature header');
             http_response_code(401);
             header('Content-Type: text/plain; charset=utf-8');
             echo 'Unauthorized';
@@ -43,10 +43,7 @@ class MoneiValidationModuleFrontController extends ModuleFrontController
             $this->module->getMoneiClient()->verifySignature($requestBody, $sigHeader);
         } catch (Throwable $e) {
             // Catch all exceptions during signature verification
-            PrestaShopLogger::addLog(
-                '[MONEI] Webhook signature verification failed: ' . $e->getMessage(),
-                PrestaShopLogger::LOG_SEVERITY_LEVEL_ERROR
-            );
+            \Monei::logError('[MONEI] Webhook signature verification failed: ' . $e->getMessage());
 
             http_response_code(401);
             header('Content-Type: text/plain; charset=utf-8');
@@ -69,12 +66,6 @@ class MoneiValidationModuleFrontController extends ModuleFrontController
 
             // Parse the JSON to a MoneiPayment object
             $moneiPayment = new Payment($json_array);
-
-            PrestaShopLogger::addLog(
-                '[MONEI] Webhook received [payment_id=' . $moneiPayment->getId() . ']',
-                PrestaShopLogger::LOG_SEVERITY_LEVEL_INFORMATIVE
-            );
-
             // Create or update the order (returns void)
             Monei::getService('service.order')->createOrUpdateOrder($moneiPayment->getId());
 
@@ -83,10 +74,7 @@ class MoneiValidationModuleFrontController extends ModuleFrontController
             header('Content-Type: text/plain; charset=utf-8');
             echo 'OK';
         } catch (Exception $e) {
-            PrestaShopLogger::addLog(
-                '[MONEI] Webhook processing error: ' . $e->getMessage(),
-                PrestaShopLogger::LOG_SEVERITY_LEVEL_ERROR
-            );
+            \Monei::logError('[MONEI] Webhook processing error: ' . $e->getMessage());
 
             http_response_code(400);
             header('Content-Type: text/plain; charset=utf-8');

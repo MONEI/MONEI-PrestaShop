@@ -114,7 +114,7 @@ class AdminMoneiCapturePaymentController extends ModuleAdminController
 
         try {
             // Log capture attempt
-            PrestaShopLogger::addLog('MONEI - Capture payment attempt for order ' . $orderId . ' with amount ' . $amount, 1);
+            \Monei::logWarning('MONEI - Capture payment attempt for order ' . $orderId . ' with amount ' . $amount, 1);
 
             // Get the services
             $orderService = Monei::getService('service.order');
@@ -151,10 +151,6 @@ class AdminMoneiCapturePaymentController extends ModuleAdminController
                     $orderService->updateOrderPaymentDetails($order, $fullPayment);
                 } catch (Exception $e) {
                     // Log error but don't fail the capture
-                    PrestaShopLogger::addLog(
-                        'MONEI - Failed to update payment method details: ' . $e->getMessage(),
-                        PrestaShopLogger::LOG_SEVERITY_LEVEL_WARNING
-                    );
                 }
             }
 
@@ -166,13 +162,7 @@ class AdminMoneiCapturePaymentController extends ModuleAdminController
             ]));
         } catch (MoneiException $e) {
             $errorMessage = 'MONEI - Capture payment error: ' . $e->getMessage() . ' | Code: ' . $e->getCode() . ' | Trace: ' . $e->getTraceAsString();
-            PrestaShopLogger::addLog(
-                $errorMessage,
-                PrestaShopLogger::LOG_SEVERITY_LEVEL_ERROR,
-                $e->getCode(),
-                'MoneiCapturePaymentController',
-                $orderId
-            );
+            \Monei::logError($errorMessage);
 
             die(json_encode([
                 'success' => false,
@@ -181,13 +171,7 @@ class AdminMoneiCapturePaymentController extends ModuleAdminController
             ]));
         } catch (Exception $e) {
             $errorMessage = 'MONEI - Capture payment general error: ' . $e->getMessage() . ' | File: ' . $e->getFile() . ' | Line: ' . $e->getLine() . ' | Trace: ' . $e->getTraceAsString();
-            PrestaShopLogger::addLog(
-                $errorMessage,
-                PrestaShopLogger::LOG_SEVERITY_LEVEL_ERROR,
-                null,
-                'MoneiCapturePaymentController',
-                $orderId
-            );
+            \Monei::logError($errorMessage);
 
             die(json_encode([
                 'success' => false,

@@ -20,30 +20,18 @@ function upgrade_module_2_0_12($module)
                     ADD COLUMN `is_captured` TINYINT(1) DEFAULT 0 AFTER `status`";
 
             if (!Db::getInstance()->execute($sql)) {
-                PrestaShopLogger::addLog(
-                    '[MONEI] Failed to add is_captured column during upgrade to 2.0.12',
-                    PrestaShopLogger::LOG_SEVERITY_LEVEL_ERROR
-                );
+                \Monei::logError('[MONEI] Failed to add is_captured column during upgrade to 2.0.12');
                 return false;
             }
 
-            PrestaShopLogger::addLog(
-                '[MONEI] Successfully added is_captured column during upgrade to 2.0.12',
-                PrestaShopLogger::LOG_SEVERITY_LEVEL_INFORMATIVE
-            );
+            \Monei::logDebug('[MONEI] Successfully added is_captured column during upgrade to 2.0.12');
         } else {
-            PrestaShopLogger::addLog(
-                '[MONEI] is_captured column already exists, skipping addition in upgrade to 2.0.12',
-                PrestaShopLogger::LOG_SEVERITY_LEVEL_INFORMATIVE
-            );
+            \Monei::logDebug('[MONEI] is_captured column already exists, skipping addition in upgrade to 2.0.12');
         }
 
         return true;
     } catch (Exception $e) {
-        PrestaShopLogger::addLog(
-            '[MONEI] Upgrade to 2.0.12 failed: ' . $e->getMessage(),
-            PrestaShopLogger::LOG_SEVERITY_LEVEL_ERROR
-        );
+        \Monei::logError('[MONEI] Upgrade to 2.0.12 failed: ' . $e->getMessage());
 
         return false;
     }

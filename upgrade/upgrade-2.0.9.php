@@ -47,18 +47,12 @@ function upgrade_module_2_0_9($module)
                 Tools::clearCompileCache();
 
                 // Log the installation
-                PrestaShopLogger::addLog(
-                    '[MONEI] Order override installed during upgrade to 2.0.9',
-                    PrestaShopLogger::LOG_SEVERITY_LEVEL_INFORMATIVE
-                );
+                \Monei::logDebug('[MONEI] Order override installed during upgrade to 2.0.9');
             }
         }
     } catch (Exception $e) {
         // Log error but don't fail the upgrade
-        PrestaShopLogger::addLog(
-            '[MONEI] Warning: Could not install Order override during upgrade: ' . $e->getMessage(),
-            PrestaShopLogger::LOG_SEVERITY_LEVEL_WARNING
-        );
+        \Monei::logWarning('[MONEI] Warning: Could not install Order override during upgrade: ' . $e->getMessage());
     }
 
     return true;
