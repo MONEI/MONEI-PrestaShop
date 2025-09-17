@@ -1,7 +1,7 @@
 <?php
 
 use Monei\Model\Payment;
-use PsMonei\MoneiException;
+use PsMonei\Exception\MoneiException;
 
 if (!defined('_PS_VERSION_')) {
     exit;
