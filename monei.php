@@ -2355,6 +2355,7 @@ class Monei extends PaymentModule
             // Get MONEI payment from repository
             $moneiPayment = $this->getRepository(Monei2Payment::class)->findOneBy(['id_order' => $order->id]);
             if (!$moneiPayment) { // Not a MONEI order, skip
+                return;
             }
             $paymentId = $moneiPayment->getId();
 

@@ -16,6 +16,8 @@ class MoneiConfirmationModuleFrontController extends ModuleFrontController
         $cartId = Tools::getValue('cart_id');
         $orderId = Tools::getValue('order_id');
 
+        try {
+            if (!$moneiPaymentId) {
                 $this->context->cookie->monei_checkout_error = $this->module->l('There was a problem processing your payment. Please try again.');
                 $this->context->cookie->write();
 

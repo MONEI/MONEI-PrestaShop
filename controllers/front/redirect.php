@@ -38,6 +38,7 @@ class MoneiRedirectModuleFrontController extends ModuleFrontController
 
             try {
                 if (!$check_encrypt) {
+                    throw new MoneiException('[MONEI] Invalid transaction ID hash', MoneiException::TRANSACTION_ID_HASH_IS_NOT_VALID);
                 }
 
                 $moneiService = Monei::getService('service.monei');
