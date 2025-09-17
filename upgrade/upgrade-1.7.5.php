@@ -35,7 +35,7 @@ function upgrade_module_1_7_5($module)
 
         // Create payment table if not exists
         $sql[] = 'CREATE TABLE IF NOT EXISTS `' . _DB_PREFIX_ . 'monei2_payment` (
-            `id` VARCHAR(255) NOT NULL,
+            `id_payment` VARCHAR(255) NOT NULL,
             `id_cart` INT(11) NOT NULL,
             `id_order` INT(11) DEFAULT 0,
             `id_order_monei` VARCHAR(255) DEFAULT NULL,
@@ -48,7 +48,7 @@ function upgrade_module_1_7_5($module)
             `is_captured` TINYINT(1) DEFAULT 0,
             `date_add` DATETIME DEFAULT NULL,
             `date_upd` DATETIME DEFAULT NULL,
-            PRIMARY KEY (`id`),
+            PRIMARY KEY (`id_payment`),
             INDEX `id_cart` (`id_cart`),
             INDEX `id_order` (`id_order`),
             INDEX `id_order_monei` (`id_order_monei`),
