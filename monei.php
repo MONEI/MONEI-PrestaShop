@@ -201,6 +201,7 @@ class Monei extends PaymentModule
         Configuration::updateValue('MONEI_TOKENIZE', false);
         Configuration::updateValue('MONEI_PRODUCTION_MODE', false);
         Configuration::updateValue('MONEI_SHOW_LOGO', true);
+        Configuration::updateValue('MONEI_LOG_LEVEL', 3); // Default to ERROR only
         Configuration::updateValue('MONEI_API_KEY', '');
         Configuration::updateValue('MONEI_ACCOUNT_ID', '');
         Configuration::updateValue('MONEI_TEST_API_KEY', '');
@@ -269,6 +270,52 @@ class Monei extends PaymentModule
     public static function getService($serviceName)
     {
         return MoneiServiceLocator::getService($serviceName);
+    }
+
+    /**
+     * Log a message if it meets the configured minimum log level
+     *
+     * @param string $message
+     * @param int $severity
+     */
+    public static function log($message, $severity = 1)
+    {
+        $minLogLevel = (int) Configuration::get('MONEI_LOG_LEVEL', 3); // Default to ERROR only
+
+        // Treat 4 (NONE) as disabled
+        if ($minLogLevel === 4) {
+            return;
+        }
+
+        // Only log if the severity is at or above the configured minimum level
+        // PrestaShop severity levels: 1=INFO, 2=WARNING, 3=ERROR, 4=MAJOR
+        if ($severity >= $minLogLevel) {
+            PrestaShopLogger::addLog($message, $severity);
+        }
+    }
+
+    /**
+     * Convenience method for debug/info logging
+     */
+    public static function logDebug($message)
+    {
+        self::log($message, 1); // INFO level
+    }
+
+    /**
+     * Convenience method for warning logging
+     */
+    public static function logWarning($message)
+    {
+        self::log($message, 2); // WARNING level
+    }
+
+    /**
+     * Convenience method for error logging
+     */
+    public static function logError($message)
+    {
+        self::log($message, 3); // ERROR level
     }
 
     public function getRepository($class)
@@ -664,6 +711,7 @@ class Monei extends PaymentModule
         Configuration::deleteByName('MONEI_TOKENIZE');
         Configuration::deleteByName('MONEI_PRODUCTION_MODE');
         Configuration::deleteByName('MONEI_SHOW_LOGO');
+        Configuration::deleteByName('MONEI_LOG_LEVEL');
         Configuration::deleteByName('MONEI_API_KEY');
         Configuration::deleteByName('MONEI_ACCOUNT_ID');
         Configuration::deleteByName('MONEI_TEST_API_KEY');
@@ -779,13 +827,10 @@ class Monei extends PaymentModule
          * If values have been submitted in the form, process.
          */
         if ((bool) Tools::isSubmit('submitMoneiModule')) {
-            PrestaShopLogger::addLog('MONEI - submitMoneiModule detected, calling postProcess(1)', 1);
             $message = $this->postProcess(1);
         } elseif (Tools::isSubmit('submitMoneiModuleGateways')) {
-            PrestaShopLogger::addLog('MONEI - submitMoneiModuleGateways detected, calling postProcess(2)', 1);
             $message = $this->postProcess(2);
         } elseif (Tools::isSubmit('submitMoneiModuleStatus')) {
-            PrestaShopLogger::addLog('MONEI - submitMoneiModuleStatus detected, calling postProcess(3)', 1);
             $message = $this->postProcess(3);
         } elseif (Tools::isSubmit('submitMoneiModuleComponentStyle')) {
             $message = $this->postProcess(4);
@@ -817,9 +862,6 @@ class Monei extends PaymentModule
      */
     protected function postProcess($which)
     {
-        // Debug: Log which section is being processed
-        PrestaShopLogger::addLog("MONEI - postProcess called with section: {$which}", 1);
-
         $section = '';
         $validatedValues = null;
 
@@ -1809,22 +1851,15 @@ class Monei extends PaymentModule
 
     public function isMoneiAvailable($cart)
     {
-        PrestaShopLogger::addLog('MONEI - isMoneiAvailable checking', self::getLogLevel('info'));
-
         if (!$this->active) {
-            PrestaShopLogger::addLog('MONEI - isMoneiAvailable - Module not active', self::getLogLevel('info'));
-
             return false;
         }
         if (!$this->checkCurrency($cart)) {
-            PrestaShopLogger::addLog('MONEI - isMoneiAvailable - Currency check failed', self::getLogLevel('info'));
-
             return false;
         }
 
         try {
             self::getService('service.monei')->getMoneiClient();
-            PrestaShopLogger::addLog('MONEI - isMoneiAvailable - Client initialized successfully', self::getLogLevel('info'));
         } catch (Exception $e) {
             PrestaShopLogger::addLog(
                 'MONEI - Exception - monei.php - isMoneiAvailable: ' . $e->getMessage() . ' - ' . $e->getFile(),
@@ -1857,8 +1892,6 @@ class Monei extends PaymentModule
     private function getPaymentMethods()
     {
         if ($this->paymentMethods) {
-            PrestaShopLogger::addLog('MONEI - getPaymentMethods - Already cached', self::getLogLevel('info'));
-
             return;
         }
 
@@ -1875,15 +1908,12 @@ class Monei extends PaymentModule
 
         try {
             $paymentOptionService = self::getService('service.payment.option');
-            PrestaShopLogger::addLog('MONEI - getPaymentMethods - Calling getPaymentOptions', self::getLogLevel('info'));
             $paymentOptions = $paymentOptionService->getPaymentOptions();
         } catch (Exception $e) {
-            PrestaShopLogger::addLog('MONEI - getPaymentMethods - API Error, using demo mode: ' . $e->getMessage(), self::getLogLevel('info'));
         }
 
         // If no payment options (API error or test mode), provide default card payment
         if (empty($paymentOptions)) {
-            PrestaShopLogger::addLog('MONEI - getPaymentMethods - Using demo payment options', self::getLogLevel('info'));
             // Create a demo card payment option
             if (Configuration::get('MONEI_ALLOW_CARD')) {
                 $paymentOptions[] = [
@@ -1893,7 +1923,6 @@ class Monei extends PaymentModule
                 ];
             }
         }
-        PrestaShopLogger::addLog('MONEI - getPaymentMethods - Got ' . count($paymentOptions) . ' payment options', self::getLogLevel('info'));
 
         $transactionId = '';
 
@@ -1996,23 +2025,15 @@ class Monei extends PaymentModule
      */
     public function hookPaymentOptions($params)
     {
-        PrestaShopLogger::addLog('MONEI - hookPaymentOptions called', self::getLogLevel('info'));
-
         // Check if cart parameter exists (it might not exist when called from admin payment preferences)
         if (!isset($params['cart']) || !$this->isMoneiAvailable($params['cart'])) {
-            PrestaShopLogger::addLog('MONEI - hookPaymentOptions - Cart missing or MONEI not available', self::getLogLevel('info'));
-
             return;
         }
 
         $this->getPaymentMethods();
         if (!$this->paymentMethods) {
-            PrestaShopLogger::addLog('MONEI - hookPaymentOptions - No payment methods', self::getLogLevel('info'));
-
             return;
         }
-
-        PrestaShopLogger::addLog('MONEI - hookPaymentOptions - Returning ' . count($this->paymentMethods) . ' payment methods', self::getLogLevel('info'));
 
         return $this->paymentMethods;
     }
@@ -2225,20 +2246,14 @@ class Monei extends PaymentModule
      */
     public function hookActionFrontControllerSetMedia()
     {
-        PrestaShopLogger::addLog('MONEI - hookActionFrontControllerSetMedia called', self::getLogLevel('info'));
-
         if (!property_exists($this->context->controller, 'page_name')) {
-            PrestaShopLogger::addLog('MONEI - page_name property not found on controller', self::getLogLevel('info'));
-
             return;
         }
 
         $pageName = $this->context->controller->page_name;
-        PrestaShopLogger::addLog('MONEI - Page name: ' . $pageName, self::getLogLevel('info'));
 
         // Checkout
         if ($pageName == 'checkout') {
-            PrestaShopLogger::addLog('MONEI - Loading scripts for checkout page', self::getLogLevel('info'));
             $moneiv2 = 'https://js.monei.com/v2/monei.js';
             $this->context->controller->registerJavascript(
                 sha1($moneiv2),

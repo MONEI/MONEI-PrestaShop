@@ -120,8 +120,6 @@ class MoneiService
             // Return from static cache if already fetched and not expired
             if (isset(self::$paymentMethodsCache[$cacheKey])
                     && ($currentTime - self::$paymentMethodsCache[$cacheKey]['timestamp'] < self::CACHE_LIFETIME)) {
-                \PrestaShopLogger::addLog('[MONEI] Using cached payment methods response', \Monei::getLogLevel('info'));
-
                 return self::$paymentMethodsCache[$cacheKey]['data'];
             }
 
@@ -137,9 +135,8 @@ class MoneiService
         } catch (\Exception $e) {
             $errorMessage = $this->extractErrorMessage($e);
 
-            \PrestaShopLogger::addLog(
-                '[MONEI] Get payment methods failed [account_id=' . ($accountId ?: 'unknown') . ', error=' . $errorMessage . ']',
-                \Monei::getLogLevel('warning')
+            \Monei::logWarning(
+                '[MONEI] Get payment methods failed [account_id=' . ($accountId ?: 'unknown') . ', error=' . $errorMessage . ']'
             );
 
             return null;
@@ -187,7 +184,7 @@ class MoneiService
             // Normalize brands to lowercase for consistency
             return array_map('strtolower', $brands);
         } catch (\Exception $e) {
-            \PrestaShopLogger::addLog('MONEI - getAvailableCardBrands - Error: ' . $e->getMessage(), \Monei::getLogLevel('warning'));
+            \Monei::logWarning('MONEI - getAvailableCardBrands - Error: ' . $e->getMessage());
 
             return $this->getDefaultCardBrands();
         }
@@ -216,9 +213,8 @@ class MoneiService
         } catch (\Exception $ex) {
             $errorMessage = $this->extractErrorMessage($ex);
 
-            \PrestaShopLogger::addLog(
-                '[MONEI] Get payment failed [payment_id=' . $moneiPaymentId . ', error=' . $errorMessage . ']',
-                \Monei::getLogLevel('error')
+            \Monei::logError(
+                '[MONEI] Get payment failed [payment_id=' . $moneiPaymentId . ', error=' . $errorMessage . ']'
             );
 
             throw new MoneiException($errorMessage, MoneiException::PAYMENT_NOT_FOUND, $ex);
@@ -372,9 +368,8 @@ class MoneiService
         // For now, keeping the behavior but adding a warning log
         $email = $customer->email;
         if (strpos($email, ':') !== false) {
-            \PrestaShopLogger::addLog(
-                'MONEI - getCustomerData - Email contains colon, which will be removed: ' . $email,
-                \Monei::getLogLevel('warning')
+            \Monei::logWarning(
+                'MONEI - getCustomerData - Email contains colon, which will be removed: ' . $email
             );
             $email = str_replace(':', '', $email);
         }
@@ -500,11 +495,6 @@ class MoneiService
                 // Only add new history if status has changed
                 if ($lastHistory && $lastHistory->getStatus() === $currentStatus && $lastHistory->getStatusCode() === $currentStatusCode) {
                     $shouldAddHistory = false;
-                    \PrestaShopLogger::addLog(
-                        'MONEI - saveMoneiPayment - Skipping duplicate history entry for payment: ' . $moneiPayment->getId()
-                            . ' with status: ' . $currentStatus,
-                        \Monei::getLogLevel('info')
-                    );
                 }
             }
         }
@@ -586,18 +576,9 @@ class MoneiService
         }
 
         $summaryDetails = $cart->getSummaryDetails(null, true);
-        // Only log in dev mode to avoid logging sensitive cart data
-        if (defined('_PS_MODE_DEV_') && _PS_MODE_DEV_) {
-            \PrestaShopLogger::addLog(
-                '[MONEI] Cart validation [cart_id=' . $cart->id . ', products=' . count($cart->getProducts()) . ', total=' . $summaryDetails['total_price'] . ']',
-                \Monei::getLogLevel('info')
-            );
-        }
-
         if (empty($summaryDetails)) {
-            \PrestaShopLogger::addLog(
-                '[MONEI] Cart validation failed - Empty cart [cart_id=' . $cart->id . ', products=' . count($cart->getProducts()) . ']',
-                \Monei::getLogLevel('error')
+            \Monei::logError(
+                '[MONEI] Cart validation failed - Empty cart [cart_id=' . $cart->id . ', products=' . count($cart->getProducts()) . ']'
             );
 
             throw new MoneiException('The cart summary is empty', MoneiException::CART_AMOUNT_EMPTY);
@@ -739,24 +720,14 @@ class MoneiService
             $this->saveMoneiPayment($moneiPaymentResponse);
 
             // Log successful payment creation with key details
-            \PrestaShopLogger::addLog(
-                '[MONEI] Payment created [payment_id=' . $moneiPaymentResponse->getId()
-                . ', order_id=' . $orderId
-                . ', amount=' . $cartAmount
-                . ', currency=' . $currency->iso_code
-                . ', status=' . $moneiPaymentResponse->getStatus() . ']',
-                \Monei::getLogLevel('info')
-            );
-
             return $moneiPaymentResponse;
         } catch (\Exception $ex) {
             $errorMessage = $this->extractErrorMessage($ex);
 
-            \PrestaShopLogger::addLog(
+            \Monei::logError(
                 '[MONEI] Payment creation failed [cart_id=' . $cart->id
                 . ', order_id=' . $orderId
-                . ', error=' . $errorMessage . ']',
-                \Monei::getLogLevel('error')
+                . ', error=' . $errorMessage . ']'
             );
 
             // Store the clean error message for retrieval
@@ -794,9 +765,8 @@ class MoneiService
         } catch (\Exception $ex) {
             $errorMessage = $this->extractErrorMessage($ex);
 
-            \PrestaShopLogger::addLog(
-                '[MONEI] Refund failed [order_id=' . $orderId . ', error=' . $errorMessage . ']',
-                \Monei::getLogLevel('error')
+            \Monei::logError(
+                '[MONEI] Refund failed [order_id=' . $orderId . ', error=' . $errorMessage . ']'
             );
 
             throw new MoneiException($errorMessage, MoneiException::REFUND_CREATION_FAILED);
@@ -841,9 +811,8 @@ class MoneiService
         } catch (\Exception $ex) {
             $errorMessage = $this->extractErrorMessage($ex);
 
-            \PrestaShopLogger::addLog(
-                '[MONEI] Capture payment failed [payment_id=' . $paymentId . ', error=' . $errorMessage . ']',
-                \Monei::getLogLevel('error')
+            \Monei::logError(
+                '[MONEI] Capture payment failed [payment_id=' . $paymentId . ', error=' . $errorMessage . ']'
             );
 
             throw new MoneiException($errorMessage, MoneiException::CAPTURE_FAILED);
@@ -890,53 +859,22 @@ class MoneiService
     {
         $errorMessage = $ex->getMessage();
 
-        \PrestaShopLogger::addLog(
-            '[MONEI] extractErrorMessage - Exception type: ' . get_class($ex) . ', Original message: ' . $errorMessage,
-            \Monei::getLogLevel('info')
-        );
-
         // Extract clean error message from MONEI ApiException
         if ($ex instanceof \Monei\ApiException) {
             $responseBody = $ex->getResponseBody();
 
-            \PrestaShopLogger::addLog(
-                '[MONEI] extractErrorMessage - ResponseBody type: ' . gettype($responseBody) . ', Content: '
-                . (is_string($responseBody) ? substr($responseBody, 0, 500) : json_encode($responseBody)),
-                \Monei::getLogLevel('info')
-            );
-
             // The response body might be a string that needs to be decoded
             if (is_string($responseBody)) {
                 $decoded = json_decode($responseBody);
-
-                \PrestaShopLogger::addLog(
-                    '[MONEI] extractErrorMessage - Decoded JSON type: ' . gettype($decoded)
-                    . ', JSON error: ' . json_last_error_msg()
-                    . ', Decoded content: ' . json_encode($decoded),
-                    \Monei::getLogLevel('info')
-                );
 
                 $responseBody = $decoded;
             }
 
             if ($responseBody && isset($responseBody->message)) {
                 $errorMessage = $responseBody->message;
-
-                \PrestaShopLogger::addLog(
-                    '[MONEI] extractErrorMessage - Extracted clean message: ' . $errorMessage,
-                    \Monei::getLogLevel('info')
-                );
             } else {
-                \PrestaShopLogger::addLog(
-                    '[MONEI] extractErrorMessage - Could not extract message from responseBody',
-                    \Monei::getLogLevel('warning')
-                );
             }
         } else {
-            \PrestaShopLogger::addLog(
-                '[MONEI] extractErrorMessage - Not a MONEI ApiException, using original message',
-                \Monei::getLogLevel('info')
-            );
         }
 
         return $errorMessage;
