@@ -252,17 +252,25 @@ class OrderService
         }
 
         $order = new \Order($orderId);
-        $totalOrderRefunded = $this->moneiService->getTotalRefundedByIdOrder($orderId);
-        if ($order->getTotalPaid() > $totalOrderRefunded) {
+
+        // Get refunded amount in cents from MONEI
+        $totalRefundedCents = $this->moneiService->getTotalRefundedByIdOrder($orderId);
+
+        // Convert order total to cents for consistent comparison
+        // Use round to avoid float precision issues
+        $totalPaidCents = (int) round($order->getTotalPaid() * 100);
+
+        if ($totalPaidCents > $totalRefundedCents) {
             $newState = \Configuration::get('MONEI_STATUS_PARTIALLY_REFUNDED');
             \Monei::logDebug('[MONEI] Order partially refunded [order_id=' . $orderId
-                . ', total_paid=' . $order->getTotalPaid()
-                . ', total_refunded=' . $totalOrderRefunded . ']');
+                . ', total_paid_cents=' . $totalPaidCents
+                . ', total_refunded_cents=' . $totalRefundedCents . ']');
             $order->setCurrentState($newState);
         } else {
             $newState = \Configuration::get('MONEI_STATUS_REFUNDED');
             \Monei::logDebug('[MONEI] Order fully refunded [order_id=' . $orderId
-                . ', total_refunded=' . $totalOrderRefunded . ']');
+                . ', total_paid_cents=' . $totalPaidCents
+                . ', total_refunded_cents=' . $totalRefundedCents . ']');
             $order->setCurrentState($newState);
         }
     }
