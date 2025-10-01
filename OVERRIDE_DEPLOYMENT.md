@@ -1,13 +1,19 @@
 # Override Deployment Guide
 
 ## Overview
-This module includes a critical override for the `Order` class that ensures deterministic order reference generation. This override is **required** for the module to function correctly.
+This module uses different approaches to synchronize order references between MONEI and PrestaShop depending on your PrestaShop version:
 
-## Override File
+- **PrestaShop 8.1+**: Uses the `actionGenerateDocumentReference` hook (no override needed)
+- **PrestaShop 8.0.x**: Uses an Order class override (automatically installed)
+
+The module automatically detects your PrestaShop version and uses the appropriate method during installation.
+
+## Override File (PrestaShop 8.0.x only)
 - **Location**: `/modules/monei/override/classes/order/Order.php`
 - **Purpose**: Synchronizes order references between MONEI and PrestaShop
+- **Auto-installed**: Yes, during module installation on PrestaShop 8.0.x
 
-## Why This Override Is Necessary
+## Why This Synchronization Is Necessary
 
 Without this override:
 - PrestaShop generates random order references (e.g., `XKBKADJT`)
@@ -33,20 +39,36 @@ If you have other modules that override the Order class and this causes issues:
 
 We understand this is not ideal, but the alternative (mismatched references) creates more problems than it solves.
 
+## Version-Specific Behavior
+
+### PrestaShop 8.1+ (Recommended)
+- **Method**: Uses `actionGenerateDocumentReference` hook
+- **Override**: Not needed
+- **Installation**: Hook is automatically registered during module installation
+- **Benefits**:
+  - No file system modifications
+  - No conflicts with other modules
+  - Cleaner upgrade path
+
+### PrestaShop 8.0.x
+- **Method**: Uses Order class override
+- **Override**: Automatically installed to `/override/classes/order/Order.php`
+- **Installation**: Override is copied during module installation
+- **Note**: PrestaShop 8.0.x doesn't support the `actionGenerateDocumentReference` hook
+
 ## Deployment Methods
 
 ### Method 1: Automatic (Recommended)
-The override should be automatically installed when the module is installed or reset:
+The appropriate method (hook or override) is automatically selected based on your PrestaShop version:
 ```bash
 # PrestaShop 8+
 php bin/console prestashop:module reset monei
 
-# PrestaShop 1.7.2-1.7.8
-# Reinstall the module via admin panel or manually trigger install
+# Or reinstall via admin panel
 ```
 
-### Method 2: Manual Deployment
-If automatic deployment fails, manually copy the override:
+### Method 2: Manual Deployment (PrestaShop 8.0.x only)
+If automatic deployment fails on PrestaShop 8.0.x, manually copy the override:
 
 1. **Copy the override file:**
    ```bash
@@ -140,13 +162,18 @@ class Order extends OrderCore
 
 ## Important Notes
 
-⚠️ **Critical**: Without this override, order references will not synchronize correctly between MONEI and PrestaShop, leading to payment tracking issues.
+⚠️ **Critical**: Order reference synchronization is required for the module to function correctly. The module automatically uses the appropriate method based on your PrestaShop version.
 
-⚠️ **Updates**: When updating PrestaShop, overrides may need to be redeployed. Always verify after core updates.
+⚠️ **PrestaShop 8.1+ Upgrade**: If you upgrade from PrestaShop 8.0.x to 8.1+, you should:
+1. Uninstall and reinstall the MONEI module to switch from override to hook
+2. Or manually remove the override file if it exists: `/override/classes/order/Order.php`
 
-⚠️ **Module Updates**: When updating the MONEI module, the override should be automatically redeployed. Verify after updates.
+⚠️ **PrestaShop 8.0.x**:
+- Override is automatically installed during module installation
+- When updating PrestaShop, overrides may need to be redeployed
+- Comment stripping: PrestaShop's override system will strip comments from other modules' overrides when merging
 
-⚠️ **Comment Stripping**: PrestaShop's override system will strip comments from other modules' overrides when merging. This is unavoidable and is a PrestaShop limitation, not a MONEI issue.
+⚠️ **Module Updates**: When updating the MONEI module, the appropriate method (hook or override) is automatically configured based on your PrestaShop version.
 
 ## Support
 If you encounter issues with override deployment, please check:

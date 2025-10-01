@@ -110,6 +110,15 @@ class Monei extends PaymentModule
             && $this->registerHook('actionOrderSlipAdd')
             && $this->registerHook('actionGetAdminOrderButtons');
 
+        // For PrestaShop 8.1+, register the actionGenerateDocumentReference hook
+        // For PrestaShop 8.0.x, the Order override will be used instead
+        if ($result && $this->isReferenceHookSupported()) {
+            $result = $result && $this->registerHook('actionGenerateDocumentReference');
+        } else {
+            // For PrestaShop 8.0.x, install the Order override
+            $result = $result && $this->installOrderOverride();
+        }
+
         // Copy Apple Pay domain verification file to .well-known directory
         if ($result) {
             // Validate order states after installation
@@ -479,6 +488,51 @@ class Monei extends PaymentModule
         $tab->module = $this->name;
 
         return $tab->add();
+    }
+
+    /**
+     * Install Order override for PrestaShop 8.0.x
+     *
+     * PrestaShop 8.0.x doesn't support the actionGenerateDocumentReference hook,
+     * so we need to install an override to customize order references.
+     *
+     * @return bool True if installation succeeded, false otherwise
+     */
+    private function installOrderOverride()
+    {
+        try {
+            $moduleOverrideFile = dirname(__FILE__) . '/override/classes/order/Order.php';
+            $targetOverrideDir = _PS_OVERRIDE_DIR_ . 'classes/order/';
+            $targetOverrideFile = $targetOverrideDir . 'Order.php';
+
+            // Create directory if it doesn't exist
+            if (!file_exists($targetOverrideDir)) {
+                if (!mkdir($targetOverrideDir, 0755, true)) {
+                    Monei::logError('[MONEI] Failed to create override directory: ' . $targetOverrideDir);
+                    return false;
+                }
+            }
+
+            // Copy the override file
+            if (!copy($moduleOverrideFile, $targetOverrideFile)) {
+                Monei::logError('[MONEI] Failed to copy Order override file');
+                return false;
+            }
+
+            // Clear cache to ensure override takes effect
+            if (class_exists('Tools')) {
+                Tools::clearCache();
+                if (method_exists('Tools', 'clearSmartyCache')) {
+                    Tools::clearSmartyCache();
+                }
+            }
+
+            Monei::logDebug('[MONEI] Order override installed successfully for PrestaShop 8.0.x');
+            return true;
+        } catch (Exception $e) {
+            Monei::logError('[MONEI] Exception during Order override installation: ' . $e->getMessage());
+            return false;
+        }
     }
 
     public function uninstall()
@@ -2865,5 +2919,48 @@ class Monei extends PaymentModule
                 $this->l('Capture Payment')
             )
         );
+    }
+
+    /**
+     * Check if actionGenerateDocumentReference hook is supported
+     *
+     * PrestaShop 8.1+ supports the actionGenerateDocumentReference hook,
+     * while 8.0.x requires an override to customize order references.
+     *
+     * @return bool True if hook is supported, false if override is needed
+     */
+    private function isReferenceHookSupported()
+    {
+        return version_compare(_PS_VERSION_, '8.1.0', '>=');
+    }
+
+    /**
+     * Hook to generate custom order reference (PrestaShop 8.1+)
+     *
+     * This hook is called by PrestaShop 8.1+ to allow modules to provide
+     * a custom order reference. For PrestaShop 8.0.x, the override is used instead.
+     *
+     * @param array $params Hook parameters containing document type
+     * @return string|null Custom order reference or null to use default
+     */
+    public function hookActionGenerateDocumentReference($params)
+    {
+        // Only handle order references
+        if (!isset($params['type']) || $params['type'] !== 'order') {
+            return null;
+        }
+
+        // Check if a MONEI reference has been stored in context
+        $context = Context::getContext();
+        if (isset($context->monei_order_reference) && $context->monei_order_reference) {
+            $reference = $context->monei_order_reference;
+            // Clear it after use to prevent reuse
+            $context->monei_order_reference = null;
+
+            return $reference;
+        }
+
+        // Return null to use PrestaShop's default reference generation
+        return null;
     }
 }
