@@ -82,24 +82,39 @@ class OrderService
             $cart = $this->validateCart($cartId);
             $customer = $this->validateCustomer($cart->id_customer);
 
-            $orderStateId = $this->determineOrderStateId($moneiPayment->getStatus());
-            $failed = $orderStateId === (int) \Configuration::get('MONEI_STATUS_FAILED');
+            $paymentStatus = $moneiPayment->getStatus();
+            $orderStateId = $this->determineOrderStateId($paymentStatus);
+
+            // Define terminal failure statuses that should not create orders
+            $terminalFailureStatuses = [
+                PaymentStatus::FAILED,
+                PaymentStatus::CANCELED,
+                PaymentStatus::EXPIRED,
+            ];
+            $isTerminalFailure = in_array($paymentStatus, $terminalFailureStatuses, true);
 
             $order = $this->handleExistingOrder($cartId, $orderStateId, $moneiPayment);
 
-            // Create order only for non-failed payments
-            if (!$order && !$failed) {
+            // Create order only for non-terminal-failure payments
+            if (!$order && !$isTerminalFailure) {
                 $order = $this->createNewOrder($cart, $customer, $orderStateId, $moneiPayment);
                 // Update payment method name and details for new orders
                 $this->updateOrderPaymentMethodName($order, $moneiPayment);
                 $this->updateOrderPaymentDetails($order, $moneiPayment);
             }
 
+            // For terminal failure payments without an existing order, exit gracefully
             if (!\Validate::isLoadedObject($order)) {
+                if ($isTerminalFailure) {
+                    \Monei::logDebug('[MONEI] Terminal failure payment without existing order - skipping order creation [payment_id=' . $moneiPaymentId . ', status=' . $paymentStatus . ']');
+
+                    return;
+                }
+
                 throw new OrderException('Order not found', OrderException::ORDER_NOT_FOUND);
             }
 
-            if (!$failed) {
+            if (!$isTerminalFailure) {
                 $this->moneiService->saveMoneiToken($moneiPayment, $customer->id);
             }
 
