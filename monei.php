@@ -22,7 +22,7 @@ class Monei extends PaymentModule
     public $currencies = true;
 
     const NAME = 'monei';
-    const VERSION = '1.7.10';
+    const VERSION = '1.7.11';
 
     const LOG_SEVERITY_LEVELS = [
         'info' => 1,
@@ -36,7 +36,7 @@ class Monei extends PaymentModule
         $this->displayName = 'MONEI Payments';
         $this->name = 'monei';
         $this->tab = 'payments_gateways';
-        $this->version = '1.7.10';
+        $this->version = '1.7.11';
         $this->author = 'MONEI';
         $this->need_instance = 1;
         $this->ps_versions_compliancy = ['min' => '1.7', 'max' => _PS_VERSION_];
@@ -63,7 +63,7 @@ class Monei extends PaymentModule
      */
     public static function getLogLevel($level = 'info')
     {
-        // Check if PrestaShop 1.7.10+ constants exist
+        // Check if PrestaShop 1.7.11+ constants exist
         if (defined('PrestaShopLogger::LOG_SEVERITY_LEVEL_INFORMATIVE')) {
             switch ($level) {
                 case 'info':
@@ -77,7 +77,7 @@ class Monei extends PaymentModule
             }
         }
 
-        // Fallback for PrestaShop 1.7.10 - use numeric values
+        // Fallback for PrestaShop 1.7.11 - use numeric values
         $levels = [
             'info' => 1,
             'warning' => 2,
@@ -95,11 +95,11 @@ class Monei extends PaymentModule
      */
     public function getBootstrapVersion()
     {
-        // PrestaShop 1.7.10 uses Bootstrap 3 in admin
-        // PrestaShop 1.7.10+ uses Bootstrap 4 in admin
+        // PrestaShop 1.7.11 uses Bootstrap 3 in admin
+        // PrestaShop 1.7.11+ uses Bootstrap 4 in admin
         // Note: All PrestaShop 1.7.x versions use Bootstrap 4 in the frontend (Classic theme)
-        // but the admin panel transitioned from Bootstrap 3 to 4 in 1.7.10
-        return version_compare(_PS_VERSION_, '1.7.10.0', '>=') ? 4 : 3;
+        // but the admin panel transitioned from Bootstrap 3 to 4 in 1.7.11
+        return version_compare(_PS_VERSION_, '1.7.11.0', '>=') ? 4 : 3;
     }
 
     /**
@@ -111,7 +111,7 @@ class Monei extends PaymentModule
     {
         // Both Bootstrap 3 and 4 in PrestaShop 1.7.x use data-* attributes
         // Bootstrap 5 (used in PrestaShop 8+) uses data-bs-* attributes
-        // PrestaShop 1.7.x (including 1.7.10) uses Bootstrap 3/4 which use data-* attributes
+        // PrestaShop 1.7.x (including 1.7.11) uses Bootstrap 3/4 which use data-* attributes
         if (version_compare(_PS_VERSION_, '8.0.0', '>=')) {
             // PrestaShop 8+ uses Bootstrap 5
             return [
@@ -159,16 +159,16 @@ class Monei extends PaymentModule
         $phpVersion = PHP_VERSION;
         $psVersion = _PS_VERSION_;
 
-        // PS 1.7.10+ requires PHP 7.1.3+
-        if (version_compare($psVersion, '1.7.10.0', '>=') && version_compare($phpVersion, '7.1.3', '<')) {
+        // PS 1.7.11+ requires PHP 7.1.3+
+        if (version_compare($psVersion, '1.7.11.0', '>=') && version_compare($phpVersion, '7.1.3', '<')) {
             return [
                 'compatible' => false,
                 'message' => sprintf($this->l('PrestaShop %s requires PHP 7.1.3 or higher. Current PHP version: %s'), $psVersion, $phpVersion),
             ];
         }
 
-        // PS 1.7.10+ requires PHP 7.1.3+
-        if (version_compare($psVersion, '1.7.10.0', '>=') && version_compare($phpVersion, '7.1.3', '<')) {
+        // PS 1.7.11+ requires PHP 7.1.3+
+        if (version_compare($psVersion, '1.7.11.0', '>=') && version_compare($phpVersion, '7.1.3', '<')) {
             return [
                 'compatible' => false,
                 'message' => sprintf($this->l('PrestaShop %s requires PHP 7.1.3 or higher. Current PHP version: %s'), $psVersion, $phpVersion),
@@ -2109,7 +2109,7 @@ class Monei extends PaymentModule
      */
     public function hookDisplayAdminOrder($params)
     {
-        // Load required assets for jsonViewer (needed for PrestaShop 1.7.10 compatibility)
+        // Load required assets for jsonViewer (needed for PrestaShop 1.7.11 compatibility)
         $this->context->controller->addCSS($this->_path . 'views/css/jquery.json-viewer.css');
         $this->context->controller->addJS($this->_path . 'views/js/jquery.json-viewer.js');
 
@@ -2517,7 +2517,7 @@ class Monei extends PaymentModule
                 $shippingRefundAmount = $currentSlip['shipping_cost_amount'];
             }
 
-            // Also check POST parameters for partial shipping refund (PrestaShop 1.7.2 - 1.7.10 compatibility)
+            // Also check POST parameters for partial shipping refund (PrestaShop 1.7.2 - 1.7.11 compatibility)
             // These take precedence over order slip values if present
             if (Tools::getValue('partialRefundShippingCost') !== false) {
                 $shippingRefundAmount = (float) Tools::getValue('partialRefundShippingCost');
@@ -2610,7 +2610,7 @@ class Monei extends PaymentModule
             $price = 0;
         }
 
-        // PrestaShop 1.7.10 compatibility - use Tools::displayPrice instead of getContextLocale
+        // PrestaShop 1.7.11 compatibility - use Tools::displayPrice instead of getContextLocale
         $currency = Currency::getCurrencyInstance(Currency::getIdByIsoCode($currencyIso));
 
         return Tools::displayPrice((float) $price, $currency);
@@ -2956,13 +2956,13 @@ class Monei extends PaymentModule
     }
 
     /**
-     * Hook to add capture payment button to order actions (PS 1.7.10+)
+     * Hook to add capture payment button to order actions (PS 1.7.11+)
      *
      * @param array $params Hook parameters containing order information
      */
     public function hookActionGetAdminOrderButtons(array $params)
     {
-        // This hook only exists in PrestaShop 1.7.10+
+        // This hook only exists in PrestaShop 1.7.11+
         // Check if the required classes exist
         if (!class_exists('PrestaShopBundle\Controller\Admin\Sell\Order\ActionsBarButton')
             || !class_exists('PrestaShopBundle\Controller\Admin\Sell\Order\ActionsBarButtonsCollection')) {
