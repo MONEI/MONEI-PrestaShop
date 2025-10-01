@@ -254,6 +254,99 @@ monei/
 4. **Payment methods**: Enable/disable specific payment methods as needed
 5. **Webhook URL**: Configure in MONEI Dashboard for real-time notifications
 
+## Developer Hooks
+
+The MONEI module provides hooks that allow you to customize the payment flow and preserve custom data through payment redirects.
+
+### Available Hooks
+
+#### actionMoneiBeforePaymentCreate
+
+Executed before creating a payment in MONEI API. This hook allows you to add custom data to the payment metadata that will be preserved throughout the entire payment flow.
+
+**Parameters:**
+- `cart` (Cart) - The shopping cart object
+- `metadata` (stdClass) - Payment metadata object (passed by reference)
+- `payment_method` (string) - Selected payment method (e.g., 'card', 'bizum', 'paypal')
+
+**Example usage:**
+```php
+// In your custom module
+public function hookActionMoneiBeforePaymentCreate($params)
+{
+    $cart = $params['cart'];
+    $metadata = &$params['metadata'];
+
+    // Preserve custom cookies or session data
+    if (isset($_COOKIE['tutor_id'])) {
+        $metadata->tutor_id = $_COOKIE['tutor_id'];
+    }
+
+    // Add custom tracking information
+    if (isset($_COOKIE['utm_source'])) {
+        $metadata->utm_source = $_COOKIE['utm_source'];
+        $metadata->utm_campaign = $_COOKIE['utm_campaign'];
+    }
+
+    // Add any custom business logic data
+    $metadata->custom_field = 'custom_value';
+}
+```
+
+#### actionMoneiAfterOrderCreate
+
+Executed after successfully creating or updating an order. This hook allows you to retrieve custom data from payment metadata and perform actions based on it.
+
+**Parameters:**
+- `order` (Order) - The PrestaShop order object
+- `payment` (stdClass) - The MONEI payment object containing metadata
+- `cart` (Cart) - The shopping cart object
+- `customer` (Customer) - The customer object
+
+**Example usage:**
+```php
+// In your custom module
+public function hookActionMoneiAfterOrderCreate($params)
+{
+    $order = $params['order'];
+    $payment = $params['payment'];
+    $cart = $params['cart'];
+    $customer = $params['customer'];
+
+    // Retrieve preserved data from metadata
+    if (isset($payment->metadata->tutor_id)) {
+        $tutorId = $payment->metadata->tutor_id;
+
+        // Restore cookie
+        setcookie('tutor_id', $tutorId, time() + 3600 * 24 * 30, '/');
+
+        // Or save to database
+        Db::getInstance()->insert('custom_order_tutor', [
+            'id_order' => (int)$order->id,
+            'tutor_id' => pSQL($tutorId),
+        ]);
+    }
+
+    // Retrieve tracking information
+    if (isset($payment->metadata->utm_source)) {
+        // Save marketing attribution
+        Db::getInstance()->insert('order_attribution', [
+            'id_order' => (int)$order->id,
+            'utm_source' => pSQL($payment->metadata->utm_source),
+            'utm_campaign' => pSQL($payment->metadata->utm_campaign),
+        ]);
+    }
+}
+```
+
+### Use Cases
+
+1. **Preserve cookies during payment redirect** - Store cookie values in metadata before payment, restore them after order creation
+2. **Marketing attribution tracking** - Preserve UTM parameters and marketing source information
+3. **Custom business logic** - Add and retrieve any custom data needed for your business processes
+4. **Multi-tenant applications** - Track which sub-account or reseller initiated the payment
+5. **A/B testing** - Preserve experiment variants and track conversions
+
 ## Troubleshooting
 
 ### Common Issues

@@ -8,7 +8,6 @@ if (!defined('_PS_VERSION_')) {
 
 use Monei\Model\PaymentStatus;
 use Order;
-use PrestaShop\PrestaShop\Adapter\LegacyContext;
 use PsMonei\Exception\OrderException;
 use PsMonei\Helper\PaymentMethodFormatter;
 use PsMonei\Service\LockService;
@@ -20,20 +19,25 @@ class OrderService
     private $moneiService;
     private $paymentMethodFormatter;
     private $lockService;
-    private $legacyContext;
+    private $context;
 
     public function __construct(
         $moneiInstance,
         MoneiService $moneiService,
         PaymentMethodFormatter $paymentMethodFormatter,
         LockService $lockService,
-        LegacyContext $legacyContext,
+        $context
     ) {
         $this->moneiInstance = $moneiInstance;
         $this->moneiService = $moneiService;
         $this->paymentMethodFormatter = $paymentMethodFormatter;
         $this->lockService = $lockService;
-        $this->legacyContext = $legacyContext;
+        // For PS1.7 compatibility, we accept context directly
+        if (is_object($context) && method_exists($context, 'getContext')) {
+            $this->context = $context->getContext();
+        } else {
+            $this->context = $context;
+        }
     }
 
     public function createOrUpdateOrder($moneiPaymentId, bool $redirectToConfirmationPage = false)
@@ -41,7 +45,7 @@ class OrderService
         $connection = \Db::getInstance();
 
         // Get shop ID for multi-shop support
-        $shopId = $this->legacyContext->getContext()->shop->id;
+        $shopId = $this->context->shop->id;
 
         // Acquire lock for this payment to prevent concurrent processing
         // Include shop ID in lock name for multi-shop compatibility
@@ -56,14 +60,15 @@ class OrderService
             // Check if order already exists
             $query = 'SELECT * FROM ' . _DB_PREFIX_ . 'monei2_order_payment WHERE id_payment = "' . pSQL($moneiPaymentId) . '"';
             $orderPaymentExists = $connection->getRow($query);
+
             if ($orderPaymentExists) {
                 // If order already exists and redirect is requested, redirect to confirmation page
                 if ($redirectToConfirmationPage) {
-                    $existingOrder = new \Order($orderPaymentExists['id_order']);
-                    if (\Validate::isLoadedObject($existingOrder)) {
-                        $cart = new \Cart($existingOrder->id_cart);
-                        $customer = new \Customer($existingOrder->id_customer);
-                        $this->handlePostOrderCreation($redirectToConfirmationPage, $cart, $customer, $existingOrder);
+                    $order = new \Order($orderPaymentExists['id_order']);
+                    if (\Validate::isLoadedObject($order)) {
+                        $cart = new \Cart($order->id_cart);
+                        $customer = new \Customer($order->id_customer);
+                        $this->handlePostOrderCreation($redirectToConfirmationPage, $cart, $customer, $order);
                     }
                 }
 
@@ -73,36 +78,62 @@ class OrderService
             $moneiPayment = $this->moneiService->getMoneiPayment($moneiPaymentId);
 
             $cartId = $this->moneiService->getCartIdFromPayment($moneiPayment);
+
             $cart = $this->validateCart($cartId);
             $customer = $this->validateCustomer($cart->id_customer);
 
-            $orderStateId = $this->determineOrderStateId($moneiPayment->getStatus());
-            $failed = $orderStateId === (int) \Configuration::get('MONEI_STATUS_FAILED');
+            $paymentStatus = $moneiPayment->getStatus();
+            $orderStateId = $this->determineOrderStateId($paymentStatus);
+
+            // Define terminal failure statuses that should not create orders
+            $terminalFailureStatuses = [
+                PaymentStatus::FAILED,
+                PaymentStatus::CANCELED,
+                PaymentStatus::EXPIRED,
+            ];
+            $isTerminalFailure = in_array($paymentStatus, $terminalFailureStatuses, true);
 
             $order = $this->handleExistingOrder($cartId, $orderStateId, $moneiPayment);
 
-            // Create order only for non-failed payments
-            if (!$order && !$failed) {
+            // Create order only for non-terminal-failure payments
+            if (!$order && !$isTerminalFailure) {
                 $order = $this->createNewOrder($cart, $customer, $orderStateId, $moneiPayment);
                 // Update payment method name and details for new orders
                 $this->updateOrderPaymentMethodName($order, $moneiPayment);
                 $this->updateOrderPaymentDetails($order, $moneiPayment);
             }
 
+            // For terminal failure payments without an existing order, exit gracefully
             if (!\Validate::isLoadedObject($order)) {
+                if ($isTerminalFailure) {
+                    \Monei::logDebug('[MONEI] Terminal failure payment without existing order - skipping order creation [payment_id=' . $moneiPaymentId . ', status=' . $paymentStatus . ']');
+
+                    return;
+                }
+
                 throw new OrderException('Order not found', OrderException::ORDER_NOT_FOUND);
             }
 
-            if (!$failed) {
+            if (!$isTerminalFailure) {
                 $this->moneiService->saveMoneiToken($moneiPayment, $customer->id);
             }
+
+            // Allow modules to retrieve custom data after order creation
+            // Example: Retrieve tracking data from metadata, restore state, etc.
+            \Hook::exec('actionMoneiAfterOrderCreate', [
+                'order' => $order,
+                'payment' => $moneiPayment,
+                'cart' => $cart,
+                'customer' => $customer,
+            ]);
 
             $this->moneiService->saveMoneiPayment($moneiPayment, $order->id);
 
             // Flag order created or updated
             $sql = 'INSERT IGNORE INTO ' . _DB_PREFIX_ . 'monei2_order_payment (id_order, id_payment, date_add)
                 VALUES (' . (int) $order->id . ', "' . pSQL($moneiPaymentId) . '", NOW())';
-            $connection->execute($sql);
+            if ($connection->execute($sql)) {
+            }
 
             // Store variables for post-processing
             $postProcessData = [
@@ -210,6 +241,8 @@ class OrderService
                 throw new OrderException('Order (' . $existingOrder->id . ') already exists with a different payment method.', OrderException::ORDER_ALREADY_EXISTS);
             }
 
+            $this->updateExistingOrder($existingOrder, $orderStateId, $moneiPayment);
+
             return $existingOrder;
         }
 
@@ -221,6 +254,11 @@ class OrderService
         $orderState = new \OrderState($orderStateId);
         if (\Validate::isLoadedObject($orderState)) {
             if ($this->isValidStateTransition($order->current_state, $orderStateId)) {
+                \Monei::logDebug('[MONEI] Order status transition [order_id=' . $order->id
+                    . ', from_state=' . $order->current_state
+                    . ', to_state=' . $orderStateId
+                    . ', payment_status=' . $moneiPayment->getStatus() . ']');
+
                 $order->setCurrentState($orderStateId);
                 $this->updateOrderPaymentTransactionId($order, $moneiPayment->getId());
                 $this->updateOrderPaymentMethodName($order, $moneiPayment);
@@ -238,11 +276,26 @@ class OrderService
         }
 
         $order = new \Order($orderId);
-        $totalOrderRefunded = $this->moneiService->getTotalRefundedByIdOrder($orderId);
-        if ($order->getTotalPaid() > $totalOrderRefunded) {
-            $order->setCurrentState(\Configuration::get('MONEI_STATUS_PARTIALLY_REFUNDED'));
+
+        // Get refunded amount in cents from MONEI
+        $totalRefundedCents = $this->moneiService->getTotalRefundedByIdOrder($orderId);
+
+        // Convert order total to cents for consistent comparison
+        // Use round to avoid float precision issues
+        $totalPaidCents = (int) round($order->getTotalPaid() * 100);
+
+        if ($totalPaidCents > $totalRefundedCents) {
+            $newState = \Configuration::get('MONEI_STATUS_PARTIALLY_REFUNDED');
+            \Monei::logDebug('[MONEI] Order partially refunded [order_id=' . $orderId
+                . ', total_paid_cents=' . $totalPaidCents
+                . ', total_refunded_cents=' . $totalRefundedCents . ']');
+            $order->setCurrentState($newState);
         } else {
-            $order->setCurrentState(\Configuration::get('MONEI_STATUS_REFUNDED'));
+            $newState = \Configuration::get('MONEI_STATUS_REFUNDED');
+            \Monei::logDebug('[MONEI] Order fully refunded [order_id=' . $orderId
+                . ', total_paid_cents=' . $totalPaidCents
+                . ', total_refunded_cents=' . $totalRefundedCents . ']');
+            $order->setCurrentState($newState);
         }
     }
 
@@ -347,6 +400,12 @@ class OrderService
         $context = \Context::getContext();
         $context->monei_order_reference = $moneiPayment->getOrderId();
 
+        \Monei::logDebug('[MONEI] Creating new order [cart_id=' . $cart->id
+            . ', payment_id=' . $moneiPayment->getId()
+            . ', amount=' . ($moneiPayment->getAmount() / 100)
+            . ', currency=' . $cart->id_currency
+            . ', payment_status=' . $moneiPayment->getStatus() . ']');
+
         $this->moneiInstance->validateOrder(
             $cart->id,
             $orderStateId,
@@ -359,19 +418,33 @@ class OrderService
             $customer->secure_key
         );
 
-        return \Order::getByCartId($cart->id);
+        $order = \Order::getByCartId($cart->id);
+
+        if ($order && \Validate::isLoadedObject($order)) {
+            \Monei::logDebug('[MONEI] Order created successfully [order_id=' . $order->id
+                . ', reference=' . $order->reference . ']');
+        }
+
+        return $order;
     }
 
     private function handlePostOrderCreation($redirectToConfirmationPage, $cart, $customer, $order)
     {
         if ($redirectToConfirmationPage) {
-            $redirectUrl = 'index.php?controller=order-confirmation'
-                . '&id_cart=' . $cart->id
-                . '&id_module=' . $this->moneiInstance->id
-                . '&id_order=' . $order->id
-                . '&key=' . $customer->secure_key;
+            // Use context link for proper URL generation in PS1.7
+            $confirmationUrl = $this->context->link->getPageLink(
+                'order-confirmation',
+                null,
+                null,
+                [
+                    'id_cart' => (int) $cart->id,
+                    'id_module' => (int) $this->moneiInstance->id,
+                    'id_order' => (int) $order->id,
+                    'key' => $customer->secure_key,
+                ]
+            );
 
-            \Tools::redirect($redirectUrl);
+            \Tools::redirect($confirmationUrl);
         } else {
             header('HTTP/1.1 200 OK');
             echo '<h1>OK</h1>';
