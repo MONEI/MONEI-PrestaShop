@@ -118,6 +118,15 @@ class OrderService
                 $this->moneiService->saveMoneiToken($moneiPayment, $customer->id);
             }
 
+            // Allow modules to retrieve custom data after order creation
+            // Example: Retrieve tracking data from metadata, restore state, etc.
+            \Hook::exec('actionMoneiAfterOrderCreate', [
+                'order' => $order,
+                'payment' => $moneiPayment,
+                'cart' => $cart,
+                'customer' => $customer,
+            ]);
+
             $this->moneiService->saveMoneiPayment($moneiPayment, $order->id);
 
             // Flag order created or updated
