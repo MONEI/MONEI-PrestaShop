@@ -305,9 +305,20 @@ class MoneiService
             return $cartId;
         }
 
-        // Last resort: Check our payments table for this MONEI order ID
+        // Last resort: Try to find cart by matching the order reference in database
+        // This works because our override makes order reference = MONEI order ID
         $orderId = $payment->getOrderId();
         if (!empty($orderId)) {
+            // Check if an order exists with this reference
+            $sql = 'SELECT id_cart FROM ' . _DB_PREFIX_ . 'orders
+                    WHERE reference = "' . pSQL($orderId) . '"
+                    LIMIT 1';
+            $cartIdFromOrder = (int) \Db::getInstance()->getValue($sql);
+            if ($cartIdFromOrder > 0) {
+                return $cartIdFromOrder;
+            }
+
+            // Also check in payments table in case order hasn't been created yet
             $sql = 'SELECT id_cart FROM ' . _DB_PREFIX_ . 'monei2_payment
                     WHERE id_order_monei = "' . pSQL($orderId) . '"
                     LIMIT 1';
