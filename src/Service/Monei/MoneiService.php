@@ -611,6 +611,14 @@ class MoneiService
         $metadata->shop_id = \Context::getContext()->shop->id;
         $metadata->shop_name = \Configuration::get('PS_SHOP_NAME');
 
+        // Allow modules to add custom data to payment metadata
+        // Example: Preserve cookies, add tracking data, etc.
+        \Hook::exec('actionMoneiBeforePaymentCreate', [
+            'cart' => $cart,
+            'metadata' => &$metadata,
+            'payment_method' => $paymentMethod,
+        ]);
+
         $createPaymentRequest
             ->setOrderId($orderId)
             ->setAmount($cartAmount)
