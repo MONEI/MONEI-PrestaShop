@@ -396,10 +396,6 @@ class OrderService
             }
         }
 
-        // Store the MONEI order ID in context to use as PrestaShop order reference
-        $context = \Context::getContext();
-        $context->monei_order_reference = $moneiPayment->getOrderId();
-
         \Monei::logDebug('[MONEI] Creating new order [cart_id=' . $cart->id
             . ', payment_id=' . $moneiPayment->getId()
             . ', amount=' . ($moneiPayment->getAmount() / 100)
