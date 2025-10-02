@@ -12,8 +12,15 @@ function upgrade_module_2_0_9($module)
     // Clean up deprecated MONEI_CART_TO_ORDER configuration
     Configuration::deleteByName('MONEI_CART_TO_ORDER');
 
-    // Ensure override is properly installed
+    // Ensure override is properly installed (only for PrestaShop 8.0.x)
+    // PrestaShop 8.1+ uses the actionGenerateDocumentReference hook instead
     try {
+        // Only install override on PrestaShop 8.0.x
+        if (version_compare(_PS_VERSION_, '8.1.0', '>=')) {
+            Monei::logDebug('[MONEI] Skipping override installation on PS 8.1+ (using hook instead)');
+            return true;
+        }
+
         // Check if override directory exists, create if not
         $overrideDir = _PS_OVERRIDE_DIR_ . 'classes/order/';
         if (!is_dir($overrideDir)) {
@@ -21,7 +28,8 @@ function upgrade_module_2_0_9($module)
         }
 
         // Copy the Order override if it doesn't exist or is outdated
-        $sourceOverride = _PS_MODULE_DIR_ . $module->name . '/override/classes/order/Order.php';
+        // Note: Override moved to overrides_ps80/ to prevent auto-installation on PS 8.1+
+        $sourceOverride = _PS_MODULE_DIR_ . $module->name . '/overrides_ps80/classes/order/Order.php';
         $destOverride = _PS_OVERRIDE_DIR_ . 'classes/order/Order.php';
 
         if (file_exists($sourceOverride)) {
