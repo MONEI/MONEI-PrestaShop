@@ -496,14 +496,23 @@ class Monei extends PaymentModule
      * PrestaShop 8.0.x doesn't support the actionGenerateDocumentReference hook,
      * so we need to install an override to customize order references.
      *
+     * Note: The override file is stored in overrides_ps80/ instead of override/
+     * to prevent PrestaShop from auto-installing it for all versions.
+     *
      * @return bool True if installation succeeded, false otherwise
      */
     private function installOrderOverride()
     {
         try {
-            $moduleOverrideFile = dirname(__FILE__) . '/override/classes/order/Order.php';
+            // Use overrides_ps80/ directory to prevent auto-installation by PrestaShop
+            $moduleOverrideFile = dirname(__FILE__) . '/overrides_ps80/classes/order/Order.php';
             $targetOverrideDir = _PS_OVERRIDE_DIR_ . 'classes/order/';
             $targetOverrideFile = $targetOverrideDir . 'Order.php';
+
+            if (!file_exists($moduleOverrideFile)) {
+                Monei::logError('[MONEI] Override source file not found: ' . $moduleOverrideFile);
+                return false;
+            }
 
             // Create directory if it doesn't exist
             if (!file_exists($targetOverrideDir)) {
