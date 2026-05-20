@@ -23,7 +23,7 @@ jobs:
         mkdir ../monei
         cp -r . ../monei/
         cd ..
-        zip -r monei.zip monei -x '*.git*' -x '/build/*'
+        zip -r monei.zip monei -x '*.git*' -x '/build/*' -x 'monei/output.log'
         
     - name: Upload Release
       uses: ncipollo/release-action@v1.14.0
