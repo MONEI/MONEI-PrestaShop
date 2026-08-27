@@ -164,6 +164,36 @@ const installedVersion = () =>
     );
 
 /**
+ * Force the version PrestaShop believes is installed.
+ *
+ * This is what the upgrade machinery compares against when deciding which
+ * scripts in `upgrade/` to run, so rewinding it is how an upgrade is replayed
+ * against a store that is already current.
+ *
+ * @param {string} version - Version to record
+ */
+const setInstalledVersion = (version) =>
+    mysql(`UPDATE ps_module SET version = '${version}' WHERE name = 'monei';`);
+
+/**
+ * Detach the module from a hook.
+ *
+ * @param {string} hookName - Hook name
+ */
+const unregisterHook = (hookName) =>
+    psEval(
+        `$m = Module::getInstanceByName('monei');` +
+            `if ($m) { $m->unregisterHook('${hookName}'); }`
+    );
+
+/**
+ * Delete a Configuration value.
+ *
+ * @param {string} key - Configuration key
+ */
+const deleteConfig = (key) => psEval(`Configuration::deleteByName('${key}');`);
+
+/**
  * Read the current state of an order.
  *
  * The confirmation page only says the browser landed somewhere; the order state
@@ -265,6 +295,9 @@ const syncShopDomain = () => {
 
 module.exports = {
     PS_FOLDER,
+    deleteConfig,
+    setInstalledVersion,
+    unregisterHook,
     syncShopDomain,
     tunnelUrl,
     console: console_,

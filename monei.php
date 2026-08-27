@@ -27,7 +27,7 @@ class Monei extends PaymentModule
         $this->displayName = 'MONEI Payments';
         $this->name = 'monei';
         $this->tab = 'payments_gateways';
-        $this->version = '2.0.18';
+        $this->version = '2.1.0';
         $this->author = 'MONEI';
         $this->need_instance = 0;
         $this->ps_versions_compliancy = ['min' => '8', 'max' => _PS_VERSION_];
@@ -84,6 +84,17 @@ class Monei extends PaymentModule
         Configuration::updateValue('MONEI_STATUS_PENDING', Configuration::get('PS_OS_PREPARATION'));
         Configuration::updateValue('MONEI_STATUS_AUTHORIZED', 0);
         Configuration::updateValue('MONEI_SWITCH_REFUNDS', true);
+        // Card layout. Split fields are the default; 'single' restores the
+        // one-line CardInput.
+        Configuration::updateValue('MONEI_CARD_LAYOUT', 'split');
+        // Express checkout. Off by default: it changes the storefront, so a
+        // merchant opts in.
+        Configuration::updateValue('MONEI_EXPRESS_ENABLED', false);
+        Configuration::updateValue('MONEI_EXPRESS_LOCATIONS', 'product,cart,checkout');
+        Configuration::updateValue('MONEI_EXPRESS_METHODS', 'applePay,googlePay,paypal');
+        // Order states that trigger an automatic capture of a pre-authorization.
+        // Empty means automatic capture is off.
+        Configuration::updateValue('MONEI_CAPTURE_STATUS', '');
         // Styles
         Configuration::updateValue('MONEI_CARD_INPUT_STYLE', '{"base": {"height": "42px"}, "input": {"background": "none"}}');
         Configuration::updateValue('MONEI_BIZUM_STYLE', '{"height": "42"}');
@@ -108,7 +119,20 @@ class Monei extends PaymentModule
             && $this->registerHook('actionCustomerLogoutAfter')
             && $this->registerHook('moduleRoutes')
             && $this->registerHook('actionOrderSlipAdd')
-            && $this->registerHook('actionGetAdminOrderButtons');
+            && $this->registerHook('actionGetAdminOrderButtons')
+            // Capture a pre-authorization when an order reaches a configured
+            // state. Registered unconditionally so it fires for every context
+            // that moves an order, not only an admin click.
+            && $this->registerHook('actionOrderStatusPostUpdate')
+            // Express checkout surfaces. Hook placement verified against the
+            // PrestaShop 8 classic theme:
+            //   product  -> catalog/_partials/product-additional-info.tpl
+            //   cart     -> checkout/_partials/cart-detailed-actions.tpl
+            //   checkout -> checkout/_partials/steps/payment.tpl, above the
+            //               payment options
+            && $this->registerHook('displayProductAdditionalInfo')
+            && $this->registerHook('displayExpressCheckout')
+            && $this->registerHook('displayPaymentTop');
 
         // For PrestaShop 8.1+, register the actionGenerateDocumentReference hook
         // For PrestaShop 8.0.x, the Order override will be used instead
@@ -621,6 +645,15 @@ class Monei extends PaymentModule
         Configuration::deleteByName('MONEI_STATUS_PARTIALLY_REFUNDED');
         Configuration::deleteByName('MONEI_STATUS_PENDING');
         Configuration::deleteByName('MONEI_STATUS_AUTHORIZED');
+        // Card layout and express checkout
+        Configuration::deleteByName('MONEI_CARD_LAYOUT');
+        Configuration::deleteByName('MONEI_EXPRESS_ENABLED');
+        Configuration::deleteByName('MONEI_EXPRESS_LOCATIONS');
+        Configuration::deleteByName('MONEI_EXPRESS_METHODS');
+        // ⚠️ Holds order state ids, which are per install. Uninstalling deletes
+        // the MONEI states and a reinstall reissues their ids, so a value kept
+        // across that cycle would point at unrelated states.
+        Configuration::deleteByName('MONEI_CAPTURE_STATUS');
 
         include dirname(__FILE__) . '/sql/uninstall.php';
 
