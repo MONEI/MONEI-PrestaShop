@@ -32,15 +32,28 @@ const ADDRESS = {
 };
 
 /**
- * MONEI test cards. Expiry 12/34 and CVC 123 apply to all of them.
- * Published at https://docs.monei.com/testing.
+ * MONEI test cards, mirroring `hosted-payment-service/playwright/fixtures.ts`.
+ * Expiry 12/34 and CVC 123 apply to all of them.
  */
 const CARDS = {
-    // Documented as frictionless, but whether a challenge appears also depends on
-    // the account risk rules, so a spec using it must tolerate one.
-    visaFrictionless: '4444444444444414',
-    // 3DS v2.1, always challenged.
-    visaChallenge: '4444444444444406',
+    challenge: '4444444444444406',
+    direct: '4444444444444414',
+    frictionless: '4444444444444422',
+    frictionlessChallenge: '4444444444444430',
+};
+
+/**
+ * Bizum test phone, from MONEI's own fixtures.
+ */
+const BIZUM_PHONE = '+34500000000';
+
+/**
+ * PayPal sandbox accounts, as used by MONEI's own suite and published at
+ * https://docs.monei.com/testing. Do not invent new ones.
+ */
+const PAYPAL = {
+    approve: { email: 'paypal-personal@monei.net', password: 'monei12345' },
+    decline: { email: 'CCREJECT-REFUSED@paypal.com', password: 'PayPal2016' },
 };
 
 const CARD_EXPIRY = '12/34';
@@ -347,7 +360,9 @@ const expectOrderConfirmation = async (page) => {
 };
 
 module.exports = {
+    BIZUM_PHONE,
     CARD_PART_TEST_ID,
+    PAYPAL,
     completeThreeDs,
     COMPONENT_FRAME,
     MOUNT,

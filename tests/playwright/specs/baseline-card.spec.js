@@ -54,7 +54,7 @@ test.describe('baseline: card', () => {
         await selectPaymentOption(page, /credit card/i);
 
         await expect(page.locator(COMPONENT_FRAME.card)).toBeVisible({ timeout: 30000 });
-        await fillCard(page, CARDS.visaFrictionless);
+        await fillCard(page, CARDS.direct);
         await placeOrder(page);
         await completeThreeDs(page);
 
