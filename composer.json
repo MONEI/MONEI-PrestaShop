@@ -1,31 +1,40 @@
 {
-  "name": "monei/monei-presta-shop",
-  "type": "prestashop-module",
-  "authors": [
-    {
-      "name": "MONEI",
-      "email": "admin@monei.com"
-    }
-  ],
-  "autoload": {
-    "psr-4": {
-      "PsMonei\\": "src/"
+    "name": "monei/monei-presta-shop",
+    "type": "prestashop-module",
+    "authors": [
+        {
+            "name": "MONEI",
+            "email": "admin@monei.com"
+        }
+    ],
+    "autoload": {
+        "psr-4": {
+            "PsMonei\\": "src/"
+        },
+        "classmap": [
+            "monei.php"
+        ]
     },
-    "classmap": [
-      "monei.php"
-    ]
-  },
-  "config": {
-    "prepend-autoloader": false,
-    "platform": {
-      "php": "7.4"
+    "config": {
+        "prepend-autoloader": false,
+        "platform": {
+            "php": "7.4"
+        }
+    },
+    "require": {
+        "monei/monei-php-sdk": "^2.6",
+        "prestashop/module-lib-service-container": "^2.0"
+    },
+    "require-dev": {
+        "friendsofphp/php-cs-fixer": "^3.3",
+        "phpunit/phpunit": "^9.6"
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "PsMonei\\Tests\\": "tests/"
+        }
+    },
+    "scripts": {
+        "test": "phpunit"
     }
-  },
-  "require": {
-    "monei/monei-php-sdk": "^2.6",
-    "prestashop/module-lib-service-container": "^2.0"
-  },
-  "require-dev": {
-    "friendsofphp/php-cs-fixer": "^3.3"
-  }
 }
