@@ -12,6 +12,12 @@ if (!defined('_PS_VERSION_')) {
 }
 class Monei extends PaymentModule
 {
+    /**
+     * MONEI JS SDK. v3 is what the express checkout components and the split
+     * card fields require; v2 has neither.
+     */
+    const MONEI_JS_URL = 'https://js.monei.com/v3/monei.js';
+
     protected $config_form = false;
     protected $paymentMethods;
     protected $moneiClient = false;
@@ -2223,10 +2229,10 @@ class Monei extends PaymentModule
 
         // Checkout
         if ($pageName == 'checkout') {
-            $moneiv2 = 'https://js.monei.com/v2/monei.js';
+            $moneiSdkUrl = self::MONEI_JS_URL;
             $this->context->controller->registerJavascript(
-                sha1($moneiv2),
-                $moneiv2,
+                sha1($moneiSdkUrl),
+                $moneiSdkUrl,
                 [
                     'server' => 'remote',
                     'priority' => 50,

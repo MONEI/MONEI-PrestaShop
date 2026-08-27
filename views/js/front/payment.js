@@ -402,6 +402,9 @@ function initMoneiBizum() {
     monei
         .Bizum({
             accountId: moneiAccountId,
+            // Required from monei.js v3 onward, as for CardInput.
+            amount: moneiAmount,
+            currency: moneiCurrency,
             style: moneiBizumStyle || {},
             onBeforeOpen() {
                 if (!moneiValidConditions() || processingMoneiBizumPayment) {
@@ -467,6 +470,11 @@ function initMoneiCard() {
 
     const moneiCardInput = monei.CardInput({
         accountId: moneiAccountId,
+        // ⚠️ Required from monei.js v3 onward. v2 accepted an accountId alone; v3
+        // throws "You need to provide paymentId or accountId amount and currency"
+        // and renders no iframe, so the checkout simply shows no card field.
+        amount: moneiAmount,
+        currency: moneiCurrency,
         onFocus: () => {
             moneiCardRenderContainer.classList.add('is-focused');
         },

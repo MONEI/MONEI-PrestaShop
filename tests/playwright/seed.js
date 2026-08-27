@@ -124,6 +124,14 @@ const main = () => {
     );
     assertTestKey(apiKey);
 
+    // ⚠️ Disable PrestaShop's combine/compress/cache pipeline. With it on, the
+    // storefront serves a concatenated bundle under themes/<theme>/assets/cache/
+    // and keeps serving the previous one after a module's JavaScript changes. A
+    // spec then exercises the old code while the file on disk and the file served
+    // directly both look correct — a very convincing way to debug the wrong thing.
+    setConfig('PS_JS_THEME_CACHE', '0');
+    setConfig('PS_CSS_THEME_CACHE', '0');
+
     const domain = syncShopDomain();
     if (domain) {
         process.stdout.write(`store domain synced to ${domain}\n`);
