@@ -207,7 +207,10 @@ const CARD_PART_TEST_ID = {
 const COMPONENT_FRAME = {
     card: 'iframe[title="monei_card_input"]',
     bizum: 'iframe[title="monei_bizum_button"]',
+    bizumDialog: 'iframe[title="monei_bizum"]',
     paypal: 'iframe[title="monei_paypal"]',
+    // PayPal's own button, rendered by PayPal inside MONEI's component.
+    paypalButton: 'iframe[title="PayPal"]',
 };
 
 /**
@@ -267,13 +270,44 @@ const fillCard = async (page, number) => {
  * @param {import('@playwright/test').Page} page   - Page
  * @param {string}                          method - Key of MOUNT to submit
  */
-const placeOrder = async (page, method = 'card') => {
-    const terms = page.locator('input[name="conditions_to_approve[terms-and-conditions]"]');
-    if ((await terms.count()) && (await terms.isVisible())) {
-        await terms.check();
+const acceptTerms = async (page) => {
+    // ⚠️ Must happen before any MONEI component is opened, not merely before the
+    // order is submitted. Every component gates on `moneiValidConditions()` in its
+    // `onBeforeOpen`, which returns false while a required checkbox in
+    // `#conditions-to-approve` is unchecked — the component then silently refuses
+    // to open, with no error anywhere.
+    const required = page.locator('#conditions-to-approve input[type="checkbox"][required]');
+
+    for (let i = 0; i < (await required.count()); i += 1) {
+        await required.nth(i).check();
     }
+};
+
+const placeOrder = async (page, method = 'card') => {
+    await acceptTerms(page);
 
     await page.locator(`${MOUNT[method]} form button[type="submit"]`).click();
+};
+
+/**
+ * Pay with Bizum.
+ *
+ * The Bizum component owns its own phone entry UI, so the flow is: accept terms,
+ * click the rendered button, then fill the component's own fields.
+ *
+ * @param {import('@playwright/test').Page} page  - Page
+ * @param {string}                          phone - Bizum phone
+ */
+const payWithBizum = async (page, phone = BIZUM_PHONE) => {
+    await acceptTerms(page);
+    await page.frameLocator(COMPONENT_FRAME.bizum).locator('#bizum_button').click();
+
+    // Opening the button mounts a second, separate iframe carrying the phone entry
+    // UI — `monei_bizum`, not the `monei_bizum_button` that was clicked.
+    const dialog = page.frameLocator('iframe[title="monei_bizum"]');
+
+    await dialog.getByTestId('bizum-phone-input').fill(phone);
+    await dialog.getByTestId('bizum-pay-button').click();
 };
 
 /**
@@ -359,8 +393,62 @@ const expectOrderConfirmation = async (page) => {
     };
 };
 
+/**
+ * Approve a payment in the PayPal sandbox.
+ *
+ * Mirrors `performPayPalCheckout` in MONEI's own suite
+ * (hosted-payment-service/playwright/helpers.ts).
+ *
+ * @param {import('@playwright/test').Page} popup   - The PayPal window
+ * @param {{email: string, password: string}} account - Sandbox account
+ */
+const approveInPayPal = async (popup, account) => {
+    const email = popup.locator('[name="login_email"], #email').first();
+
+    await expect(email).toBeVisible({ timeout: 60000 });
+    await email.fill(account.email);
+    await popup.locator('[name="btnNext"], #btnNext').first().click().catch(() => {});
+
+    const password = popup.locator('[name="login_password"], #password').first();
+
+    await expect(password).toBeVisible({ timeout: 60000 });
+    await password.fill(account.password);
+    await popup.locator('[name="btnLogin"], #btnLogin').first().click();
+
+    const submit = popup.getByTestId('submit-button-initial');
+
+    await expect(submit).toBeVisible({ timeout: 90000 });
+    await submit.click();
+};
+
+/**
+ * Pay with PayPal.
+ *
+ * @param {import('@playwright/test').Page} page    - Page
+ * @param {{email: string, password: string}} account - Sandbox account
+ */
+const payWithPayPal = async (page, account = PAYPAL.approve) => {
+    await acceptTerms(page);
+
+    // The popup must be awaited alongside the click, not after it: PayPal opens
+    // the window synchronously, so subscribing afterwards can miss the event.
+    const [popup] = await Promise.all([
+        page.waitForEvent('popup', { timeout: 60000 }),
+        page
+            .frameLocator(COMPONENT_FRAME.paypalButton)
+            .locator('div[data-funding-source="paypal"]')
+            .click(),
+    ]);
+
+    await approveInPayPal(popup, account);
+};
+
 module.exports = {
     BIZUM_PHONE,
+    approveInPayPal,
+    payWithPayPal,
+    acceptTerms,
+    payWithBizum,
     CARD_PART_TEST_ID,
     PAYPAL,
     completeThreeDs,
