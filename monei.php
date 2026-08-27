@@ -2042,18 +2042,16 @@ class Monei extends PaymentModule
         $cartSummaryDetails = $this->context->cart->getSummaryDetails(null, true);
 
         if ($paymentMethodsToDisplay) {
+            // Note: the values payment.js reads are published from
+            // hookActionFrontControllerSetMedia, not from here. See the comment
+            // there — by the time this content hook runs, the js_def block has
+            // already been collected.
             $this->context->smarty->assign([
                 'paymentMethodsToDisplay' => $paymentMethodsToDisplay,
-                'moneiAccountId' => (bool) Configuration::get('MONEI_PRODUCTION_MODE') ? Configuration::get('MONEI_ACCOUNT_ID') : Configuration::get('MONEI_TEST_ACCOUNT_ID'),
-                'moneiAmount' => $moneiService->getCartAmount($cartSummaryDetails, $this->context->cart->id_currency),
                 'moneiAmountFormatted' => $this->context->getCurrentLocale()->formatPrice(
                     $moneiService->getCartAmount($cartSummaryDetails, $this->context->cart->id_currency, true),
                     $this->context->currency->iso_code
                 ),
-                'moneiCreatePaymentUrlController' => $this->context->link->getModuleLink('monei', 'createPayment'),
-                'moneiToken' => Tools::getToken(false),
-                'moneiCurrency' => $this->context->currency->iso_code,
-                'moneiPaymentAction' => Configuration::get('MONEI_PAYMENT_ACTION', 'sale'),
             ]);
 
             return $this->fetch('module:monei/views/templates/hook/displayPaymentByBinaries.tpl');
@@ -2236,6 +2234,19 @@ class Monei extends PaymentModule
                 ]
             );
 
+            // Must load before front.js, which calls the init functions this file
+            // declares. Both are deferred, so they execute in registration order
+            // and both finish before DOMContentLoaded fires.
+            $this->context->controller->registerJavascript(
+                'module-' . $this->name . '-payment',
+                'modules/' . $this->name . '/views/js/front/payment.js',
+                [
+                    'priority' => 90,
+                    'attribute' => 'defer',
+                    'position' => 'bottom',
+                ]
+            );
+
             $this->context->controller->registerJavascript(
                 'module-' . $this->name . '-front',
                 'modules/' . $this->name . '/views/js/front/front.js',
@@ -2267,6 +2278,29 @@ class Monei extends PaymentModule
                 unset($this->context->cookie->monei_checkout_error);
                 $this->context->cookie->write();
             }
+
+            // ⚠️ Published here, not from hookDisplayPaymentByBinaries, even though
+            // that is the hook these values describe. PrestaShop collects the
+            // js_def block before content hooks render, so an addJsDef call made
+            // while rendering the payment step never reaches the page: the values
+            // silently do not exist, payment.js initialises nothing, and the
+            // checkout renders its payment options with no working component.
+            $moneiJsDef = [
+                'moneiAccountId' => (bool) Configuration::get('MONEI_PRODUCTION_MODE') ? Configuration::get('MONEI_ACCOUNT_ID') : Configuration::get('MONEI_TEST_ACCOUNT_ID'),
+                'moneiCreatePaymentUrlController' => $this->context->link->getModuleLink('monei', 'createPayment'),
+                'moneiToken' => Tools::getToken(false),
+                'moneiCurrency' => $this->context->currency->iso_code,
+                'moneiPaymentAction' => Configuration::get('MONEI_PAYMENT_ACTION', 'sale'),
+            ];
+
+            if (Validate::isLoadedObject($this->context->cart)) {
+                $moneiJsDef['moneiAmount'] = self::getService('service.monei')->getCartAmount(
+                    $this->context->cart->getSummaryDetails(null, true),
+                    $this->context->cart->id_currency
+                );
+            }
+
+            Media::addJsDef($moneiJsDef);
 
             Media::addJsDef([
                 'moneiProcessing' => $this->l('Processing payment...'),
