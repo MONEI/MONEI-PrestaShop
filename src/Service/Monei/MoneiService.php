@@ -28,7 +28,7 @@ use PsMonei\Repository\MoneiRefundRepository;
 class MoneiService
 {
     // Payment methods that do not support AUTH transaction type
-    const UNSUPPORTED_AUTH_METHODS = ['mbway', 'multibanco'];
+    const UNSUPPORTED_AUTH_METHODS = PaymentMethodAvailability::UNSUPPORTED_AUTH_METHODS;
 
     private $legacyContext;
     private $moneiPaymentRepository;
@@ -432,19 +432,19 @@ class MoneiService
             'MONEI_ALLOW_MBWAY' => 'mbway',
         ];
 
-        $paymentAction = \Configuration::get('MONEI_PAYMENT_ACTION');
-
         foreach ($allowedMethods as $configKey => $method) {
             if (\Configuration::get($configKey)) {
-                // If payment action is 'auth', exclude methods that don't support AUTH
-                if ($paymentAction === 'auth' && in_array($method, self::UNSUPPORTED_AUTH_METHODS)) {
-                    continue;  // Skip unsupported AUTH methods
-                }
                 $paymentMethods[] = $method;
             }
         }
 
-        return $paymentMethods;
+        // MB WAY and Multibanco cannot be pre-authorized, so `auth` removes them
+        // from the storefront. The settings screen warns about this; see
+        // PaymentMethodAvailability.
+        return PaymentMethodAvailability::filter(
+            $paymentMethods,
+            (string) \Configuration::get('MONEI_PAYMENT_ACTION')
+        );
     }
 
     public function getTotalRefundedByIdOrder(int $orderId)

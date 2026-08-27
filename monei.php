@@ -1224,6 +1224,56 @@ class Monei extends PaymentModule
     /**
      * Create the form that will be displayed in the configuration of your module.
      */
+
+    /**
+     * Warning shown when the configured transaction type removes payment methods.
+     *
+     * Selecting pre-authorization does not make MB WAY and Multibanco fall back to
+     * an immediate charge: it takes them off the storefront completely. Merchants
+     * were never told, so the first sign was a customer asking where a payment
+     * method went. The warning is rendered on both the form that sets the
+     * transaction type and the form that enables the methods, because a merchant
+     * only ever visits one of them.
+     *
+     * @return string HTML warning, or an empty string when nothing is hidden
+     */
+    private function getAuthHiddenMethodsWarning()
+    {
+        $enabled = [];
+        $labels = [
+            'MONEI_ALLOW_MBWAY' => ['mbway', 'MB WAY'],
+            'MONEI_ALLOW_MULTIBANCO' => ['multibanco', 'Multibanco'],
+        ];
+
+        foreach ($labels as $configKey => $method) {
+            if (Configuration::get($configKey)) {
+                $enabled[] = $method[0];
+            }
+        }
+
+        $hidden = \PsMonei\Service\Monei\PaymentMethodAvailability::hiddenBy(
+            $enabled,
+            (string) Configuration::get('MONEI_PAYMENT_ACTION', 'sale')
+        );
+
+        if (!$hidden) {
+            return '';
+        }
+
+        $names = [];
+        foreach ($labels as $method) {
+            if (in_array($method[0], $hidden, true)) {
+                $names[] = $method[1];
+            }
+        }
+
+        return '<div class="alert alert-warning">'
+            . $this->l('Pre-authorization is active, so these enabled payment methods are currently hidden from your checkout:')
+            . ' <strong>' . implode(', ', $names) . '</strong>. '
+            . $this->l('They cannot be pre-authorized. Switch Payment Action to Sale to offer them again.')
+            . '</div>';
+    }
+
     protected function renderForm()
     {
         $helper = new HelperForm();
@@ -1371,7 +1421,7 @@ class Monei extends PaymentModule
                         'type' => 'select',
                         'label' => $this->l('Payment Action'),
                         'name' => 'MONEI_PAYMENT_ACTION',
-                        'desc' => $this->l('Choose payment flow: Immediate charge (sale) or Pre-authorization (auth). Pre-authorization is supported for: Card, Apple Pay, Google Pay, PayPal. Not supported for: MBWay, Multibanco.'),
+                        'desc' => $this->l('Choose payment flow: Immediate charge (sale) or Pre-authorization (auth). Pre-authorization is supported for: Card, Apple Pay, Google Pay, PayPal. MB WAY and Multibanco cannot be pre-authorized and are removed from your checkout entirely while Pre-authorization is selected.') . $this->getAuthHiddenMethodsWarning(),
                         'options' => [
                             'query' => [
                                 [
@@ -1454,6 +1504,15 @@ class Monei extends PaymentModule
                     'icon' => 'icon-money',
                 ],
                 'input' => [
+                    [
+                        // Renders nothing unless the transaction type is currently
+                        // hiding an enabled payment method. A merchant enabling
+                        // MB WAY here would otherwise never learn that
+                        // pre-authorization removes it again.
+                        'type' => 'html',
+                        'name' => 'MONEI_AUTH_HIDDEN_WARNING',
+                        'html_content' => $this->getAuthHiddenMethodsWarning(),
+                    ],
                     [
                         'type' => 'switch',
                         'label' => $this->l('Allow Credit Card'),
