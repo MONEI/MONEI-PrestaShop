@@ -104,7 +104,9 @@ const fillPersonalInformation = async (page, email) => {
     }
 
     await page.locator('#checkout-personal-information-step [type="submit"]').first().click();
-    await expect(page.locator('#checkout-addresses-step')).toHaveClass(/-current/, { timeout: 30000 });
+    await expect(page.locator('#checkout-addresses-step')).toHaveClass(/-current/, {
+        timeout: 30000,
+    });
 };
 
 /**
@@ -128,7 +130,10 @@ const fillAddress = async (page) => {
     // selecting the value that is already active fires no change event, so the
     // form would never re-render and the wait below would time out on a form that
     // is in fact correct.
-    const selected = await country.locator('option:checked').innerText().catch(() => '');
+    const selected = await country
+        .locator('option:checked')
+        .innerText()
+        .catch(() => '');
 
     if (!selected.trim().startsWith(ADDRESS.country)) {
         await country.selectOption({ label: ADDRESS.country });
@@ -147,7 +152,9 @@ const fillAddress = async (page) => {
     }
 
     await page.locator('#checkout-addresses-step [type="submit"]').first().click();
-    await expect(page.locator('#checkout-delivery-step')).toHaveClass(/-current/, { timeout: 30000 });
+    await expect(page.locator('#checkout-delivery-step')).toHaveClass(/-current/, {
+        timeout: 30000,
+    });
 };
 
 /**
@@ -165,7 +172,9 @@ const chooseShipping = async (page) => {
     ).toHaveCount(0);
 
     await page.locator('#checkout-delivery-step [type="submit"]').first().click();
-    await expect(page.locator('#checkout-payment-step')).toHaveClass(/-current/, { timeout: 30000 });
+    await expect(page.locator('#checkout-payment-step')).toHaveClass(/-current/, {
+        timeout: 30000,
+    });
 };
 
 /**
@@ -352,7 +361,10 @@ const completeThreeDs = async (page, outcome = 'Complete') => {
                 // Swallowed deliberately here, unlike a single shot click: the loop
                 // exits on the browser leaving the challenge, so a failed attempt
                 // is retried rather than being mistaken for success.
-                await choice.first().click({ timeout: 10000 }).catch(() => {});
+                await choice
+                    .first()
+                    .click({ timeout: 10000 })
+                    .catch(() => {});
                 clicked = true;
             }
         }
@@ -407,7 +419,11 @@ const approveInPayPal = async (popup, account) => {
 
     await expect(email).toBeVisible({ timeout: 60000 });
     await email.fill(account.email);
-    await popup.locator('[name="btnNext"], #btnNext').first().click().catch(() => {});
+    await popup
+        .locator('[name="btnNext"], #btnNext')
+        .first()
+        .click()
+        .catch(() => {});
 
     const password = popup.locator('[name="login_password"], #password').first();
 

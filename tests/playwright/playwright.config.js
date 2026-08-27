@@ -25,10 +25,7 @@ module.exports = defineConfig({
     // trip follows, so give each test room.
     timeout: 180000,
     expect: { timeout: 30000 },
-    reporter: [
-        ['list'],
-        ['html', { outputFolder: './playwright-report', open: 'never' }],
-    ],
+    reporter: [['list'], ['html', { outputFolder: './playwright-report', open: 'never' }]],
     use: {
         baseURL: baseUrl(),
         actionTimeout: 30000,

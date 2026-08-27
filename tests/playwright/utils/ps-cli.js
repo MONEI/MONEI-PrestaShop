@@ -68,7 +68,19 @@ const psEval = (code) =>
  * @return {string} Trimmed stdout, tab separated
  */
 const mysql = (sql) =>
-    exec(['mysql', '-h', 'mysql', '-u', 'root', '-pprestashop', 'prestashop', '-N', '-B', '-e', sql]);
+    exec([
+        'mysql',
+        '-h',
+        'mysql',
+        '-u',
+        'root',
+        '-pprestashop',
+        'prestashop',
+        '-N',
+        '-B',
+        '-e',
+        sql,
+    ]);
 
 /**
  * Read a Configuration value, or an empty string when it is not set.
@@ -85,9 +97,7 @@ const getConfig = (key) => psEval(`echo (string) Configuration::get('${key}');`)
  * @param {string} value - Value to store
  */
 const setConfig = (key, value) =>
-    psEval(
-        `Configuration::updateValue('${key}', ${JSON.stringify(String(value))});`
-    );
+    psEval(`Configuration::updateValue('${key}', ${JSON.stringify(String(value))});`);
 
 /**
  * Clear the PrestaShop cache and reset the module.

@@ -48,8 +48,7 @@ const requireEnv = (name, hint) => {
  *
  * @return {string} Container name
  */
-const containerName = () =>
-    (process.env.MONEI_E2E_PS_CONTAINER || 'tunnel1-prestashop-1').trim();
+const containerName = () => (process.env.MONEI_E2E_PS_CONTAINER || 'tunnel1-prestashop-1').trim();
 
 /**
  * Ask the store what domain it believes it is served on.

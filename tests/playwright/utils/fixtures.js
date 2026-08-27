@@ -42,7 +42,6 @@ const writeFixtures = (values) =>
  * @param {string} fallback - Value for an unseeded store
  * @return {string} Fixture value
  */
-const fixture = (key, envName, fallback) =>
-    process.env[envName] || readFixtures()[key] || fallback;
+const fixture = (key, envName, fallback) => process.env[envName] || readFixtures()[key] || fallback;
 
 module.exports = { FIXTURES_FILE, fixture, readFixtures, writeFixtures };

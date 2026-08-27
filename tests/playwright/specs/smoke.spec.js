@@ -36,7 +36,6 @@ test.describe('harness', () => {
     test('reports whether this run can complete 3D Secure', () => {
         // Not an assertion: it records which half of the suite this environment
         // can run, so a skipped card spec later is traceable to the base URL.
-        // eslint-disable-next-line no-console
         console.log(
             `base URL ${baseUrl()} — 3DS ${supportsThreeDs() ? 'supported' : 'NOT supported, card specs will skip'}`
         );
