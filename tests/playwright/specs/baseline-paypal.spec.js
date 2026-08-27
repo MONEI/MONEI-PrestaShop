@@ -18,7 +18,11 @@ test.describe('baseline: paypal', () => {
         await goToPaymentStep(page);
         await selectPaymentOption(page, /paypal/i);
 
-        await expect(page.locator(COMPONENT_FRAME.paypal)).toBeVisible({ timeout: 30000 });
+        // ⚠️ The MONEI wrapper iframe is a zero height container: it reports a
+        // width but no height, so a visibility assertion on it fails while the
+        // component is working perfectly. The button PayPal renders inside it is
+        // the thing with a box, and the thing a shopper can actually click.
+        await expect(page.locator(COMPONENT_FRAME.paypal)).toBeAttached({ timeout: 30000 });
         await expect(page.locator(COMPONENT_FRAME.paypalButton)).toBeVisible({ timeout: 60000 });
     });
 

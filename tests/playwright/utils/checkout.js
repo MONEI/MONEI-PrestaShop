@@ -219,7 +219,10 @@ const COMPONENT_FRAME = {
     bizumDialog: 'iframe[title="monei_bizum"]',
     paypal: 'iframe[title="monei_paypal"]',
     // PayPal's own button, rendered by PayPal inside MONEI's component.
-    paypalButton: 'iframe[title="PayPal"]',
+    // ⚠️ Scoped to the mount container and pinned to the first match. PayPal
+    // re-renders its button, and for a moment two of these exist, which trips
+    // Playwright's strict mode on an otherwise healthy page.
+    paypalButton: '#monei-paypal-buttons-container iframe[title="PayPal"] >> nth=0',
 };
 
 /**
