@@ -1,0 +1,13 @@
+{
+  "name": "monei-prestashop-dev",
+  "private": true,
+  "description": "Development tooling for the MONEI PrestaShop module. Not shipped to merchants.",
+  "scripts": {
+    "test:e2e": "playwright test --config tests/playwright/playwright.config.js",
+    "test:e2e:seed": "node tests/playwright/seed.js"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.49.0",
+    "dotenv": "^16.4.7"
+  }
+}

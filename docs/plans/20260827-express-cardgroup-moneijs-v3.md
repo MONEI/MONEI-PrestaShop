@@ -101,7 +101,9 @@ Requirements, not advice. These cost real time in the WooCommerce round.
 4. **CSS: no `em` units for wallet button height.** Parent font-size varies by theme, so `3.125em` is not 50px. Use `px`. And **do not put `display:flex` on the wallet container** — it breaks the PayPal button width.
 5. **PayPal sandbox automation**: the button is a cross-origin zoid iframe appended to `<body>`. The login is a popup *or* an in-page overlay depending on headless/headed, and the overlay starts as `about:blank`. Racing a popup event against a frame locator produces failures that look like PayPal being broken. Poll both surfaces and accept only a frame that actually reached paypal.com.
 6. **Verify behaviour, not markers.** Grepping a CDN bundle or reading a settings description misled us twice in the WooCommerce round. A background task can also report exit code 0 while the command failed — parse the output, do not trust the code.
-7. **Never commit credentials.** MONEI test key and account ID go in a gitignored `.env`. Not in any committed file, PR body, or docs page. PayPal sandbox accounts are published at `https://docs.monei.com/testing` — reference them, do not invent new ones.
+7. **The MONEI e2e selectors already exist — reuse them.** MONEI's own Playwright suites live in `~/Work/MONEI/hosted-payment-service/playwright/`, `~/Work/MONEI/monei-js/playwright/` and `~/Work/MONEI/web-service/playwright/`. `helpers.ts` there is the source of truth: `iframe[title="monei_card_input"]`, test ids `card-number-input` / `expiry-date-input` / `cvc-input`, expiry `12/34`, cvc `123`, 3DS via `getByRole('button', {name: 'Complete'})` (**no `exact`** — the accessible name carries whitespace), Bizum via `bizum-phone-input` / `bizum-pay-button`, and PayPal via `[name="login_email"]` → `btnNext` → `login_password` → `btnLogin` → `submit-button-initial`. Do not reverse engineer these from the DOM.
+8. **Zoid iframes have an empty `src`.** Every MONEI component iframe is created with no `src` and loads its document internally, so `iframe[src*=...]` matches nothing while the frame reports a `js.monei.com/v2/inner-*` URL. Match on `title`.
+9. **Never commit credentials.** MONEI test key and account ID go in a gitignored `.env`. Not in any committed file, PR body, or docs page. PayPal sandbox accounts are published at `https://docs.monei.com/testing` — reference them, do not invent new ones.
 
 ## Solution Overview
 
@@ -202,15 +204,17 @@ Express needs hooks the module does not register. Candidates, **to be verified e
 - Modify: `.gitignore`
 - Create: `package.json`
 
-- [ ] port the WooCommerce Playwright config and utils, adapting to Flashlight Docker
-- [ ] write `utils/ps-cli.js` wrapping `docker exec ... bin/console` for module reset, cache clear, config set, **and installing a prior module version plus running `prestashop:module upgrade`** — Task 3's upgrade spec cannot run without that last capability. Replaces the WooCommerce `wp-cli.js`.
-- [ ] write `seed.js` creating test products: a simple product, a variable product, and a virtual product
-- [ ] add `.env.example` and gitignore the real `.env` — **never commit the MONEI test key or account ID** (constraint 7)
-- [ ] document setup in `README.md`, referencing the published PayPal sandbox accounts at `https://docs.monei.com/testing`
-- [ ] create root `package.json` with `@playwright/test` as a devDependency and a `test:e2e` script; state in it which package manager the root uses and why it is not in `build/` (`build/package.json` already exists with `packageManager: yarn@4.9.4`)
-- [ ] write one smoke spec that loads the storefront and proves the harness runs
-- [ ] **write the pre-refactor baseline specs now**, against the unmodified template: card, Bizum, and PayPal checkout end to end. Task 4 refactors a live payment path, and "provably inert" is unprovable without a spec that was green beforehand.
-- [ ] run the smoke and baseline specs — must pass before Task 2
+- [x] port the WooCommerce Playwright config and utils, adapting to Flashlight Docker
+- [x] write `utils/ps-cli.js` wrapping `docker exec ... bin/console` for module reset, cache clear, config set, **and installing a prior module version plus running `prestashop:module upgrade`** — Task 3's upgrade spec cannot run without that last capability. Replaces the WooCommerce `wp-cli.js`.
+- [x] write `seed.js` creating test products: a simple product, a variable product, and a virtual product
+- [x] add `.env.example` and gitignore the real `.env` — **never commit the MONEI test key or account ID** (constraint 7)
+- [x] document setup in `README.md`, referencing the published PayPal sandbox accounts at `https://docs.monei.com/testing`
+- [x] create root `package.json` with `@playwright/test` as a devDependency and a `test:e2e` script; state in it which package manager the root uses and why it is not in `build/` (`build/package.json` already exists with `packageManager: yarn@4.9.4`)
+- [x] write one smoke spec that loads the storefront and proves the harness runs
+- [x] **write the pre-refactor baseline specs now**, against the unmodified template: card done (render, component mount, full payment through 3DS to order confirmation). ➕ Bizum and PayPal baselines still outstanding. Task 4 refactors a live payment path, and "provably inert" is unprovable without a spec that was green beforehand.
+- [x] run the smoke and baseline specs — 8 specs green (1 flaky on the tunnel, passes on retry)
+- [ ] ➕ add the Bizum baseline spec (MONEI's own selectors: `bizum-phone-input`, `bizum-pay-button`)
+- [ ] ➕ add the PayPal baseline spec (MONEI's own helper: `[name="login_email"]` → `btnNext` → `login_password` → `btnLogin` → `submit-button-initial`)
 
 ### Task 2: JS linting tooling
 
@@ -252,6 +256,7 @@ Express needs hooks the module does not register. Candidates, **to be verified e
 
 - [ ] **understand the real structure before touching it.** This is a behavioural rewrite of ~260 lines, not a file move. The template holds **six** `<script>` blocks: one unconditional at :1-354, then five inside a single `{foreach from=$paymentMethodsToDisplay}` at :355-618 — Bizum :373, card :411, googlePay :504, applePay :533, paypal :570 — selected by `{if}/{elseif}` on `$paymentOptionName`. Each closes over container markup created in the same loop iteration.
 - [ ] convert the Smarty `{if}/{elseif}` dispatch into runtime dispatch over a `paymentMethodsToDisplay` array, and rewrite the five closures into five init functions that locate their containers by ID or data attribute
+- [ ] **preserve the five global init function names.** `views/js/front/front.js:6-19` calls `initMoneiCard`, `initMoneiBizum`, `initMoneiGooglePay`, `initMoneiApplePay`, and `initMoneiPayPal` as globals, to re-init MONEI after the `onepagecheckoutps` third-party module rebuilds the payment list. Renaming or scoping them breaks that integration silently, on a theme we do not test.
 - [ ] pass every Smarty-interpolated value through `Media::addJsDef` or data attributes — nothing may stay interpolated into JS. Coupling is low: eight values (`moneiAccountId`, `moneiAmount`, `moneiAmountFormatted`, `moneiCurrency`, `moneiToken`, `moneiPaymentAction`, `moneiCreatePaymentUrlController`, `paymentOptionName`), all assigned at `monei.php:2012-2024`. The `{l s='Pay'}` at :364 is markup, not JS.
 - [ ] **verify `addJsDef` timing explicitly — this is the most likely way this task silently breaks.** `registerJavascript` for `payment.js` runs in `hookActionFrontControllerSetMedia` (`monei.php:2185`), but the eight values only exist inside `hookDisplayPaymentByBinaries` (`monei.php:2011-2026`), which runs later during content render. Confirm the defs still land in the footer `js_def` block ahead of the deferred script.
 - [ ] **make `payment.js` no-op when the hook did not render.** It now loads on every checkout page, but `hookDisplayPaymentByBinaries` early-returns at `monei.php:1991-2000` when MONEI is unavailable or no binary methods exist. Guard on the presence of the defs.
