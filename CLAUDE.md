@@ -259,6 +259,16 @@ Note: If capture button is not visible in PrestaShop admin, check:
 
 ## Known Compatibility Issues
 
+### ⚠️ `Db::getRow` appends `LIMIT 1` unconditionally
+
+On 1.7.8 `Db::getRow` does `$sql = rtrim($sql, ...) . ' LIMIT 1'` with no check for
+one already being there, so any query passed to `getRow`/`getValue` that ends in
+`LIMIT 1` becomes `LIMIT 1 LIMIT 1` and fails. `getValue` then answers `false`,
+which reads as "no such row" rather than "broken query" — and `executeS` on the
+identical SQL still works, which makes it look like a data problem. Write these
+queries without a `LIMIT`.
+
+
 ### PrestaShop 1.7.2.4 Specific Issues
 - PrestaShopLogger constants don't exist (use numeric values: info=1, warning=2, error=3, major=4)
 - hookDisplayBackOfficeHeader not triggered for module configuration pages
