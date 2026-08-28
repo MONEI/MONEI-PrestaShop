@@ -218,10 +218,12 @@ class MoneiExpressModuleFrontController extends ModuleFrontController
         // client never supplies it, so there is nothing to validate and nothing to
         // spoof: a wallet cannot talk the shop into a smaller total.
         //
-        // The sheet shows the pre-shipping total for a physical cart, because the
-        // delivery address only arrives with the shopper's approval and there is no
-        // shipping-change callback to reprice inside the sheet. The WooCommerce
-        // plugin behaves the same way.
+        // ⚠️ The sheet total is NOT pre-shipping: getSummaryDetails already prices
+        // the cart's current carrier. What can still move is the carrier itself —
+        // the address arrives with the shopper's approval, and the cheapest option
+        // for that zone is chosen here, which may differ from the one priced into
+        // the sheet. monei.js v3 exposes shipping-change callbacks that would let
+        // the sheet reprice; they are not wired yet.
         $this->selectCheapestCarrier();
 
         $payment = Monei::getService('service.monei')->createMoneiPayment(
