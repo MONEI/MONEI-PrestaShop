@@ -824,6 +824,8 @@ class Monei extends PaymentModule
             $message .= $this->postProcess(3);
         } elseif (Tools::isSubmit('submitMoneiModuleComponentStyle')) {
             $message .= $this->postProcess(4);
+        } elseif (Tools::isSubmit('submitMoneiModuleExpress')) {
+            $message .= $this->postProcess(5);
         }
 
         // Check Apple Pay domain verification status
@@ -842,6 +844,7 @@ class Monei extends PaymentModule
             'helper_form_2' => $this->renderFormGateways(),
             'helper_form_3' => $this->renderFormStatus(),
             'helper_form_4' => $this->renderFormComponentStyle(),
+            'helper_form_5' => $this->renderFormExpress(),
         ]);
 
         return $message . $this->context->smarty->fetch($this->local_path . 'views/templates/admin/configure.tpl');
@@ -894,6 +897,11 @@ class Monei extends PaymentModule
                 }
 
                 break;
+            case 5:
+                $section = $this->l('Express Checkout');
+                $form_values = $this->getConfigFormExpressValues();
+
+                break;
         }
 
         // Store previous Apple Pay state
@@ -905,8 +913,20 @@ class Monei extends PaymentModule
                 $value = $validatedValues[$key];
                 Configuration::updateValue($key, $value);
             } else {
-                $value = Tools::getValue($key);
-                Configuration::updateValue($key, $value);
+                // ⚠️ A multiple select is declared as `NAME[]` so the form posts an
+                // array, but PHP names that field `NAME`. Reading `NAME[]` finds
+                // nothing and would then write an empty value to a bogus key, which
+                // looks exactly like the setting refusing to save.
+                $configKey = substr($key, -2) === '[]' ? substr($key, 0, -2) : $key;
+                $value = Tools::getValue($configKey);
+
+                // Stored as a comma separated list, which is what everything
+                // reading these settings expects.
+                if (is_array($value)) {
+                    $value = implode(',', array_filter($value, 'strlen'));
+                }
+
+                Configuration::updateValue($configKey, $value);
             }
         }
 
@@ -1209,6 +1229,7 @@ class Monei extends PaymentModule
             'MONEI_STATUS_SUCCEEDED' => Configuration::get('MONEI_STATUS_SUCCEEDED', Configuration::get('PS_OS_PAYMENT')),
             'MONEI_STATUS_FAILED' => Configuration::get('MONEI_STATUS_FAILED', Configuration::get('PS_OS_ERROR')),
             'MONEI_STATUS_AUTHORIZED' => Configuration::get('MONEI_STATUS_AUTHORIZED', 0),
+            'MONEI_CAPTURE_STATUS[]' => $this->explodeConfigList('MONEI_CAPTURE_STATUS'),
             'MONEI_SWITCH_REFUNDS' => Configuration::get('MONEI_SWITCH_REFUNDS', false),
             'MONEI_STATUS_REFUNDED' => Configuration::get('MONEI_STATUS_REFUNDED', Configuration::get('PS_OS_REFUND')),
             'MONEI_STATUS_PARTIALLY_REFUNDED' => Configuration::get('MONEI_STATUS_PARTIALLY_REFUNDED', Configuration::get('PS_OS_REFUND')),
@@ -1221,6 +1242,7 @@ class Monei extends PaymentModule
     protected function getConfigFormComponentStyleValues()
     {
         return [
+            'MONEI_CARD_LAYOUT' => Configuration::get('MONEI_CARD_LAYOUT', 'split'),
             'MONEI_CARD_INPUT_STYLE' => Configuration::get('MONEI_CARD_INPUT_STYLE', '{"base": {"height": "42px"}, "input": {"background": "none"}}'),
             'MONEI_BIZUM_STYLE' => Configuration::get('MONEI_BIZUM_STYLE', '{"height": "42"}'),
             'MONEI_PAYMENT_REQUEST_STYLE' => Configuration::get('MONEI_PAYMENT_REQUEST_STYLE', '{"height": "42"}'),
@@ -1806,6 +1828,18 @@ class Monei extends PaymentModule
                         ],
                     ],
                     [
+                        'type' => 'select',
+                        'label' => $this->l('Capture automatically on'),
+                        'name' => 'MONEI_CAPTURE_STATUS[]',
+                        'multiple' => true,
+                        'desc' => $this->l('Statuses that capture a pre-authorized payment automatically. Leave empty to capture only from the order page. Applies to any change of status, including one made by another module, a scheduled task or the API.'),
+                        'options' => [
+                            'query' => $order_statuses,
+                            'id' => 'id_order_state',
+                            'name' => 'name',
+                        ],
+                    ],
+                    [
                         'type' => 'switch',
                         'label' => $this->l('Change Status for Refunds'),
                         'name' => 'MONEI_SWITCH_REFUNDS',
@@ -1856,6 +1890,130 @@ class Monei extends PaymentModule
         ];
     }
 
+
+    /**
+     * Values bound to the express checkout form.
+     *
+     * @return array
+     */
+    protected function getConfigFormExpressValues()
+    {
+        return [
+            'MONEI_EXPRESS_ENABLED' => Configuration::get('MONEI_EXPRESS_ENABLED', false),
+            // Multiple selects post arrays, so the stored comma separated lists
+            // are expanded back out for the form to preselect.
+            'MONEI_EXPRESS_LOCATIONS[]' => $this->explodeConfigList('MONEI_EXPRESS_LOCATIONS'),
+            'MONEI_EXPRESS_METHODS[]' => $this->explodeConfigList('MONEI_EXPRESS_METHODS'),
+        ];
+    }
+
+    /**
+     * Expand a comma separated configuration value into an array.
+     *
+     * @param string $key Configuration key
+     *
+     * @return array
+     */
+    protected function explodeConfigList($key)
+    {
+        $raw = (string) Configuration::get($key);
+
+        return $raw === '' ? [] : array_values(array_filter(array_map('trim', explode(',', $raw)), 'strlen'));
+    }
+
+    protected function renderFormExpress()
+    {
+        $helper = new HelperForm();
+
+        $helper->show_toolbar = false;
+        $helper->table = $this->table;
+        $helper->module = $this;
+        $helper->default_form_language = $this->context->language->id;
+        $helper->allow_employee_form_lang = Configuration::get('PS_BO_ALLOW_EMPLOYEE_FORM_LANG', 0);
+
+        $helper->identifier = $this->identifier;
+        $helper->submit_action = 'submitMoneiModuleExpress';
+        $helper->currentIndex = $this->context->link->getAdminLink('AdminModules', false)
+            . '&configure=' . $this->name . '&tab_module=' . $this->tab . '&module_name=' . $this->name;
+        $helper->token = Tools::getAdminTokenLite('AdminModules');
+
+        $helper->tpl_vars = [
+            'fields_value' => $this->getConfigFormExpressValues(),
+            'languages' => $this->context->controller->getLanguages(),
+            'id_language' => $this->context->language->id,
+        ];
+
+        return $helper->generateForm([$this->getConfigFormExpress()]);
+    }
+
+    protected function getConfigFormExpress()
+    {
+        return [
+            'form' => [
+                'legend' => [
+                    'title' => $this->l('Express Checkout'),
+                    'icon' => 'icon-bolt',
+                ],
+                'input' => [
+                    [
+                        'type' => 'switch',
+                        'label' => $this->l('Enable Express Checkout'),
+                        'name' => 'MONEI_EXPRESS_ENABLED',
+                        'is_bool' => true,
+                        'desc' => $this->l('Show Apple Pay, Google Pay and PayPal buttons that let a customer pay without going through the full checkout. Off by default, because it changes your storefront.'),
+                        'values' => [
+                            [
+                                'id' => 'express_on',
+                                'value' => true,
+                                'label' => $this->l('Enabled'),
+                            ],
+                            [
+                                'id' => 'express_off',
+                                'value' => false,
+                                'label' => $this->l('Disabled'),
+                            ],
+                        ],
+                    ],
+                    [
+                        'type' => 'select',
+                        'label' => $this->l('Show on'),
+                        'name' => 'MONEI_EXPRESS_LOCATIONS[]',
+                        'multiple' => true,
+                        'desc' => $this->l('Where the express buttons appear.'),
+                        'options' => [
+                            'query' => [
+                                ['id' => 'product', 'name' => $this->l('Product page')],
+                                ['id' => 'cart', 'name' => $this->l('Cart page')],
+                                ['id' => 'checkout', 'name' => $this->l('Checkout page')],
+                            ],
+                            'id' => 'id',
+                            'name' => 'name',
+                        ],
+                    ],
+                    [
+                        'type' => 'select',
+                        'label' => $this->l('Payment methods'),
+                        'name' => 'MONEI_EXPRESS_METHODS[]',
+                        'multiple' => true,
+                        'desc' => $this->l('A method only appears if it is also enabled under Payment methods and offered by your MONEI account.'),
+                        'options' => [
+                            'query' => [
+                                ['id' => 'applePay', 'name' => 'Apple Pay'],
+                                ['id' => 'googlePay', 'name' => 'Google Pay'],
+                                ['id' => 'paypal', 'name' => 'PayPal'],
+                            ],
+                            'id' => 'id',
+                            'name' => 'name',
+                        ],
+                    ],
+                ],
+                'submit' => [
+                    'title' => $this->l('Save'),
+                ],
+            ],
+        ];
+    }
+
     protected function renderFormComponentStyle()
     {
         $helper = new HelperForm();
@@ -1889,6 +2047,20 @@ class Monei extends PaymentModule
                     'icon' => 'icon-paint-brush',
                 ],
                 'input' => [
+                    [
+                        'type' => 'select',
+                        'label' => $this->l('Card field layout'),
+                        'name' => 'MONEI_CARD_LAYOUT',
+                        'desc' => $this->l('Split shows separate fields for card number, expiry date and CVC. Single shows one combined field. Split is the default from 2.1.0 onward; choose Single to keep the previous appearance.'),
+                        'options' => [
+                            'query' => [
+                                ['id' => 'split', 'name' => $this->l('Split fields (default)')],
+                                ['id' => 'single', 'name' => $this->l('Single line')],
+                            ],
+                            'id' => 'id',
+                            'name' => 'name',
+                        ],
+                    ],
                     [
                         'type' => 'textarea',
                         'label' => $this->l('Card input style'),
