@@ -369,6 +369,59 @@ const placeOrder = async (page, method = 'card') => {
     // is happening and nothing is wrong.
     await expect(button).toBeEnabled({ timeout: 30000 });
     await button.click();
+
+    // ⚠️ Confirm the payment actually started, and click once more if it did not.
+    //
+    // The click occasionally lands without the payment beginning: no loading
+    // overlay, no 3D Secure frame, no error — the form just sits there filled in,
+    // and every downstream wait then burns its full timeout on a page that will
+    // never change. Checking for a real sign of progress turns that into a second
+    // click instead of a dead test.
+    if (!(await paymentStarted(page))) {
+        await button.click();
+    }
+};
+
+/**
+ * Has the payment visibly begun?
+ *
+ * Any one of these means the submit handler ran and reached MONEI: the module's
+ * loading overlay, the 3D Secure frame, a navigation away from the checkout, or an
+ * error the shopper can read.
+ *
+ * @param {import('@playwright/test').Page} page - Page
+ * @param {number}                          timeout - How long to allow, in ms
+ * @return {Promise<boolean>} Whether the payment started
+ */
+const paymentStarted = async (page, timeout = 15000) => {
+    const deadline = Date.now() + timeout;
+
+    while (Date.now() < deadline) {
+        if (!/\/order\b/.test(page.url())) {
+            return true;
+        }
+
+        if (await page.locator('#monei-loading-overlay').count()) {
+            return true;
+        }
+
+        if (page.frames().some((frame) => frame.url().includes('secure.monei'))) {
+            return true;
+        }
+
+        const errors = await page
+            .locator('#monei-card-errors')
+            .innerText()
+            .catch(() => '');
+
+        if (errors.trim() !== '') {
+            return true;
+        }
+
+        await page.waitForTimeout(500);
+    }
+
+    return false;
 };
 
 /**
