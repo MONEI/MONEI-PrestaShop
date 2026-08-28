@@ -18,6 +18,13 @@ class Monei extends PaymentModule
      */
     const MONEI_JS_URL = 'https://js.monei.com/v3/monei.js';
 
+    /**
+     * Guards hookActionOrderStatusPostUpdate against re-entering itself.
+     *
+     * @var bool
+     */
+    private static $captureInProgress = false;
+
     protected $config_form = false;
     protected $paymentMethods;
     protected $moneiClient = false;
@@ -2082,6 +2089,109 @@ class Monei extends PaymentModule
         }
 
         return $this->paymentMethods;
+    }
+
+
+    /**
+     * Capture a pre-authorization when an order reaches a configured state.
+     *
+     * ⚠️ Registered unconditionally, for every request context. The equivalent
+     * WooCommerce hook was wired for admin requests only, so any other path that
+     * moves an order — a shipping module, an ERP sync, cron, the webservice API —
+     * left the money authorized until it expired, with the order reading as paid
+     * and nothing to explain it.
+     *
+     * ⚠️ This must not write the order state. The manual capture button in the
+     * back office does (AdminMoneiCapturePaymentController), which is right for a
+     * button but wrong here: from a status hook it would reset the state the
+     * merchant just chose back to "Payment accepted", and re-enter this hook.
+     *
+     * @param array $params Hook parameters
+     */
+    public function hookActionOrderStatusPostUpdate($params)
+    {
+        // Re-entrancy guard. Anything this hook triggers that moves an order
+        // would otherwise come straight back here.
+        if (self::$captureInProgress) {
+            return;
+        }
+
+        if (empty($params['id_order']) || empty($params['newOrderStatus'])) {
+            return;
+        }
+
+        $order = new Order((int) $params['id_order']);
+        if (!Validate::isLoadedObject($order)) {
+            return;
+        }
+
+        $shouldCapture = \PsMonei\Service\Monei\CaptureTrigger::shouldCapture(
+            (string) $order->module,
+            $this->name,
+            (int) $params['newOrderStatus']->id,
+            (string) Configuration::get('MONEI_CAPTURE_STATUS')
+        );
+
+        if (!$shouldCapture) {
+            return;
+        }
+
+        self::$captureInProgress = true;
+
+        try {
+            // ⚠️ Read the amount with a plain query rather than through the
+            // Doctrine repository. This hook has to work in every context that can
+            // move an order — cron, an ERP sync, the webservice API, a CLI script —
+            // and several of those bootstrap PrestaShop without the module's
+            // service container, where getRepository() is null and this would be a
+            // fatal in the middle of a merchant's order flow.
+            $amount = (int) Db::getInstance()->getValue(
+                'SELECT amount FROM ' . _DB_PREFIX_ . 'monei2_payment WHERE id_order = ' . (int) $order->id
+            );
+
+            if ($amount <= 0) {
+                return;
+            }
+
+            // The authorized amount, not the order total. A merchant may have
+            // edited the order since, and capturePayment rejects anything above
+            // what was authorized.
+            self::getService('service.monei')->capturePayment((int) $order->id, $amount);
+
+            self::logDebug('[MONEI] Captured payment for order ' . (int) $order->id . ' on status change');
+        } catch (Throwable $e) {
+            // Never silent: a capture that did not happen is money that expires.
+            self::logError(
+                '[MONEI] Automatic capture failed for order ' . (int) $order->id . ': ' . $e->getMessage()
+            );
+
+            $this->addOrderCaptureNote($order, $e->getMessage());
+        } finally {
+            self::$captureInProgress = false;
+        }
+    }
+
+    /**
+     * Record a failed automatic capture against the order.
+     *
+     * Uses the order's own note field. The module CLAUDE.md described a
+     * monei2_admin_order_message table, but no such table or entity exists, so
+     * there is nothing to write to but the order itself.
+     *
+     * @param Order  $order  Order to annotate
+     * @param string $reason Failure reason
+     */
+    private function addOrderCaptureNote(Order $order, $reason)
+    {
+        try {
+            $note = trim((string) $order->note);
+            $line = '[MONEI] Automatic capture failed: ' . $reason;
+
+            $order->note = $note === '' ? $line : $note . "\n" . $line;
+            $order->update();
+        } catch (Exception $e) {
+            self::logError('[MONEI] Could not record the capture failure on the order: ' . $e->getMessage());
+        }
     }
 
     public function hookDisplayPaymentByBinaries($params)

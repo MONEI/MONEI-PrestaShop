@@ -217,12 +217,56 @@ const getOrderState = (orderId) =>
  */
 const setOrderState = (orderId, stateId) =>
     psEval(
-        `$o = new Order(${Number(orderId)});` +
+        // ⚠️ An employee has to be in context. Moving an order to a shipped state
+        // records a stock movement, and StockMvt::setIdEmployee refuses null — a
+        // CLI bootstrap has no employee, so the change dies before reaching any
+        // module hook.
+        // A CLI bootstrap leaves the context half built. Moving an order pulls in
+        // stock movements, locale formatting and currency precision, each of which
+        // fails on a null it will not accept.
+        `$c = Context::getContext();` +
+            `$c->employee = new Employee(1);` +
+            `$c->language = new Language((int) Configuration::get('PS_LANG_DEFAULT'));` +
+            `$c->currency = new Currency((int) Configuration::get('PS_CURRENCY_DEFAULT'));` +
+            `$c->shop = new Shop((int) Configuration::get('PS_SHOP_DEFAULT'));` +
+            `$o = new Order(${Number(orderId)});` +
             `$h = new OrderHistory();` +
             `$h->id_order = $o->id;` +
             `$h->changeIdOrderState(${Number(stateId)}, $o->id);` +
-            `$h->addWithemail();`
+            // add() rather than addWithemail(): the suite has no working mail
+            // transport, and the notification is not what is under test.
+            `$h->add();`
     );
+
+/**
+ * Id of the most recently created order.
+ *
+ * @return {string} Order id, empty when the store has no orders
+ */
+const latestOrderId = () => mysql('SELECT id_order FROM ps_orders ORDER BY id_order DESC LIMIT 1;');
+
+/**
+ * Capture state of the MONEI payment behind an order.
+ *
+ * @param {string|number} orderId - Order id
+ * @return {{status: string, captured: boolean, amount: string}} Payment state
+ */
+const paymentForOrder = (orderId) => {
+    const row = mysql(
+        `SELECT status, is_captured, amount FROM ps_monei2_payment WHERE id_order = ${Number(orderId)} LIMIT 1;`
+    );
+    const [status = '', captured = '', amount = ''] = row.split('\t');
+
+    return { amount, captured: captured === '1', status };
+};
+
+/**
+ * Id of a PrestaShop order state by configuration key.
+ *
+ * @param {string} configKey - e.g. PS_OS_SHIPPING
+ * @return {string} State id
+ */
+const orderStateId = (configKey) => getConfig(configKey);
 
 /**
  * Read recent MONEI log lines from the database.
@@ -236,15 +280,36 @@ const moneiLogs = (limit = 20) =>
     );
 
 /**
- * Public URL of the ngrok tunnel the stack is running, if any.
+ * Public URL of the tunnel fronting the store, if any.
  *
- * Read from the ngrok agent API over the compose network, from inside the
- * PrestaShop container, because the agent port is exposed to the network but not
- * published to the host.
+ * Cloudflare Quick Tunnels announce their hostname once, in the container log,
+ * and it changes on every start — so the log is the only place to read it. ngrok
+ * is still supported as a fallback for a stack that has not been switched over.
  *
  * @return {string} Tunnel URL, empty when there is no tunnel
  */
 const tunnelUrl = () => {
+    try {
+        const container = containerName().replace('-prestashop-', '-cloudflared-');
+        // ⚠️ Merge stderr. cloudflared announces the hostname on stderr, and
+        // execFileSync returns stdout only, so reading the log the obvious way
+        // yields an empty string and looks like "there is no tunnel".
+        const logs = execFileSync('sh', ['-c', `docker logs ${container} 2>&1`], {
+            encoding: 'utf8',
+            stdio: ['ignore', 'pipe', 'pipe'],
+            timeout: 30000,
+        });
+        const found = logs.match(/https:\/\/[a-z0-9-]+\.trycloudflare\.com/g);
+
+        // The last one wins: a reconnect announces a new hostname and leaves the
+        // previous, now dead, one earlier in the same log.
+        if (found && found.length) {
+            return found[found.length - 1];
+        }
+    } catch (error) {
+        // No cloudflared container; fall through to ngrok.
+    }
+
     try {
         const raw = exec(['sh', '-c', 'curl -sf http://ngrok:4040/api/tunnels']);
         const { tunnels = [] } = JSON.parse(raw);
@@ -288,6 +353,12 @@ const syncShopDomain = () => {
     setConfig('PS_SHOP_DOMAIN', hostname);
     setConfig('PS_SHOP_DOMAIN_SSL', hostname);
     setConfig('PS_SSL_ENABLED', '1');
+    // ⚠️ Also force SSL everywhere. The tunnel terminates TLS and forwards plain
+    // HTTP to the container, so PrestaShop cannot tell the original request was
+    // HTTPS and happily builds http:// links. Following one drops the secure
+    // session cookie, which shows up as being bounced to the login page
+    // mid-session for no visible reason.
+    setConfig('PS_SSL_ENABLED_EVERYWHERE', '1');
     console_(['cache:clear']);
 
     return hostname;
@@ -295,6 +366,9 @@ const syncShopDomain = () => {
 
 module.exports = {
     PS_FOLDER,
+    latestOrderId,
+    orderStateId,
+    paymentForOrder,
     deleteConfig,
     setInstalledVersion,
     unregisterHook,
