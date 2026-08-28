@@ -1,0 +1,10 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "prestashop",
+      "url": "http://localhost:8000",
+      "port": 8000
+    }
+  ]
+}

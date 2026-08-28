@@ -24,3 +24,10 @@ _dev/admin/yarn.lock
 _dev/front/yarn.lock
 pnpm-lock.yaml
 .playwright-mcp
+
+# Playwright E2E
+tests/playwright/.env
+tests/playwright/.fixtures.json
+tests/playwright/test-results/
+tests/playwright/playwright-report/
+.phpunit.result.cache

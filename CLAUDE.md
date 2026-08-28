@@ -25,6 +25,17 @@ cd build && yarn release
 - No JavaScript linting configured
 - No test suite implemented (PHPUnit configured but `/tests` directory is empty)
 
+### Dev Environment
+
+The Docker stack lives in its own repository:
+**https://github.com/MONEI/monei-prestashop-dev-env**. It runs PrestaShop behind a
+Cloudflare tunnel (3D Secure and webhooks both need a public HTTPS origin) and
+mounts this module into the container. Its init scripts carry two fixes worth
+knowing about: PrestaShop builds `http://` links behind the tunnel unless
+`X-Forwarded-Proto` is mapped through, and the image's five php-fpm workers are
+not enough for order confirmation, which surfaces as a 502 on a payment that
+succeeded.
+
 ### Cache Clearing (PrestaShop Flashlight)
 When using PrestaShop Flashlight Docker environment, clear cache after module changes:
 ```bash
@@ -108,7 +119,7 @@ Tables (prefixed with `monei2_`):
 - `monei2_customer_card`: Tokenized customer cards
 - `monei2_history`: Payment event history
 - `monei2_refund`: Refund records
-- `monei2_admin_order_message`: Admin messages
+- `monei2_order_payment`: Links orders to payments
 
 ### Payment Flow
 1. **Initiation**: Customer selects MONEI payment → `RedirectModuleFrontController`
@@ -129,6 +140,19 @@ $paymentService = Monei::getService('monei.service.payment');
 // - monei.repository.*: Data repositories
 ```
 
+### Express Checkout
+
+- Services in `/src/Service/Express/`, registered in `config/front/services.yml`
+- One front controller, `controllers/front/express.php`, dispatching on `action`
+- Hooks, verified against both the classic and hummingbird themes:
+  - product → `displayProductAdditionalInfo`
+  - cart → `displayExpressCheckout`
+  - checkout → `displayPaymentTop` (above the payment options)
+- ⚠️ `page_name` is empty when `actionFrontControllerSetMedia` fires on a product or
+  cart page. Key page detection off `php_self` instead, or nothing registers.
+- Product page express uses a cart of its own and points the context back
+  afterwards, so the shopper's cart is never emptied.
+
 ### Frontend JavaScript Architecture
 - Runtime uses JavaScript files in `/views/js/` directly (vanilla JavaScript, no build required)
 - Key files:
@@ -136,6 +160,30 @@ $paymentService = Monei::getService('monei.service.payment');
   - `saved-cards.js`: Tokenized card management
   - `admin/admin.js`: Admin panel functionality, refund handling
 - **Development Note**: A legacy build pipeline exists (`/views/js/_dev/` → uglifyjs-folder → `/views/js/`) but is deprecated. The files in `/views/js/` are used directly in production without requiring any build step
+- `payment.js` holds the checkout payment components. It used to live inline in
+  `views/templates/hook/displayPaymentByBinaries.tpl`; that template is now markup
+  only
+- ⚠️ `Media::addJsDef` values must be published from `hookActionFrontControllerSetMedia`.
+  PrestaShop collects the `js_def` block before content hooks render, so publishing
+  from a display hook reaches the page as nothing at all
+- ⚠️ Nothing in `payment.js` may read an `addJsDef` value at load time: the theme
+  prints that block after the external scripts. Read them inside functions
+- The five `initMonei*` functions are global on purpose — `front.js` calls them by
+  name to re-initialise MONEI when the `onepagecheckoutps` module rebuilds the
+  payment list
+
+### Code Quality Tooling
+
+```bash
+npm install          # ESLint + Prettier + Playwright
+npm run lint         # ESLint over views/js and tests
+npm run format       # Prettier (JavaScript only)
+composer test        # PHPUnit unit tests
+npm run test:e2e     # Playwright, see tests/playwright/README.md
+```
+
+⚠️ PHP-CS-Fixer refuses to run on PHP newer than 8.3. CI pins 8.3; locally, run it
+in a container rather than forcing `PHP_CS_FIXER_IGNORE_ENV`.
 
 ## Version Compatibility
 - PHP: ≥7.4 (composer platform configured)
