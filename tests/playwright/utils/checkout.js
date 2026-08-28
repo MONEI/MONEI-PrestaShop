@@ -322,15 +322,14 @@ const settleCardFields = async (page) => {
  * @param {import('@playwright/test').Page} page - Page
  */
 const expectCardFieldsReady = async (page) => {
-    const split = page.locator(COMPONENT_FRAME.cardNumber);
-
-    if (await split.count()) {
-        await expect(split).toBeVisible({ timeout: 30000 });
-
-        return;
-    }
-
-    await expect(page.locator(COMPONENT_FRAME.card)).toBeVisible({ timeout: 30000 });
+    // ⚠️ One selector matching either layout, not a count() check and a branch.
+    // count() answers immediately, so when neither layout has mounted yet it
+    // reports zero split fields and the branch then waits for the single line
+    // iframe — which never arrives under the split default. The test fails on a
+    // checkout that is about to render perfectly.
+    await expect(
+        page.locator(`${COMPONENT_FRAME.cardNumber}, ${COMPONENT_FRAME.card}`).first()
+    ).toBeVisible({ timeout: 30000 });
 };
 
 /**

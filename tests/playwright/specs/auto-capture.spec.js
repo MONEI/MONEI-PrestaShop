@@ -1,8 +1,8 @@
 const { test, expect } = require('../utils/test');
 const {
     CARDS,
-    COMPONENT_FRAME,
     completeThreeDs,
+    expectCardFieldsReady,
     expectOrderConfirmation,
     fillCard,
     goToPaymentStep,
@@ -48,7 +48,7 @@ test.describe('automatic capture', () => {
 
         await goToPaymentStep(page);
         await selectPaymentOption(page, /credit card/i);
-        await expect(page.locator(COMPONENT_FRAME.card)).toBeVisible({ timeout: 30000 });
+        await expectCardFieldsReady(page);
         await fillCard(page, CARDS.direct);
         await placeOrder(page);
         await completeThreeDs(page);
@@ -81,7 +81,7 @@ test.describe('automatic capture', () => {
 
         await goToPaymentStep(page);
         await selectPaymentOption(page, /credit card/i);
-        await expect(page.locator(COMPONENT_FRAME.card)).toBeVisible({ timeout: 30000 });
+        await expectCardFieldsReady(page);
         await fillCard(page, CARDS.direct);
         await placeOrder(page);
         await completeThreeDs(page);

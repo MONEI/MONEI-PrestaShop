@@ -52,9 +52,13 @@ const moduleConfigureUrl = () =>
  */
 const openModuleConfiguration = async (page) => {
     await login(page);
-    // networkidle rather than domcontentloaded: the configuration screen finishes
-    // assembling its panels after the initial document.
-    await page.goto(`${ADMIN_PATH}/${moduleConfigureUrl()}`, { waitUntil: 'networkidle' });
+    // ⚠️ Not networkidle. The PrestaShop 9 back office keeps connections open, so
+    // it never goes idle and the navigation times out on a page that loaded fine.
+    // Wait for the module's own form instead, which is the thing being used.
+    await page.goto(`${ADMIN_PATH}/${moduleConfigureUrl()}`, { waitUntil: 'domcontentloaded' });
+    await expect(page.locator('#module_form, form[name="module_form"]').first()).toBeAttached({
+        timeout: 60000,
+    });
 };
 
 /**
@@ -81,16 +85,24 @@ const setOrderStateViaBackOffice = async (page, orderId, stateName) => {
 
     const token = new URL(page.url()).searchParams.get('_token');
 
+    // ⚠️ Not networkidle, here or below: the PrestaShop 9 back office keeps
+    // connections open and never goes idle, so waiting on it times out a page that
+    // loaded fine. Wait for the control being used instead.
     await page.goto(`${ADMIN_PATH}/index.php/sell/orders/${Number(orderId)}/view?_token=${token}`, {
-        waitUntil: 'networkidle',
+        waitUntil: 'domcontentloaded',
     });
 
     const status = page.locator('#update_order_status_action_input');
 
-    await expect(status).toBeVisible({ timeout: 30000 });
+    await expect(status).toBeVisible({ timeout: 60000 });
     await status.selectOption({ label: stateName });
     await page.locator('#update_order_status_action_btn').click();
-    await page.waitForLoadState('networkidle');
+
+    // The status change reloads the order page; the updated status is what says
+    // it landed.
+    await expect(page.locator('#update_order_status_action_input')).toBeVisible({
+        timeout: 60000,
+    });
 };
 
 module.exports = {
