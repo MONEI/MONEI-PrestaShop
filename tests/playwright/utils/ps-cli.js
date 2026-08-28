@@ -172,8 +172,16 @@ const installedVersion = () =>
  *
  * @param {string} version - Version to record
  */
-const setInstalledVersion = (version) =>
+const setInstalledVersion = (version) => {
     mysql(`UPDATE ps_module SET version = '${version}' WHERE name = 'monei';`);
+
+    // ⚠️ 1.7.8 caches the installed module version, and the upgrade command reads
+    // the cache rather than the row. Without this the next upgrade never builds
+    // its file list, so it dies on `Undefined index: upgraded_to` inside core and
+    // leaves the module on the old version — which reads as the upgrade script
+    // being broken rather than the fixture being stale.
+    exec(['sh', '-c', `rm -rf ${PS_FOLDER}/var/cache/*`]);
+};
 
 /**
  * Detach the module from a hook.

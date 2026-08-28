@@ -41,7 +41,17 @@ function upgrade_module_1_8_0($module)
         ];
 
         foreach ($hooks as $hook) {
-            if (!$module->isRegisteredInHook($hook) && !$module->registerHook($hook)) {
+            if ($module->isRegisteredInHook($hook)) {
+                continue;
+            }
+
+            $module->registerHook($hook);
+
+            // ⚠️ Judge the outcome, not registerHook()'s return value. On 1.7 it
+            // answers false for a hook that is already attached, so trusting it
+            // aborts the upgrade over a no-op and leaves the merchant on the old
+            // version with the rest of this script unapplied.
+            if (!$module->isRegisteredInHook($hook)) {
                 Monei::logError('[MONEI] Upgrade to 1.8.0 could not register hook ' . $hook);
 
                 return false;

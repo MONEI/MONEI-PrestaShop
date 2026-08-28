@@ -191,6 +191,9 @@ class PaymentOptionService
                     'isCustomerLogged' => \Validate::isLoadedObject($customer),
                     'tokenize' => (bool) \Configuration::get('MONEI_TOKENIZE'),
                     'module_dir' => _MODULE_DIR_ . 'monei/',
+                    // Split fields are the default from 1.8.0. The template renders
+                    // the containers; payment.js mounts the matching components.
+                    'moneiCardLayout' => \Configuration::get('MONEI_CARD_LAYOUT') === 'single' ? 'single' : 'split',
                 ]);
                 $paymentOption['additionalInformation'] = $smarty->fetch('module:monei/views/templates/front/onsite_card.tpl');
                 $paymentOption['binary'] = true;
