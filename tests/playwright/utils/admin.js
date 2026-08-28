@@ -17,8 +17,18 @@ const login = async (page) => {
 
     await page.fill('#email', ADMIN_USER);
     await page.fill('#passwd', ADMIN_PASSWORD);
-    await page.locator('#submit_login').click();
-    await expect(page.locator('body')).toBeVisible();
+
+    // ⚠️ Wait for the sign-in to actually land. Asserting on `body` alone returns
+    // while the login POST is still in flight, and the caller's next goto then
+    // supersedes it — the navigation fails with net::ERR_ABORTED and the request
+    // that does go through carries no session, so the back office answers
+    // "Invalid security token". That reads as a bad token rather than a race.
+    await Promise.all([
+        page.waitForURL((url) => !/controller=AdminLogin/i.test(url.toString()), {
+            timeout: 60000,
+        }),
+        page.locator('#submit_login').click(),
+    ]);
 };
 
 /**
@@ -83,7 +93,24 @@ const openModuleConfiguration = async (page) => {
 const setOrderStateViaBackOffice = async (page, orderId, stateName) => {
     await login(page);
 
-    const token = new URL(page.url()).searchParams.get('_token');
+    // ⚠️ The Symfony CSRF token is not in the URL after signing in here: 1.7.8
+    // lands on the legacy AdminDashboard controller, whose URL carries the legacy
+    // `token` instead. Every Symfony link in the back office carries the same
+    // session-wide `_token`, so take it from one of those and fall back to the URL
+    // for a back office that does put it there.
+    const tokenHref = await page
+        .locator('a[href*="_token="]')
+        .first()
+        .getAttribute('href')
+        .catch(() => null);
+
+    const token = tokenHref
+        ? new URL(tokenHref, page.url()).searchParams.get('_token')
+        : new URL(page.url()).searchParams.get('_token');
+
+    if (!token) {
+        throw new Error('Could not find the back office CSRF token after signing in.');
+    }
 
     // ⚠️ Not networkidle, here or below: the PrestaShop 9 back office keeps
     // connections open and never goes idle, so waiting on it times out a page that
