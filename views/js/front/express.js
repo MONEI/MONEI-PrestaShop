@@ -194,9 +194,17 @@
             amount: cart.amount,
             currency: cart.currency,
             // Asks the wallet to collect a delivery address for a physical cart.
-            // The shipping cost itself is applied server side once that address
-            // arrives, which is also how the WooCommerce plugin does it: there is
-            // no shipping-change callback to price it inside the sheet.
+            //
+            // The sheet total already carries shipping: Cart::getSummaryDetails
+            // prices the cart's current carrier before any address exists, and
+            // measured runs match what is charged (1912 -> 1912 free carrier,
+            // 2612 -> 2612 paid). What it cannot yet reflect is a change of
+            // carrier zone: the address arrives with the shopper's approval, and
+            // the cheapest option for that zone is picked server side afterwards.
+            //
+            // monei.js v3 does expose onShippingAddressChange/onShippingOptionChange
+            // on PaymentRequest, so this is closable — see PaymentRequestProps in
+            // @monei-js/components. Not wired yet.
             requestShipping: Boolean(cart.shippingRequired),
             ...handlers(container, method),
         };
