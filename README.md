@@ -44,13 +44,23 @@ Experience the module in action: [PrestaShop Demo Store](https://prestashop-demo
   - PayPal
   - MBWAY
   - Multibanco
+- Express checkout — pay with Apple Pay, Google Pay or PayPal straight from the
+  product page, the cart or the checkout, without filling in the full form. Off by
+  default; enable it under **Express Checkout** and choose where it appears
+- Split card fields — separate inputs for card number, expiry and CVC. The default
+  from 2.1.0; the previous single line field is still available
+- Automatic capture of pre-authorized payments when an order reaches a status you
+  choose, from any source: the back office, a shipping module, a scheduled task or
+  the API
 - Seamless checkout experience with embedded payment forms
 - Secure payment processing with full PCI compliance
 - Real-time payment notifications via webhooks
 - Tokenization for saved cards with customer card management
 - Pre-authorization support (Authorization/Capture flow):
   - Supported for: Card, Apple Pay, Google Pay, PayPal
-  - Not supported for: MBWay, Multibanco
+  - Not supported for: MBWay, Multibanco. ⚠️ While pre-authorization is selected
+    these two are **removed from your checkout entirely** — they do not fall back
+    to an immediate charge. The settings screen warns you when this is happening.
 - Partial captures and refunds with admin interface
 - Automatic Apple Pay domain verification
 - Multi-language support (translations included)
@@ -59,6 +69,19 @@ Experience the module in action: [PrestaShop Demo Store](https://prestashop-demo
 - Detailed transaction reporting in your MONEI Dashboard
 - Payment status history tracking
 - Admin order messages for payment events
+
+## Upgrading to 2.1.0
+
+⚠️ **Split card fields become the default.** Your checkout will look different: the
+card form shows separate inputs for number, expiry and CVC instead of one combined
+field. Nothing about how payments work changes.
+
+To keep the previous appearance, set **Component Style → Card field layout** to
+*Single line*.
+
+Express checkout is **off** after upgrading, and automatic capture stays off until
+you choose which statuses should trigger it. Neither changes your storefront until
+you turn it on.
 
 ## Requirements
 
