@@ -12,8 +12,16 @@ concurrency:
 
 jobs:
     phpunit:
-        name: PHP unit tests
+        name: PHP unit tests (${{ matrix.php }})
         runs-on: ubuntu-latest
+
+        # 7.4 is the module's actual floor — the MONEI PHP SDK requires it and
+        # checkPHPCompatibility() enforces it. Running only on a newer PHP lets
+        # code that parses on 7.4 but relies on 8.x runtime behaviour through.
+        strategy:
+            fail-fast: false
+            matrix:
+                php: ['7.4', '8.1']
 
         steps:
             - name: Checkout code
@@ -24,7 +32,7 @@ jobs:
             - name: Setup PHP
               uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # 2.37.2
               with:
-                  php-version: '8.1'
+                  php-version: ${{ matrix.php }}
                   coverage: none
                   tools: composer
 
