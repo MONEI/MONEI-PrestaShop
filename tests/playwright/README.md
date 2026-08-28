@@ -58,22 +58,39 @@ MONEI_E2E_BASE_URL=https://your-tunnel.ngrok-free.dev npm run test:e2e
 Specs that need 3DS skip with a reason when the base URL is not HTTPS, rather
 than failing.
 
-## The tunnel is the flaky part
+## The tunnel
 
-A free ngrok tunnel resets connections and gets a **new hostname every time the
-agent reconnects**. Two consequences:
+3D Secure needs a public HTTPS origin, so the stack fronts the store with a
+**Cloudflare Quick Tunnel** (`cloudflared`). It replaced ngrok, whose free tier
+caps HTTP requests and starts serving `ERR_NGROK_727` partway through a run —
+which looks exactly like the store breaking.
 
-- Specs fail intermittently with `net::ERR_CONNECTION_RESET`. The config retries
-  twice for this reason. A failure that survives the retries is real.
-- After a reconnect the store keeps serving the previous hostname and 302s every
-  request to a URL that now 404s. Re-run the seed: it re-points both
-  `ps_shop_url` and the `PS_SHOP_DOMAIN` settings at the live tunnel.
+The hostname changes on every start and is only announced in the container log,
+so the seed reads it from there and re-points both `ps_shop_url` and the
+`PS_SHOP_DOMAIN` settings at it. If the store starts 302-ing to a dead hostname,
+re-run the seed.
 
-Before debugging a red suite, check the tunnel:
+The tunnel terminates TLS and forwards plain HTTP, so PrestaShop cannot tell the
+request was HTTPS and builds `http://` links. Following one drops the secure
+session cookie, which shows up as being bounced to the login page mid-session for
+no visible reason. `init-scripts/06-https-behind-proxy.sh` maps
+`X-Forwarded-Proto` onto the `HTTPS` fastcgi parameter to fix that; it runs
+automatically when the container boots.
+
+Specs still retry twice, for transport failures. A failure that survives the
+retries is real.
+
+## PrestaShop version
+
+The stack runs whatever `PS_IMAGE_TAG` selects, defaulting to `latest` — currently
+the **9.x** line, with `hummingbird` as the active theme. Pin an 8.x tag to run
+against the LTS line instead:
 
 ```bash
-docker compose restart ngrok && npm run test:e2e:seed
+PS_IMAGE_TAG=8.2.3-nginx docker compose up -d --force-recreate
 ```
+
+Only one stack can run at a time, since they share the published port.
 
 ## Test cards and sandbox accounts
 
