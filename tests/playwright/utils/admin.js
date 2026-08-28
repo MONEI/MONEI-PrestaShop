@@ -45,10 +45,16 @@ const moduleConfigureUrl = () =>
         // the browser actually signs in as. A CLI bootstrap has no employee in
         // context, and a token computed for "no employee" is simply rejected as
         // invalid.
+        // ⚠️ No LIMIT 1 in this query. Db::getRow appends ' LIMIT 1'
+        // unconditionally on 1.7.8, so a query that already ends in one becomes
+        // `LIMIT 1 LIMIT 1` — a syntax error. getValue then answers false, the
+        // employee id reads as 0, and the token computed for "no employee" is
+        // rejected as invalid. The back office reports that as a bad token, which
+        // sends you looking at the token instead of the query.
         '$employeeId = (int) Db::getInstance()->getValue(' +
             "'SELECT id_employee FROM '._DB_PREFIX_.'employee WHERE email = \"' . pSQL('" +
             ADMIN_USER +
-            "') . '\" LIMIT 1'" +
+            "') . '\"'" +
             ');' +
             "$id = Tab::getIdFromClassName('AdminModules');" +
             "$token = Tools::getAdminToken('AdminModules'.$id.$employeeId);" +
