@@ -35,14 +35,14 @@ const moduleConfigureUrl = () =>
         // the browser actually signs in as. A CLI bootstrap has no employee in
         // context, and a token computed for "no employee" is simply rejected as
         // invalid.
-        "$employeeId = (int) Db::getInstance()->getValue("
-            + "'SELECT id_employee FROM '._DB_PREFIX_.'employee WHERE email = \"' . pSQL('"
-            + ADMIN_USER
-            + "') . '\" LIMIT 1'"
-            + ");"
-            + "$id = Tab::getIdFromClassName('AdminModules');"
-            + "$token = Tools::getAdminToken('AdminModules'.$id.$employeeId);"
-            + "echo 'index.php?controller=AdminModules&configure=monei&token='.$token;"
+        '$employeeId = (int) Db::getInstance()->getValue(' +
+            "'SELECT id_employee FROM '._DB_PREFIX_.'employee WHERE email = \"' . pSQL('" +
+            ADMIN_USER +
+            "') . '\" LIMIT 1'" +
+            ');' +
+            "$id = Tab::getIdFromClassName('AdminModules');" +
+            "$token = Tools::getAdminToken('AdminModules'.$id.$employeeId);" +
+            "echo 'index.php?controller=AdminModules&configure=monei&token='.$token;"
     );
 
 /**
@@ -81,10 +81,9 @@ const setOrderStateViaBackOffice = async (page, orderId, stateName) => {
 
     const token = new URL(page.url()).searchParams.get('_token');
 
-    await page.goto(
-        `${ADMIN_PATH}/index.php/sell/orders/${Number(orderId)}/view?_token=${token}`,
-        { waitUntil: 'networkidle' }
-    );
+    await page.goto(`${ADMIN_PATH}/index.php/sell/orders/${Number(orderId)}/view?_token=${token}`, {
+        waitUntil: 'networkidle',
+    });
 
     const status = page.locator('#update_order_status_action_input');
 

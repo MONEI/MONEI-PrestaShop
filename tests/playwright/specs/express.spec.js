@@ -9,7 +9,11 @@ const { setConfig } = require('../utils/ps-cli');
  */
 const PAYPAL_BUTTON = '[data-monei-express-method="paypal"] iframe[title="PayPal"] >> nth=0';
 
-const PRODUCT = fixture('simpleProductPath', 'MONEI_E2E_PRODUCT_PATH', '/6-mug-the-best-is-yet-to-come.html');
+const PRODUCT = fixture(
+    'simpleProductPath',
+    'MONEI_E2E_PRODUCT_PATH',
+    '/6-mug-the-best-is-yet-to-come.html'
+);
 
 /**
  * Express checkout: where the buttons appear, and where they must not.
@@ -96,7 +100,11 @@ test.describe('express checkout', () => {
             route.fulfill({
                 status: 400,
                 contentType: 'application/json',
-                body: JSON.stringify({ ok: false, code: 'declined', message: 'Payment was declined' }),
+                body: JSON.stringify({
+                    ok: false,
+                    code: 'declined',
+                    message: 'Payment was declined',
+                }),
             })
         );
 

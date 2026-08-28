@@ -25,8 +25,12 @@ test.describe('settings: express checkout', () => {
         const form = page.locator('#panel-conf-5');
 
         await form.locator('input[name="MONEI_EXPRESS_ENABLED"][value="1"]').check();
-        await form.locator('select[name="MONEI_EXPRESS_LOCATIONS[]"]').selectOption(['product', 'cart']);
-        await form.locator('select[name="MONEI_EXPRESS_METHODS[]"]').selectOption(['applePay', 'paypal']);
+        await form
+            .locator('select[name="MONEI_EXPRESS_LOCATIONS[]"]')
+            .selectOption(['product', 'cart']);
+        await form
+            .locator('select[name="MONEI_EXPRESS_METHODS[]"]')
+            .selectOption(['applePay', 'paypal']);
         await form.locator('button[name="submitMoneiModuleExpress"]').click();
         await page.waitForLoadState('networkidle');
 
@@ -35,7 +39,9 @@ test.describe('settings: express checkout', () => {
         expect(getConfig('MONEI_EXPRESS_METHODS')).toBe('applePay,paypal');
     });
 
-    test('keeps the split card layout as the default and can be switched back', async ({ page }) => {
+    test('keeps the split card layout as the default and can be switched back', async ({
+        page,
+    }) => {
         expect(getConfig('MONEI_CARD_LAYOUT'), 'split is the 2.1.0 default').toBe('split');
 
         await openModuleConfiguration(page);

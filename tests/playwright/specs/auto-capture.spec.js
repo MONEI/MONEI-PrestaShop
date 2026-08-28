@@ -57,7 +57,9 @@ test.describe('automatic capture', () => {
         const orderId = latestOrderId();
         const authorized = paymentForOrder(orderId);
 
-        expect(authorized.status, 'the payment should be authorized, not charged').toBe('AUTHORIZED');
+        expect(authorized.status, 'the payment should be authorized, not charged').toBe(
+            'AUTHORIZED'
+        );
         expect(authorized.captured).toBe(false);
 
         await setOrderStateViaBackOffice(page, orderId, 'Shipped');
