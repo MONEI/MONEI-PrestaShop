@@ -43,7 +43,9 @@ jobs:
           -x 'monei/.php_cs.cache' \
           -x 'monei/phpunit.xml' \
           -x 'monei/.env' \
-          -x 'monei/.playwright-mcp/*'
+          -x 'monei/.playwright-mcp/*' \
+          -x 'monei/.claude/*' \
+          -x 'monei/.nvmrc'
         
     - name: Upload Release
       uses: ncipollo/release-action@v1.14.0
