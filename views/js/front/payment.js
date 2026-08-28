@@ -448,7 +448,16 @@ function initMoneiCard() {
     const moneiConfirmationButton = moneiPaymentForm.querySelector('button[type="submit"]');
     if (!moneiConfirmationButton) return;
 
-    const moneiCardRenderContainer = document.getElementById('monei-card_container');
+    // Split is the default from 2.1.0; 'single' restores the one line field.
+    const moneiCardLayoutInUse =
+        typeof moneiCardLayout !== 'undefined' && moneiCardLayout === 'single' ? 'single' : 'split';
+
+    // The container the template rendered decides what can mount. Falling back to
+    // whichever exists keeps a stale template from silently producing no field.
+    const moneiCardRenderContainer =
+        moneiCardLayoutInUse === 'split'
+            ? document.getElementById('monei-card-number')
+            : document.getElementById('monei-card_container');
     if (!moneiCardRenderContainer) return;
 
     const moneiCardHolderName = document.getElementById('monei-card-holder-name');
@@ -468,36 +477,77 @@ function initMoneiCard() {
         return isValid;
     };
 
-    const moneiCardInput = monei.CardInput({
-        accountId: moneiAccountId,
-        // ⚠️ Required from monei.js v3 onward. v2 accepted an accountId alone; v3
-        // throws "You need to provide paymentId or accountId amount and currency"
-        // and renders no iframe, so the checkout simply shows no card field.
-        amount: moneiAmount,
-        currency: moneiCurrency,
-        onFocus: () => {
-            moneiCardRenderContainer.classList.add('is-focused');
-        },
-        onBlur: () => {
-            moneiCardRenderContainer.classList.remove('is-focused');
-        },
-        onChange: (event) => {
-            // Handle real-time validation errors
-            if (event.isTouched && event.error) {
-                moneiCardRenderContainer.classList.add('is-invalid');
-                moneiCardErrors.innerHTML = `<div class="alert alert-warning">${event.error}</div>`;
-            } else {
-                moneiCardRenderContainer.classList.remove('is-invalid');
-                moneiCardErrors.innerHTML = '';
+    const moneiCardStyle = moneiCardInputStyle || {};
+
+    const moneiOnCardChange = (event) => {
+        // Handle real-time validation errors
+        if (event.isTouched !== false && event.error) {
+            moneiCardRenderContainer.classList.add('is-invalid');
+            moneiCardErrors.innerHTML = `<div class="alert alert-warning">${event.error}</div>`;
+        } else {
+            moneiCardRenderContainer.classList.remove('is-invalid');
+            moneiCardErrors.innerHTML = '';
+        }
+    };
+
+    let moneiCardInput;
+
+    if (moneiCardLayoutInUse === 'split') {
+        // One CardGroup carries the payment details; the three parts are
+        // presentation only.
+        //
+        // ⚠️ Amount and currency belong on the group. A part throws when given
+        // either, and the whole card field then fails to mount.
+        const moneiCardGroup = monei.CardGroup({
+            accountId: moneiAccountId,
+            amount: moneiAmount,
+            currency: moneiCurrency,
+            language: prestashop.language.iso_code,
+            style: moneiCardStyle,
+            onChange: moneiOnCardChange,
+            onEnter: () => {
+                moneiConfirmationButton.click();
+            },
+        });
+
+        [
+            [monei.CardNumber, 'monei-card-number'],
+            [monei.CardExpiry, 'monei-card-expiry'],
+            [monei.CardCvc, 'monei-card-cvc'],
+        ].forEach(([part, containerId]) => {
+            const container = document.getElementById(containerId);
+
+            if (container) {
+                part({ group: moneiCardGroup }).render(container);
             }
-        },
-        onEnter: () => {
-            moneiConfirmationButton.click();
-        },
-        language: prestashop.language.iso_code,
-        style: moneiCardInputStyle || {},
-    });
-    moneiCardInput.render(moneiCardRenderContainer);
+        });
+
+        // The group is what a token is created from, exactly like CardInput.
+        moneiCardInput = moneiCardGroup;
+    } else {
+        moneiCardInput = monei.CardInput({
+            accountId: moneiAccountId,
+            // ⚠️ Required from monei.js v3 onward. v2 accepted an accountId alone;
+            // v3 throws "You need to provide paymentId or accountId amount and
+            // currency" and renders no iframe, so the checkout shows no card field.
+            amount: moneiAmount,
+            currency: moneiCurrency,
+            onFocus: () => {
+                moneiCardRenderContainer.classList.add('is-focused');
+            },
+            onBlur: () => {
+                moneiCardRenderContainer.classList.remove('is-focused');
+            },
+            onChange: moneiOnCardChange,
+            onEnter: () => {
+                moneiConfirmationButton.click();
+            },
+            language: prestashop.language.iso_code,
+            style: moneiCardStyle,
+        });
+
+        moneiCardInput.render(moneiCardRenderContainer);
+    }
 
     moneiCardHolderName.addEventListener('blur', (event) => {
         validateMoneiCardHolderName(event.currentTarget.value);
@@ -518,7 +568,12 @@ function initMoneiCard() {
         }
 
         try {
-            const { token, error } = await monei.createToken(moneiCardInput);
+            // ⚠️ `component.submit()`, not `monei.createToken(component)`. A
+            // CardGroup rejects createToken with "Index is not registered", and
+            // the shopper is left staring at a filled in form that will not pay.
+            // submit() is what both layouts support — it is also what the
+            // WooCommerce plugin uses for each of them.
+            const { token, error } = await moneiCardInput.submit();
             if (!token) {
                 moneiCardRenderContainer.classList.add('is-invalid');
                 moneiCardErrors.innerHTML = `<div class="alert alert-warning">${error}</div>`;

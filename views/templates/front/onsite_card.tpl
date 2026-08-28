@@ -2,9 +2,25 @@
     <div class="form-group">
         <input type="text" class="form-control" id="monei-card-holder-name" placeholder="{l s='Card holder name' mod='monei'}" required>
     </div>
-    <div class="form-group">
-        <div id="monei-card_container" class="form-control"></div>
-    </div>
+    {if $moneiCardLayout == 'split'}
+        {* Split layout: one CardGroup carries the payment details and these three
+           containers only present it. payment.js mounts a part into each. *}
+        <div class="form-group">
+            <div id="monei-card-number" class="form-control"></div>
+        </div>
+        <div class="row">
+            <div class="col-6 form-group">
+                <div id="monei-card-expiry" class="form-control"></div>
+            </div>
+            <div class="col-6 form-group">
+                <div id="monei-card-cvc" class="form-control"></div>
+            </div>
+        </div>
+    {else}
+        <div class="form-group">
+            <div id="monei-card_container" class="form-control"></div>
+        </div>
+    {/if}
     <div id="monei-card-errors" class="form-group"></div>
     {if $isCustomerLogged && $tokenize}
         <div class="form-group" style="margin-left: 0; padding-left: 0;">

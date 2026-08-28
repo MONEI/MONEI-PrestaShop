@@ -215,6 +215,11 @@ const CARD_PART_TEST_ID = {
  */
 const COMPONENT_FRAME = {
     card: 'iframe[title="monei_card_input"]',
+    // Split layout: the CardGroup renders one iframe per part, plus a controller
+    // iframe for the group itself.
+    cardNumber: 'iframe[title="monei_card_number"]',
+    cardExpiry: 'iframe[title="monei_card_expiry"]',
+    cardCvc: 'iframe[title="monei_card_cvc"]',
     bizum: 'iframe[title="monei_bizum_button"]',
     bizumDialog: 'iframe[title="monei_bizum"]',
     paypal: 'iframe[title="monei_paypal"]',
@@ -258,16 +263,54 @@ const selectPaymentOption = async (page, label) => {
  * @param {string}                          number - Card number
  */
 const fillCard = async (page, number) => {
-    // The cardholder name is a plain PrestaShop input rendered beside the iframe
-    // (onsite_card.tpl:3), not one of the hosted fields. Leaving it empty fails
-    // client side with "Card holder name is not valid" and never reaches MONEI.
+    // The cardholder name is a plain PrestaShop input rendered beside the fields
+    // (onsite_card.tpl), not one of the hosted ones. Leaving it empty fails client
+    // side with "Card holder name is not valid" and never reaches MONEI.
     await page.fill('#monei-card-holder-name', `${ADDRESS.firstName} ${ADDRESS.lastName}`);
+
+    // Split is the default layout, so it is what is normally exercised here. Both
+    // are supported because the single line layout stays available as an opt out.
+    const isSplit = (await page.locator(COMPONENT_FRAME.cardNumber).count()) > 0;
+
+    if (isSplit) {
+        await page
+            .frameLocator(COMPONENT_FRAME.cardNumber)
+            .getByTestId(CARD_PART_TEST_ID.number)
+            .fill(number);
+        await page
+            .frameLocator(COMPONENT_FRAME.cardExpiry)
+            .getByTestId(CARD_PART_TEST_ID.expiry)
+            .fill(CARD_EXPIRY);
+        await page
+            .frameLocator(COMPONENT_FRAME.cardCvc)
+            .getByTestId(CARD_PART_TEST_ID.cvc)
+            .fill(CARD_CVC);
+
+        return;
+    }
 
     const frame = page.frameLocator(COMPONENT_FRAME.card);
 
     await frame.getByTestId(CARD_PART_TEST_ID.number).fill(number);
     await frame.getByTestId(CARD_PART_TEST_ID.expiry).fill(CARD_EXPIRY);
     await frame.getByTestId(CARD_PART_TEST_ID.cvc).fill(CARD_CVC);
+};
+
+/**
+ * Wait for the card fields to be ready, whichever layout is configured.
+ *
+ * @param {import('@playwright/test').Page} page - Page
+ */
+const expectCardFieldsReady = async (page) => {
+    const split = page.locator(COMPONENT_FRAME.cardNumber);
+
+    if (await split.count()) {
+        await expect(split).toBeVisible({ timeout: 30000 });
+
+        return;
+    }
+
+    await expect(page.locator(COMPONENT_FRAME.card)).toBeVisible({ timeout: 30000 });
 };
 
 /**
@@ -464,6 +507,7 @@ const payWithPayPal = async (page, account = PAYPAL.approve) => {
 
 module.exports = {
     BIZUM_PHONE,
+    expectCardFieldsReady,
     approveInPayPal,
     payWithPayPal,
     acceptTerms,

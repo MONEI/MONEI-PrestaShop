@@ -35,14 +35,14 @@ const moduleConfigureUrl = () =>
         // the browser actually signs in as. A CLI bootstrap has no employee in
         // context, and a token computed for "no employee" is simply rejected as
         // invalid.
-        "\$employeeId = (int) Db::getInstance()->getValue("
+        "$employeeId = (int) Db::getInstance()->getValue("
             + "'SELECT id_employee FROM '._DB_PREFIX_.'employee WHERE email = \"' . pSQL('"
             + ADMIN_USER
             + "') . '\" LIMIT 1'"
             + ");"
-            + "\$id = Tab::getIdFromClassName('AdminModules');"
-            + "\$token = Tools::getAdminToken('AdminModules'.\$id.\$employeeId);"
-            + "echo 'index.php?controller=AdminModules&configure=monei&token='.\$token;"
+            + "$id = Tab::getIdFromClassName('AdminModules');"
+            + "$token = Tools::getAdminToken('AdminModules'.$id.$employeeId);"
+            + "echo 'index.php?controller=AdminModules&configure=monei&token='.$token;"
     );
 
 /**

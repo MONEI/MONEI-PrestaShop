@@ -2638,6 +2638,7 @@ class Monei extends PaymentModule
                 'moneiToken' => Tools::getToken(false),
                 'moneiCurrency' => $this->context->currency->iso_code,
                 'moneiPaymentAction' => Configuration::get('MONEI_PAYMENT_ACTION', 'sale'),
+                'moneiCardLayout' => Configuration::get('MONEI_CARD_LAYOUT') === 'single' ? 'single' : 'split',
             ];
 
             if (Validate::isLoadedObject($this->context->cart)) {

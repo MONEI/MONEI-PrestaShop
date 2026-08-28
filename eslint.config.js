@@ -39,6 +39,7 @@ module.exports = [
                 moneiAmount: 'readonly',
                 moneiBizumStyle: 'readonly',
                 moneiCardHolderNameNotValid: 'readonly',
+                moneiCardLayout: 'readonly',
                 moneiCardInputStyle: 'readonly',
                 moneiCreatePaymentUrlController: 'readonly',
                 moneiCurrency: 'readonly',
