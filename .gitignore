@@ -28,3 +28,4 @@ pnpm-lock.yaml
 config_backup.sql
 tests/playwright/.env
 tests/playwright/test-results/
+tests/playwright/.fixtures.json
