@@ -226,6 +226,13 @@ const main = () => {
     const spain = ensureShippableCountry('ES');
     process.stdout.write(`ES enabled (zone ${spain.zone}), carriers: ${spain.carriers}\n`);
 
+    // France is not decoration: it is the control case for the country guard.
+    // Spain requires an identification number and express refuses it, so a country
+    // that requires none is what proves the guard is scoped rather than disabling
+    // express everywhere. A stock 1.7 store ships with FR inactive.
+    const france = ensureShippableCountry('FR');
+    process.stdout.write(`FR enabled (zone ${france.zone}), carriers: ${france.carriers}\n`);
+
     // Make Spain the store default so the guest address form renders Spanish
     // fields on first paint. Changing the country in the form re-renders it over
     // AJAX to pick up country specific fields, and racing that re-render is a
