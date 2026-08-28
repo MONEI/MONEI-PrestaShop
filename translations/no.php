@@ -372,3 +372,4 @@ $_MODULE['<{monei}prestashop>monei_d4f748c2dc25378d8386af4ca5ce6c19'] = 'Viser A
 $_MODULE['<{monei}prestashop>monei_eb763a2e313718f33f55e1f0d84df6ee'] = 'Produktside';
 $_MODULE['<{monei}prestashop>monei_f8ec75cf3d3694c32d444eb1a9c7508f'] = 'Betalingen kunne ikke fullføres. Vennligst prøv igjen.';
 $_MODULE['<{monei}prestashop>monei_660589e67ebd40e3d31f460e061d15ca'] = 'MONEI requires PHP %s or higher. Current PHP version: %s';
+$_MODULE['<{monei}prestashop>express_1cbeaafa64fe6137d77d983565ed3e14'] = 'Express checkout is not available for delivery to this country. Please continue with the standard checkout.';
