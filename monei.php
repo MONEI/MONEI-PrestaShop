@@ -2560,13 +2560,217 @@ class Monei extends PaymentModule
     /**
      * Hook to display content on payment return
      */
+
+    /**
+     * Is express checkout switched on for this surface?
+     *
+     * @param string $location product, cart or checkout
+     *
+     * @return bool
+     */
+    public function isExpressEnabledFor($location)
+    {
+        return \PsMonei\Service\Express\ExpressMethodResolver::isLocationEnabled(
+            (string) $location,
+            (bool) Configuration::get('MONEI_EXPRESS_ENABLED'),
+            (string) Configuration::get('MONEI_EXPRESS_LOCATIONS')
+        );
+    }
+
+    /**
+     * Express payment methods that may render right now.
+     *
+     * A method has to be wanted for express, enabled as a payment method, and
+     * offered by the MONEI account. Express settings widen nothing.
+     *
+     * @return string[]
+     */
+    public function getExpressMethods()
+    {
+        $allowed = [];
+        $flags = [
+            'applePay' => 'MONEI_ALLOW_APPLE',
+            'googlePay' => 'MONEI_ALLOW_GOOGLE',
+            'paypal' => 'MONEI_ALLOW_PAYPAL',
+        ];
+
+        foreach ($flags as $method => $configKey) {
+            if (Configuration::get($configKey)) {
+                $allowed[] = $method;
+            }
+        }
+
+        try {
+            $offered = self::getService('service.monei')->getPaymentMethodsAllowed();
+        } catch (Exception $e) {
+            Monei::logWarning('[MONEI] Could not read the account payment methods for express: ' . $e->getMessage());
+
+            return [];
+        }
+
+        return \PsMonei\Service\Express\ExpressMethodResolver::resolve(
+            (string) Configuration::get('MONEI_EXPRESS_METHODS'),
+            $allowed,
+            is_array($offered) ? $offered : []
+        );
+    }
+
+    /**
+     * Load the SDK and the express client on a non checkout page.
+     */
+    private function registerExpressAssets()
+    {
+        $moneiSdkUrl = self::MONEI_JS_URL;
+
+        $this->context->controller->registerJavascript(
+            sha1($moneiSdkUrl),
+            $moneiSdkUrl,
+            [
+                'server' => 'remote',
+                'priority' => 50,
+                'attribute' => 'defer',
+            ]
+        );
+
+        $this->context->controller->registerJavascript(
+            'module-' . $this->name . '-express',
+            'modules/' . $this->name . '/views/js/front/express.js',
+            [
+                'priority' => 95,
+                'attribute' => 'defer',
+                'position' => 'bottom',
+            ]
+        );
+
+        $this->context->controller->registerStylesheet(
+            'module-' . $this->name . '-express',
+            'modules/' . $this->name . '/views/css/front/express.css',
+            [
+                'priority' => 200,
+                'media' => 'all',
+            ]
+        );
+
+        // Published here rather than from the display hooks: PrestaShop collects
+        // the js_def block before content hooks render.
+        Media::addJsDef([
+            'moneiExpress' => [
+                'accountId' => (bool) Configuration::get('MONEI_PRODUCTION_MODE')
+                    ? Configuration::get('MONEI_ACCOUNT_ID')
+                    : Configuration::get('MONEI_TEST_ACCOUNT_ID'),
+                'endpoint' => $this->context->link->getModuleLink('monei', 'express'),
+                'token' => Tools::getToken(false),
+                'currency' => $this->context->currency->iso_code,
+                'methods' => $this->getExpressMethods(),
+                'style' => json_decode(Configuration::get('MONEI_PAYMENT_REQUEST_STYLE')),
+                'paypalStyle' => json_decode(Configuration::get('MONEI_PAYPAL_STYLE')),
+                'errorGeneric' => $this->l('The payment could not be completed. Please try again.'),
+            ],
+        ]);
+    }
+
+    /**
+     * Express buttons on the product page.
+     *
+     * @param array $params Hook parameters
+     *
+     * @return string
+     */
+    public function hookDisplayProductAdditionalInfo($params)
+    {
+        return $this->renderExpressContainer('product', isset($params['product']) ? $params['product'] : null);
+    }
+
+    /**
+     * Express buttons on the cart page, beside the checkout button.
+     *
+     * @return string
+     */
+    public function hookDisplayExpressCheckout()
+    {
+        return $this->renderExpressContainer('cart');
+    }
+
+    /**
+     * Express buttons above the payment options at checkout.
+     *
+     * @return string
+     */
+    public function hookDisplayPaymentTop()
+    {
+        return $this->renderExpressContainer('checkout');
+    }
+
+    /**
+     * Render the express container for a surface, or nothing.
+     *
+     * @param string     $location product, cart or checkout
+     * @param mixed|null $product  Product being viewed, on the product page
+     *
+     * @return string
+     */
+    private function renderExpressContainer($location, $product = null)
+    {
+        if (!$this->isExpressEnabledFor($location)) {
+            return '';
+        }
+
+        $methods = $this->getExpressMethods();
+
+        if (!$methods) {
+            return '';
+        }
+
+        $this->context->smarty->assign([
+            'moneiExpressLocation' => $location,
+            'moneiExpressMethods' => $methods,
+            'moneiExpressProductId' => $product ? (int) $product['id_product'] : 0,
+        ]);
+
+        return $this->fetch('module:monei/views/templates/hook/expressCheckout.tpl');
+    }
+
+
+    /**
+     * Which storefront page is being rendered.
+     *
+     * ⚠️ `page_name` is not populated yet when actionFrontControllerSetMedia fires
+     * on a product or cart page — it is still an empty string, so any check against
+     * it silently matches nothing and no asset is ever registered. `php_self` is
+     * set earlier, and is what the express surfaces are keyed off. It spells the
+     * checkout page "order", which is normalised here so the rest of the module can
+     * keep using one vocabulary.
+     *
+     * @return string product, cart, checkout, or whatever the controller reports
+     */
+    private function getFrontPageName()
+    {
+        $controller = $this->context->controller;
+        $pageName = (string) $controller->page_name;
+
+        if ($pageName === '' && property_exists($controller, 'php_self')) {
+            $pageName = (string) $controller->php_self;
+        }
+
+        return $pageName === 'order' ? 'checkout' : $pageName;
+    }
+
     public function hookActionFrontControllerSetMedia()
     {
         if (!property_exists($this->context->controller, 'page_name')) {
             return;
         }
 
-        $pageName = $this->context->controller->page_name;
+        $pageName = $this->getFrontPageName();
+
+        // Express checkout lives on the product and cart pages too, so the SDK and
+        // its client have to load there as well — but only when a merchant has
+        // actually switched express on. Nothing is added to those pages otherwise.
+        if (in_array($pageName, ['product', 'cart'], true) && $this->isExpressEnabledFor($pageName)) {
+            $this->registerExpressAssets();
+
+            return;
+        }
 
         // Checkout
         if ($pageName == 'checkout') {
@@ -2593,6 +2797,12 @@ class Monei extends PaymentModule
                     'position' => 'bottom',
                 ]
             );
+
+            // Express renders above the payment options at checkout as well, so
+            // its client has to load here too, not only on product and cart.
+            if ($this->isExpressEnabledFor('checkout')) {
+                $this->registerExpressAssets();
+            }
 
             $this->context->controller->registerJavascript(
                 'module-' . $this->name . '-front',

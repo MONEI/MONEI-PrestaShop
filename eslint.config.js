@@ -44,6 +44,7 @@ module.exports = [
                 moneiCreatePaymentUrlController: 'readonly',
                 moneiCurrency: 'readonly',
                 moneiErrorOccurred: 'readonly',
+                moneiExpress: 'readonly',
                 moneiErrorOccurredWithPayPal: 'readonly',
                 moneiPaymentAction: 'readonly',
                 moneiPaymentCreationFailed: 'readonly',

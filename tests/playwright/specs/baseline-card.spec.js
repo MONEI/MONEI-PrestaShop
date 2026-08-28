@@ -3,6 +3,7 @@ const {
     CARDS,
     COMPONENT_FRAME,
     MOUNT,
+    expectCardFieldsReady,
     completeThreeDs,
     expectOrderConfirmation,
     fillCard,
@@ -43,17 +44,17 @@ test.describe('baseline: card', () => {
         await expect(page.locator(MOUNT.bizum)).toBeAttached();
         await expect(page.locator(MOUNT.paypal)).toBeAttached();
 
-        await expect(
-            page.locator(COMPONENT_FRAME.card),
-            'MONEI card iframe should be mounted'
-        ).toHaveCount(1);
+        // Layout aware: split is the default from 2.1.0, so the card fields are
+        // three iframes rather than one. card-layout.spec.js pins each layout
+        // specifically; this only cares that the card component mounted at all.
+        await expectCardFieldsReady(page);
     });
 
     test('card payment completes and reaches order confirmation', async ({ page }) => {
         await goToPaymentStep(page);
         await selectPaymentOption(page, /credit card/i);
 
-        await expect(page.locator(COMPONENT_FRAME.card)).toBeVisible({ timeout: 30000 });
+        await expectCardFieldsReady(page);
         await fillCard(page, CARDS.direct);
         await placeOrder(page);
         await completeThreeDs(page);
