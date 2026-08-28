@@ -78,7 +78,13 @@ const addToCartAndCheckout = async (page, productPath = SIMPLE_PRODUCT_PATH) => 
 
     // The theme confirms the add through a modal rather than a navigation, so the
     // cart is only reliably populated once it has appeared.
-    await expect(page.locator('#blockcart-modal, .cart-content')).toBeVisible({ timeout: 20000 });
+    //
+    // ⚠️ .first() matters: the 1.7.8 classic theme renders both the modal and a
+    // .cart-content block inside it, so the combined selector matches two elements
+    // and strict mode fails the assertion rather than the page being wrong.
+    await expect(page.locator('#blockcart-modal, .cart-content').first()).toBeVisible({
+        timeout: 20000,
+    });
 
     await page.goto('/order', { waitUntil: 'domcontentloaded' });
 };
@@ -96,9 +102,19 @@ const fillPersonalInformation = async (page, email) => {
 
     // Consent checkboxes come from optional modules (customer privacy, psgdpr), so
     // they are checked when present rather than assumed.
-    for (const id of ['#field-customer_privacy', '#field-psgdpr']) {
-        const box = page.locator(id);
-        if ((await box.count()) && (await box.isVisible())) {
+    //
+    // ⚠️ Matched by name, not by id. The 1.7.8 classic theme does not give these
+    // inputs the `field-` id the 9.x theme does, so an id-based lookup silently
+    // finds nothing — and because both are `required`, the step then refuses to
+    // advance with no visible error. That reads as the checkout being broken.
+    const consents = page.locator(
+        '#customer-form input[type="checkbox"][required], ' +
+            '#customer-form input[name="customer_privacy"], ' +
+            '#customer-form input[name="psgdpr"]'
+    );
+    for (let i = 0; i < (await consents.count()); i++) {
+        const box = consents.nth(i);
+        if ((await box.isVisible()) && !(await box.isChecked())) {
             await box.check();
         }
     }

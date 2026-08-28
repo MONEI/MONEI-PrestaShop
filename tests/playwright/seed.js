@@ -99,6 +99,16 @@ const ensureShippableCountry = (iso) => {
 
     mysql(`UPDATE ps_country SET active = 1 WHERE id_country = ${Number(id)};`);
 
+    // ⚠️ A payment module is also restricted per country, in ps_module_country.
+    // The 1.7.8 install registers MONEI against the shop's country at the time —
+    // GB on a stock Flashlight image — so checking out to any other country drops
+    // every MONEI payment option and the payment step renders empty. That looks
+    // exactly like the module failing to hook in.
+    mysql(
+        `INSERT IGNORE INTO ps_module_country (id_module, id_shop, id_country) ` +
+            `SELECT m.id_module, 1, ${Number(id)} FROM ps_module m WHERE m.name = 'monei';`
+    );
+
     // Enabling the country is not enough on its own: without a carrier serving
     // its zone the delivery step is a dead end.
     const carriers = mysql(
