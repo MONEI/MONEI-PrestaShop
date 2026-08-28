@@ -381,3 +381,4 @@ $_MODULE['<{monei}prestashop>monei_cb4a02e86892636e36ebde9fbd35f42a'] = 'Activer
 $_MODULE['<{monei}prestashop>monei_d4f748c2dc25378d8386af4ca5ce6c19'] = 'Affiche des boutons Apple Pay, Google Pay et PayPal permettant au client de payer sans passer par tout le tunnel de commande. Désactivé par défaut, car cela modifie votre boutique.';
 $_MODULE['<{monei}prestashop>monei_eb763a2e313718f33f55e1f0d84df6ee'] = 'Page produit';
 $_MODULE['<{monei}prestashop>monei_f8ec75cf3d3694c32d444eb1a9c7508f'] = 'Le paiement n\'a pas pu être finalisé. Veuillez réessayer.';
+$_MODULE['<{monei}prestashop>express_1cbeaafa64fe6137d77d983565ed3e14'] = 'Le paiement express n\'est pas disponible pour une livraison dans ce pays. Veuillez poursuivre avec le paiement standard.';

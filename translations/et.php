@@ -381,3 +381,4 @@ $_MODULE['<{monei}prestashop>monei_cb4a02e86892636e36ebde9fbd35f42a'] = 'Luba ki
 $_MODULE['<{monei}prestashop>monei_d4f748c2dc25378d8386af4ca5ce6c19'] = 'Kuvab Apple Pay, Google Pay ja PayPal nupud, millega klient saab maksta ilma kogu kassaprotsessi läbimata. Vaikimisi välja lülitatud, sest see muudab teie poe välimust.';
 $_MODULE['<{monei}prestashop>monei_eb763a2e313718f33f55e1f0d84df6ee'] = 'Toote leht';
 $_MODULE['<{monei}prestashop>monei_f8ec75cf3d3694c32d444eb1a9c7508f'] = 'Makset ei õnnestunud lõpule viia. Palun proovige uuesti.';
+$_MODULE['<{monei}prestashop>express_1cbeaafa64fe6137d77d983565ed3e14'] = 'Express checkout is not available for delivery to this country. Please continue with the standard checkout.';

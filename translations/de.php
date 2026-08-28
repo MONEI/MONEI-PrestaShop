@@ -381,3 +381,4 @@ $_MODULE['<{monei}prestashop>monei_cb4a02e86892636e36ebde9fbd35f42a'] = 'Express
 $_MODULE['<{monei}prestashop>monei_d4f748c2dc25378d8386af4ca5ce6c19'] = 'Zeigt Apple Pay-, Google Pay- und PayPal-Schaltflächen, mit denen Kunden ohne den vollständigen Bestellvorgang bezahlen können. Standardmäßig deaktiviert, da sich Ihr Shop dadurch ändert.';
 $_MODULE['<{monei}prestashop>monei_eb763a2e313718f33f55e1f0d84df6ee'] = 'Produktseite';
 $_MODULE['<{monei}prestashop>monei_f8ec75cf3d3694c32d444eb1a9c7508f'] = 'Die Zahlung konnte nicht abgeschlossen werden. Bitte versuchen Sie es erneut.';
+$_MODULE['<{monei}prestashop>express_1cbeaafa64fe6137d77d983565ed3e14'] = 'Express-Zahlung ist für Lieferungen in dieses Land nicht verfügbar. Bitte nutzen Sie den normalen Bestellvorgang.';
