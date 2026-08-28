@@ -10,11 +10,16 @@ const {
 /**
  * Bizum half of the pre-refactor regression net for Task 4.
  *
- * ⚠️ Stops at the hand off to MONEI rather than at an order confirmation.
- * Submitting a Bizum payment currently comes back "Bizum REST not implemented",
- * even though Bizum is enabled on the test account — so the cause is not an
- * account limitation and is not yet established. Tracked as an open question;
- * asserting that error here would bake an unexplained failure into the suite.
+ * ⚠️ Stops at the hand off to MONEI rather than at an order confirmation, and that
+ * is not a gap in the module. Submitting a Bizum payment comes back E650, which
+ * MONEI maps from the Redsys response BIZ00202, "Functionality not yet
+ * implemented". The module created the payment and MONEI routed it correctly; the
+ * acquirer's test environment does not implement the Bizum REST flow, so no test
+ * can complete one.
+ *
+ * Asserting that error here would tie the suite to an acquirer's test setup and
+ * break the day it gains the capability. What is asserted instead is everything
+ * the module is responsible for.
  *
  * What is asserted is what Task 4 can actually break: the module mounts the
  * component, gates it on the terms checkbox, opens the phone dialog, and carries

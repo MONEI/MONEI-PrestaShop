@@ -247,7 +247,7 @@ Deviations from this plan worth knowing:
 - [x] **write the pre-refactor baseline specs now**, against the unmodified template: card done (render, component mount, full payment through 3DS to order confirmation). ➕ Bizum and PayPal baselines still outstanding. Task 4 refactors a live payment path, and "provably inert" is unprovable without a spec that was green beforehand.
 - [x] run the smoke and baseline specs — 8 specs green (1 flaky on the tunnel, passes on retry)
 - [x] ➕ add the Bizum baseline spec — 2 specs covering terms gating and the hand off to MONEI
-- [ ] ⚠️ **open question: Bizum submission returns "Bizum REST not implemented"** even though Bizum is enabled on test account `94be6db7-babe-4271-b7fd-a4cd8e0e0da9`. Not an account limitation, so the cause is module side and unestablished. Deprioritised for now; a completed Bizum payment is therefore not covered end to end.
+- [x] ⚠️ **resolved: Bizum "REST not implemented" is acquirer side, not module side.** The response is E650, which MONEI maps from the Redsys code BIZ00202, "Functionality not yet implemented" (`common/src/libs/redsys/mappings/bizum-codes.ts`). The module creates the payment and MONEI routes it correctly; Redsys's test environment does not implement the Bizum REST flow, so a completed Bizum payment cannot be exercised from here at all.
 - [x] ➕ add the PayPal baseline spec (MONEI's own helper: `[name="login_email"]` → `btnNext` → `login_password` → `btnLogin` → `submit-button-initial`)
 - [ ] ⚠️ **PayPal spec is written but UNVERIFIED.** Every run so far died on `net::ERR_NETWORK_CHANGED` / `net::ERR_INTERNET_DISCONNECTED` — the machine's own network dropping, exactly as the handoff warned. Re-run it once the network is stable before trusting it.
 
