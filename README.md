@@ -90,6 +90,18 @@ Express checkout is **off** after upgrading, and automatic capture stays off unt
 you choose which statuses should trigger it. Neither changes your storefront until
 you turn it on.
 
+### Express checkout and countries that require an identification number
+
+Some countries — Spain among them, in stock PrestaShop data — are configured with
+**"Do you need an identification number?"** enabled, which makes the field
+mandatory on every address. No digital wallet supplies a national identification
+number, so express checkout cannot build a valid address for those countries: the
+shopper is told to use the standard checkout instead, and nothing is charged.
+
+To offer express checkout there, clear that flag for the country under
+**International → Locations → Countries**. The module writes the country it
+refused, and this instruction, to the shop log each time it happens.
+
 ## Requirements
 
 - **PHP**: ≥7.4 (required by the MONEI PHP SDK, and enforced on install — PrestaShop 1.7 itself runs on 7.1+, but this module cannot)

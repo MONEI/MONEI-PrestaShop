@@ -281,6 +281,51 @@ class MoneiExpressModuleFrontController extends ModuleFrontController
      *
      * @return array The normalized address, so callers can report gaps
      */
+    /**
+     * Refuse a country whose addresses PrestaShop will not accept from a wallet.
+     *
+     * ⚠️ Spain is the case that matters, and it is stock PrestaShop data: ES has
+     * `need_identification_number = 1`, so Address::validateFields rejects any
+     * address without a DNI. No wallet supplies a national identification number,
+     * and one cannot be invented — it is a tax identifier with a validated
+     * checksum, so writing a placeholder would put fabricated tax data on a real
+     * order.
+     *
+     * Without this the shopper approves in the wallet and then meets a raw
+     * "Property Address->dni is empty", which tells them nothing. Nothing is
+     * charged either way: this runs before the payment is confirmed.
+     *
+     * @param string $countryIso Two letter country code from the wallet
+     *
+     * @throws PrestaShopException when express cannot complete for that country
+     */
+    private function assertCountryIsExpressable($countryIso)
+    {
+        $countryId = (int) Country::getByIso($countryIso);
+
+        if (!$countryId) {
+            return;
+        }
+
+        $country = new Country($countryId);
+
+        if (!$country->need_identification_number) {
+            return;
+        }
+
+        // Merchant-facing detail goes to the log; the shopper cannot act on it.
+        Monei::logError(
+            '[MONEI] Express checkout refused for ' . $countryIso . ': PrestaShop requires an'
+            . ' identification number for this country and no wallet supplies one. Clear'
+            . ' "Do you need an identification number?" for this country under International >'
+            . ' Locations > Countries to allow express checkout there.'
+        );
+
+        throw new PrestaShopException(
+            $this->module->l('Express checkout is not available for delivery to this country. Please continue with the standard checkout.', 'express')
+        );
+    }
+
     private function applyAddressFromInput()
     {
         $payload = (array) $this->value('shippingAddress', []);
@@ -291,6 +336,9 @@ class MoneiExpressModuleFrontController extends ModuleFrontController
         }
 
         $normalized = ExpressAddressNormalizer::normalize($payload);
+
+        $this->assertCountryIsExpressable($normalized['countryIso']);
+
         $builder = new ExpressOrderBuilder();
 
         $customer = $builder->ensureCustomer(
