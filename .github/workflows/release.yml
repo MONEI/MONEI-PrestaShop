@@ -1,0 +1,57 @@
+name: Release
+on:
+  release:
+    types:
+      - created
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@master
+
+    - name: Cache Composer dependencies
+      uses: actions/cache@v3
+      with:
+        path: /tmp/composer-cache
+        key: ${{ runner.os }}-${{ hashFiles('**/composer.lock') }}
+
+    - uses: php-actions/composer@v6
+
+    - name: Archive Release
+      run: |
+        mkdir ../monei
+        cp -r . ../monei/
+        cd ..
+        # ⚠️ Every pattern is anchored with the monei/ prefix. Paths inside the
+        # archive start there, so '/build/*' never matched anything — which is why
+        # the output.log exclusion had to be written as 'monei/output.log'.
+        # Anything missing here ships to merchants and to the Addons validator.
+        zip -r monei.zip monei \
+          -x '*.git*' \
+          -x 'monei/build/*' \
+          -x 'monei/output.log' \
+          -x 'monei/docs/*' \
+          -x 'monei/tests/*' \
+          -x 'monei/node_modules/*' \
+          -x 'monei/package.json' \
+          -x 'monei/package-lock.json' \
+          -x 'monei/eslint.config.js' \
+          -x 'monei/.prettierrc' \
+          -x 'monei/.prettierignore' \
+          -x 'monei/.php-cs-fixer.php' \
+          -x 'monei/.php_cs.cache' \
+          -x 'monei/phpunit.xml' \
+          -x 'monei/.env' \
+          -x 'monei/.playwright-mcp/*' \
+          -x 'monei/.claude/*' \
+          -x 'monei/.nvmrc'
+        
+    - name: Upload Release
+      uses: ncipollo/release-action@v1.14.0
+      with:
+        allowUpdates: true
+        omitBodyDuringUpdate: true
+        artifacts: '../monei.zip'
+        artifactContentType: 'application/zip'
+        token: ${{ secrets.GITHUB_TOKEN }}
