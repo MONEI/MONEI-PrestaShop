@@ -26,3 +26,5 @@ pnpm-lock.yaml
 .playwright-mcp
 .php_cs.cache
 config_backup.sql
+tests/playwright/.env
+tests/playwright/test-results/

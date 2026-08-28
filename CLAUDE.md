@@ -26,8 +26,22 @@ cd build && yarn install && yarn release
 ### Code Quality
 - PHP code style: Uses PHP-CS-Fixer with custom Symfony-based configuration (see `.php-cs-fixer.php`)
 - IMPORTANT: Always run `./vendor/bin/php-cs-fixer fix` after modifying PHP files
-- No JavaScript linting configured
-- No test suite implemented (PHPUnit configured but `/tests` directory is empty)
+- ⚠️ `.php-cs-fixer.php` pins `trailing_comma_in_multiline` to arrays only. Trailing
+  commas in *parameter lists* are PHP 8.0 syntax and this module runs on 7.4, so
+  removing that pin makes the fixer emit code that fatals on the minimum supported
+  version. CI parses every file under 7.4 to catch it.
+
+```bash
+npm install          # ESLint + Prettier + Playwright
+npm run lint         # ESLint over views/js and tests
+npm run format       # Prettier (JavaScript only)
+composer test        # PHPUnit unit tests
+npm run test:e2e     # Playwright, see tests/playwright/README.md
+```
+
+⚠️ Unit tests must not touch a class guarded by `if (!defined('_PS_VERSION_'))`.
+Merely asking whether one exists loads the file and calls `exit`, which ends the
+suite mid-run with no summary and exit code 0 — indistinguishable from a pass.
 
 ### PrestaShop Admin Access
 When using PrestaShop Flashlight Docker environment:
@@ -155,8 +169,29 @@ $paymentService = Monei::getService('monei.service.payment');
 // - monei.repository.*: Data repositories
 ```
 
+### Express Checkout
+
+- Services in `/src/Service/Express/`, resolved through `MoneiServiceLocator`
+- One front controller, `controllers/front/express.php`, dispatching on `action`
+  read from the JSON body — not the query string
+- Hooks, verified against the PrestaShop 1.7.8 classic theme:
+  - product → `displayProductAdditionalInfo`
+  - cart → `displayExpressCheckout`
+  - checkout → `displayPaymentTop` (above the payment options)
+- ⚠️ `page_name` is empty when `actionFrontControllerSetMedia` fires on a product or
+  cart page. Key page detection off `php_self` instead, or nothing registers. That
+  is what `getFrontPageName()` is for, and it also spells checkout `order`.
+
 ### Frontend JavaScript Architecture
 - JavaScript files in `/views/js/` use vanilla JavaScript (no build/transpilation)
+- `payment.js` holds the checkout payment components. It used to live inline in
+  `views/templates/hook/displayPaymentByBinaries.tpl`; that template is now markup
+  only
+- ⚠️ `Media::addJsDef` values must be published from `hookActionFrontControllerSetMedia`.
+  PrestaShop collects the `js_def` block before content hooks render, so publishing
+  from a display hook reaches the page as nothing at all
+- The five `initMonei*` functions are global on purpose — `front.js` calls them by
+  name
 - Key files:
   - `checkout.js`: Payment form handling, Apple/Google Pay detection
   - `saved-cards.js`: Tokenized card management
@@ -215,7 +250,9 @@ Note: If capture button is not visible in PrestaShop admin, check:
 - If getting 404 errors on payment submission, ensure the controller is listed in monei.php constructor
 
 ## Version Compatibility
-- PHP: ≥7.4 (composer platform configured)
+- PHP: ≥7.4 — the floor is `monei/monei-php-sdk`'s (`php >=7.4`), not PrestaShop's.
+  1.7.8 itself runs on 7.1+, but this module cannot; `checkPHPCompatibility()`
+  enforces it on install
 - PrestaShop: ≥1.7.2.4 (tested) and ≥8.0 (officially supported)
 - MONEI PHP SDK: ^2.6
 - Build tools: Yarn 4.5.0 (packageManager field enforced)
@@ -242,11 +279,22 @@ Note: If capture button is not visible in PrestaShop admin, check:
 - Properties removed for compatibility: `limited_currencies`, explicit `currencies_mode` (uses parent default)
 
 ## Docker Development Environment
-Using PrestaShop Flashlight with custom PHP 7.4 upgrade for PrestaShop 1.7.2.4:
-- Base image: `prestashop/prestashop-flashlight:1.7.2.4-7.1`
-- Custom Dockerfile upgrades PHP from 7.1 to 7.4.33
-- ngrok tunnel for HTTPS testing
-- MariaDB 10.3 for database
+
+The stack lives in its own repository, on the branch matching this one:
+**https://github.com/MONEI/monei-prestashop-dev-env/tree/prestashop-1.7**
+(`main` there runs PrestaShop 9 for the module's `master` branch). It runs
+PrestaShop 1.7.8.10 behind a Cloudflare tunnel — 3D Secure and webhooks both need
+a public HTTPS origin — and mounts this module into the container.
+
+- Base image: `prestashop/prestashop-flashlight:1.7.8.10` (PHP 7.4.33)
+- MariaDB 10.3, project name `tunnel17`, store on port 8017
+- ⚠️ Its Dockerfile carries three fixes that cannot be init scripts: this image
+  drops to `www-data` before Flashlight runs them, so anything writing
+  `/etc/nginx` or the php-fpm config fails with a permission error and leaves the
+  store silently misconfigured. They map `X-Forwarded-Proto` through (PrestaShop
+  otherwise builds `http://` links behind the tunnel), raise the five php-fpm
+  workers (too few for order confirmation, which surfaces as a 502 on a payment
+  that succeeded), and fix the nginx client_body permissions.
 
 ## Git Commit Guidelines
 When creating commits:
