@@ -56,7 +56,7 @@ class CaptureTrigger
         string $orderModule,
         string $moduleName,
         int $newStateId,
-        string $configured,
+        string $configured
     ): bool {
         if ($orderModule !== $moduleName) {
             return false;

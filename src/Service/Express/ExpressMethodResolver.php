@@ -60,7 +60,7 @@ class ExpressMethodResolver
     public static function isLocationEnabled(
         string $location,
         bool $expressEnabled,
-        string $configuredLocations,
+        string $configuredLocations
     ): bool {
         if (!$expressEnabled || !in_array($location, self::SUPPORTED_LOCATIONS, true)) {
             return false;
@@ -81,7 +81,7 @@ class ExpressMethodResolver
     public static function resolve(
         string $configuredMethods,
         array $allowedByMerchant,
-        array $offeredByAccount,
+        array $offeredByAccount
     ): array {
         $wanted = self::parseList($configuredMethods);
         $resolved = [];

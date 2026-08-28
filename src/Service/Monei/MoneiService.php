@@ -54,7 +54,7 @@ class MoneiService
         MoneiPaymentRepository $moneiPaymentRepository,
         MoneiCustomerCardRepository $moneiCustomerCardRepository,
         MoneiRefundRepository $moneiRefundRepository,
-        MoneiHistoryRepository $moneiHistoryRepository,
+        MoneiHistoryRepository $moneiHistoryRepository
     ) {
         $this->legacyContext = $legacyContext;
         $this->moneiPaymentRepository = $moneiPaymentRepository;

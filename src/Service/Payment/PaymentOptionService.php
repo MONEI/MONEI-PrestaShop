@@ -66,7 +66,7 @@ class PaymentOptionService
         MoneiService $moneiService,
         MoneiCustomerCardRepository $moneiCustomerCardRepository,
         ConfigurationLegacy $configuration,
-        LegacyContext $legacyContext,
+        LegacyContext $legacyContext
     ) {
         $this->moneiService = $moneiService;
         $this->moneiCustomerCardRepository = $moneiCustomerCardRepository;

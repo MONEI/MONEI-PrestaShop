@@ -15,6 +15,8 @@ $config
     ->setRiskyAllowed(true)
     ->setRules([
         '@Symfony' => true,
+        // module targets PHP 7.4: trailing commas in parameter lists are PHP 8.0+
+        'trailing_comma_in_multiline' => ['elements' => ['arrays']],
         'array_indentation' => true,
         'cast_spaces' => [
             'space' => 'single',
