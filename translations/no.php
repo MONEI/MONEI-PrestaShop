@@ -3,7 +3,6 @@
 global $_MODULE;
 $_MODULE = [];
 $_MODULE['<{monei}prestashop>monei_99cc282fb6fdb65298dacac1bfe0b1e6'] = 'Aksepter kort, Apple Pay, Google Pay, Bizum, PayPal og mange andre betalingsmetoder i butikken din.';
-$_MODULE['<{monei}prestashop>monei_8a0f13b6a3242924e1ecb50648cc639a'] = 'PrestaShop %s krever PHP 7.1.3 eller høyere. Nåværende PHP-versjon: %s';
 $_MODULE['<{monei}prestashop>monei_92d4773a9f32fc3333cb8238471cf763'] = 'Du må aktivere cURL-utvidelsen på serveren for å installere denne modulen';
 $_MODULE['<{monei}prestashop>monei_0db377921f4ce762c62526131097968f'] = 'Generelt';
 $_MODULE['<{monei}prestashop>monei_af01f8c298aa063d9c7490f00eddd2df'] = 'Betalingsmetoder';
@@ -372,3 +371,4 @@ $_MODULE['<{monei}prestashop>monei_cb4a02e86892636e36ebde9fbd35f42a'] = 'Aktiver
 $_MODULE['<{monei}prestashop>monei_d4f748c2dc25378d8386af4ca5ce6c19'] = 'Viser Apple Pay-, Google Pay- og PayPal-knapper som lar kunden betale uten å gå gjennom hele kassen. Av som standard, fordi det endrer nettbutikken din.';
 $_MODULE['<{monei}prestashop>monei_eb763a2e313718f33f55e1f0d84df6ee'] = 'Produktside';
 $_MODULE['<{monei}prestashop>monei_f8ec75cf3d3694c32d444eb1a9c7508f'] = 'Betalingen kunne ikke fullføres. Vennligst prøv igjen.';
+$_MODULE['<{monei}prestashop>monei_660589e67ebd40e3d31f460e061d15ca'] = 'MONEI requires PHP %s or higher. Current PHP version: %s';
