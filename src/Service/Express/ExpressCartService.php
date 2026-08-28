@@ -28,10 +28,10 @@ class ExpressCartService
     /**
      * Start an express cart holding a single product.
      *
-     * @param \Context $context           Shop context
-     * @param int      $productId         Product to buy
-     * @param int      $productAttributeId Combination, 0 when the product has none
-     * @param int      $quantity          Quantity
+     * @param \Context $context Shop context
+     * @param int $productId Product to buy
+     * @param int $productAttributeId Combination, 0 when the product has none
+     * @param int $quantity Quantity
      *
      * @return \Cart The express cart, now the current one
      *

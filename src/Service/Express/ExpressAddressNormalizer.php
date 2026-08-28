@@ -95,8 +95,8 @@ class ExpressAddressNormalizer
      * Wallets disagree on names: Apple Pay, Google Pay and PayPal each spell the
      * same field differently.
      *
-     * @param array    $payload Payload
-     * @param string[] $keys    Candidate keys
+     * @param array $payload Payload
+     * @param string[] $keys Candidate keys
      */
     private static function text(array $payload, array $keys): string
     {
@@ -104,8 +104,8 @@ class ExpressAddressNormalizer
     }
 
     /**
-     * @param array    $payload Payload
-     * @param string[] $keys    Candidate keys
+     * @param array $payload Payload
+     * @param string[] $keys Candidate keys
      *
      * @return mixed
      */

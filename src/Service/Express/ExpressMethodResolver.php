@@ -53,14 +53,14 @@ class ExpressMethodResolver
     /**
      * Is express checkout switched on for this surface?
      *
-     * @param string $location             Surface being rendered
-     * @param bool   $expressEnabled       Master switch
-     * @param string $configuredLocations  Comma separated locations
+     * @param string $location Surface being rendered
+     * @param bool $expressEnabled Master switch
+     * @param string $configuredLocations Comma separated locations
      */
     public static function isLocationEnabled(
         string $location,
         bool $expressEnabled,
-        string $configuredLocations
+        string $configuredLocations,
     ): bool {
         if (!$expressEnabled || !in_array($location, self::SUPPORTED_LOCATIONS, true)) {
             return false;
@@ -72,16 +72,16 @@ class ExpressMethodResolver
     /**
      * Methods that may render, in a stable order.
      *
-     * @param string   $configuredMethods Comma separated express methods
+     * @param string $configuredMethods Comma separated express methods
      * @param string[] $allowedByMerchant Methods enabled under Payment methods
-     * @param string[] $offeredByAccount  Methods the MONEI account offers
+     * @param string[] $offeredByAccount Methods the MONEI account offers
      *
      * @return string[]
      */
     public static function resolve(
         string $configuredMethods,
         array $allowedByMerchant,
-        array $offeredByAccount
+        array $offeredByAccount,
     ): array {
         $wanted = self::parseList($configuredMethods);
         $resolved = [];

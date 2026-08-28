@@ -548,6 +548,7 @@ class Monei extends PaymentModule
 
             if (!file_exists($moduleOverrideFile)) {
                 Monei::logError('[MONEI] Override source file not found: ' . $moduleOverrideFile);
+
                 return false;
             }
 
@@ -555,6 +556,7 @@ class Monei extends PaymentModule
             if (!file_exists($targetOverrideDir)) {
                 if (!mkdir($targetOverrideDir, 0755, true)) {
                     Monei::logError('[MONEI] Failed to create override directory: ' . $targetOverrideDir);
+
                     return false;
                 }
             }
@@ -562,6 +564,7 @@ class Monei extends PaymentModule
             // Copy the override file
             if (!copy($moduleOverrideFile, $targetOverrideFile)) {
                 Monei::logError('[MONEI] Failed to copy Order override file');
+
                 return false;
             }
 
@@ -574,9 +577,11 @@ class Monei extends PaymentModule
             }
 
             Monei::logDebug('[MONEI] Order override installed successfully for PrestaShop 8.0.x');
+
             return true;
         } catch (Exception $e) {
             Monei::logError('[MONEI] Exception during Order override installation: ' . $e->getMessage());
+
             return false;
         }
     }
@@ -1280,7 +1285,7 @@ class Monei extends PaymentModule
             }
         }
 
-        $hidden = \PsMonei\Service\Monei\PaymentMethodAvailability::hiddenBy(
+        $hidden = PsMonei\Service\Monei\PaymentMethodAvailability::hiddenBy(
             $enabled,
             (string) Configuration::get('MONEI_PAYMENT_ACTION', 'sale')
         );
@@ -1890,7 +1895,6 @@ class Monei extends PaymentModule
         ];
     }
 
-
     /**
      * Values bound to the express checkout form.
      *
@@ -2263,7 +2267,6 @@ class Monei extends PaymentModule
         return $this->paymentMethods;
     }
 
-
     /**
      * Capture a pre-authorization when an order reaches a configured state.
      *
@@ -2297,7 +2300,7 @@ class Monei extends PaymentModule
             return;
         }
 
-        $shouldCapture = \PsMonei\Service\Monei\CaptureTrigger::shouldCapture(
+        $shouldCapture = PsMonei\Service\Monei\CaptureTrigger::shouldCapture(
             (string) $order->module,
             $this->name,
             (int) $params['newOrderStatus']->id,
@@ -2350,7 +2353,7 @@ class Monei extends PaymentModule
      * monei2_admin_order_message table, but no such table or entity exists, so
      * there is nothing to write to but the order itself.
      *
-     * @param Order  $order  Order to annotate
+     * @param Order $order Order to annotate
      * @param string $reason Failure reason
      */
     private function addOrderCaptureNote(Order $order, $reason)
@@ -2570,7 +2573,7 @@ class Monei extends PaymentModule
      */
     public function isExpressEnabledFor($location)
     {
-        return \PsMonei\Service\Express\ExpressMethodResolver::isLocationEnabled(
+        return PsMonei\Service\Express\ExpressMethodResolver::isLocationEnabled(
             (string) $location,
             (bool) Configuration::get('MONEI_EXPRESS_ENABLED'),
             (string) Configuration::get('MONEI_EXPRESS_LOCATIONS')
@@ -2608,7 +2611,7 @@ class Monei extends PaymentModule
             return [];
         }
 
-        return \PsMonei\Service\Express\ExpressMethodResolver::resolve(
+        return PsMonei\Service\Express\ExpressMethodResolver::resolve(
             (string) Configuration::get('MONEI_EXPRESS_METHODS'),
             $allowed,
             is_array($offered) ? $offered : []
@@ -2704,8 +2707,8 @@ class Monei extends PaymentModule
     /**
      * Render the express container for a surface, or nothing.
      *
-     * @param string     $location product, cart or checkout
-     * @param mixed|null $product  Product being viewed, on the product page
+     * @param string $location product, cart or checkout
+     * @param mixed|null $product Product being viewed, on the product page
      *
      * @return string
      */
@@ -2729,7 +2732,6 @@ class Monei extends PaymentModule
 
         return $this->fetch('module:monei/views/templates/hook/expressCheckout.tpl');
     }
-
 
     /**
      * Which storefront page is being rendered.
@@ -3575,6 +3577,7 @@ class Monei extends PaymentModule
      * a custom order reference. For PrestaShop 8.0.x, the override is used instead.
      *
      * @param array $params Hook parameters containing document type
+     *
      * @return string|null Custom order reference or null to use default
      */
     public function hookActionGenerateDocumentReference($params)

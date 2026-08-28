@@ -21,10 +21,10 @@ class ExpressOrderBuilder
      * not logged in. PrestaShop still needs a customer, so a guest is created from
      * what the wallet gives us.
      *
-     * @param \Context $context   Shop context
-     * @param string   $email     Email from the wallet
-     * @param string   $firstName First name
-     * @param string   $lastName  Last name
+     * @param \Context $context Shop context
+     * @param string $email Email from the wallet
+     * @param string $firstName First name
+     * @param string $lastName Last name
      *
      * @return \Customer
      *
@@ -72,10 +72,10 @@ class ExpressOrderBuilder
     /**
      * Attach a delivery and invoice address built from the wallet payload.
      *
-     * @param \Context  $context    Shop context
-     * @param \Cart     $cart       Cart to attach to
-     * @param \Customer $customer   Owner of the address
-     * @param array     $normalized Output of ExpressAddressNormalizer::normalize
+     * @param \Context $context Shop context
+     * @param \Cart $cart Cart to attach to
+     * @param \Customer $customer Owner of the address
+     * @param array $normalized Output of ExpressAddressNormalizer::normalize
      *
      * @return \Address
      *

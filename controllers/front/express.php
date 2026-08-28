@@ -46,24 +46,31 @@ class MoneiExpressModuleFrontController extends ModuleFrontController
             switch ($action) {
                 case 'bootstrap':
                     $this->respond($this->actionBootstrap());
+
                     break;
                 case 'getCartDetails':
                     $this->respond($this->actionCartDetails());
+
                     break;
                 case 'getSelectedProductData':
                     $this->respond($this->actionSelectedProductData());
+
                     break;
                 case 'addToCart':
                     $this->respond($this->actionAddToCart());
+
                     break;
                 case 'getShippingOptions':
                     $this->respond($this->actionShippingOptions());
+
                     break;
                 case 'updateShippingMethod':
                     $this->respond($this->actionUpdateShippingMethod());
+
                     break;
                 case 'createOrder':
                     $this->respond($this->actionCreateOrder());
+
                     break;
                 default:
                     $this->fail('unknown_action', 'Unknown express action: ' . $action, 400);

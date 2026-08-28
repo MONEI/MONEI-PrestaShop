@@ -29,7 +29,7 @@ class PaymentMethodAvailability
      * Remove methods the transaction type cannot serve.
      *
      * @param string[] $enabledMethods Methods the merchant switched on
-     * @param string   $paymentAction  'auth' or 'sale'
+     * @param string $paymentAction 'auth' or 'sale'
      *
      * @return string[]
      */
@@ -49,7 +49,7 @@ class PaymentMethodAvailability
      * the decision is made rather than discovered later.
      *
      * @param string[] $enabledMethods Methods the merchant switched on
-     * @param string   $paymentAction  'auth' or 'sale'
+     * @param string $paymentAction 'auth' or 'sale'
      *
      * @return string[]
      */

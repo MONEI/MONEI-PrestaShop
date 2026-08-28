@@ -18,6 +18,7 @@ function upgrade_module_2_0_9($module)
         // Only install override on PrestaShop 8.0.x
         if (version_compare(_PS_VERSION_, '8.1.0', '>=')) {
             Monei::logDebug('[MONEI] Skipping override installation on PS 8.1+ (using hook instead)');
+
             return true;
         }
 

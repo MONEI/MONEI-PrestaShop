@@ -23,7 +23,27 @@ jobs:
         mkdir ../monei
         cp -r . ../monei/
         cd ..
-        zip -r monei.zip monei -x '*.git*' -x '/build/*' -x 'monei/output.log'
+        # ⚠️ Every pattern is anchored with the monei/ prefix. Paths inside the
+        # archive start there, so '/build/*' never matched anything — which is why
+        # the output.log exclusion had to be written as 'monei/output.log'.
+        # Anything missing here ships to merchants and to the Addons validator.
+        zip -r monei.zip monei \
+          -x '*.git*' \
+          -x 'monei/build/*' \
+          -x 'monei/output.log' \
+          -x 'monei/docs/*' \
+          -x 'monei/tests/*' \
+          -x 'monei/node_modules/*' \
+          -x 'monei/package.json' \
+          -x 'monei/package-lock.json' \
+          -x 'monei/eslint.config.js' \
+          -x 'monei/.prettierrc' \
+          -x 'monei/.prettierignore' \
+          -x 'monei/.php-cs-fixer.php' \
+          -x 'monei/.php_cs.cache' \
+          -x 'monei/phpunit.xml' \
+          -x 'monei/.env' \
+          -x 'monei/.playwright-mcp/*'
         
     - name: Upload Release
       uses: ncipollo/release-action@v1.14.0

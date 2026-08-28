@@ -47,16 +47,16 @@ class CaptureTrigger
     /**
      * Should reaching this state capture the payment?
      *
-     * @param string $orderModule  Module the order was paid with
-     * @param string $moduleName   This module's name
-     * @param int    $newStateId   State the order has just reached
-     * @param string $configured   Comma separated trigger state ids
+     * @param string $orderModule Module the order was paid with
+     * @param string $moduleName This module's name
+     * @param int $newStateId State the order has just reached
+     * @param string $configured Comma separated trigger state ids
      */
     public static function shouldCapture(
         string $orderModule,
         string $moduleName,
         int $newStateId,
-        string $configured
+        string $configured,
     ): bool {
         if ($orderModule !== $moduleName) {
             return false;
