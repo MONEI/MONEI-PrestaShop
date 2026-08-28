@@ -1,0 +1,17 @@
+# Prettier is scoped to JavaScript only. Reformatting the module's Markdown, CSS,
+# YAML and JSON would be a large diff of pure churn in files no lint rule covers.
+*.md
+*.css
+*.yml
+*.yaml
+*.json
+*.html
+*.tpl
+
+vendor/
+node_modules/
+build/
+translations/
+views/js/jquery.json-viewer.js
+tests/playwright/playwright-report/
+tests/playwright/test-results/

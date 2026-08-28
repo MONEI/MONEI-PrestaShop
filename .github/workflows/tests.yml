@@ -1,0 +1,43 @@
+name: Tests
+on: [push]
+
+permissions:
+    contents: read
+
+# A second push supersedes the first. Separate from the Code Quality group so the
+# two workflows cancel independently.
+concurrency:
+    group: ${{ github.workflow }}-${{ github.ref }}
+    cancel-in-progress: true
+
+jobs:
+    phpunit:
+        name: PHP unit tests
+        runs-on: ubuntu-latest
+
+        steps:
+            - name: Checkout code
+              uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              with:
+                  persist-credentials: false
+
+            - name: Setup PHP
+              uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # 2.37.2
+              with:
+                  php-version: '8.1'
+                  coverage: none
+                  tools: composer
+
+            - name: Install Composer dependencies
+              uses: ramsey/composer-install@65e4f84970763564f46a70b8a54b90d033b3bdda # 4.0.0
+              with:
+                  composer-options: --dev --optimize-autoloader
+
+            - name: Run PHPUnit
+              run: ./vendor/bin/phpunit
+
+# ⚠️ The Playwright suite is deliberately not here. It drives a real store through
+# a tunnel against a real MONEI test account, and PayPal's sandbox is a cross
+# origin zoid iframe with a popup-versus-overlay race. Putting that in a required
+# check buys a permanently flaky red pipeline. It runs locally; see
+# tests/playwright/README.md.

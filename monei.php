@@ -20,6 +20,11 @@ class Monei extends PaymentModule
     const MONEI_JS_URL = 'https://js.monei.com/v3/monei.js';
 
     /**
+     * Lowest PHP the MONEI PHP SDK supports, and therefore this module.
+     */
+    const MINIMUM_PHP_VERSION = '7.4';
+
+    /**
      * Guards hookActionOrderStatusPostUpdate against re-entering itself.
      *
      * @var bool
@@ -165,26 +170,23 @@ class Monei extends PaymentModule
     /**
      * Check PHP version compatibility
      *
+     * ⚠️ The floor is the MONEI PHP SDK's, not PrestaShop's. composer.json pins
+     * the platform to 7.4 and monei/monei-php-sdk declares `php >=7.4`, so the
+     * module cannot run below that whatever PrestaShop itself supports — 1.7.8
+     * runs on 7.1 and up. This used to check 7.1.3, and only when PrestaShop was
+     * 1.7.13 or newer, so a 1.7.8 store on PHP 7.2 passed the check and then
+     * failed inside the SDK with no indication of why.
+     *
      * @return array Array with 'compatible' bool and 'message' string
      */
     public function checkPHPCompatibility()
     {
         $phpVersion = PHP_VERSION;
-        $psVersion = _PS_VERSION_;
 
-        // PS 1.7.13+ requires PHP 7.1.3+
-        if (version_compare($psVersion, '1.7.13.0', '>=') && version_compare($phpVersion, '7.1.3', '<')) {
+        if (version_compare($phpVersion, self::MINIMUM_PHP_VERSION, '<')) {
             return [
                 'compatible' => false,
-                'message' => sprintf($this->l('PrestaShop %s requires PHP 7.1.3 or higher. Current PHP version: %s'), $psVersion, $phpVersion),
-            ];
-        }
-
-        // PS 1.7.13+ requires PHP 7.1.3+
-        if (version_compare($psVersion, '1.7.13.0', '>=') && version_compare($phpVersion, '7.1.3', '<')) {
-            return [
-                'compatible' => false,
-                'message' => sprintf($this->l('PrestaShop %s requires PHP 7.1.3 or higher. Current PHP version: %s'), $psVersion, $phpVersion),
+                'message' => sprintf($this->l('MONEI requires PHP %s or higher. Current PHP version: %s'), self::MINIMUM_PHP_VERSION, $phpVersion),
             ];
         }
 

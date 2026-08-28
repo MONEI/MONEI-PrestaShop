@@ -3,7 +3,6 @@
 global $_MODULE;
 $_MODULE = [];
 $_MODULE['<{monei}prestashop>monei_99cc282fb6fdb65298dacac1bfe0b1e6'] = 'Accetta Carte di Credito, Apple Pay, Google Pay, Bizum, PayPal e molti altri metodi di pagamento nel tuo negozio.';
-$_MODULE['<{monei}prestashop>monei_8a0f13b6a3242924e1ecb50648cc639a'] = 'PrestaShop %s richiede PHP 7.1.3 o superiore. Versione PHP attuale: %s';
 $_MODULE['<{monei}prestashop>monei_92d4773a9f32fc3333cb8238471cf763'] = 'Devi abilitare l\'estensione cURL sul tuo server per installare questo modulo';
 $_MODULE['<{monei}prestashop>monei_0db377921f4ce762c62526131097968f'] = 'Generale';
 $_MODULE['<{monei}prestashop>monei_af01f8c298aa063d9c7490f00eddd2df'] = 'Metodi di Pagamento';
@@ -372,3 +371,4 @@ $_MODULE['<{monei}prestashop>monei_cb4a02e86892636e36ebde9fbd35f42a'] = 'Attiva 
 $_MODULE['<{monei}prestashop>monei_d4f748c2dc25378d8386af4ca5ce6c19'] = 'Mostra i pulsanti Apple Pay, Google Pay e PayPal che permettono al cliente di pagare senza completare l\'intero checkout. Disattivato per impostazione predefinita, perché modifica il tuo negozio.';
 $_MODULE['<{monei}prestashop>monei_eb763a2e313718f33f55e1f0d84df6ee'] = 'Pagina prodotto';
 $_MODULE['<{monei}prestashop>monei_f8ec75cf3d3694c32d444eb1a9c7508f'] = 'Non è stato possibile completare il pagamento. Riprova.';
+$_MODULE['<{monei}prestashop>monei_660589e67ebd40e3d31f460e061d15ca'] = 'MONEI requires PHP %s or higher. Current PHP version: %s';

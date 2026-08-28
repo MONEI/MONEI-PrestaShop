@@ -1,0 +1,94 @@
+name: Code Quality
+on: [push]
+
+permissions:
+    contents: read
+
+# Concurrency to prevent multiple jobs from running at the same time
+concurrency:
+    group: ${{ github.workflow }}-${{ github.ref }}
+    cancel-in-progress: true
+
+jobs:
+    php:
+        name: PHP code style
+        runs-on: ubuntu-latest
+
+        steps:
+            - name: Checkout code
+              uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              with:
+                  persist-credentials: false
+
+            # ⚠️ Pinned below 8.4. The php-cs-fixer version this module depends on
+            # refuses to run on anything newer, and forcing it through
+            # PHP_CS_FIXER_IGNORE_ENV makes it rewrite code in ways it warns about
+            # itself.
+            - name: Setup PHP
+              uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # 2.37.2
+              with:
+                  php-version: '8.1'
+                  coverage: none
+                  tools: composer
+
+            - name: Install Composer dependencies
+              uses: ramsey/composer-install@65e4f84970763564f46a70b8a54b90d033b3bdda # 4.0.0
+              with:
+                  composer-options: --dev --optimize-autoloader
+
+            - name: PHP-CS-Fixer
+              run: ./vendor/bin/php-cs-fixer fix --dry-run --diff --config=.php-cs-fixer.php
+
+    php-compat:
+        name: PHP 7.4 syntax
+        runs-on: ubuntu-latest
+
+        # composer.json pins the platform to PHP 7.4 and monei.php advertises
+        # support for it, but every other job runs on a newer PHP. Without this
+        # nothing ever parses the module at its own minimum version, and PHP 8
+        # only syntax reaches merchants as a fatal parse error.
+        steps:
+            - name: Checkout code
+              uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              with:
+                  persist-credentials: false
+
+            - name: Setup PHP
+              uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # 2.37.2
+              with:
+                  php-version: '7.4'
+                  coverage: none
+
+            - name: Lint every module source file
+              run: |
+                  find . -name '*.php' \
+                      -not -path './vendor/*' \
+                      -not -path './node_modules/*' \
+                      -print0 \
+                    | xargs -0 -n1 -P4 php -l
+
+    javascript:
+        name: JavaScript code style
+        runs-on: ubuntu-latest
+
+        steps:
+            - name: Checkout code
+              uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              with:
+                  persist-credentials: false
+
+            - name: Setup Node.js
+              uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+              with:
+                  node-version-file: .nvmrc
+
+            # No lockfile is committed — .gitignore covers every one of them — so
+            # this cannot be `npm ci`, and there is nothing to cache on.
+            - name: Install dependencies
+              run: npm install --no-audit --no-fund
+
+            - name: ESLint
+              run: npm run lint
+
+            - name: Prettier
+              run: npm run format:check

@@ -25,6 +25,15 @@
     "monei/monei-php-sdk": "^2.6"
   },
   "require-dev": {
-    "friendsofphp/php-cs-fixer": "^3.3"
+    "friendsofphp/php-cs-fixer": "^3.3",
+    "phpunit/phpunit": "^9.6"
+  },
+  "scripts": {
+    "test": "phpunit"
+  },
+  "autoload-dev": {
+    "psr-4": {
+      "PsMonei\\Tests\\": "tests/"
+    }
   }
 }
