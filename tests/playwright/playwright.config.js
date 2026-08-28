@@ -21,9 +21,13 @@ module.exports = defineConfig({
     // retry is real and must be treated as real — never raise this number to make
     // a genuinely failing spec go green.
     retries: 2,
-    // MONEI mounts its iframes after an init delay, then a real payment round
-    // trip follows, so give each test room.
-    timeout: 180000,
+    // ⚠️ Generous on purpose, and it has to exceed the sum of the waits a payment
+    // test performs, not just the slowest one. A card journey waits for the 3D
+    // Secure challenge to appear (up to 90s) and then for the order confirmation
+    // (up to 120s). At 180s a slow-but-healthy challenge blew the test timeout
+    // while the payment itself was completing perfectly — token, payment and
+    // challenge all answered 200.
+    timeout: 300000,
     expect: { timeout: 30000 },
     reporter: [['list'], ['html', { outputFolder: './playwright-report', open: 'never' }]],
     use: {

@@ -286,6 +286,8 @@ const fillCard = async (page, number) => {
             .getByTestId(CARD_PART_TEST_ID.cvc)
             .fill(CARD_CVC);
 
+        await settleCardFields(page);
+
         return;
     }
 
@@ -294,6 +296,24 @@ const fillCard = async (page, number) => {
     await frame.getByTestId(CARD_PART_TEST_ID.number).fill(number);
     await frame.getByTestId(CARD_PART_TEST_ID.expiry).fill(CARD_EXPIRY);
     await frame.getByTestId(CARD_PART_TEST_ID.cvc).fill(CARD_CVC);
+
+    await settleCardFields(page);
+};
+
+/**
+ * Give the card component a moment to accept what was just typed.
+ *
+ * ⚠️ Not padding. The SDK validates across its iframes asynchronously, and
+ * `submit()` called the instant the last character lands can simply never
+ * resolve — no token, no error, nothing on screen. A person filling a form takes
+ * seconds; a test does it in milliseconds, which is the only reason this is
+ * needed. Without it the payment specs fail intermittently in a way that looks
+ * like the module hanging.
+ *
+ * @param {import('@playwright/test').Page} page - Page
+ */
+const settleCardFields = async (page) => {
+    await page.waitForTimeout(2000);
 };
 
 /**
@@ -341,7 +361,15 @@ const acceptTerms = async (page) => {
 const placeOrder = async (page, method = 'card') => {
     await acceptTerms(page);
 
-    await page.locator(`${MOUNT[method]} form button[type="submit"]`).click();
+    const button = page.locator(`${MOUNT[method]} form button[type="submit"]`);
+
+    // ⚠️ Wait for the button to be enabled, do not just click it. Checking the
+    // terms box fires the module's own handler, which is what enables this button;
+    // clicking in the gap lands on a disabled control, the submit handler never
+    // runs, and the test then waits out its whole timeout on a page where nothing
+    // is happening and nothing is wrong.
+    await expect(button).toBeEnabled({ timeout: 30000 });
+    await button.click();
 };
 
 /**

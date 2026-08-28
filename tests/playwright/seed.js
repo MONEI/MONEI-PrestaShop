@@ -124,6 +124,14 @@ const main = () => {
     );
     assertTestKey(apiKey);
 
+    // ⚠️ Stop PrestaShop sending mail. The container has no working transport, so
+    // every order confirmation blocks on sendmail until it gives up — the request
+    // then takes long enough that the tunnel in front of the store answers 502.
+    // The payment has already succeeded and the order exists by then, which makes
+    // it look like a payment failure when it is a mail timeout.
+    // 3 is "never send".
+    setConfig('PS_MAIL_METHOD', '3');
+
     // ⚠️ Disable PrestaShop's combine/compress/cache pipeline. With it on, the
     // storefront serves a concatenated bundle under themes/<theme>/assets/cache/
     // and keeps serving the previous one after a module's JavaScript changes. A
