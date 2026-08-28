@@ -30,3 +30,4 @@ tests/playwright/.env
 tests/playwright/.fixtures.json
 tests/playwright/test-results/
 tests/playwright/playwright-report/
+.phpunit.result.cache
