@@ -1,7 +1,6 @@
 const { test, expect } = require('../utils/test');
 const {
     CARDS,
-    COMPONENT_FRAME,
     MOUNT,
     expectCardFieldsReady,
     completeThreeDs,

@@ -107,7 +107,10 @@ module.exports = [
         languageOptions: {
             ecmaVersion: 2022,
             sourceType: 'commonjs',
-            globals: { ...globals.node },
+            // Browser globals too: a spec's `page.evaluate` callback is written
+            // here but executes in the page, so `document` and `window` are
+            // legitimate inside one.
+            globals: { ...globals.node, ...globals.browser },
         },
         rules: {
             eqeqeq: ['error', 'smart'],

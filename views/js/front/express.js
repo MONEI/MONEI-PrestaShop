@@ -129,7 +129,6 @@
             paymentMethod: method,
             email: result.paymentMethod && result.paymentMethod.email,
             shippingAddress: result.shippingAddress || result.billingAddress || {},
-            amount: container.dataset.amount ? parseInt(container.dataset.amount, 10) : null,
         });
 
         const confirmed = await monei.confirmPayment({
@@ -188,13 +187,17 @@
     const mount = async (container, slot, method) => {
         const cart = await prepareCart(container);
 
-        // Remembered so createOrder can be checked against what the sheet showed.
         container.dataset.amount = String(cart.amount);
 
         const common = {
             accountId: moneiExpress.accountId,
             amount: cart.amount,
             currency: cart.currency,
+            // Asks the wallet to collect a delivery address for a physical cart.
+            // The shipping cost itself is applied server side once that address
+            // arrives, which is also how the WooCommerce plugin does it: there is
+            // no shipping-change callback to price it inside the sheet.
+            requestShipping: Boolean(cart.shippingRequired),
             ...handlers(container, method),
         };
 

@@ -113,6 +113,8 @@ test.describe('express checkout', () => {
         // express order in silence, leaving the shopper on a page that had already
         // taken their wallet approval.
         await page.evaluate(() => {
+            // Runs in the page, not in Node: re-arm the container and replay the
+            // event the client mounts on, so the routed failure is exercised.
             const container = document.querySelector('[data-monei-express]');
             container.dataset.moneiMounted = '';
             document.dispatchEvent(new Event('DOMContentLoaded'));

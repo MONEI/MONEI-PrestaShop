@@ -214,14 +214,15 @@ class MoneiExpressModuleFrontController extends ModuleFrontController
         $method = (string) $this->value('paymentMethod');
         $address = $this->applyAddressFromInput();
 
-        // ⚠️ Never trust the amount the client reports. It comes back from the
-        // wallet, and a mismatch means the sheet showed something other than what
-        // the cart holds.
-        $submitted = $this->value('amount');
-
-        if ($submitted !== null && (int) $submitted !== $this->cartAmount()) {
-            throw new PrestaShopException('The amount changed while the wallet was open');
-        }
+        // ⚠️ The amount charged is always the one computed from the cart here. The
+        // client never supplies it, so there is nothing to validate and nothing to
+        // spoof: a wallet cannot talk the shop into a smaller total.
+        //
+        // The sheet shows the pre-shipping total for a physical cart, because the
+        // delivery address only arrives with the shopper's approval and there is no
+        // shipping-change callback to reprice inside the sheet. The WooCommerce
+        // plugin behaves the same way.
+        $this->selectCheapestCarrier();
 
         $payment = Monei::getService('service.monei')->createMoneiPayment(
             $this->context->cart,
@@ -240,6 +241,37 @@ class MoneiExpressModuleFrontController extends ModuleFrontController
             'paymentId' => (string) $payment->getId(),
             'addressIncomplete' => (bool) $address['incomplete'],
         ];
+    }
+
+    /**
+     * Pick a carrier so a physical cart can be priced and shipped.
+     *
+     * Express never asks the shopper to choose one: the wallet sheet has no way to
+     * present carriers. The cheapest available option is selected, which is the
+     * choice a shopper is least likely to object to.
+     */
+    private function selectCheapestCarrier()
+    {
+        $cart = $this->context->cart;
+
+        if ($cart->isVirtualCart()) {
+            return;
+        }
+
+        $options = $this->shippingOptions();
+
+        if (!$options) {
+            return;
+        }
+
+        usort($options, static function ($a, $b) {
+            return $a['amount'] <=> $b['amount'];
+        });
+
+        $cart->setDeliveryOption([
+            (int) $cart->id_address_delivery => $options[0]['key'],
+        ]);
+        $cart->update();
     }
 
     /**
