@@ -5,8 +5,9 @@ account. Every run takes a payment, so the seed refuses anything but a test key.
 
 ## What you need
 
-- Docker, with the PrestaShop Flashlight stack from `docker-compose.yml` in the
-  PrestaShop parent directory (project name `tunnel1`).
+- The dev environment: **https://github.com/MONEI/monei-prestashop-dev-env**. It
+  brings up PrestaShop behind an HTTPS tunnel and mounts this module into it. Its
+  README is the setup guide; everything below assumes the stack is running.
 - A MONEI **test mode** API key.
 
 ## Setup
@@ -18,14 +19,14 @@ npm install
 npx playwright install chromium
 ```
 
-Bring the stack up from the PrestaShop parent directory:
+Bring the stack up from your `monei-prestashop-dev-env` checkout:
 
 ```bash
-docker compose up prestashop --force-recreate
+docker compose up -d
 ```
 
-The module is mounted into the container and installed by the
-`init-scripts/module-install.sh` init script. Then seed:
+The module is mounted into the container and installed by that repo's
+`init-scripts/module-install.sh`. Then seed:
 
 ```bash
 npm run test:e2e:seed
@@ -73,9 +74,10 @@ re-run the seed.
 The tunnel terminates TLS and forwards plain HTTP, so PrestaShop cannot tell the
 request was HTTPS and builds `http://` links. Following one drops the secure
 session cookie, which shows up as being bounced to the login page mid-session for
-no visible reason. `init-scripts/06-https-behind-proxy.sh` maps
-`X-Forwarded-Proto` onto the `HTTPS` fastcgi parameter to fix that; it runs
-automatically when the container boots.
+no visible reason. The dev environment's `init-scripts/06-https-behind-proxy.sh`
+fixes that, and `07-php-fpm-workers.sh` raises the worker count — the image ships
+five, and order confirmation exhausts them until nginx answers 502 on payments
+that actually succeeded. Both run automatically at boot.
 
 Specs still retry twice, for transport failures. A failure that survives the
 retries is real.
@@ -83,14 +85,8 @@ retries is real.
 ## PrestaShop version
 
 The stack runs whatever `PS_IMAGE_TAG` selects, defaulting to `latest` — currently
-the **9.x** line, with `hummingbird` as the active theme. Pin an 8.x tag to run
-against the LTS line instead:
-
-```bash
-PS_IMAGE_TAG=8.2.3-nginx docker compose up -d --force-recreate
-```
-
-Only one stack can run at a time, since they share the published port.
+the **9.x** line, with `hummingbird` as the active theme. This suite is verified on
+9.1.4. See the dev environment README for pinning an 8.x tag.
 
 ## Test cards and sandbox accounts
 

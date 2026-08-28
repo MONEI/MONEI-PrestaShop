@@ -25,6 +25,17 @@ cd build && yarn release
 - No JavaScript linting configured
 - No test suite implemented (PHPUnit configured but `/tests` directory is empty)
 
+### Dev Environment
+
+The Docker stack lives in its own repository:
+**https://github.com/MONEI/monei-prestashop-dev-env**. It runs PrestaShop behind a
+Cloudflare tunnel (3D Secure and webhooks both need a public HTTPS origin) and
+mounts this module into the container. Its init scripts carry two fixes worth
+knowing about: PrestaShop builds `http://` links behind the tunnel unless
+`X-Forwarded-Proto` is mapped through, and the image's five php-fpm workers are
+not enough for order confirmation, which surfaces as a 502 on a payment that
+succeeded.
+
 ### Cache Clearing (PrestaShop Flashlight)
 When using PrestaShop Flashlight Docker environment, clear cache after module changes:
 ```bash
