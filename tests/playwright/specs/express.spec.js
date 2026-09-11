@@ -22,15 +22,11 @@ const PRODUCT = fixture(
  * hardware and Google Pay is gated by the browser too — so PayPal is what these
  * assert against.
  */
-const enableExpress = (locations = 'product,cart,checkout') => {
+const enableExpress = (locations = 'product,cart') => {
     setConfig('MONEI_EXPRESS_ENABLED', '1');
     setConfig('MONEI_EXPRESS_LOCATIONS', locations);
     setConfig('MONEI_EXPRESS_METHODS', 'applePay,googlePay,paypal');
     setConfig('MONEI_ALLOW_PAYPAL', '1');
-    // Google/Apple Pay too, not only PayPal: at the checkout location PayPal
-    // express is intentionally suppressed (the ordinary PayPal option shares the
-    // page and two monei.PayPal components cannot coexist), so a wallet that
-    // survives there is needed for the express block to render at checkout.
     setConfig('MONEI_ALLOW_GOOGLE', '1');
     setConfig('MONEI_ALLOW_APPLE', '1');
 };
@@ -38,7 +34,7 @@ const enableExpress = (locations = 'product,cart,checkout') => {
 test.describe('express checkout', () => {
     test.afterAll(() => {
         setConfig('MONEI_EXPRESS_ENABLED', '');
-        setConfig('MONEI_EXPRESS_LOCATIONS', 'product,cart,checkout');
+        setConfig('MONEI_EXPRESS_LOCATIONS', 'product,cart');
         // Restored here, not inline after the assertion that disables it: a failed
         // assertion would otherwise leave PayPal off for every later spec.
         setConfig('MONEI_ALLOW_PAYPAL', '1');
@@ -59,30 +55,17 @@ test.describe('express checkout', () => {
         await expect(page.locator('[data-monei-express-error]')).toHaveText('');
     });
 
-    test('renders above the payment options at checkout', async ({ page }) => {
-        enableExpress();
+    test('is absent at the checkout payment step', async ({ page }) => {
+        enableExpress('product,cart,checkout');
 
         await goToPaymentStep(page);
 
-        const container = page.locator('[data-monei-express]');
-
-        await expect(container).toHaveCount(1);
-
-        // ⚠️ No PayPal slot here. The ordinary PayPal option is on the same page
-        // and two monei.PayPal components cannot coexist: the express one never
-        // painted, and this test was green because it only counted containers.
-        await expect(container.locator('[data-monei-express-method="paypal"]')).toHaveCount(0);
-        await expect(container.locator('[data-monei-express-method="paymentRequest"]')).toHaveCount(
-            1
-        );
-
-        // The label is not a heading over an empty gap: it appears only once a
-        // wallet button has actually rendered. Chromium offers Google Pay.
-        const walletFrame = container.locator('iframe[title="monei_payment_request"]');
-
-        await expect(walletFrame).toBeVisible({ timeout: 60000 });
-        await expect(container.locator('[data-monei-express-label]')).toBeVisible();
-        expect((await walletFrame.boundingBox()).height).toBeGreaterThan(20);
+        // Express belongs on product and cart, where it collapses the funnel. By
+        // the payment step the shopper has already entered email, address and
+        // carrier, so the block does not render here — even if a stale config
+        // still lists 'checkout', the hook that drew it is gone — and it no longer
+        // duplicates the ordinary wallet options on that page.
+        await expect(page.locator('[data-monei-express]')).toHaveCount(0);
     });
 
     test('collapses instead of showing a label over nothing', async ({ page }) => {
@@ -129,7 +112,7 @@ test.describe('express checkout', () => {
     });
 
     test('is absent on a location the merchant did not choose', async ({ page }) => {
-        enableExpress('cart,checkout');
+        enableExpress('cart');
 
         await page.goto(PRODUCT, { waitUntil: 'domcontentloaded' });
 

@@ -1,6 +1,17 @@
+/*
+ * Checkout styling for the MONEI payment methods.
+ *
+ * Deliberately thin. The fields are the theme's own .form-control and the pay
+ * button its own .btn, so borders, radius, colours, focus and invalid states all
+ * come from whichever theme is installed. What is left here is only what the
+ * theme cannot know about: the SDK renders each card field inside an iframe of
+ * its own, and the payment option list needs the two themes reconciled.
+ */
+
+/* Hummingbird packs the option rows tighter than classic does. */
 section.checkout-step .payment-options > div,
 .payment-options__list > .payment-option {
-    margin-bottom: 1.25rem;
+    margin-bottom: 1.5rem;
 }
 
 /*
@@ -26,162 +37,101 @@ section.checkout-step .payment-option label {
     width: 89px;
 }
 
-#payment-form-monei .form-group {
-  margin-bottom: 18px;
-}
-
 /* ⚠️ Explicit, not the theme's mt-1 utility: that resolves to 16px on classic
    but 4px on hummingbird, so the pay button crowded the step's nav buttons on
-   PS9. A fixed rem keeps the custom pay button clear of them on every theme. */
+   PS9. A fixed rem keeps the pay button clear of them on every theme. */
 #checkout-payment-step .monei-binary,
 section.checkout-step .monei-binary {
-  margin-top: 1.5rem;
+    margin-top: 2rem;
 }
-#payment-form-monei .form-control, #payment-form-monei .input-form {
-  width: 100%;
-  padding: 12px 14px;
-  font-size: 16px;
-  background: #f9fafb;
-  transition: border-color 0.2s;
+
+/* ⚠️ Bootstrap 5 dropped .form-group for spacing utilities, so hummingbird gives
+   it no margin at all and the card fields sit flush against each other. */
+#payment-form-monei .form-group {
+    margin-bottom: 1.25rem;
 }
-/* ⚠️ One focus style for every field. The card-holder input is a native
-   <input> that would otherwise take the theme's own :focus glow, while the SDK
-   containers carry an .is-focused class and took none — so the focused field
-   looked different depending on which one it was. Same border and glow for
-   both, and no background change, so a focused field stays the same grey. */
-#payment-form-monei .form-control:focus,
-#payment-form-monei .input-form:focus,
-#payment-form-monei [id^="monei-card"].is-focused {
-  border-color: #0070f3;
-  box-shadow: 0 0 0 0.2rem rgba(0, 112, 243, 0.2);
-  outline: none;
-}
-#payment-form-monei label.form-control-label {
-  display: inline-block !important;
-  margin-left: 8px;
-  color: #333;
-}
-/* The SDK iframe carries its own height; padding on top of it makes the field
-   tall. Applies to the single field and to each of the three split parts. */
+
+/*
+ * ⚠️ The SDK renders each card field in an iframe that carries its own height,
+ * so these containers keep the theme's .form-control look but drop its vertical
+ * padding — with it the field comes out padding + iframe tall, taller than the
+ * card-holder input beside it. The height itself is not set here: payment.js
+ * measures the theme's own input and hands that to the SDK, so the field matches
+ * whatever the installed theme uses.
+ */
 #payment-form-monei #monei-card_container,
 #payment-form-monei #monei-card-number,
 #payment-form-monei #monei-card-expiry,
 #payment-form-monei #monei-card-cvc {
-  padding: 0 14px;
+    display: flex;
+    align-items: center;
+    box-sizing: border-box;
+    padding-top: 0;
+    padding-bottom: 0;
+    /* Set by payment.js from the theme's own input, so the card field is exactly
+       as tall as the card-holder input beside it. The SDK's frame has a fixed
+       height of its own and is centred here; overflow trims the few pixels of its
+       internal padding that stick out, which its own text never occupies. The
+       floor is a guard for a theme with unusually short inputs. */
+    height: var(--monei-field-height, 42px);
+    min-height: 34px;
+    overflow: hidden;
 }
 
-/* ⚠️ The SDK mounts its field inside a wrapper div with a white background, so
-   the card input showed white inside our grey field while the card-holder input
-   beside it stayed grey. Making the wrapper transparent lets the field's own
-   background show, so both inputs match. */
+/* ⚠️ The SDK mounts its field inside a wrapper div with a white background of
+   its own, which paints over the themed field. Transparent lets the theme's
+   background show, so the card field and the card-holder input match. */
 #payment-form-monei [id^="monei-card"] > div {
-  background-color: transparent;
+    background-color: transparent;
+    width: 100%;
 }
 
-/* ⚠️ One box height for every field, native or SDK. The card-holder input is a
-   theme <input> sized by its padding (~48px); the SDK containers were sized by
-   the component's own 42px, so the two rows did not line up. A fixed height with
-   border-box, and the SDK iframe centred within it, makes all fields identical. */
-#payment-form-monei #monei-card-holder-name,
-#payment-form-monei #monei-card_container,
-#payment-form-monei #monei-card-number,
-#payment-form-monei #monei-card-expiry,
-#payment-form-monei #monei-card-cvc {
-  box-sizing: border-box;
-  height: 48px;
-}
-#payment-form-monei #monei-card_container,
-#payment-form-monei #monei-card-number,
-#payment-form-monei #monei-card-expiry,
-#payment-form-monei #monei-card-cvc {
-  display: flex;
-  align-items: center;
-}
-#payment-form-monei [id^="monei-card"] > div {
-  width: 100%;
-}
-
+/* ⚠️ Module-owned, not the theme's grid. PrestaShop 1.7's classic ships a
+   Bootstrap 4 alpha with no .col-6, and .row's negative margins push the fields
+   past the card number's edges on every theme. */
 #payment-form-monei .monei-card-split {
-  display: flex;
-  gap: 12px;
-}
-#payment-form-monei .monei-card-split__field {
-  flex: 1 1 0;
-  min-width: 0;
+    display: flex;
+    gap: 12px;
 }
 
-/* The card method's own submit button, sized to match the SDK wallet buttons
-   (their height comes from the component style config) and the input fields, so
-   every full-width control on the step is the same height. */
-/* The card method's own submit button lives in its buttons-container form (not
-   #payment-form-monei), sized to match the SDK wallet buttons and the inputs so
-   every full-width control on the step shares one height. */
-.js-payment-monei button[type="submit"] {
-  height: 48px;
-}
-/* Invalid state, matched to the focus style: same border weight and glow shape,
-   in red, on the native input and every SDK container alike. */
-#payment-form-monei .form-control.is-invalid,
-#payment-form-monei [id^="monei-card"].is-invalid {
-  border-color: #e53e3e;
-  box-shadow: 0 0 0 0.2rem rgba(229, 62, 62, 0.2);
+#payment-form-monei .monei-card-split__field {
+    flex: 1 1 0;
+    min-width: 0;
 }
 
 #monei-tokenize-card {
-  display: inline-block !important;
-  margin-right: 6px;
-}
-#payment-form-monei #monei-card-errors {
-  color: #e53e3e;
-  font-size: 14px;
-}
-
-#payment-form-monei .monei-tokenize-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-top: 18px;
-}
-#payment-form-monei .monei-tokenize-row label {
-  margin: 0;
-  padding: 0;
-  cursor: pointer;
-  line-height: 1.2;
-}
-#payment-form-monei .monei-tokenize-row input[type="checkbox"] {
-  width: 15px;
-  height: 15px;
-  margin: 0;
+    display: inline-block !important;
+    margin-right: 6px;
 }
 
 /* Payment method icons */
 .payment-method-icon {
-  max-width: 100%;
-  height: auto;
-  object-fit: contain;
+    max-width: 100%;
+    height: auto;
+    object-fit: contain;
 }
 
 .payment-option .payment-method-icon {
-  height: 1.25rem;
-  width: auto;
+    height: 1.25rem;
+    width: auto;
 }
 
 /* MONEI card brands specific styling */
 .payment-option img[src*="/monei/cardlogos"] {
-  height: 1.6rem !important;
-  width: auto;
-  max-width: 300px;
-  vertical-align: middle;
+    height: 1.6rem !important;
+    width: auto;
+    max-width: 300px;
+    vertical-align: middle;
 }
 
 /* Payment options responsive */
 @media (max-width: 768px) {
-  .payment-option .payment-method-icon {
-    height: 1rem;
-  }
+    .payment-option .payment-method-icon {
+        height: 1rem;
+    }
 }
 
 /* Loading state for payment processing */
 .payment-options.processing {
-  position: relative;
+    position: relative;
 }

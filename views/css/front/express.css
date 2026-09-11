@@ -1,51 +1,58 @@
 /**
  * Express checkout buttons.
+ *
+ * Mirrors the MONEI WooCommerce plugin's own express styling: a centred heading
+ * over stacked, centred buttons. Deliberately no bordered box and no separator —
+ * that treatment belongs to WooCommerce Blocks' express slot, which is Woo core
+ * rather than the plugin, and PrestaShop has no equivalent surface.
  */
 
-/* More below than above: the buttons sit directly on the payment option list. */
 .monei-express {
-    margin: 1rem 0 1.5rem;
+    margin: 1.5rem 0 2rem;
 }
 
 .monei-express__label {
     font-size: 0.875rem;
+    font-weight: 600;
     margin-bottom: 0.5rem;
-    opacity: 0.75;
+    text-align: center;
 }
 
 /*
  * ⚠️ Height is in px, never em. The parent font size differs between the product
  * page, the cart and the checkout, so an em height silently renders three
  * different button sizes — 3.125em against a 14px parent is 43.75px, not 50px.
+ *
+ * ⚠️ Do not make this a flex or grid container either. PayPal renders its button
+ * inside a zoid iframe that sizes itself from the container's block width; laid
+ * out as a flex item it collapses to a fraction of the width and the button comes
+ * out unusably narrow.
  */
 .monei-express__button {
     min-height: 42px;
-    margin-bottom: 0.5rem;
+    max-width: 420px;
+    margin: 0 auto 0.5rem;
 }
 
-/* The error region after the buttons is also a div, so :last-of-type never matched a button. */
+/* The error region after the buttons is also a div, so :last-of-type never
+   matched a button. */
 .monei-express__button:not(:has(~ .monei-express__button)) {
     margin-bottom: 0;
 }
 
-/*
- * ⚠️ Do not make this a flex container. PayPal renders its button inside a zoid
- * iframe that sizes itself from the container's block width; under flex it
- * collapses to a fraction of the width and the button comes out unusably narrow.
- */
+/* One wallet being unusable on this device must not take the others with it. */
+.monei-express__button.is-unavailable {
+    display: none;
+}
 
 .monei-express__error {
-    color: #d9534f;
+    color: var(--bs-danger, #d9534f);
     font-size: 0.875rem;
-    margin-top: 0.5rem;
+    margin-top: 0.75rem;
+    text-align: center;
 }
 
 /* Keeps the region from occupying space, and showing a border, while empty. */
 .monei-express__error:empty {
     display: none;
-}
-
-/* A separator reads as clutter when only one method is offered. */
-.monei-express:not(:has(.monei-express__button + .monei-express__button)) .monei-express__label {
-    margin-bottom: 0.375rem;
 }

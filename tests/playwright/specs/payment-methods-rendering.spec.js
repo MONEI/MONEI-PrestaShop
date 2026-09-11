@@ -79,7 +79,7 @@ test.describe('payment methods: rendering', () => {
     test.beforeAll(() => {
         theme = storeTheme();
         setConfig('MONEI_EXPRESS_ENABLED', '1');
-        setConfig('MONEI_EXPRESS_LOCATIONS', 'product,cart,checkout');
+        setConfig('MONEI_EXPRESS_LOCATIONS', 'product,cart');
         setConfig('MONEI_EXPRESS_METHODS', 'applePay,googlePay,paypal');
     });
 
@@ -195,22 +195,6 @@ test.describe('payment methods: rendering', () => {
         });
         // No screenshot: PayPal renders its button at a height that varies run
         // to run (47-53px), so a pixel baseline flakes. Geometry catches 0px.
-    });
-
-    test('express block at checkout', async ({ page }) => {
-        await goToPaymentStep(page);
-
-        const block = page.locator('[data-monei-express]');
-
-        // Chromium offers Google Pay. No PayPal slot here by design: the ordinary
-        // PayPal option shares the page and the two cannot coexist.
-        await expect(block.locator('[data-monei-express-method="paypal"]')).toHaveCount(0);
-        await expectRealSize(
-            block.locator('iframe[title="monei_payment_request"]'),
-            'wallet button'
-        );
-        await expect(block.locator('[data-monei-express-label]')).toBeVisible();
-        await expect(block).toHaveScreenshot(shot('express'));
     });
 
     test('express block on the product page', async ({ page }) => {
