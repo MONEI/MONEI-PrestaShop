@@ -25,7 +25,7 @@ const NEW_HOOKS = [
 ];
 
 const NEW_DEFAULTS = {
-    MONEI_CARD_LAYOUT: 'split',
+    MONEI_CARD_LAYOUT: 'single',
     MONEI_EXPRESS_LOCATIONS: 'product,cart,checkout',
     MONEI_EXPRESS_METHODS: 'applePay,googlePay,paypal',
 };

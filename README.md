@@ -47,8 +47,8 @@ Experience the module in action: [PrestaShop Demo Store](https://prestashop-demo
 - Express checkout — pay with Apple Pay, Google Pay or PayPal straight from the
   product page, the cart or the checkout, without filling in the full form. Off by
   default; enable it under **Express Checkout** and choose where it appears
-- Split card fields — separate inputs for card number, expiry and CVC. The default
-  from 2.1.0; the previous single line field is still available
+- Split card fields — optional separate inputs for card number, expiry and CVC;
+  the single line field stays the default
 - Automatic capture of pre-authorized payments when an order reaches a status you
   choose, from any source: the back office, a shipping module, a scheduled task or
   the API
@@ -72,12 +72,9 @@ Experience the module in action: [PrestaShop Demo Store](https://prestashop-demo
 
 ## Upgrading to 2.1.0
 
-⚠️ **Split card fields become the default.** Your checkout will look different: the
-card form shows separate inputs for number, expiry and CVC instead of one combined
-field. Nothing about how payments work changes.
-
-To keep the previous appearance, set **Component Style → Card field layout** to
-*Single line*.
+The card form keeps its one-line field. Split fields — separate inputs for
+number, expiry and CVC — are available under **Component Style → Card field
+layout** and are off by default, so nothing about your checkout changes.
 
 Express checkout is **off** after upgrading, and automatic capture stays off until
 you choose which statuses should trigger it. Neither changes your storefront until

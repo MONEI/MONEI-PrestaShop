@@ -28,6 +28,14 @@ section.checkout-step .payment-option label {
 #payment-form-monei .form-group {
   margin-bottom: 18px;
 }
+
+/* ⚠️ Explicit, not the theme's mt-1 utility: that resolves to 16px on classic
+   but 4px on hummingbird, so the pay button crowded the step's nav buttons on
+   PS9. A fixed rem keeps the custom pay button clear of them on every theme. */
+#checkout-payment-step .monei-binary,
+section.checkout-step .monei-binary {
+  margin-top: 1.5rem;
+}
 #payment-form-monei .form-control, #payment-form-monei .input-form {
   width: 100%;
   padding: 12px 14px;
@@ -35,26 +43,87 @@ section.checkout-step .payment-option label {
   background: #f9fafb;
   transition: border-color 0.2s;
 }
-#payment-form-monei .form-control:focus, #payment-form-monei .input-form:focus {
+/* ⚠️ One focus style for every field. The card-holder input is a native
+   <input> that would otherwise take the theme's own :focus glow, while the SDK
+   containers carry an .is-focused class and took none — so the focused field
+   looked different depending on which one it was. Same border and glow for
+   both, and no background change, so a focused field stays the same grey. */
+#payment-form-monei .form-control:focus,
+#payment-form-monei .input-form:focus,
+#payment-form-monei [id^="monei-card"].is-focused {
   border-color: #0070f3;
+  box-shadow: 0 0 0 0.2rem rgba(0, 112, 243, 0.2);
   outline: none;
-  background: #fff;
 }
 #payment-form-monei label.form-control-label {
   display: inline-block !important;
   margin-left: 8px;
   color: #333;
 }
-#payment-form-monei #monei-card_container {
+/* The SDK iframe carries its own height; padding on top of it makes the field
+   tall. Applies to the single field and to each of the three split parts. */
+#payment-form-monei #monei-card_container,
+#payment-form-monei #monei-card-number,
+#payment-form-monei #monei-card-expiry,
+#payment-form-monei #monei-card-cvc {
   padding: 0 14px;
 }
-#payment-form-monei #monei-card_container.is-focused {
-  border-color: #0070f3;
-  outline: none;
-  background: #fff;
+
+/* ⚠️ The SDK mounts its field inside a wrapper div with a white background, so
+   the card input showed white inside our grey field while the card-holder input
+   beside it stayed grey. Making the wrapper transparent lets the field's own
+   background show, so both inputs match. */
+#payment-form-monei [id^="monei-card"] > div {
+  background-color: transparent;
 }
-#payment-form-monei #monei-card_container.is-invalid {
+
+/* ⚠️ One box height for every field, native or SDK. The card-holder input is a
+   theme <input> sized by its padding (~48px); the SDK containers were sized by
+   the component's own 42px, so the two rows did not line up. A fixed height with
+   border-box, and the SDK iframe centred within it, makes all fields identical. */
+#payment-form-monei #monei-card-holder-name,
+#payment-form-monei #monei-card_container,
+#payment-form-monei #monei-card-number,
+#payment-form-monei #monei-card-expiry,
+#payment-form-monei #monei-card-cvc {
+  box-sizing: border-box;
+  height: 48px;
+}
+#payment-form-monei #monei-card_container,
+#payment-form-monei #monei-card-number,
+#payment-form-monei #monei-card-expiry,
+#payment-form-monei #monei-card-cvc {
+  display: flex;
+  align-items: center;
+}
+#payment-form-monei [id^="monei-card"] > div {
+  width: 100%;
+}
+
+#payment-form-monei .monei-card-split {
+  display: flex;
+  gap: 12px;
+}
+#payment-form-monei .monei-card-split__field {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+/* The card method's own submit button, sized to match the SDK wallet buttons
+   (their height comes from the component style config) and the input fields, so
+   every full-width control on the step is the same height. */
+/* The card method's own submit button lives in its buttons-container form (not
+   #payment-form-monei), sized to match the SDK wallet buttons and the inputs so
+   every full-width control on the step shares one height. */
+.js-payment-monei button[type="submit"] {
+  height: 48px;
+}
+/* Invalid state, matched to the focus style: same border weight and glow shape,
+   in red, on the native input and every SDK container alike. */
+#payment-form-monei .form-control.is-invalid,
+#payment-form-monei [id^="monei-card"].is-invalid {
   border-color: #e53e3e;
+  box-shadow: 0 0 0 0.2rem rgba(229, 62, 62, 0.2);
 }
 
 #monei-tokenize-card {

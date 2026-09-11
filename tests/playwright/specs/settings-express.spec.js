@@ -43,17 +43,19 @@ test.describe('settings: express checkout', () => {
         expect(getConfig('MONEI_EXPRESS_METHODS')).toBe('applePay,paypal');
     });
 
-    test('keeps the split card layout as the default and can be switched back', async ({
+    test('keeps the single card layout as the default and can switch to split', async ({
         page,
     }) => {
-        expect(getConfig('MONEI_CARD_LAYOUT'), 'split is the 2.1.0 default').toBe('split');
+        // The default itself is asserted by upgrade.spec.js, which seeds it.
+        // Reading it here would only report whatever the previous spec left.
+        setConfig('MONEI_CARD_LAYOUT', 'single');
 
         await openModuleConfiguration(page);
         await page.locator('a[href="#panel-conf-4"]').click();
 
         const form = page.locator('#panel-conf-4');
 
-        await form.locator('select[name="MONEI_CARD_LAYOUT"]').selectOption('single');
+        await form.locator('select[name="MONEI_CARD_LAYOUT"]').selectOption('split');
         await form.locator('button[name="submitMoneiModuleComponentStyle"]').click();
         // The back office keeps connections open, so networkidle never settles;
         // the reloaded form is the signal that the save round-tripped.
@@ -61,8 +63,8 @@ test.describe('settings: express checkout', () => {
             timeout: 60000,
         });
 
-        expect(getConfig('MONEI_CARD_LAYOUT'), 'a merchant must be able to revert').toBe('single');
+        expect(getConfig('MONEI_CARD_LAYOUT'), 'a merchant must be able to opt in').toBe('split');
 
-        setConfig('MONEI_CARD_LAYOUT', 'split');
+        setConfig('MONEI_CARD_LAYOUT', 'single');
     });
 });
