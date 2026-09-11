@@ -28,7 +28,15 @@ module.exports = defineConfig({
     // while the payment itself was completing perfectly — token, payment and
     // challenge all answered 200.
     timeout: 300000,
-    expect: { timeout: 30000 },
+    expect: {
+        timeout: 30000,
+        // Same contract as monei-js and the other MONEI plugins. macOS baselines
+        // are the single source of truth; a Linux run compares against them and
+        // the threshold absorbs font anti-aliasing drift. A per-test bump needs
+        // a comment saying why.
+        toHaveScreenshot: { threshold: 0.3, maxDiffPixelRatio: 0.1, animations: 'disabled' },
+    },
+    snapshotPathTemplate: '{testDir}/{testFilePath}-snapshots/{arg}-{projectName}-darwin{ext}',
     reporter: [['list'], ['html', { outputFolder: './playwright-report', open: 'never' }]],
     use: {
         baseURL: baseUrl(),
@@ -38,5 +46,14 @@ module.exports = defineConfig({
         screenshot: 'only-on-failure',
         video: 'retain-on-failure',
     },
-    projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
+    projects: [
+        { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
+        // Rendering only. Payment journeys on a phone emulation would double a
+        // 7-minute run for no extra coverage of the module's own code.
+        {
+            name: 'mobile',
+            use: { ...devices['Pixel 5'] },
+            testMatch: /payment-methods-rendering\.spec\.js/,
+        },
+    ],
 });
