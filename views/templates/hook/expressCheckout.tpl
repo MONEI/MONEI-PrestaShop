@@ -13,7 +13,9 @@
      data-monei-express
      data-location="{$moneiExpressLocation|escape:'htmlall':'UTF-8'}"
      data-product-id="{$moneiExpressProductId|intval}">
-    <div class="monei-express__label">{l s='Express checkout' mod='monei'}</div>
+    {* Hidden until a button reports that it rendered: see reportLoaded() in
+       express.js. A heading over an empty gap reads as a broken checkout. *}
+    <div class="monei-express__label" data-monei-express-label hidden>{l s='Express checkout' mod='monei'}</div>
 
     {foreach from=$moneiExpressMethods item="moneiExpressMethod"}
         <div class="monei-express__button"

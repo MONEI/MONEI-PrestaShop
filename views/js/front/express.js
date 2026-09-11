@@ -267,6 +267,7 @@
             accountId: moneiExpress.accountId,
             amount: cart.amount,
             currency: cart.currency,
+            onLoad: (isSupported) => reportLoaded(container, slot, isSupported),
             // Asks the wallet to collect a delivery address for a physical cart.
             //
             // The sheet total already carries shipping: Cart::getSummaryDetails
@@ -306,6 +307,72 @@
             .render(slot);
     };
 
+    /**
+     * Record whether a slot's component actually rendered a button.
+     *
+     * ⚠️ The "Express checkout" label is hidden until the first button reports
+     * itself supported, and the whole block collapses once every slot has
+     * reported and none is. Without this a browser with no usable wallet — most
+     * desktop browsers, for Apple Pay and Google Pay — showed the heading over
+     * an empty gap, which reads as the checkout being broken.
+     *
+     * @param {HTMLElement} container   Express container
+     * @param {HTMLElement} slot        Slot the component mounted into
+     * @param {boolean}     isSupported What the SDK reported
+     */
+    const reportLoaded = (container, slot, isSupported) => {
+        if (isSupported) {
+            container.hidden = false;
+            container.querySelectorAll('[data-monei-express-label]').forEach((label) => {
+                label.hidden = false;
+            });
+
+            return;
+        }
+
+        slot.remove();
+
+        if (!container.querySelector('[data-monei-express-method]')) {
+            container.hidden = true;
+        }
+    };
+
+    /**
+     * Run a callback once an element is laid out and near the viewport.
+     *
+     * ⚠️ PrestaShop renders every checkout step in the DOM and hides all but the
+     * current one. Mounting a component into a hidden step makes its iframe
+     * measure itself at zero height, and it stays that way when the step is
+     * shown — a PayPal button that exists in the DOM and is invisible. The
+     * product page never hit this because the container is on screen at load.
+     *
+     * @param {HTMLElement} element  Element to wait for
+     * @param {() => void}  callback Run once, when the element is visible
+     */
+    const whenVisible = (element, callback) => {
+        const laidOut = () => element.offsetParent !== null;
+
+        if (laidOut() || typeof IntersectionObserver === 'undefined') {
+            callback();
+
+            return;
+        }
+
+        const observer = new IntersectionObserver(
+            (entries) => {
+                if (entries.some((entry) => entry.isIntersecting)) {
+                    observer.disconnect();
+                    callback();
+                }
+            },
+            // Mount as the step comes within reach rather than exactly at the
+            // edge, so the shopper does not watch the button appear.
+            { rootMargin: '600px 0px' }
+        );
+
+        observer.observe(element);
+    };
+
     const init = () => {
         document.querySelectorAll('[data-monei-express]').forEach((container) => {
             if (container.dataset.moneiMounted === '1') {
@@ -314,13 +381,15 @@
 
             container.dataset.moneiMounted = '1';
 
-            container.querySelectorAll('[data-monei-express-method]').forEach((slot) => {
-                const method = slot.dataset.moneiExpressMethod;
+            whenVisible(container, () => {
+                container.querySelectorAll('[data-monei-express-method]').forEach((slot) => {
+                    const method = slot.dataset.moneiExpressMethod;
 
-                mount(container, slot, method).catch((error) => {
-                    // A button that cannot even mount must say so rather than
-                    // leaving an empty gap the shopper will wait on.
-                    showError(container, error.message);
+                    mount(container, slot, method).catch((error) => {
+                        // A button that cannot even mount must say so rather than
+                        // leaving an empty gap the shopper will wait on.
+                        showError(container, error.message);
+                    });
                 });
             });
         });
