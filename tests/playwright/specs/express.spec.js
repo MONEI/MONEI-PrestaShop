@@ -27,6 +27,12 @@ const enableExpress = (locations = 'product,cart,checkout') => {
     setConfig('MONEI_EXPRESS_LOCATIONS', locations);
     setConfig('MONEI_EXPRESS_METHODS', 'applePay,googlePay,paypal');
     setConfig('MONEI_ALLOW_PAYPAL', '1');
+    // Google/Apple Pay too, not only PayPal: at the checkout location PayPal
+    // express is intentionally suppressed (the ordinary PayPal option shares the
+    // page and two monei.PayPal components cannot coexist), so a wallet that
+    // survives there is needed for the express block to render at checkout.
+    setConfig('MONEI_ALLOW_GOOGLE', '1');
+    setConfig('MONEI_ALLOW_APPLE', '1');
 };
 
 test.describe('express checkout', () => {

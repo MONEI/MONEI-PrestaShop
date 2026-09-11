@@ -261,6 +261,16 @@
     const mount = async (container, slot, method) => {
         const cart = await prepareCart(container);
 
+        // ⚠️ A wallet component throws "need amount and currency" when the amount
+        // is 0 — an empty cart, or a cart summary hook that rendered before the
+        // cart was populated. Skip the button rather than let the SDK throw; the
+        // container collapses through reportLoaded's no-support path.
+        if (!cart || !cart.amount) {
+            reportLoaded(container, slot, false);
+
+            return;
+        }
+
         container.dataset.amount = String(cart.amount);
 
         const common = {
