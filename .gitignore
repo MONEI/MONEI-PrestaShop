@@ -30,3 +30,7 @@ tests/playwright/.env
 tests/playwright/test-results/
 tests/playwright/.fixtures.json
 .phpunit.result.cache
+
+# Server logs must never be tracked. One was, once, via an unscoped git add.
+error_log*
+*.log
