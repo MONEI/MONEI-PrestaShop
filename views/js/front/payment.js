@@ -507,17 +507,29 @@ function initMoneiCard() {
         const isValid = patternCardHolderName.test(name);
         moneiCardErrors.innerHTML = isValid
             ? ''
-            : `<div class="alert alert-warning">${moneiCardHolderNameNotValid}</div>`;
+            : `<div class="alert alert-danger">${moneiCardHolderNameNotValid}</div>`;
         return isValid;
     };
 
     const moneiCardStyle = moneiCardInputStyle || {};
 
+    // Match the card iframe text to the store's own fields. monei.js cannot read
+    // the store font cross-origin, so resolve it here from the sibling holder-name
+    // input and pass it through style.base. A merchant-configured value wins.
+    moneiCardStyle.base = moneiCardStyle.base || {};
+    const moneiRefFieldStyle = window.getComputedStyle(moneiCardHolderName);
+    if (!moneiCardStyle.base.fontFamily && moneiRefFieldStyle.fontFamily) {
+        moneiCardStyle.base.fontFamily = moneiRefFieldStyle.fontFamily;
+    }
+    if (!moneiCardStyle.base.fontSize && moneiRefFieldStyle.fontSize) {
+        moneiCardStyle.base.fontSize = moneiRefFieldStyle.fontSize;
+    }
+
     const moneiOnCardChange = (event) => {
         // Handle real-time validation errors
         if (event.isTouched !== false && event.error) {
             moneiCardRenderContainer.classList.add('is-invalid');
-            moneiCardErrors.innerHTML = `<div class="alert alert-warning">${event.error}</div>`;
+            moneiCardErrors.innerHTML = `<div class="alert alert-danger">${event.error}</div>`;
         } else {
             moneiCardRenderContainer.classList.remove('is-invalid');
             moneiCardErrors.innerHTML = '';
@@ -610,7 +622,7 @@ function initMoneiCard() {
             const { token, error } = await moneiCardInput.submit();
             if (!token) {
                 moneiCardRenderContainer.classList.add('is-invalid');
-                moneiCardErrors.innerHTML = `<div class="alert alert-warning">${error}</div>`;
+                moneiCardErrors.innerHTML = `<div class="alert alert-danger">${error}</div>`;
                 moneiEnableButton(moneiConfirmationButton);
                 return;
             }
@@ -624,7 +636,7 @@ function initMoneiCard() {
             });
         } catch (error) {
             moneiCardRenderContainer.classList.add('is-invalid');
-            moneiCardErrors.innerHTML = `<div class="alert alert-warning">${error.message}</div>`;
+            moneiCardErrors.innerHTML = `<div class="alert alert-danger">${error.message}</div>`;
             moneiEnableButton(moneiConfirmationButton);
             moneiLog('error', 'CardInput', 'Failed to create token', error);
         }
