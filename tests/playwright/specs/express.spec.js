@@ -58,7 +58,58 @@ test.describe('express checkout', () => {
 
         await goToPaymentStep(page);
 
-        await expect(page.locator('[data-monei-express]')).toHaveCount(1);
+        const container = page.locator('[data-monei-express]');
+
+        await expect(container).toHaveCount(1);
+
+        // ⚠️ No PayPal slot here. The ordinary PayPal option is on the same page
+        // and two monei.PayPal components cannot coexist: the express one never
+        // painted, and this test was green because it only counted containers.
+        await expect(container.locator('[data-monei-express-method="paypal"]')).toHaveCount(0);
+        await expect(container.locator('[data-monei-express-method="paymentRequest"]')).toHaveCount(
+            1
+        );
+
+        // The label is not a heading over an empty gap: it appears only once a
+        // wallet button has actually rendered. Chromium offers Google Pay.
+        const walletFrame = container.locator('iframe[title="monei_payment_request"]');
+
+        await expect(walletFrame).toBeVisible({ timeout: 60000 });
+        await expect(container.locator('[data-monei-express-label]')).toBeVisible();
+        expect((await walletFrame.boundingBox()).height).toBeGreaterThan(20);
+    });
+
+    test('collapses instead of showing a label over nothing', async ({ page }) => {
+        enableExpress();
+
+        // Make every wallet report itself unsupported by taking PayPal away and
+        // opening in a context where the SDK cannot offer the others.
+        await page.addInitScript(() => {
+            // Chromium would offer Google Pay; deny the API the SDK probes.
+            Object.defineProperty(window, 'PaymentRequest', {
+                value: undefined,
+                configurable: true,
+            });
+        });
+        setConfig('MONEI_EXPRESS_METHODS', 'applePay,googlePay');
+
+        await page.goto(PRODUCT, { waitUntil: 'domcontentloaded' });
+
+        const container = page.locator('[data-monei-express]');
+
+        // Either the SDK reports unsupported and the block collapses, or it never
+        // reports and the label stays hidden. Both are acceptable; a visible
+        // label over an empty slot is not.
+        await expect(async () => {
+            const hidden = await container.evaluate((el) => el.hidden);
+            const labelHidden = await container
+                .locator('[data-monei-express-label]')
+                .evaluate((el) => el.hidden);
+
+            expect(hidden || labelHidden).toBe(true);
+        }).toPass({ timeout: 30000 });
+
+        setConfig('MONEI_EXPRESS_METHODS', 'applePay,googlePay,paypal');
     });
 
     test('is absent everywhere when express is switched off', async ({ page }) => {

@@ -2773,11 +2773,25 @@ class Monei extends PaymentModule
         $slots = [];
 
         foreach ($methods as $method) {
+            // ⚠️ No PayPal express at the checkout location. The ordinary PayPal
+            // payment option is already on that page, and two monei.PayPal
+            // components cannot share one page: the second never paints, which
+            // showed up as an empty strip under the express label. Verified by
+            // stubbing the ordinary option's init, after which express PayPal
+            // rendered. Apple Pay and Google Pay have no such conflict.
+            if ($location === 'checkout' && $method === 'paypal') {
+                continue;
+            }
+
             $slot = in_array($method, ['applePay', 'googlePay'], true) ? 'paymentRequest' : $method;
 
             if (!in_array($slot, $slots, true)) {
                 $slots[] = $slot;
             }
+        }
+
+        if (!$slots) {
+            return '';
         }
 
         $this->context->smarty->assign([
