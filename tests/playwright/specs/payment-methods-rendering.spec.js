@@ -56,18 +56,20 @@ const expectRealSize = async (frame, what, { minWidth = MIN_WIDTH, srcFrame = fr
         /js\.monei\.com/,
         { timeout: 60000 }
     );
+    // ⚠️ Poll directly on the real threshold, not on "> 0" then a separate
+    // read. The SDK iframe passes through 0 height while mounting, so a
+    // poll-then-measure races: it can see a transient 0 and fail a field that
+    // is about to lay out. Polling to MIN_HEIGHT retries through the mount and
+    // still fails a frame that stays collapsed past the timeout.
     await expect
         .poll(async () => (await frame.boundingBox())?.height ?? 0, {
-            message: `${what} iframe should lay out with a height`,
+            message: `${what} iframe never reached a real height (collapsed frame)`,
             timeout: 60000,
         })
-        .toBeGreaterThan(0);
+        .toBeGreaterThanOrEqual(MIN_HEIGHT);
 
     const box = await frame.boundingBox();
 
-    expect(box.height, `${what} is ${box.height}px tall; a collapsed frame`).toBeGreaterThanOrEqual(
-        MIN_HEIGHT
-    );
     expect(box.width, `${what} is ${box.width}px wide`).toBeGreaterThanOrEqual(minWidth);
 };
 
