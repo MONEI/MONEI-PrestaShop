@@ -1,8 +1,8 @@
 /**
  * Express checkout client.
  *
- * Mounts an Apple Pay, Google Pay or PayPal button on the product, cart or
- * checkout page and drives the whole payment from there.
+ * Mounts an Apple Pay, Google Pay or PayPal button on the product and cart
+ * pages and drives the whole payment from there.
  *
  * ⚠️ Every failure is reported on the container the payment started from. This is
  * the single most important rule in this file. The worst bug of the WooCommerce
@@ -99,8 +99,8 @@
     /**
      * Put the express product in a cart of its own, on a product page.
      *
-     * On the cart and checkout pages the shopper's cart is already the thing being
-     * paid for, so nothing is created.
+     * On the cart page the shopper's cart is already the thing being paid for,
+     * so nothing is created.
      *
      * @param {HTMLElement} container Express container
      * @return {Promise<Object>} Cart details
@@ -195,35 +195,9 @@
      * @param {string}      method    Express method
      * @return {Object} Component callbacks
      */
-    /**
-     * Whether every required checkbox under the checkout's terms block is ticked.
-     *
-     * The ordinary MONEI components gate on this; the express buttons at the
-     * checkout location have to as well, or a wallet can complete a payment
-     * with the terms unaccepted. Elsewhere there is no such block and this is
-     * trivially true.
-     */
-    const conditionsAccepted = () => {
-        const block = document.getElementById('conditions-to-approve');
-
-        if (!block) {
-            return true;
-        }
-
-        return Array.from(block.querySelectorAll('input[type="checkbox"][required]')).every(
-            (box) => box.checked
-        );
-    };
-
     const handlers = (container, method) => ({
         onBeforeOpen: () => {
             clearError(container);
-
-            if (container.dataset.location === 'checkout' && !conditionsAccepted()) {
-                showError(container, moneiExpress.errorTerms);
-
-                return false;
-            }
 
             return true;
         },

@@ -47,7 +47,7 @@ class Monei extends PaymentModule
     public $currencies = true;
 
     const NAME = 'monei';
-    const VERSION = '1.8.0';
+    const VERSION = '1.8.1';
 
     const LOG_SEVERITY_LEVELS = [
         'info' => 1,
@@ -61,7 +61,7 @@ class Monei extends PaymentModule
         $this->displayName = 'MONEI Payments';
         $this->name = 'monei';
         $this->tab = 'payments_gateways';
-        $this->version = '1.8.0';
+        $this->version = '1.8.1';
         $this->author = 'MONEI';
         $this->need_instance = 1;
         $this->ps_versions_compliancy = ['min' => '1.7', 'max' => _PS_VERSION_];
@@ -256,7 +256,7 @@ class Monei extends PaymentModule
         // Express checkout. Off by default: it changes the storefront, so a
         // merchant opts in.
         Configuration::updateValue('MONEI_EXPRESS_ENABLED', false);
-        Configuration::updateValue('MONEI_EXPRESS_LOCATIONS', 'product,cart,checkout');
+        Configuration::updateValue('MONEI_EXPRESS_LOCATIONS', 'product,cart');
         Configuration::updateValue('MONEI_EXPRESS_METHODS', 'applePay,googlePay,paypal');
         // Order states that trigger an automatic capture of a pre-authorization.
         // Empty means automatic capture is off.
@@ -294,11 +294,11 @@ class Monei extends PaymentModule
             // PrestaShop 1.7.8 classic theme:
             //   product  -> catalog/_partials/product-additional-info.tpl
             //   cart     -> checkout/_partials/cart-detailed-actions.tpl
-            //   checkout -> checkout/_partials/steps/payment.tpl, above the
-            //               payment options
+            // Not the checkout payment step: by then the shopper has entered
+            // email, address and carrier, so express has nothing left to collect
+            // and only duplicates the ordinary wallet payment options there.
             && $this->registerHook('displayProductAdditionalInfo')
-            && $this->registerHook('displayExpressCheckout')
-            && $this->registerHook('displayPaymentTop');
+            && $this->registerHook('displayExpressCheckout');
 
         // Copy Apple Pay domain verification file to .well-known directory
         if ($result) {
@@ -2403,12 +2403,6 @@ class Monei extends PaymentModule
                 ]
             );
 
-            // Express renders above the payment options at checkout as well, so
-            // its client has to load here too, not only on product and cart.
-            if ($this->isExpressEnabledFor('checkout')) {
-                $this->registerExpressAssets();
-            }
-
             $this->context->controller->registerJavascript(
                 'module-' . $this->name . '-front',
                 'modules/' . $this->name . '/views/js/front/front.js',
@@ -3317,7 +3311,6 @@ class Monei extends PaymentModule
                             'query' => [
                                 ['id' => 'product', 'name' => $this->l('Product page')],
                                 ['id' => 'cart', 'name' => $this->l('Cart page')],
-                                ['id' => 'checkout', 'name' => $this->l('Checkout page')],
                             ],
                             'id' => 'id',
                             'name' => 'name',
@@ -3541,16 +3534,6 @@ class Monei extends PaymentModule
     }
 
     /**
-     * Express buttons above the payment options at checkout.
-     *
-     * @return string
-     */
-    public function hookDisplayPaymentTop()
-    {
-        return $this->renderExpressContainer('checkout');
-    }
-
-    /**
      * Express buttons on the product page.
      *
      * @param array $params Hook parameters
@@ -3565,7 +3548,7 @@ class Monei extends PaymentModule
     /**
      * Is express checkout switched on for this surface?
      *
-     * @param string $location product, cart or checkout
+     * @param string $location product or cart
      *
      * @return bool
      */
@@ -3633,7 +3616,6 @@ class Monei extends PaymentModule
                 'paypalStyle' => json_decode(Configuration::get('MONEI_PAYPAL_STYLE')),
                 'paymentAction' => Configuration::get('MONEI_PAYMENT_ACTION', 'sale'),
                 'errorGeneric' => $this->l('The payment could not be completed. Please try again.'),
-                'errorTerms' => $this->l('Please accept the terms of service before paying.'),
             ],
         ]);
     }
@@ -3641,7 +3623,7 @@ class Monei extends PaymentModule
     /**
      * Render the express container for a surface, or nothing.
      *
-     * @param string $location product, cart or checkout
+     * @param string $location product or cart
      * @param mixed|null $product Product being viewed, on the product page
      *
      * @return string
@@ -3666,16 +3648,6 @@ class Monei extends PaymentModule
         $slots = [];
 
         foreach ($methods as $method) {
-            // ⚠️ No PayPal express at the checkout location. The ordinary PayPal
-            // payment option is already on that page, and two monei.PayPal
-            // components cannot share one page: the second never paints, which
-            // showed up as an empty strip under the express label. Verified by
-            // stubbing the ordinary option's init, after which express PayPal
-            // rendered. Apple Pay and Google Pay have no such conflict.
-            if ($location === 'checkout' && $method === 'paypal') {
-                continue;
-            }
-
             $slot = in_array($method, ['applePay', 'googlePay'], true) ? 'paymentRequest' : $method;
 
             if (!in_array($slot, $slots, true)) {

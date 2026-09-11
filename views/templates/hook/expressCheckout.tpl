@@ -8,6 +8,11 @@
  * client creates on demand: a failed express payment has to be able to say so on
  * the surface the shopper started from, and a region that only exists on the happy
  * path is a region that is missing exactly when it is needed.
+ *
+ * ⚠️ No box and no separator around this. The bordered container with a legend on
+ * its border is WooCommerce Blocks' own express slot, not the MONEI plugin — the
+ * plugin renders a plain centred heading over stacked buttons, which is what this
+ * mirrors.
  *}
 <div class="monei-express"
      data-monei-express

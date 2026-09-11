@@ -632,6 +632,38 @@ function initMoneiCard() {
         moneiCardStyle.base.fontSize = moneiRefFieldStyle.fontSize;
     }
 
+    // Size the SDK field from the theme's own input rather than a fixed height, so
+    // the card field matches whatever theme is installed.
+    //
+    // ⚠️ Computed metrics, never offsetHeight/clientHeight. This runs while the
+    // card form is still display:none — its payment option has not been selected
+    // yet — and a layout read returns 0 there, which the SDK takes at face value
+    // and mounts a zero-height frame that never appears. Padding and line height
+    // resolve even on a hidden element.
+    //
+    // Content + padding is what the container contributes once its own vertical
+    // padding is dropped (see checkout_page.css), so the card field and the
+    // card-holder input come out the same height.
+    // ⚠️ The height goes on our own container, not into the SDK's style. The SDK
+    // sizes its frame from a layout read of the mount point, and that read happens
+    // while the card form is still display:none — it resolves to 0 and the frame
+    // collapses to nothing. Our container carries the height instead and centres
+    // whatever the SDK renders inside it.
+    const moneiPx = (value) => parseFloat(value) || 0;
+    const moneiRefLineHeight =
+        moneiPx(moneiRefFieldStyle.lineHeight) || moneiPx(moneiRefFieldStyle.fontSize) * 1.5;
+    const moneiRefHeight =
+        moneiRefLineHeight +
+        moneiPx(moneiRefFieldStyle.paddingTop) +
+        moneiPx(moneiRefFieldStyle.paddingBottom) +
+        moneiPx(moneiRefFieldStyle.borderTopWidth) +
+        moneiPx(moneiRefFieldStyle.borderBottomWidth);
+
+    const moneiCardForm = document.getElementById('payment-form-monei');
+    if (moneiCardForm && moneiRefHeight) {
+        moneiCardForm.style.setProperty('--monei-field-height', Math.round(moneiRefHeight) + 'px');
+    }
+
     const moneiOnCardChange = (event) => {
         // Handle real-time validation errors
         if (event.isTouched !== false && event.error) {

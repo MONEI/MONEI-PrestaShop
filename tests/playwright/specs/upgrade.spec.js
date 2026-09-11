@@ -10,49 +10,62 @@ const {
 } = require('../utils/ps-cli');
 
 /**
- * Proves `upgrade/upgrade-1.8.0.php` actually reaches an existing merchant.
+ * Proves the upgrade/ scripts actually reach an existing merchant.
  *
- * ⚠️ A fresh install runs `install()` and never touches `upgrade/`, so hooks and
- * defaults added only to `install()` pass every fresh-install check and still
+ * ⚠️ A fresh install runs install() and never touches upgrade/, so hooks and
+ * defaults added only to install() pass every fresh-install check and still
  * reach nobody who upgrades. This replays the upgrade against a store rewound to
- * the previous release.
+ * an earlier release and drives it through the whole chain to the current code.
  */
-const NEW_HOOKS = [
+
+// Attached by the 1.8.0 upgrade and kept.
+const REGISTERED_HOOKS = [
     'actionOrderStatusPostUpdate',
     'displayProductAdditionalInfo',
     'displayExpressCheckout',
-    'displayPaymentTop',
 ];
 
-const NEW_DEFAULTS = {
+// Attached by 1.8.0, then detached again by 1.8.1 along with the payment-step
+// express block it drew.
+const REMOVED_HOOK = 'displayPaymentTop';
+
+const SEEDED_DEFAULTS = {
     MONEI_CARD_LAYOUT: 'single',
-    MONEI_EXPRESS_LOCATIONS: 'product,cart,checkout',
+    // 1.8.0 seeds product,cart,checkout; 1.8.1 migrates it back off checkout.
+    MONEI_EXPRESS_LOCATIONS: 'product,cart',
     MONEI_EXPRESS_METHODS: 'applePay,googlePay,paypal',
 };
 
-test.describe('upgrade to 1.8.0', () => {
-    test('registers the new hooks and seeds the new defaults', async () => {
+test.describe('upgrade to 1.8.1', () => {
+    test('attaches the surviving hooks, drops the payment-step one, seeds the defaults', async () => {
         // Rewind to the state a 1.7.13 merchant is in.
         setInstalledVersion('1.7.13');
-        NEW_HOOKS.forEach(unregisterHook);
-        Object.keys(NEW_DEFAULTS).forEach(deleteConfig);
+        [...REGISTERED_HOOKS, REMOVED_HOOK].forEach(unregisterHook);
+        Object.keys(SEEDED_DEFAULTS).forEach(deleteConfig);
         deleteConfig('MONEI_EXPRESS_ENABLED');
         deleteConfig('MONEI_CAPTURE_STATUS');
 
         expect(installedVersion()).toBe('1.7.13');
-        NEW_HOOKS.forEach((hook) =>
+        [...REGISTERED_HOOKS, REMOVED_HOOK].forEach((hook) =>
             expect(isHookRegistered(hook), `${hook} should start detached`).toBe(false)
         );
 
         upgradeModule();
 
-        expect(installedVersion()).toBe('1.8.0');
+        expect(installedVersion()).toBe('1.8.1');
 
-        NEW_HOOKS.forEach((hook) =>
+        REGISTERED_HOOKS.forEach((hook) =>
             expect(isHookRegistered(hook), `${hook} should be registered by the upgrade`).toBe(true)
         );
 
-        Object.entries(NEW_DEFAULTS).forEach(([key, value]) =>
+        // Express is gone from the payment step, so its hook must not survive the
+        // upgrade: 1.8.0 attaches it and 1.8.1 detaches it again.
+        expect(
+            isHookRegistered(REMOVED_HOOK),
+            `${REMOVED_HOOK} should be removed by the 1.8.1 upgrade`
+        ).toBe(false);
+
+        Object.entries(SEEDED_DEFAULTS).forEach(([key, value]) =>
             expect(getConfig(key), `${key} should be seeded by the upgrade`).toBe(value)
         );
 
