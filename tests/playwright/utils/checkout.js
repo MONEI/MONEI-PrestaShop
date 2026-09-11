@@ -284,7 +284,7 @@ const fillCard = async (page, number) => {
     // side with "Card holder name is not valid" and never reaches MONEI.
     await page.fill('#monei-card-holder-name', `${ADDRESS.firstName} ${ADDRESS.lastName}`);
 
-    // Split is the default layout, so it is what is normally exercised here. Both
+    // Single is the default layout; split is exercised explicitly. Both
     // are supported because the single line layout stays available as an opt out.
     const isSplit = (await page.locator(COMPONENT_FRAME.cardNumber).count()) > 0;
 

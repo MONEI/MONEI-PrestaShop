@@ -8,11 +8,14 @@
         <div class="form-group">
             <div id="monei-card-number" class="form-control"></div>
         </div>
-        <div class="row">
-            <div class="col-6 form-group">
+        {* Module-owned layout, not the theme's grid. PrestaShop 1.7's classic
+           ships a Bootstrap 4 alpha with no .col-6, and .row's negative margins
+           push the fields past the card number's edges on every theme. *}
+        <div class="monei-card-split">
+            <div class="form-group monei-card-split__field">
                 <div id="monei-card-expiry" class="form-control"></div>
             </div>
-            <div class="col-6 form-group">
+            <div class="form-group monei-card-split__field">
                 <div id="monei-card-cvc" class="form-control"></div>
             </div>
         </div>

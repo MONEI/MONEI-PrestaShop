@@ -465,9 +465,9 @@ function initMoneiCard() {
     const moneiConfirmationButton = moneiPaymentForm.querySelector('button[type="submit"]');
     if (!moneiConfirmationButton) return;
 
-    // Split is the default from 2.1.0; 'single' restores the one line field.
+    // Single is the default; 'split' opts in to three separate fields.
     const moneiCardLayoutInUse =
-        typeof moneiCardLayout !== 'undefined' && moneiCardLayout === 'single' ? 'single' : 'split';
+        typeof moneiCardLayout !== 'undefined' && moneiCardLayout === 'split' ? 'split' : 'single';
 
     // The container the template rendered decides what can mount, and the layout
     // follows it: a cached template from before split fields existed renders only

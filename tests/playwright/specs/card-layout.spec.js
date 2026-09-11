@@ -18,7 +18,8 @@ const { setConfig } = require('../utils/ps-cli');
  */
 test.describe('card field layout', () => {
     test.afterAll(() => {
-        setConfig('MONEI_CARD_LAYOUT', 'split');
+        // Back to the module default, so a later spec inherits nothing from here.
+        setConfig('MONEI_CARD_LAYOUT', 'single');
     });
 
     test('split renders three separate fields', async ({ page }) => {

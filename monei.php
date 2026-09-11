@@ -250,9 +250,9 @@ class Monei extends PaymentModule
         Configuration::updateValue('MONEI_STATUS_PENDING', Configuration::get('PS_OS_PREPARATION'));
         Configuration::updateValue('MONEI_STATUS_AUTHORIZED', 0);
         Configuration::updateValue('MONEI_SWITCH_REFUNDS', true);
-        // Card layout. Split fields are the default; 'single' restores the
-        // one-line CardInput.
-        Configuration::updateValue('MONEI_CARD_LAYOUT', 'split');
+        // Card layout. The one-line CardInput stays the default; 'split' opts in
+        // to separate number, expiry and CVC fields.
+        Configuration::updateValue('MONEI_CARD_LAYOUT', 'single');
         // Express checkout. Off by default: it changes the storefront, so a
         // merchant opts in.
         Configuration::updateValue('MONEI_EXPRESS_ENABLED', false);
@@ -263,9 +263,9 @@ class Monei extends PaymentModule
         Configuration::updateValue('MONEI_CAPTURE_STATUS', '');
         // Styles
         Configuration::updateValue('MONEI_CARD_INPUT_STYLE', '{"base": {"height": "42px"}, "input": {"background": "none"}}');
-        Configuration::updateValue('MONEI_BIZUM_STYLE', '{"height": "42"}');
-        Configuration::updateValue('MONEI_PAYMENT_REQUEST_STYLE', '{"height": "42"}');
-        Configuration::updateValue('MONEI_PAYPAL_STYLE', '{"height": "42"}');
+        Configuration::updateValue('MONEI_BIZUM_STYLE', '{"height": "48"}');
+        Configuration::updateValue('MONEI_PAYMENT_REQUEST_STYLE', '{"height": "48"}');
+        Configuration::updateValue('MONEI_PAYPAL_STYLE', '{"height": "48"}');
 
         include dirname(__FILE__) . '/sql/install.php';
 
@@ -1277,11 +1277,11 @@ class Monei extends PaymentModule
     protected function getConfigFormComponentStyleValues()
     {
         return [
-            'MONEI_CARD_LAYOUT' => Configuration::get('MONEI_CARD_LAYOUT', 'split'),
+            'MONEI_CARD_LAYOUT' => Configuration::get('MONEI_CARD_LAYOUT', 'single'),
             'MONEI_CARD_INPUT_STYLE' => Configuration::get('MONEI_CARD_INPUT_STYLE', '{"base": {"height": "42px"}, "input": {"background": "none"}}'),
-            'MONEI_BIZUM_STYLE' => Configuration::get('MONEI_BIZUM_STYLE', '{"height": "42"}'),
-            'MONEI_PAYMENT_REQUEST_STYLE' => Configuration::get('MONEI_PAYMENT_REQUEST_STYLE', '{"height": "42"}'),
-            'MONEI_PAYPAL_STYLE' => Configuration::get('MONEI_PAYPAL_STYLE', '{"height": "42"}'),
+            'MONEI_BIZUM_STYLE' => Configuration::get('MONEI_BIZUM_STYLE', '{"height": "48"}'),
+            'MONEI_PAYMENT_REQUEST_STYLE' => Configuration::get('MONEI_PAYMENT_REQUEST_STYLE', '{"height": "48"}'),
+            'MONEI_PAYPAL_STYLE' => Configuration::get('MONEI_PAYPAL_STYLE', '{"height": "48"}'),
         ];
     }
 
@@ -1912,11 +1912,11 @@ class Monei extends PaymentModule
                         'type' => 'select',
                         'label' => $this->l('Card field layout'),
                         'name' => 'MONEI_CARD_LAYOUT',
-                        'desc' => $this->l('Split shows separate fields for card number, expiry date and CVC. Single shows one combined field. Split is the default from 1.8.0 onward; choose Single to keep the previous appearance.'),
+                        'desc' => $this->l('Single shows one combined field for card number, expiry date and CVC. Split shows three separate fields.'),
                         'options' => [
                             'query' => [
-                                ['id' => 'split', 'name' => $this->l('Split fields (default)')],
-                                ['id' => 'single', 'name' => $this->l('Single line')],
+                                ['id' => 'single', 'name' => $this->l('Single line (default)')],
+                                ['id' => 'split', 'name' => $this->l('Split fields')],
                             ],
                             'id' => 'id',
                             'name' => 'name',
@@ -2395,6 +2395,8 @@ class Monei extends PaymentModule
                 'module-' . $this->name . '-payment',
                 'modules/' . $this->name . '/views/js/front/payment.js',
                 [
+                    // Cache-bust on release so an upgraded merchant never gets stale assets.
+                    'version' => $this->version,
                     'priority' => 90,
                     'attribute' => 'defer',
                     'position' => 'bottom',
@@ -2411,6 +2413,8 @@ class Monei extends PaymentModule
                 'module-' . $this->name . '-front',
                 'modules/' . $this->name . '/views/js/front/front.js',
                 [
+                    // Cache-bust on release so an upgraded merchant never gets stale assets.
+                    'version' => $this->version,
                     'priority' => 100,
                     'attribute' => 'defer',
                     'position' => 'bottom',
@@ -2421,6 +2425,8 @@ class Monei extends PaymentModule
                 'module-' . $this->name . '-checkout-page',
                 'modules/' . $this->name . '/views/css/front/checkout_page.css',
                 [
+                    // Cache-bust on release so an upgraded merchant never gets stale assets.
+                    'version' => $this->version,
                     'priority' => 200,
                     'media' => 'all',
                     'position' => 'bottom',
@@ -2451,7 +2457,7 @@ class Monei extends PaymentModule
                 'moneiToken' => Tools::getToken(false),
                 'moneiCurrency' => $this->context->currency->iso_code,
                 'moneiPaymentAction' => Configuration::get('MONEI_PAYMENT_ACTION', 'sale'),
-                'moneiCardLayout' => Configuration::get('MONEI_CARD_LAYOUT') === 'single' ? 'single' : 'split',
+                'moneiCardLayout' => Configuration::get('MONEI_CARD_LAYOUT') === 'split' ? 'split' : 'single',
             ];
 
             if (Validate::isLoadedObject($this->context->cart)) {
@@ -2501,6 +2507,8 @@ class Monei extends PaymentModule
                 'module-' . $this->name . '-customerCards',
                 'modules/' . $this->name . '/views/js/front/customerCards.js',
                 [
+                    // Cache-bust on release so an upgraded merchant never gets stale assets.
+                    'version' => $this->version,
                     'priority' => 300,
                     'attribute' => 'async',
                     'position' => 'bottom',
@@ -3591,6 +3599,8 @@ class Monei extends PaymentModule
             'module-' . $this->name . '-express',
             'modules/' . $this->name . '/views/js/front/express.js',
             [
+                // Cache-bust on release so an upgraded merchant never gets stale assets.
+                'version' => $this->version,
                 'priority' => 95,
                 'attribute' => 'defer',
                 'position' => 'bottom',
@@ -3601,6 +3611,8 @@ class Monei extends PaymentModule
             'module-' . $this->name . '-express',
             'modules/' . $this->name . '/views/css/front/express.css',
             [
+                // Cache-bust on release so an upgraded merchant never gets stale assets.
+                'version' => $this->version,
                 'priority' => 200,
                 'media' => 'all',
             ]
