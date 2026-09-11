@@ -25,6 +25,10 @@
                         <a class="nav-link" href="#panel-conf-4" data-toggle="tab"><i class="icon icon-paint-brush"></i>
                             {l s='Component Style' mod='monei'}</a>
                     </li>
+                    <li>
+                        <a class="nav-link" href="#panel-conf-5" data-toggle="tab"><i class="icon icon-bolt"></i>
+                            {l s='Express Checkout' mod='monei'}</a>
+                    </li>
                 </ul>
                 <!-- TABS -->
                 <div class="tab-content">
@@ -80,6 +84,11 @@
                     <!-- STYLES CONFIGURATION -->
                     <div class="tab-pane" id="panel-conf-4">
                         {$helper_form_4} {* HelperForm, no escaping *}
+                    </div>
+
+                    <!-- EXPRESS CHECKOUT CONFIGURATION -->
+                    <div class="tab-pane" id="panel-conf-5">
+                        {$helper_form_5} {* HelperForm, no escaping *}
                     </div>
 
                     <!-- END TABS -->

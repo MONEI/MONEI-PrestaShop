@@ -66,7 +66,7 @@ class PaymentOptionService
         MoneiService $moneiService,
         MoneiCustomerCardRepository $moneiCustomerCardRepository,
         ConfigurationLegacy $configuration,
-        LegacyContext $legacyContext,
+        LegacyContext $legacyContext
     ) {
         $this->moneiService = $moneiService;
         $this->moneiCustomerCardRepository = $moneiCustomerCardRepository;
@@ -184,6 +184,9 @@ class PaymentOptionService
                     'isCustomerLogged' => \Validate::isLoadedObject($customer),
                     'tokenize' => (bool) $this->configuration->get('MONEI_TOKENIZE'),
                     'module_dir' => _MODULE_DIR_ . 'monei/',
+                    // The template renders the containers for the chosen layout;
+                    // payment.js mounts the matching components. Unset means single.
+                    'moneiCardLayout' => $this->configuration->get('MONEI_CARD_LAYOUT') === 'split' ? 'split' : 'single',
                 ]);
                 $paymentOption['additionalInformation'] = $smarty->fetch('module:monei/views/templates/front/onsite_card.tpl');
                 $paymentOption['binary'] = true;

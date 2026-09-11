@@ -12,12 +12,32 @@ if (!defined('_PS_VERSION_')) {
 }
 class Monei extends PaymentModule
 {
+    /**
+     * MONEI JS SDK. v3 is what the express checkout components and the split
+     * card fields require; v2 has neither.
+     */
+    const MONEI_JS_URL = 'https://js.monei.com/v3/monei.js';
+
+    /**
+     * Guards hookActionOrderStatusPostUpdate against re-entering itself.
+     *
+     * @var bool
+     */
+    private static $captureInProgress = false;
+
+    /**
+     * Express methods resolved for this request; see getExpressMethods().
+     *
+     * @var string[]|null
+     */
+    private $expressMethodsCache;
+
     protected $config_form = false;
     protected $paymentMethods;
     protected $moneiClient = false;
 
     const NAME = 'monei';
-    const VERSION = '2.0.18';
+    const VERSION = '2.1.0';
 
     private static $serviceContainer;
     private static $serviceList;
@@ -27,7 +47,7 @@ class Monei extends PaymentModule
         $this->displayName = 'MONEI Payments';
         $this->name = 'monei';
         $this->tab = 'payments_gateways';
-        $this->version = '2.0.18';
+        $this->version = '2.1.0';
         $this->author = 'MONEI';
         $this->need_instance = 0;
         $this->ps_versions_compliancy = ['min' => '8', 'max' => _PS_VERSION_];
@@ -84,11 +104,22 @@ class Monei extends PaymentModule
         Configuration::updateValue('MONEI_STATUS_PENDING', Configuration::get('PS_OS_PREPARATION'));
         Configuration::updateValue('MONEI_STATUS_AUTHORIZED', 0);
         Configuration::updateValue('MONEI_SWITCH_REFUNDS', true);
+        // Card layout. The one-line CardInput stays the default; 'split' opts in
+        // to separate number, expiry and CVC fields.
+        Configuration::updateValue('MONEI_CARD_LAYOUT', 'single');
+        // Express checkout. Off by default: it changes the storefront, so a
+        // merchant opts in.
+        Configuration::updateValue('MONEI_EXPRESS_ENABLED', false);
+        Configuration::updateValue('MONEI_EXPRESS_LOCATIONS', 'product,cart,checkout');
+        Configuration::updateValue('MONEI_EXPRESS_METHODS', 'applePay,googlePay,paypal');
+        // Order states that trigger an automatic capture of a pre-authorization.
+        // Empty means automatic capture is off.
+        Configuration::updateValue('MONEI_CAPTURE_STATUS', '');
         // Styles
         Configuration::updateValue('MONEI_CARD_INPUT_STYLE', '{"base": {"height": "42px"}, "input": {"background": "none"}}');
-        Configuration::updateValue('MONEI_BIZUM_STYLE', '{"height": "42"}');
-        Configuration::updateValue('MONEI_PAYMENT_REQUEST_STYLE', '{"height": "42"}');
-        Configuration::updateValue('MONEI_PAYPAL_STYLE', '{"height": "42"}');
+        Configuration::updateValue('MONEI_BIZUM_STYLE', '{"height": "48px"}');
+        Configuration::updateValue('MONEI_PAYMENT_REQUEST_STYLE', '{"height": "48px"}');
+        Configuration::updateValue('MONEI_PAYPAL_STYLE', '{"height": "48px"}');
 
         include dirname(__FILE__) . '/sql/install.php';
 
@@ -108,7 +139,20 @@ class Monei extends PaymentModule
             && $this->registerHook('actionCustomerLogoutAfter')
             && $this->registerHook('moduleRoutes')
             && $this->registerHook('actionOrderSlipAdd')
-            && $this->registerHook('actionGetAdminOrderButtons');
+            && $this->registerHook('actionGetAdminOrderButtons')
+            // Capture a pre-authorization when an order reaches a configured
+            // state. Registered unconditionally so it fires for every context
+            // that moves an order, not only an admin click.
+            && $this->registerHook('actionOrderStatusPostUpdate')
+            // Express checkout surfaces. Hook placement verified against the
+            // PrestaShop 8 classic theme:
+            //   product  -> catalog/_partials/product-additional-info.tpl
+            //   cart     -> checkout/_partials/cart-detailed-actions.tpl
+            //   checkout -> checkout/_partials/steps/payment.tpl, above the
+            //               payment options
+            && $this->registerHook('displayProductAdditionalInfo')
+            && $this->registerHook('displayExpressCheckout')
+            && $this->registerHook('displayPaymentTop');
 
         // For PrestaShop 8.1+, register the actionGenerateDocumentReference hook
         // For PrestaShop 8.0.x, the Order override will be used instead
@@ -511,6 +555,7 @@ class Monei extends PaymentModule
 
             if (!file_exists($moduleOverrideFile)) {
                 Monei::logError('[MONEI] Override source file not found: ' . $moduleOverrideFile);
+
                 return false;
             }
 
@@ -518,6 +563,7 @@ class Monei extends PaymentModule
             if (!file_exists($targetOverrideDir)) {
                 if (!mkdir($targetOverrideDir, 0755, true)) {
                     Monei::logError('[MONEI] Failed to create override directory: ' . $targetOverrideDir);
+
                     return false;
                 }
             }
@@ -525,6 +571,7 @@ class Monei extends PaymentModule
             // Copy the override file
             if (!copy($moduleOverrideFile, $targetOverrideFile)) {
                 Monei::logError('[MONEI] Failed to copy Order override file');
+
                 return false;
             }
 
@@ -537,9 +584,11 @@ class Monei extends PaymentModule
             }
 
             Monei::logDebug('[MONEI] Order override installed successfully for PrestaShop 8.0.x');
+
             return true;
         } catch (Exception $e) {
             Monei::logError('[MONEI] Exception during Order override installation: ' . $e->getMessage());
+
             return false;
         }
     }
@@ -621,6 +670,15 @@ class Monei extends PaymentModule
         Configuration::deleteByName('MONEI_STATUS_PARTIALLY_REFUNDED');
         Configuration::deleteByName('MONEI_STATUS_PENDING');
         Configuration::deleteByName('MONEI_STATUS_AUTHORIZED');
+        // Card layout and express checkout
+        Configuration::deleteByName('MONEI_CARD_LAYOUT');
+        Configuration::deleteByName('MONEI_EXPRESS_ENABLED');
+        Configuration::deleteByName('MONEI_EXPRESS_LOCATIONS');
+        Configuration::deleteByName('MONEI_EXPRESS_METHODS');
+        // ⚠️ Holds order state ids, which are per install. Uninstalling deletes
+        // the MONEI states and a reinstall reissues their ids, so a value kept
+        // across that cycle would point at unrelated states.
+        Configuration::deleteByName('MONEI_CAPTURE_STATUS');
 
         include dirname(__FILE__) . '/sql/uninstall.php';
 
@@ -778,6 +836,8 @@ class Monei extends PaymentModule
             $message .= $this->postProcess(3);
         } elseif (Tools::isSubmit('submitMoneiModuleComponentStyle')) {
             $message .= $this->postProcess(4);
+        } elseif (Tools::isSubmit('submitMoneiModuleExpress')) {
+            $message .= $this->postProcess(5);
         }
 
         // Check Apple Pay domain verification status
@@ -796,6 +856,7 @@ class Monei extends PaymentModule
             'helper_form_2' => $this->renderFormGateways(),
             'helper_form_3' => $this->renderFormStatus(),
             'helper_form_4' => $this->renderFormComponentStyle(),
+            'helper_form_5' => $this->renderFormExpress(),
         ]);
 
         return $message . $this->context->smarty->fetch($this->local_path . 'views/templates/admin/configure.tpl');
@@ -848,6 +909,11 @@ class Monei extends PaymentModule
                 }
 
                 break;
+            case 5:
+                $section = $this->l('Express Checkout');
+                $form_values = $this->getConfigFormExpressValues();
+
+                break;
         }
 
         // Store previous Apple Pay state
@@ -859,8 +925,20 @@ class Monei extends PaymentModule
                 $value = $validatedValues[$key];
                 Configuration::updateValue($key, $value);
             } else {
-                $value = Tools::getValue($key);
-                Configuration::updateValue($key, $value);
+                // ⚠️ A multiple select is declared as `NAME[]` so the form posts an
+                // array, but PHP names that field `NAME`. Reading `NAME[]` finds
+                // nothing and would then write an empty value to a bogus key, which
+                // looks exactly like the setting refusing to save.
+                $configKey = substr($key, -2) === '[]' ? substr($key, 0, -2) : $key;
+                $value = Tools::getValue($configKey);
+
+                // Stored as a comma separated list, which is what everything
+                // reading these settings expects.
+                if (is_array($value)) {
+                    $value = implode(',', array_filter($value, 'strlen'));
+                }
+
+                Configuration::updateValue($configKey, $value);
             }
         }
 
@@ -1163,6 +1241,7 @@ class Monei extends PaymentModule
             'MONEI_STATUS_SUCCEEDED' => Configuration::get('MONEI_STATUS_SUCCEEDED', Configuration::get('PS_OS_PAYMENT')),
             'MONEI_STATUS_FAILED' => Configuration::get('MONEI_STATUS_FAILED', Configuration::get('PS_OS_ERROR')),
             'MONEI_STATUS_AUTHORIZED' => Configuration::get('MONEI_STATUS_AUTHORIZED', 0),
+            'MONEI_CAPTURE_STATUS[]' => $this->explodeConfigList('MONEI_CAPTURE_STATUS'),
             'MONEI_SWITCH_REFUNDS' => Configuration::get('MONEI_SWITCH_REFUNDS', false),
             'MONEI_STATUS_REFUNDED' => Configuration::get('MONEI_STATUS_REFUNDED', Configuration::get('PS_OS_REFUND')),
             'MONEI_STATUS_PARTIALLY_REFUNDED' => Configuration::get('MONEI_STATUS_PARTIALLY_REFUNDED', Configuration::get('PS_OS_REFUND')),
@@ -1175,16 +1254,67 @@ class Monei extends PaymentModule
     protected function getConfigFormComponentStyleValues()
     {
         return [
+            'MONEI_CARD_LAYOUT' => Configuration::get('MONEI_CARD_LAYOUT', 'single'),
             'MONEI_CARD_INPUT_STYLE' => Configuration::get('MONEI_CARD_INPUT_STYLE', '{"base": {"height": "42px"}, "input": {"background": "none"}}'),
-            'MONEI_BIZUM_STYLE' => Configuration::get('MONEI_BIZUM_STYLE', '{"height": "42"}'),
-            'MONEI_PAYMENT_REQUEST_STYLE' => Configuration::get('MONEI_PAYMENT_REQUEST_STYLE', '{"height": "42"}'),
-            'MONEI_PAYPAL_STYLE' => Configuration::get('MONEI_PAYPAL_STYLE', '{"height": "42"}'),
+            'MONEI_BIZUM_STYLE' => Configuration::get('MONEI_BIZUM_STYLE', '{"height": "48px"}'),
+            'MONEI_PAYMENT_REQUEST_STYLE' => Configuration::get('MONEI_PAYMENT_REQUEST_STYLE', '{"height": "48px"}'),
+            'MONEI_PAYPAL_STYLE' => Configuration::get('MONEI_PAYPAL_STYLE', '{"height": "48px"}'),
         ];
     }
 
     /**
      * Create the form that will be displayed in the configuration of your module.
      */
+
+    /**
+     * Warning shown when the configured transaction type removes payment methods.
+     *
+     * Selecting pre-authorization does not make MB WAY and Multibanco fall back to
+     * an immediate charge: it takes them off the storefront completely. Merchants
+     * were never told, so the first sign was a customer asking where a payment
+     * method went. The warning is rendered on both the form that sets the
+     * transaction type and the form that enables the methods, because a merchant
+     * only ever visits one of them.
+     *
+     * @return string HTML warning, or an empty string when nothing is hidden
+     */
+    private function getAuthHiddenMethodsWarning()
+    {
+        $enabled = [];
+        $labels = [
+            'MONEI_ALLOW_MBWAY' => ['mbway', 'MB WAY'],
+            'MONEI_ALLOW_MULTIBANCO' => ['multibanco', 'Multibanco'],
+        ];
+
+        foreach ($labels as $configKey => $method) {
+            if (Configuration::get($configKey)) {
+                $enabled[] = $method[0];
+            }
+        }
+
+        $hidden = PsMonei\Service\Monei\PaymentMethodAvailability::hiddenBy(
+            $enabled,
+            (string) Configuration::get('MONEI_PAYMENT_ACTION', 'sale')
+        );
+
+        if (!$hidden) {
+            return '';
+        }
+
+        $names = [];
+        foreach ($labels as $method) {
+            if (in_array($method[0], $hidden, true)) {
+                $names[] = $method[1];
+            }
+        }
+
+        return '<div class="alert alert-warning">'
+            . $this->l('Pre-authorization is active, so these enabled payment methods are currently hidden from your checkout:')
+            . ' <strong>' . implode(', ', $names) . '</strong>. '
+            . $this->l('They cannot be pre-authorized. Switch Payment Action to Sale to offer them again.')
+            . '</div>';
+    }
+
     protected function renderForm()
     {
         $helper = new HelperForm();
@@ -1332,7 +1462,7 @@ class Monei extends PaymentModule
                         'type' => 'select',
                         'label' => $this->l('Payment Action'),
                         'name' => 'MONEI_PAYMENT_ACTION',
-                        'desc' => $this->l('Choose payment flow: Immediate charge (sale) or Pre-authorization (auth). Pre-authorization is supported for: Card, Apple Pay, Google Pay, PayPal. Not supported for: MBWay, Multibanco.'),
+                        'desc' => $this->l('Choose payment flow: Immediate charge (sale) or Pre-authorization (auth). Pre-authorization is supported for: Card, Apple Pay, Google Pay, PayPal. MB WAY and Multibanco cannot be pre-authorized and are removed from your checkout entirely while Pre-authorization is selected.') . $this->getAuthHiddenMethodsWarning(),
                         'options' => [
                             'query' => [
                                 [
@@ -1415,6 +1545,15 @@ class Monei extends PaymentModule
                     'icon' => 'icon-money',
                 ],
                 'input' => [
+                    [
+                        // Renders nothing unless the transaction type is currently
+                        // hiding an enabled payment method. A merchant enabling
+                        // MB WAY here would otherwise never learn that
+                        // pre-authorization removes it again.
+                        'type' => 'html',
+                        'name' => 'MONEI_AUTH_HIDDEN_WARNING',
+                        'html_content' => $this->getAuthHiddenMethodsWarning(),
+                    ],
                     [
                         'type' => 'switch',
                         'label' => $this->l('Allow Credit Card'),
@@ -1701,6 +1840,18 @@ class Monei extends PaymentModule
                         ],
                     ],
                     [
+                        'type' => 'select',
+                        'label' => $this->l('Capture automatically on'),
+                        'name' => 'MONEI_CAPTURE_STATUS[]',
+                        'multiple' => true,
+                        'desc' => $this->l('Statuses that capture a pre-authorized payment automatically. Leave empty to capture only from the order page. Applies to any change of status, including one made by another module, a scheduled task or the API.'),
+                        'options' => [
+                            'query' => $order_statuses,
+                            'id' => 'id_order_state',
+                            'name' => 'name',
+                        ],
+                    ],
+                    [
                         'type' => 'switch',
                         'label' => $this->l('Change Status for Refunds'),
                         'name' => 'MONEI_SWITCH_REFUNDS',
@@ -1751,6 +1902,129 @@ class Monei extends PaymentModule
         ];
     }
 
+    /**
+     * Values bound to the express checkout form.
+     *
+     * @return array
+     */
+    protected function getConfigFormExpressValues()
+    {
+        return [
+            'MONEI_EXPRESS_ENABLED' => Configuration::get('MONEI_EXPRESS_ENABLED', false),
+            // Multiple selects post arrays, so the stored comma separated lists
+            // are expanded back out for the form to preselect.
+            'MONEI_EXPRESS_LOCATIONS[]' => $this->explodeConfigList('MONEI_EXPRESS_LOCATIONS'),
+            'MONEI_EXPRESS_METHODS[]' => $this->explodeConfigList('MONEI_EXPRESS_METHODS'),
+        ];
+    }
+
+    /**
+     * Expand a comma separated configuration value into an array.
+     *
+     * @param string $key Configuration key
+     *
+     * @return array
+     */
+    protected function explodeConfigList($key)
+    {
+        $raw = (string) Configuration::get($key);
+
+        return $raw === '' ? [] : array_values(array_filter(array_map('trim', explode(',', $raw)), 'strlen'));
+    }
+
+    protected function renderFormExpress()
+    {
+        $helper = new HelperForm();
+
+        $helper->show_toolbar = false;
+        $helper->table = $this->table;
+        $helper->module = $this;
+        $helper->default_form_language = $this->context->language->id;
+        $helper->allow_employee_form_lang = Configuration::get('PS_BO_ALLOW_EMPLOYEE_FORM_LANG', 0);
+
+        $helper->identifier = $this->identifier;
+        $helper->submit_action = 'submitMoneiModuleExpress';
+        $helper->currentIndex = $this->context->link->getAdminLink('AdminModules', false)
+            . '&configure=' . $this->name . '&tab_module=' . $this->tab . '&module_name=' . $this->name;
+        $helper->token = Tools::getAdminTokenLite('AdminModules');
+
+        $helper->tpl_vars = [
+            'fields_value' => $this->getConfigFormExpressValues(),
+            'languages' => $this->context->controller->getLanguages(),
+            'id_language' => $this->context->language->id,
+        ];
+
+        return $helper->generateForm([$this->getConfigFormExpress()]);
+    }
+
+    protected function getConfigFormExpress()
+    {
+        return [
+            'form' => [
+                'legend' => [
+                    'title' => $this->l('Express Checkout'),
+                    'icon' => 'icon-bolt',
+                ],
+                'input' => [
+                    [
+                        'type' => 'switch',
+                        'label' => $this->l('Enable Express Checkout'),
+                        'name' => 'MONEI_EXPRESS_ENABLED',
+                        'is_bool' => true,
+                        'desc' => $this->l('Show Apple Pay, Google Pay and PayPal buttons that let a customer pay without going through the full checkout. Off by default, because it changes your storefront.'),
+                        'values' => [
+                            [
+                                'id' => 'express_on',
+                                'value' => true,
+                                'label' => $this->l('Enabled'),
+                            ],
+                            [
+                                'id' => 'express_off',
+                                'value' => false,
+                                'label' => $this->l('Disabled'),
+                            ],
+                        ],
+                    ],
+                    [
+                        'type' => 'select',
+                        'label' => $this->l('Show on'),
+                        'name' => 'MONEI_EXPRESS_LOCATIONS[]',
+                        'multiple' => true,
+                        'desc' => $this->l('Where the express buttons appear.'),
+                        'options' => [
+                            'query' => [
+                                ['id' => 'product', 'name' => $this->l('Product page')],
+                                ['id' => 'cart', 'name' => $this->l('Cart page')],
+                                ['id' => 'checkout', 'name' => $this->l('Checkout page')],
+                            ],
+                            'id' => 'id',
+                            'name' => 'name',
+                        ],
+                    ],
+                    [
+                        'type' => 'select',
+                        'label' => $this->l('Payment methods'),
+                        'name' => 'MONEI_EXPRESS_METHODS[]',
+                        'multiple' => true,
+                        'desc' => $this->l('A method only appears if it is also enabled under Payment methods and offered by your MONEI account.'),
+                        'options' => [
+                            'query' => [
+                                ['id' => 'applePay', 'name' => 'Apple Pay'],
+                                ['id' => 'googlePay', 'name' => 'Google Pay'],
+                                ['id' => 'paypal', 'name' => 'PayPal'],
+                            ],
+                            'id' => 'id',
+                            'name' => 'name',
+                        ],
+                    ],
+                ],
+                'submit' => [
+                    'title' => $this->l('Save'),
+                ],
+            ],
+        ];
+    }
+
     protected function renderFormComponentStyle()
     {
         $helper = new HelperForm();
@@ -1784,6 +2058,20 @@ class Monei extends PaymentModule
                     'icon' => 'icon-paint-brush',
                 ],
                 'input' => [
+                    [
+                        'type' => 'select',
+                        'label' => $this->l('Card field layout'),
+                        'name' => 'MONEI_CARD_LAYOUT',
+                        'desc' => $this->l('Single shows one combined field for card number, expiry date and CVC. Split shows three separate fields.'),
+                        'options' => [
+                            'query' => [
+                                ['id' => 'single', 'name' => $this->l('Single line (default)')],
+                                ['id' => 'split', 'name' => $this->l('Split fields')],
+                            ],
+                            'id' => 'id',
+                            'name' => 'name',
+                        ],
+                    ],
                     [
                         'type' => 'textarea',
                         'label' => $this->l('Card input style'),
@@ -1986,6 +2274,126 @@ class Monei extends PaymentModule
         return $this->paymentMethods;
     }
 
+    /**
+     * Capture a pre-authorization when an order reaches a configured state.
+     *
+     * ⚠️ Registered unconditionally, for every request context. The equivalent
+     * WooCommerce hook was wired for admin requests only, so any other path that
+     * moves an order — a shipping module, an ERP sync, cron, the webservice API —
+     * left the money authorized until it expired, with the order reading as paid
+     * and nothing to explain it.
+     *
+     * ⚠️ This must not write the order state. The manual capture button in the
+     * back office does (AdminMoneiCapturePaymentController), which is right for a
+     * button but wrong here: from a status hook it would reset the state the
+     * merchant just chose back to "Payment accepted", and re-enter this hook.
+     *
+     * @param array $params Hook parameters
+     */
+    public function hookActionOrderStatusPostUpdate($params)
+    {
+        // Re-entrancy guard. Anything this hook triggers that moves an order
+        // would otherwise come straight back here.
+        if (self::$captureInProgress) {
+            return;
+        }
+
+        if (empty($params['id_order']) || empty($params['newOrderStatus'])) {
+            return;
+        }
+
+        $order = new Order((int) $params['id_order']);
+        if (!Validate::isLoadedObject($order)) {
+            return;
+        }
+
+        $shouldCapture = PsMonei\Service\Monei\CaptureTrigger::shouldCapture(
+            (string) $order->module,
+            $this->name,
+            (int) $params['newOrderStatus']->id,
+            (string) Configuration::get('MONEI_CAPTURE_STATUS')
+        );
+
+        if (!$shouldCapture) {
+            return;
+        }
+
+        self::$captureInProgress = true;
+
+        try {
+            // ⚠️ Read the amount with a plain query rather than through the
+            // Doctrine repository. This hook has to work in every context that can
+            // move an order — cron, an ERP sync, the webservice API, a CLI script —
+            // and several of those bootstrap PrestaShop without the module's
+            // service container, where getRepository() is null and this would be a
+            // fatal in the middle of a merchant's order flow.
+            //
+            // One specific row: the authorized, uncaptured one, newest first. An
+            // order can carry several payment rows after retries, and an
+            // unordered lookup could return a failed or already captured attempt.
+            // A row matched by cart with no order yet is the case where the
+            // merchant chose the Authorized status itself as a trigger: that
+            // transition fires inside validateOrder, before the payment is linked.
+            //
+            // No LIMIT: getRow appends one itself, and on 1.7 does so
+            // unconditionally, which turns an explicit one into a syntax error.
+            $row = Db::getInstance()->getRow(
+                'SELECT id_payment, amount FROM ' . _DB_PREFIX_ . 'monei2_payment'
+                . ' WHERE (id_order = ' . (int) $order->id
+                . ' OR (id_order = 0 AND id_cart = ' . (int) $order->id_cart . '))'
+                . ' AND status = "AUTHORIZED" AND is_captured = 0'
+                . ' ORDER BY date_add DESC, id_payment DESC'
+            );
+
+            // Nothing authorized and uncaptured is not a failure: a later trigger
+            // status after a successful capture lands here, and must not write a
+            // false "capture failed" note on a healthy order.
+            if (!$row || (int) $row['amount'] <= 0) {
+                return;
+            }
+
+            // The authorized amount, not the order total. A merchant may have
+            // edited the order since, and capturePayment rejects anything above
+            // what was authorized. The row's own id goes with it, so the service
+            // captures this row and not whichever one it would find by order.
+            self::getService('service.monei')->capturePayment((int) $order->id, (int) $row['amount'], (string) $row['id_payment']);
+
+            self::logDebug('[MONEI] Captured payment for order ' . (int) $order->id . ' on status change');
+        } catch (Throwable $e) {
+            // Never silent: a capture that did not happen is money that expires.
+            self::logError(
+                '[MONEI] Automatic capture failed for order ' . (int) $order->id . ': ' . $e->getMessage()
+            );
+
+            $this->addOrderCaptureNote($order, $e->getMessage());
+        } finally {
+            self::$captureInProgress = false;
+        }
+    }
+
+    /**
+     * Record a failed automatic capture against the order.
+     *
+     * Uses the order's own note field. The module CLAUDE.md described a
+     * monei2_admin_order_message table, but no such table or entity exists, so
+     * there is nothing to write to but the order itself.
+     *
+     * @param Order $order Order to annotate
+     * @param string $reason Failure reason
+     */
+    private function addOrderCaptureNote(Order $order, $reason)
+    {
+        try {
+            $note = trim((string) $order->note);
+            $line = '[MONEI] Automatic capture failed: ' . $reason;
+
+            $order->note = $note === '' ? $line : $note . "\n" . $line;
+            $order->update();
+        } catch (Exception $e) {
+            self::logError('[MONEI] Could not record the capture failure on the order: ' . $e->getMessage());
+        }
+    }
+
     public function hookDisplayPaymentByBinaries($params)
     {
         if (!$this->isMoneiAvailable($params['cart'])) {
@@ -2009,18 +2417,22 @@ class Monei extends PaymentModule
         $cartSummaryDetails = $this->context->cart->getSummaryDetails(null, true);
 
         if ($paymentMethodsToDisplay) {
+            // Note: the values payment.js reads are published from
+            // hookActionFrontControllerSetMedia, not from here. See the comment
+            // there — by the time this content hook runs, the js_def block has
+            // already been collected.
             $this->context->smarty->assign([
                 'paymentMethodsToDisplay' => $paymentMethodsToDisplay,
-                'moneiAccountId' => (bool) Configuration::get('MONEI_PRODUCTION_MODE') ? Configuration::get('MONEI_ACCOUNT_ID') : Configuration::get('MONEI_TEST_ACCOUNT_ID'),
+                // The current total, in minor units, rendered into the markup.
+                // onepagecheckoutps rebuilds this block over AJAX after a carrier,
+                // coupon or quantity change and re-inits the components from it,
+                // while the moneiAmount global still holds the page-load total.
+                // payment.js prefers this attribute when it is present.
                 'moneiAmount' => $moneiService->getCartAmount($cartSummaryDetails, $this->context->cart->id_currency),
                 'moneiAmountFormatted' => $this->context->getCurrentLocale()->formatPrice(
                     $moneiService->getCartAmount($cartSummaryDetails, $this->context->cart->id_currency, true),
                     $this->context->currency->iso_code
                 ),
-                'moneiCreatePaymentUrlController' => $this->context->link->getModuleLink('monei', 'createPayment'),
-                'moneiToken' => Tools::getToken(false),
-                'moneiCurrency' => $this->context->currency->iso_code,
-                'moneiPaymentAction' => Configuration::get('MONEI_PAYMENT_ACTION', 'sale'),
             ]);
 
             return $this->fetch('module:monei/views/templates/hook/displayPaymentByBinaries.tpl');
@@ -2182,20 +2594,266 @@ class Monei extends PaymentModule
     /**
      * Hook to display content on payment return
      */
+
+    /**
+     * Is express checkout switched on for this surface?
+     *
+     * @param string $location product, cart or checkout
+     *
+     * @return bool
+     */
+    public function isExpressEnabledFor($location)
+    {
+        return PsMonei\Service\Express\ExpressMethodResolver::isLocationEnabled(
+            (string) $location,
+            (bool) Configuration::get('MONEI_EXPRESS_ENABLED'),
+            (string) Configuration::get('MONEI_EXPRESS_LOCATIONS')
+        );
+    }
+
+    /**
+     * Express payment methods that may render right now.
+     *
+     * A method has to be wanted for express, enabled as a payment method, and
+     * offered by the MONEI account. Express settings widen nothing.
+     *
+     * @return string[]
+     */
+    public function getExpressMethods()
+    {
+        // ⚠️ Memoised per request. getPaymentMethodsAllowed() calls the MONEI
+        // API, and this runs from both registerExpressAssets() and
+        // renderExpressContainer() — two blocking outbound requests on every
+        // product, cart and checkout page view once express is on.
+        if ($this->expressMethodsCache !== null) {
+            return $this->expressMethodsCache;
+        }
+
+        $allowed = [];
+        $flags = [
+            'applePay' => 'MONEI_ALLOW_APPLE',
+            'googlePay' => 'MONEI_ALLOW_GOOGLE',
+            'paypal' => 'MONEI_ALLOW_PAYPAL',
+        ];
+
+        foreach ($flags as $method => $configKey) {
+            if (Configuration::get($configKey)) {
+                $allowed[] = $method;
+            }
+        }
+
+        try {
+            $offered = self::getService('service.monei')->getPaymentMethodsAllowed();
+        } catch (Exception $e) {
+            Monei::logWarning('[MONEI] Could not read the account payment methods for express: ' . $e->getMessage());
+
+            return [];
+        }
+
+        return $this->expressMethodsCache = PsMonei\Service\Express\ExpressMethodResolver::resolve(
+            (string) Configuration::get('MONEI_EXPRESS_METHODS'),
+            $allowed,
+            is_array($offered) ? $offered : []
+        );
+    }
+
+    /**
+     * Load the SDK and the express client on a non checkout page.
+     */
+    private function registerExpressAssets()
+    {
+        $moneiSdkUrl = self::MONEI_JS_URL;
+
+        $this->context->controller->registerJavascript(
+            sha1($moneiSdkUrl),
+            $moneiSdkUrl,
+            [
+                'server' => 'remote',
+                'priority' => 50,
+                'attribute' => 'defer',
+            ]
+        );
+
+        $this->context->controller->registerJavascript(
+            'module-' . $this->name . '-express',
+            'modules/' . $this->name . '/views/js/front/express.js',
+            [
+                // Cache-bust on release so an upgraded merchant never gets stale assets.
+                'version' => $this->version,
+                'priority' => 95,
+                'attribute' => 'defer',
+                'position' => 'bottom',
+            ]
+        );
+
+        $this->context->controller->registerStylesheet(
+            'module-' . $this->name . '-express',
+            'modules/' . $this->name . '/views/css/front/express.css',
+            [
+                // Cache-bust on release so an upgraded merchant never gets stale assets.
+                'version' => $this->version,
+                'priority' => 200,
+                'media' => 'all',
+            ]
+        );
+
+        // Published here rather than from the display hooks: PrestaShop collects
+        // the js_def block before content hooks render.
+        Media::addJsDef([
+            'moneiExpress' => [
+                'accountId' => (bool) Configuration::get('MONEI_PRODUCTION_MODE')
+                    ? Configuration::get('MONEI_ACCOUNT_ID')
+                    : Configuration::get('MONEI_TEST_ACCOUNT_ID'),
+                'endpoint' => $this->context->link->getModuleLink('monei', 'express'),
+                'token' => Tools::getToken(false),
+                'currency' => $this->context->currency->iso_code,
+                'methods' => $this->getExpressMethods(),
+                'style' => json_decode(Configuration::get('MONEI_PAYMENT_REQUEST_STYLE')),
+                'paypalStyle' => json_decode(Configuration::get('MONEI_PAYPAL_STYLE')),
+                'paymentAction' => Configuration::get('MONEI_PAYMENT_ACTION', 'sale'),
+                'errorGeneric' => $this->l('The payment could not be completed. Please try again.'),
+                'errorTerms' => $this->l('Please accept the terms of service before paying.'),
+            ],
+        ]);
+    }
+
+    /**
+     * Express buttons on the product page.
+     *
+     * @param array $params Hook parameters
+     *
+     * @return string
+     */
+    public function hookDisplayProductAdditionalInfo($params)
+    {
+        return $this->renderExpressContainer('product', isset($params['product']) ? $params['product'] : null);
+    }
+
+    /**
+     * Express buttons on the cart page, beside the checkout button.
+     *
+     * @return string
+     */
+    public function hookDisplayExpressCheckout()
+    {
+        return $this->renderExpressContainer('cart');
+    }
+
+    /**
+     * Express buttons above the payment options at checkout.
+     *
+     * @return string
+     */
+    public function hookDisplayPaymentTop()
+    {
+        return $this->renderExpressContainer('checkout');
+    }
+
+    /**
+     * Render the express container for a surface, or nothing.
+     *
+     * @param string $location product, cart or checkout
+     * @param mixed|null $product Product being viewed, on the product page
+     *
+     * @return string
+     */
+    private function renderExpressContainer($location, $product = null)
+    {
+        if (!$this->isExpressEnabledFor($location)) {
+            return '';
+        }
+
+        $methods = $this->getExpressMethods();
+
+        if (!$methods) {
+            return '';
+        }
+
+        // ⚠️ Apple Pay and Google Pay share one slot. Both are served by the SDK's
+        // PaymentRequest component, which picks whichever wallet the browser
+        // offers and carries no option to constrain it — so a slot per method
+        // rendered the same wallet button twice. The result of a payment says
+        // which wallet was used; that is what reaches createOrder.
+        $slots = [];
+
+        foreach ($methods as $method) {
+            // ⚠️ No PayPal express at the checkout location. The ordinary PayPal
+            // payment option is already on that page, and two monei.PayPal
+            // components cannot share one page: the second never paints, which
+            // showed up as an empty strip under the express label. Verified by
+            // stubbing the ordinary option's init, after which express PayPal
+            // rendered. Apple Pay and Google Pay have no such conflict.
+            if ($location === 'checkout' && $method === 'paypal') {
+                continue;
+            }
+
+            $slot = in_array($method, ['applePay', 'googlePay'], true) ? 'paymentRequest' : $method;
+
+            if (!in_array($slot, $slots, true)) {
+                $slots[] = $slot;
+            }
+        }
+
+        if (!$slots) {
+            return '';
+        }
+
+        $this->context->smarty->assign([
+            'moneiExpressLocation' => $location,
+            'moneiExpressMethods' => $slots,
+            'moneiExpressProductId' => $product ? (int) $product['id_product'] : 0,
+        ]);
+
+        return $this->fetch('module:monei/views/templates/hook/expressCheckout.tpl');
+    }
+
+    /**
+     * Which storefront page is being rendered.
+     *
+     * ⚠️ `page_name` is not populated yet when actionFrontControllerSetMedia fires
+     * on a product or cart page — it is still an empty string, so any check against
+     * it silently matches nothing and no asset is ever registered. `php_self` is
+     * set earlier, and is what the express surfaces are keyed off. It spells the
+     * checkout page "order", which is normalised here so the rest of the module can
+     * keep using one vocabulary.
+     *
+     * @return string product, cart, checkout, or whatever the controller reports
+     */
+    private function getFrontPageName()
+    {
+        $controller = $this->context->controller;
+        $pageName = (string) $controller->page_name;
+
+        if ($pageName === '' && property_exists($controller, 'php_self')) {
+            $pageName = (string) $controller->php_self;
+        }
+
+        return $pageName === 'order' ? 'checkout' : $pageName;
+    }
+
     public function hookActionFrontControllerSetMedia()
     {
         if (!property_exists($this->context->controller, 'page_name')) {
             return;
         }
 
-        $pageName = $this->context->controller->page_name;
+        $pageName = $this->getFrontPageName();
+
+        // Express checkout lives on the product and cart pages too, so the SDK and
+        // its client have to load there as well — but only when a merchant has
+        // actually switched express on. Nothing is added to those pages otherwise.
+        if (in_array($pageName, ['product', 'cart'], true) && $this->isExpressEnabledFor($pageName)) {
+            $this->registerExpressAssets();
+
+            return;
+        }
 
         // Checkout
         if ($pageName == 'checkout') {
-            $moneiv2 = 'https://js.monei.com/v2/monei.js';
+            $moneiSdkUrl = self::MONEI_JS_URL;
             $this->context->controller->registerJavascript(
-                sha1($moneiv2),
-                $moneiv2,
+                sha1($moneiSdkUrl),
+                $moneiSdkUrl,
                 [
                     'server' => 'remote',
                     'priority' => 50,
@@ -2203,10 +2861,33 @@ class Monei extends PaymentModule
                 ]
             );
 
+            // Must load before front.js, which calls the init functions this file
+            // declares. Both are deferred, so they execute in registration order
+            // and both finish before DOMContentLoaded fires.
+            $this->context->controller->registerJavascript(
+                'module-' . $this->name . '-payment',
+                'modules/' . $this->name . '/views/js/front/payment.js',
+                [
+                    // Cache-bust on release so an upgraded merchant never gets stale assets.
+                    'version' => $this->version,
+                    'priority' => 90,
+                    'attribute' => 'defer',
+                    'position' => 'bottom',
+                ]
+            );
+
+            // Express renders above the payment options at checkout as well, so
+            // its client has to load here too, not only on product and cart.
+            if ($this->isExpressEnabledFor('checkout')) {
+                $this->registerExpressAssets();
+            }
+
             $this->context->controller->registerJavascript(
                 'module-' . $this->name . '-front',
                 'modules/' . $this->name . '/views/js/front/front.js',
                 [
+                    // Cache-bust on release so an upgraded merchant never gets stale assets.
+                    'version' => $this->version,
                     'priority' => 100,
                     'attribute' => 'defer',
                     'position' => 'bottom',
@@ -2217,6 +2898,8 @@ class Monei extends PaymentModule
                 'module-' . $this->name . '-checkout-page',
                 'modules/' . $this->name . '/views/css/front/checkout_page.css',
                 [
+                    // Cache-bust on release so an upgraded merchant never gets stale assets.
+                    'version' => $this->version,
                     'priority' => 200,
                     'media' => 'all',
                     'position' => 'bottom',
@@ -2235,6 +2918,30 @@ class Monei extends PaymentModule
                 $this->context->cookie->write();
             }
 
+            // ⚠️ Published here, not from hookDisplayPaymentByBinaries, even though
+            // that is the hook these values describe. PrestaShop collects the
+            // js_def block before content hooks render, so an addJsDef call made
+            // while rendering the payment step never reaches the page: the values
+            // silently do not exist, payment.js initialises nothing, and the
+            // checkout renders its payment options with no working component.
+            $moneiJsDef = [
+                'moneiAccountId' => (bool) Configuration::get('MONEI_PRODUCTION_MODE') ? Configuration::get('MONEI_ACCOUNT_ID') : Configuration::get('MONEI_TEST_ACCOUNT_ID'),
+                'moneiCreatePaymentUrlController' => $this->context->link->getModuleLink('monei', 'createPayment'),
+                'moneiToken' => Tools::getToken(false),
+                'moneiCurrency' => $this->context->currency->iso_code,
+                'moneiPaymentAction' => Configuration::get('MONEI_PAYMENT_ACTION', 'sale'),
+                'moneiCardLayout' => Configuration::get('MONEI_CARD_LAYOUT') === 'split' ? 'split' : 'single',
+            ];
+
+            if (Validate::isLoadedObject($this->context->cart)) {
+                $moneiJsDef['moneiAmount'] = self::getService('service.monei')->getCartAmount(
+                    $this->context->cart->getSummaryDetails(null, true),
+                    $this->context->cart->id_currency
+                );
+            }
+
+            Media::addJsDef($moneiJsDef);
+
             Media::addJsDef([
                 'moneiProcessing' => $this->l('Processing payment...'),
                 'moneiProcessingPayment' => $this->l('Processing payment...'),
@@ -2243,7 +2950,7 @@ class Monei extends PaymentModule
                 'moneiCardInputStyle' => json_decode(Configuration::get('MONEI_CARD_INPUT_STYLE')),
                 'moneiBizumStyle' => json_decode(Configuration::get('MONEI_BIZUM_STYLE')),
                 'moneiPaymentRequestStyle' => json_decode(Configuration::get('MONEI_PAYMENT_REQUEST_STYLE')),
-                'moneiPayPalStyle' => json_decode(Configuration::get('MONEI_PAYPAL_STYLE')) ?: json_decode('{"height":"42"}'),
+                'moneiPayPalStyle' => json_decode(Configuration::get('MONEI_PAYPAL_STYLE')) ?: json_decode('{"height":"48px"}'),
                 'moneiErrorTitle' => $this->l('Payment Error'),
                 'moneiPaymentCreationFailed' => $this->l('Payment creation failed'),
                 'moneiPaymentProcessed' => $this->l('Payment processed'),
@@ -2270,6 +2977,8 @@ class Monei extends PaymentModule
                 'module-' . $this->name . '-customerCards',
                 'modules/' . $this->name . '/views/js/front/customerCards.js',
                 [
+                    // Cache-bust on release so an upgraded merchant never gets stale assets.
+                    'version' => $this->version,
                     'priority' => 300,
                     'attribute' => 'async',
                     'position' => 'bottom',
@@ -2950,6 +3659,7 @@ class Monei extends PaymentModule
      * a custom order reference. For PrestaShop 8.0.x, the override is used instead.
      *
      * @param array $params Hook parameters containing document type
+     *
      * @return string|null Custom order reference or null to use default
      */
     public function hookActionGenerateDocumentReference($params)

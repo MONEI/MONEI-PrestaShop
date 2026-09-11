@@ -1,0 +1,70 @@
+const { test, expect } = require('../utils/test');
+const { openModuleConfiguration } = require('../utils/admin');
+const { getConfig, setConfig } = require('../utils/ps-cli');
+
+/**
+ * The express settings are multiple selects, which post arrays. They are stored
+ * as comma separated lists, so saving is where that conversion either works or
+ * silently writes "Array".
+ */
+test.describe('settings: express checkout', () => {
+    test.afterAll(() => {
+        setConfig('MONEI_EXPRESS_ENABLED', '');
+        setConfig('MONEI_EXPRESS_LOCATIONS', 'product,cart,checkout');
+        setConfig('MONEI_EXPRESS_METHODS', 'applePay,googlePay,paypal');
+    });
+
+    test('saves the locations and methods as a comma separated list', async ({ page }) => {
+        setConfig('MONEI_EXPRESS_ENABLED', '');
+        setConfig('MONEI_EXPRESS_LOCATIONS', '');
+        setConfig('MONEI_EXPRESS_METHODS', '');
+
+        await openModuleConfiguration(page);
+        await page.locator('a[href="#panel-conf-5"]').click();
+
+        const form = page.locator('#panel-conf-5');
+
+        await form.locator('input[name="MONEI_EXPRESS_ENABLED"][value="1"]').check();
+        await form
+            .locator('select[name="MONEI_EXPRESS_LOCATIONS[]"]')
+            .selectOption(['product', 'cart']);
+        await form
+            .locator('select[name="MONEI_EXPRESS_METHODS[]"]')
+            .selectOption(['applePay', 'paypal']);
+        await form.locator('button[name="submitMoneiModuleExpress"]').click();
+        // The back office keeps connections open, so networkidle never settles;
+        // the reloaded form is the signal that the save round-tripped.
+        await expect(page.locator('#module_form, form[name="module_form"]').first()).toBeAttached({
+            timeout: 60000,
+        });
+
+        expect(getConfig('MONEI_EXPRESS_ENABLED')).toBe('1');
+        expect(getConfig('MONEI_EXPRESS_LOCATIONS')).toBe('product,cart');
+        expect(getConfig('MONEI_EXPRESS_METHODS')).toBe('applePay,paypal');
+    });
+
+    test('keeps the single card layout as the default and can switch to split', async ({
+        page,
+    }) => {
+        // The default itself is asserted by upgrade.spec.js, which seeds it.
+        // Reading it here would only report whatever the previous spec left.
+        setConfig('MONEI_CARD_LAYOUT', 'single');
+
+        await openModuleConfiguration(page);
+        await page.locator('a[href="#panel-conf-4"]').click();
+
+        const form = page.locator('#panel-conf-4');
+
+        await form.locator('select[name="MONEI_CARD_LAYOUT"]').selectOption('split');
+        await form.locator('button[name="submitMoneiModuleComponentStyle"]').click();
+        // The back office keeps connections open, so networkidle never settles;
+        // the reloaded form is the signal that the save round-tripped.
+        await expect(page.locator('#module_form, form[name="module_form"]').first()).toBeAttached({
+            timeout: 60000,
+        });
+
+        expect(getConfig('MONEI_CARD_LAYOUT'), 'a merchant must be able to opt in').toBe('split');
+
+        setConfig('MONEI_CARD_LAYOUT', 'single');
+    });
+});

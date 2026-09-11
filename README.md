@@ -44,13 +44,23 @@ Experience the module in action: [PrestaShop Demo Store](https://prestashop-demo
   - PayPal
   - MBWAY
   - Multibanco
+- Express checkout — pay with Apple Pay, Google Pay or PayPal straight from the
+  product page, the cart or the checkout, without filling in the full form. Off by
+  default; enable it under **Express Checkout** and choose where it appears
+- Split card fields — optional separate inputs for card number, expiry and CVC;
+  the single line field stays the default
+- Automatic capture of pre-authorized payments when an order reaches a status you
+  choose, from any source: the back office, a shipping module, a scheduled task or
+  the API
 - Seamless checkout experience with embedded payment forms
 - Secure payment processing with full PCI compliance
 - Real-time payment notifications via webhooks
 - Tokenization for saved cards with customer card management
 - Pre-authorization support (Authorization/Capture flow):
   - Supported for: Card, Apple Pay, Google Pay, PayPal
-  - Not supported for: MBWay, Multibanco
+  - Not supported for: MBWay, Multibanco. ⚠️ While pre-authorization is selected
+    these two are **removed from your checkout entirely** — they do not fall back
+    to an immediate charge. The settings screen warns you when this is happening.
 - Partial captures and refunds with admin interface
 - Automatic Apple Pay domain verification
 - Multi-language support (translations included)
@@ -59,6 +69,28 @@ Experience the module in action: [PrestaShop Demo Store](https://prestashop-demo
 - Detailed transaction reporting in your MONEI Dashboard
 - Payment status history tracking
 - Admin order messages for payment events
+
+## Upgrading to 2.1.0
+
+The card form keeps its one-line field. Split fields — separate inputs for
+number, expiry and CVC — are available under **Component Style → Card field
+layout** and are off by default, so nothing about your checkout changes.
+
+Express checkout is **off** after upgrading, and automatic capture stays off until
+you choose which statuses should trigger it. Neither changes your storefront until
+you turn it on.
+
+### Express checkout and countries that require an identification number
+
+Some countries — Spain among them, in stock PrestaShop data — are configured with
+**"Do you need an identification number?"** enabled, which makes the field
+mandatory on every address. No digital wallet supplies a national identification
+number, so express checkout cannot build a valid address for those countries: the
+shopper is told to use the standard checkout instead, and nothing is charged.
+
+To offer express checkout there, clear that flag for the country under
+**International → Locations → Countries**. The module writes the country it
+refused, and this instruction, to the shop log each time it happens.
 
 ## Requirements
 
