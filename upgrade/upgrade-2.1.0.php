@@ -77,6 +77,33 @@ function upgrade_module_2_1_0($module)
             }
         }
 
+        // The wallet/button style defaults shipped a unit-less height ("48"),
+        // which is invalid CSS, so the SDK dropped it and the Apple/Google Pay,
+        // Bizum and PayPal buttons never matched the 48px card button. Give any
+        // stored bare-number height its px unit. A value that already carries a
+        // unit is left untouched.
+        $styleKeys = ['MONEI_BIZUM_STYLE', 'MONEI_PAYMENT_REQUEST_STYLE', 'MONEI_PAYPAL_STYLE'];
+
+        foreach ($styleKeys as $key) {
+            $raw = Configuration::get($key);
+            if ($raw === false || $raw === '') {
+                continue;
+            }
+
+            $style = json_decode($raw, true);
+            if (!is_array($style) || !isset($style['height']) || !preg_match('/^\d+(\.\d+)?$/', (string) $style['height'])) {
+                continue;
+            }
+
+            $style['height'] .= 'px';
+
+            if (!Configuration::updateValue($key, json_encode($style))) {
+                Monei::logError('[MONEI] Upgrade to 2.1.0 could not normalise ' . $key);
+
+                return false;
+            }
+        }
+
         Monei::logDebug('[MONEI] Upgrade to 2.1.0 completed successfully');
 
         return true;
