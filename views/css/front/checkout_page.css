@@ -1,4 +1,5 @@
-section.checkout-step .payment-options > div {
+section.checkout-step .payment-options > div,
+.payment-options__list > .payment-option {
     margin-bottom: 1.25rem;
 }
 
