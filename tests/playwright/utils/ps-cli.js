@@ -374,7 +374,18 @@ const syncShopDomain = () => {
     return hostname;
 };
 
+/**
+ * Name of the active front office theme.
+ *
+ * Screenshot baselines are keyed by it: classic and hummingbird lay the checkout
+ * out differently on purpose, so one baseline cannot serve both.
+ *
+ * @return {string} Theme directory name, e.g. classic
+ */
+const storeTheme = () => mysql('SELECT theme_name FROM ps_shop LIMIT 1;').trim();
+
 module.exports = {
+    storeTheme,
     PS_FOLDER,
     latestOrderId,
     orderStateId,
