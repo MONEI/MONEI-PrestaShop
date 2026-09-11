@@ -3,6 +3,7 @@
 global $_MODULE;
 $_MODULE = [];
 $_MODULE['<{monei}prestashop>monei_99cc282fb6fdb65298dacac1bfe0b1e6'] = 'Accetta Carte di Credito, Apple Pay, Google Pay, Bizum, PayPal e molti altri metodi di pagamento nel tuo negozio.';
+$_MODULE['<{monei}prestashop>monei_8a0f13b6a3242924e1ecb50648cc639a'] = 'PrestaShop %s richiede PHP 7.1.3 o superiore. Versione PHP attuale: %s';
 $_MODULE['<{monei}prestashop>monei_92d4773a9f32fc3333cb8238471cf763'] = 'Devi abilitare l\'estensione cURL sul tuo server per installare questo modulo';
 $_MODULE['<{monei}prestashop>monei_0db377921f4ce762c62526131097968f'] = 'Generale';
 $_MODULE['<{monei}prestashop>monei_af01f8c298aa063d9c7490f00eddd2df'] = 'Metodi di Pagamento';

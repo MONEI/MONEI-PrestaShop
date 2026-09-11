@@ -3,6 +3,7 @@
 global $_MODULE;
 $_MODULE = [];
 $_MODULE['<{monei}prestashop>monei_99cc282fb6fdb65298dacac1bfe0b1e6'] = 'Accepta Targeta, Apple Pay, Google Pay, Bizum, PayPal i molts més mètodes de pagament a la teva botiga.';
+$_MODULE['<{monei}prestashop>monei_8a0f13b6a3242924e1ecb50648cc639a'] = 'PrestaShop %s requereix PHP 7.1.3 o superior. Versió actual de PHP: %s';
 $_MODULE['<{monei}prestashop>monei_92d4773a9f32fc3333cb8238471cf763'] = 'Has d\'activar l\'extensió cURL al teu servidor per instal·lar aquest mòdul';
 $_MODULE['<{monei}prestashop>monei_0db377921f4ce762c62526131097968f'] = 'General';
 $_MODULE['<{monei}prestashop>monei_af01f8c298aa063d9c7490f00eddd2df'] = 'Mètodes de Pagament';

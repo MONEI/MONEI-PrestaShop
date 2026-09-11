@@ -3,6 +3,7 @@
 global $_MODULE;
 $_MODULE = [];
 $_MODULE['<{monei}prestashop>monei_99cc282fb6fdb65298dacac1bfe0b1e6'] = 'Aktsepteeri kaarte, Apple Pay, Google Pay, Bizum, PayPal ja paljusid teisi maksevahendeid oma poes.';
+$_MODULE['<{monei}prestashop>monei_8a0f13b6a3242924e1ecb50648cc639a'] = 'PrestaShop %s nõuab PHP 7.1.3 või uuemat. Praegune PHP versioon: %s';
 $_MODULE['<{monei}prestashop>monei_92d4773a9f32fc3333cb8238471cf763'] = 'Selle mooduli installimiseks peate oma serveris lubama cURL laiendi';
 $_MODULE['<{monei}prestashop>monei_0db377921f4ce762c62526131097968f'] = 'Üldine';
 $_MODULE['<{monei}prestashop>monei_af01f8c298aa063d9c7490f00eddd2df'] = 'Maksevahendid';
