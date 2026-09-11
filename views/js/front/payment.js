@@ -452,6 +452,113 @@ const moneiCurrentAmount = () => {
 
 /* -------------------------------------------------------------------- card */
 
+// A woff2 subset renders the card only if its unicode-range covers the glyphs
+// the field shows: digits and basic latin. The range is CSS like "U+0-FF, U+131".
+function moneiUnicodeRangeCovers(range, codePoint) {
+    if (!range) return true; // no range declared means the face covers everything
+    for (let token of range.split(',')) {
+        token = token.trim().replace(/^U\+/i, '');
+        if (token.includes('?')) {
+            const low = parseInt(token.replace(/\?/g, '0'), 16);
+            const high = parseInt(token.replace(/\?/g, 'F'), 16);
+            if (codePoint >= low && codePoint <= high) return true;
+        } else if (token.includes('-')) {
+            const [low, high] = token.split('-');
+            if (codePoint >= parseInt(low, 16) && codePoint <= parseInt(high, 16)) return true;
+        } else if (codePoint === parseInt(token, 16)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+// The card runs in a cross-origin iframe, so it cannot use a webfont the theme
+// loaded on the parent page. Where the store font is a same-origin webfont
+// (hummingbird ships Inter this way), resolve its woff2, inline it, and hand the
+// face to the SDK so the field renders the real glyphs, not a fallback sans.
+async function moneiResolveStoreFontFace(family, weight) {
+    const target = parseInt(weight, 10) || 400;
+    const wanted = family.replace(/["']/g, '').trim().toLowerCase();
+    const candidates = [];
+
+    for (const sheet of document.styleSheets) {
+        let rules;
+        try {
+            rules = sheet.cssRules;
+        } catch (e) {
+            continue; // cross-origin stylesheet, unreadable
+        }
+        if (!rules) continue;
+
+        for (const rule of rules) {
+            if (!(rule instanceof CSSFontFaceRule)) continue;
+            if (
+                (rule.style.fontFamily || '').replace(/["']/g, '').trim().toLowerCase() !== wanted
+            ) {
+                continue;
+            }
+
+            const woff2 = /url\(\s*['"]?([^'")]+\.woff2[^'")]*)['"]?\s*\)/i.exec(
+                rule.style.src || ''
+            );
+            if (!woff2) continue;
+
+            let abs;
+            try {
+                abs = new URL(woff2[1], sheet.href || document.baseURI).href;
+            } catch (e) {
+                continue;
+            }
+            if (new URL(abs).origin !== window.location.origin) continue; // fetch would be a CORS miss
+
+            const range = rule.style.unicodeRange || '';
+            candidates.push({
+                abs,
+                w: parseInt(rule.style.fontWeight, 10) || 400,
+                coversLatin:
+                    moneiUnicodeRangeCovers(range, 0x30) && moneiUnicodeRangeCovers(range, 0x41),
+            });
+        }
+    }
+
+    if (!candidates.length) return null;
+
+    const latin = candidates.filter((c) => c.coversLatin);
+    const pool = latin.length ? latin : candidates;
+    pool.sort((a, b) => Math.abs(a.w - target) - Math.abs(b.w - target));
+
+    return pool[0].abs;
+}
+
+async function moneiApplyStoreWebfont(component, refStyle) {
+    try {
+        const family = (refStyle.fontFamily || '').split(',')[0].replace(/["']/g, '').trim();
+        if (!family || typeof component.updateProps !== 'function') return;
+
+        const url = await moneiResolveStoreFontFace(family, refStyle.fontWeight);
+        if (!url) return; // system font, or a cross-origin webfont we cannot fetch
+
+        const response = await fetch(url);
+        if (!response.ok) return;
+
+        const blob = await response.blob();
+        const dataUrl = await new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result);
+            reader.onerror = reject;
+            reader.readAsDataURL(blob);
+        });
+
+        // A bare data: URL. The v3 loader validates src with new URL(), which
+        // rejects a url(...) wrapper.
+        await component.updateProps({
+            fonts: [{ family, src: dataUrl, weight: parseInt(refStyle.fontWeight, 10) || 400 }],
+        });
+    } catch (e) {
+        // Best effort: the field already renders with the family-name fallback.
+    }
+}
+
 function initMoneiCard() {
     const sectionMoneiCard = document.querySelector('.js-payment-monei-card');
     if (!sectionMoneiCard) return;
@@ -594,6 +701,8 @@ function initMoneiCard() {
 
         moneiCardInput.render(moneiCardRenderContainer);
     }
+
+    moneiApplyStoreWebfont(moneiCardInput, moneiRefFieldStyle);
 
     moneiCardHolderName.addEventListener('blur', (event) => {
         validateMoneiCardHolderName(event.currentTarget.value);
