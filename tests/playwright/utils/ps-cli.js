@@ -1,4 +1,4 @@
-const { execFileSync } = require('child_process');
+const { execFileSync, spawnSync } = require('child_process');
 const { containerName } = require('./env');
 
 /**
@@ -291,14 +291,16 @@ const moneiLogs = (limit = 20) =>
 const tunnelUrl = () => {
     try {
         const container = containerName().replace('-prestashop-', '-cloudflared-');
-        // ⚠️ Merge stderr. cloudflared announces the hostname on stderr, and
-        // execFileSync returns stdout only, so reading the log the obvious way
-        // yields an empty string and looks like "there is no tunnel".
-        const logs = execFileSync('sh', ['-c', `docker logs ${container} 2>&1`], {
+        // ⚠️ cloudflared announces the hostname on stderr, and execFileSync
+        // returns stdout only, so both streams are read. Through spawnSync with
+        // an argument array — not `sh -c` — so a container name from the
+        // environment cannot smuggle a shell command onto the host.
+        const result = spawnSync('docker', ['logs', container], {
             encoding: 'utf8',
             stdio: ['ignore', 'pipe', 'pipe'],
             timeout: 30000,
         });
+        const logs = `${result.stdout || ''}${result.stderr || ''}`;
         const found = logs.match(/https:\/\/[a-z0-9-]+\.trycloudflare\.com/g);
 
         // The last one wins: a reconnect announces a new hostname and leaves the

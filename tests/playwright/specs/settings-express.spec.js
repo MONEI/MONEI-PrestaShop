@@ -32,7 +32,11 @@ test.describe('settings: express checkout', () => {
             .locator('select[name="MONEI_EXPRESS_METHODS[]"]')
             .selectOption(['applePay', 'paypal']);
         await form.locator('button[name="submitMoneiModuleExpress"]').click();
-        await page.waitForLoadState('networkidle');
+        // The back office keeps connections open, so networkidle never settles;
+        // the reloaded form is the signal that the save round-tripped.
+        await expect(page.locator('#module_form, form[name="module_form"]').first()).toBeAttached({
+            timeout: 60000,
+        });
 
         expect(getConfig('MONEI_EXPRESS_ENABLED')).toBe('1');
         expect(getConfig('MONEI_EXPRESS_LOCATIONS')).toBe('product,cart');
@@ -51,7 +55,11 @@ test.describe('settings: express checkout', () => {
 
         await form.locator('select[name="MONEI_CARD_LAYOUT"]').selectOption('single');
         await form.locator('button[name="submitMoneiModuleComponentStyle"]').click();
-        await page.waitForLoadState('networkidle');
+        // The back office keeps connections open, so networkidle never settles;
+        // the reloaded form is the signal that the save round-tripped.
+        await expect(page.locator('#module_form, form[name="module_form"]').first()).toBeAttached({
+            timeout: 60000,
+        });
 
         expect(getConfig('MONEI_CARD_LAYOUT'), 'a merchant must be able to revert').toBe('single');
 

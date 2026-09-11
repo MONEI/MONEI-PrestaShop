@@ -25,12 +25,19 @@ class Monei extends PaymentModule
      */
     private static $captureInProgress = false;
 
+    /**
+     * Express methods resolved for this request; see getExpressMethods().
+     *
+     * @var string[]|null
+     */
+    private $expressMethodsCache;
+
     protected $config_form = false;
     protected $paymentMethods;
     protected $moneiClient = false;
 
     const NAME = 'monei';
-    const VERSION = '2.0.18';
+    const VERSION = '2.1.0';
 
     private static $serviceContainer;
     private static $serviceList;
@@ -2320,18 +2327,36 @@ class Monei extends PaymentModule
             // and several of those bootstrap PrestaShop without the module's
             // service container, where getRepository() is null and this would be a
             // fatal in the middle of a merchant's order flow.
-            $amount = (int) Db::getInstance()->getValue(
-                'SELECT amount FROM ' . _DB_PREFIX_ . 'monei2_payment WHERE id_order = ' . (int) $order->id
+            //
+            // One specific row: the authorized, uncaptured one, newest first. An
+            // order can carry several payment rows after retries, and an
+            // unordered lookup could return a failed or already captured attempt.
+            // A row matched by cart with no order yet is the case where the
+            // merchant chose the Authorized status itself as a trigger: that
+            // transition fires inside validateOrder, before the payment is linked.
+            //
+            // No LIMIT: getRow appends one itself, and on 1.7 does so
+            // unconditionally, which turns an explicit one into a syntax error.
+            $row = Db::getInstance()->getRow(
+                'SELECT id_payment, amount FROM ' . _DB_PREFIX_ . 'monei2_payment'
+                . ' WHERE (id_order = ' . (int) $order->id
+                . ' OR (id_order = 0 AND id_cart = ' . (int) $order->id_cart . '))'
+                . ' AND status = "AUTHORIZED" AND is_captured = 0'
+                . ' ORDER BY date_add DESC, id_payment DESC'
             );
 
-            if ($amount <= 0) {
+            // Nothing authorized and uncaptured is not a failure: a later trigger
+            // status after a successful capture lands here, and must not write a
+            // false "capture failed" note on a healthy order.
+            if (!$row || (int) $row['amount'] <= 0) {
                 return;
             }
 
             // The authorized amount, not the order total. A merchant may have
             // edited the order since, and capturePayment rejects anything above
-            // what was authorized.
-            self::getService('service.monei')->capturePayment((int) $order->id, $amount);
+            // what was authorized. The row's own id goes with it, so the service
+            // captures this row and not whichever one it would find by order.
+            self::getService('service.monei')->capturePayment((int) $order->id, (int) $row['amount'], (string) $row['id_payment']);
 
             self::logDebug('[MONEI] Captured payment for order ' . (int) $order->id . ' on status change');
         } catch (Throwable $e) {
@@ -2398,6 +2423,12 @@ class Monei extends PaymentModule
             // already been collected.
             $this->context->smarty->assign([
                 'paymentMethodsToDisplay' => $paymentMethodsToDisplay,
+                // The current total, in minor units, rendered into the markup.
+                // onepagecheckoutps rebuilds this block over AJAX after a carrier,
+                // coupon or quantity change and re-inits the components from it,
+                // while the moneiAmount global still holds the page-load total.
+                // payment.js prefers this attribute when it is present.
+                'moneiAmount' => $moneiService->getCartAmount($cartSummaryDetails, $this->context->cart->id_currency),
                 'moneiAmountFormatted' => $this->context->getCurrentLocale()->formatPrice(
                     $moneiService->getCartAmount($cartSummaryDetails, $this->context->cart->id_currency, true),
                     $this->context->currency->iso_code
@@ -2590,6 +2621,14 @@ class Monei extends PaymentModule
      */
     public function getExpressMethods()
     {
+        // ⚠️ Memoised per request. getPaymentMethodsAllowed() calls the MONEI
+        // API, and this runs from both registerExpressAssets() and
+        // renderExpressContainer() — two blocking outbound requests on every
+        // product, cart and checkout page view once express is on.
+        if ($this->expressMethodsCache !== null) {
+            return $this->expressMethodsCache;
+        }
+
         $allowed = [];
         $flags = [
             'applePay' => 'MONEI_ALLOW_APPLE',
@@ -2611,7 +2650,7 @@ class Monei extends PaymentModule
             return [];
         }
 
-        return PsMonei\Service\Express\ExpressMethodResolver::resolve(
+        return $this->expressMethodsCache = PsMonei\Service\Express\ExpressMethodResolver::resolve(
             (string) Configuration::get('MONEI_EXPRESS_METHODS'),
             $allowed,
             is_array($offered) ? $offered : []
@@ -2667,7 +2706,9 @@ class Monei extends PaymentModule
                 'methods' => $this->getExpressMethods(),
                 'style' => json_decode(Configuration::get('MONEI_PAYMENT_REQUEST_STYLE')),
                 'paypalStyle' => json_decode(Configuration::get('MONEI_PAYPAL_STYLE')),
+                'paymentAction' => Configuration::get('MONEI_PAYMENT_ACTION', 'sale'),
                 'errorGeneric' => $this->l('The payment could not be completed. Please try again.'),
+                'errorTerms' => $this->l('Please accept the terms of service before paying.'),
             ],
         ]);
     }
@@ -2724,9 +2765,24 @@ class Monei extends PaymentModule
             return '';
         }
 
+        // ⚠️ Apple Pay and Google Pay share one slot. Both are served by the SDK's
+        // PaymentRequest component, which picks whichever wallet the browser
+        // offers and carries no option to constrain it — so a slot per method
+        // rendered the same wallet button twice. The result of a payment says
+        // which wallet was used; that is what reaches createOrder.
+        $slots = [];
+
+        foreach ($methods as $method) {
+            $slot = in_array($method, ['applePay', 'googlePay'], true) ? 'paymentRequest' : $method;
+
+            if (!in_array($slot, $slots, true)) {
+                $slots[] = $slot;
+            }
+        }
+
         $this->context->smarty->assign([
             'moneiExpressLocation' => $location,
-            'moneiExpressMethods' => $methods,
+            'moneiExpressMethods' => $slots,
             'moneiExpressProductId' => $product ? (int) $product['id_product'] : 0,
         ]);
 

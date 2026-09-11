@@ -22,7 +22,8 @@
     margin-bottom: 0.5rem;
 }
 
-.monei-express__button:last-of-type {
+/* The error region after the buttons is also a div, so :last-of-type never matched a button. */
+.monei-express__button:not(:has(~ .monei-express__button)) {
     margin-bottom: 0;
 }
 

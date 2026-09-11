@@ -33,6 +33,9 @@ test.describe('express checkout', () => {
     test.afterAll(() => {
         setConfig('MONEI_EXPRESS_ENABLED', '');
         setConfig('MONEI_EXPRESS_LOCATIONS', 'product,cart,checkout');
+        // Restored here, not inline after the assertion that disables it: a failed
+        // assertion would otherwise leave PayPal off for every later spec.
+        setConfig('MONEI_ALLOW_PAYPAL', '1');
     });
 
     test('renders on the product page and mounts a button', async ({ page }) => {
@@ -85,8 +88,6 @@ test.describe('express checkout', () => {
         await page.goto(PRODUCT, { waitUntil: 'domcontentloaded' });
 
         await expect(page.locator('[data-monei-express-method="paypal"]')).toHaveCount(0);
-
-        setConfig('MONEI_ALLOW_PAYPAL', '1');
     });
 
     test('reports a failure on the container the payment started from', async ({ page }) => {
@@ -113,11 +114,11 @@ test.describe('express checkout', () => {
         // express order in silence, leaving the shopper on a page that had already
         // taken their wallet approval.
         await page.evaluate(() => {
-            // Runs in the page, not in Node: re-arm the container and replay the
-            // event the client mounts on, so the routed failure is exercised.
-            const container = document.querySelector('[data-monei-express]');
-            container.dataset.moneiMounted = '';
-            document.dispatchEvent(new Event('DOMContentLoaded'));
+            // Runs in the page, not in Node. Announce a product change the way
+            // the theme does: the client then discards its memoised express cart
+            // and mounts again, which is the real path that reprices a button —
+            // and the one that now hits the routed failure.
+            window.prestashop.emit('updatedProduct', {});
         });
 
         await expect(page.locator('[data-monei-express-error]')).toHaveText(/declined/i, {

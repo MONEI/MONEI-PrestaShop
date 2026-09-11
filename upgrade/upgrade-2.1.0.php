@@ -28,8 +28,14 @@ function upgrade_module_2_1_0($module)
         ];
 
         foreach ($defaults as $key => $value) {
-            if (Configuration::get($key) === false) {
-                Configuration::updateValue($key, $value);
+            if (Configuration::get($key) !== false) {
+                continue;
+            }
+
+            if (!Configuration::updateValue($key, $value)) {
+                Monei::logError('[MONEI] Upgrade to 2.1.0 could not seed ' . $key);
+
+                return false;
             }
         }
 
@@ -40,8 +46,22 @@ function upgrade_module_2_1_0($module)
             'displayPaymentTop',
         ];
 
+        // ⚠️ Checked on every shop, not through Module::isRegisteredInHook(),
+        // which only looks at the context shop. registerHook() with no shop list
+        // registers everywhere, so one shop already carrying the hook would pass
+        // a single-shop check while another still lacked it.
+        $registeredOnEveryShop = static function (Monei $module, $hook) {
+            foreach (Shop::getShops(true, null, true) as $idShop) {
+                if (!Hook::isModuleRegisteredOnHook($module, $hook, (int) $idShop)) {
+                    return false;
+                }
+            }
+
+            return true;
+        };
+
         foreach ($hooks as $hook) {
-            if ($module->isRegisteredInHook($hook)) {
+            if ($registeredOnEveryShop($module, $hook)) {
                 continue;
             }
 
@@ -51,7 +71,7 @@ function upgrade_module_2_1_0($module)
             // false for a hook that is already attached, so trusting it aborts the
             // upgrade over a no-op and leaves the merchant on the old version with
             // the rest of this script unapplied.
-            if (!$module->isRegisteredInHook($hook)) {
+            if (!$registeredOnEveryShop($module, $hook)) {
                 Monei::logError('[MONEI] Upgrade to 2.1.0 could not register hook ' . $hook);
 
                 return false;

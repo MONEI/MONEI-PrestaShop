@@ -10,7 +10,8 @@
  * payment method.
  *}
 {foreach from=$paymentMethodsToDisplay item="paymentOptionName"}
-  <section class="js-payment-binary js-payment-monei js-payment-{$paymentOptionName|escape:'htmlall':'UTF-8'} mt-1 disabled">
+  <section class="js-payment-binary js-payment-monei js-payment-{$paymentOptionName|escape:'htmlall':'UTF-8'} mt-1 disabled"
+           data-monei-amount="{$moneiAmount|intval}">
     <div id="{$paymentOptionName|escape:'htmlall':'UTF-8'}-buttons-container">
       <form method="post">
         <input type="hidden" name="option" value="binary">

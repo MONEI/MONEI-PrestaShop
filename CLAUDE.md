@@ -22,19 +22,22 @@ cd build && yarn release
 
 ### Code Quality
 - PHP code style: Uses PHP-CS-Fixer with custom Symfony-based configuration (see `.php-cs-fixer.php`)
-- No JavaScript linting configured
-- No test suite implemented (PHPUnit configured but `/tests` directory is empty)
+- JavaScript: ESLint and Prettier, PHP: PHPUnit and a Playwright e2e suite — see
+  Code Quality Tooling below for the commands
 
 ### Dev Environment
 
 The Docker stack lives in its own repository:
 **https://github.com/MONEI/monei-prestashop-dev-env**. It runs PrestaShop behind a
 Cloudflare tunnel (3D Secure and webhooks both need a public HTTPS origin) and
-mounts this module into the container. Its init scripts carry two fixes worth
+mounts this module into the container. Its Dockerfile carries two fixes worth
 knowing about: PrestaShop builds `http://` links behind the tunnel unless
 `X-Forwarded-Proto` is mapped through, and the image's five php-fpm workers are
 not enough for order confirmation, which surfaces as a 502 on a payment that
-succeeded.
+succeeded. ⚠️ They are build steps, not init scripts: Flashlight now runs
+init scripts as `www-data`, which cannot write `/etc/nginx` — so bring the stack
+up with `docker compose up -d --build`, and if the back office refuses to log
+in over the tunnel, that is the first thing to check.
 
 ### Cache Clearing (PrestaShop Flashlight)
 When using PrestaShop Flashlight Docker environment, clear cache after module changes:
