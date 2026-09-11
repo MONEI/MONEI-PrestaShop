@@ -263,9 +263,9 @@ class Monei extends PaymentModule
         Configuration::updateValue('MONEI_CAPTURE_STATUS', '');
         // Styles
         Configuration::updateValue('MONEI_CARD_INPUT_STYLE', '{"base": {"height": "42px"}, "input": {"background": "none"}}');
-        Configuration::updateValue('MONEI_BIZUM_STYLE', '{"height": "48"}');
-        Configuration::updateValue('MONEI_PAYMENT_REQUEST_STYLE', '{"height": "48"}');
-        Configuration::updateValue('MONEI_PAYPAL_STYLE', '{"height": "48"}');
+        Configuration::updateValue('MONEI_BIZUM_STYLE', '{"height": "48px"}');
+        Configuration::updateValue('MONEI_PAYMENT_REQUEST_STYLE', '{"height": "48px"}');
+        Configuration::updateValue('MONEI_PAYPAL_STYLE', '{"height": "48px"}');
 
         include dirname(__FILE__) . '/sql/install.php';
 
@@ -1279,9 +1279,9 @@ class Monei extends PaymentModule
         return [
             'MONEI_CARD_LAYOUT' => Configuration::get('MONEI_CARD_LAYOUT', 'single'),
             'MONEI_CARD_INPUT_STYLE' => Configuration::get('MONEI_CARD_INPUT_STYLE', '{"base": {"height": "42px"}, "input": {"background": "none"}}'),
-            'MONEI_BIZUM_STYLE' => Configuration::get('MONEI_BIZUM_STYLE', '{"height": "48"}'),
-            'MONEI_PAYMENT_REQUEST_STYLE' => Configuration::get('MONEI_PAYMENT_REQUEST_STYLE', '{"height": "48"}'),
-            'MONEI_PAYPAL_STYLE' => Configuration::get('MONEI_PAYPAL_STYLE', '{"height": "48"}'),
+            'MONEI_BIZUM_STYLE' => Configuration::get('MONEI_BIZUM_STYLE', '{"height": "48px"}'),
+            'MONEI_PAYMENT_REQUEST_STYLE' => Configuration::get('MONEI_PAYMENT_REQUEST_STYLE', '{"height": "48px"}'),
+            'MONEI_PAYPAL_STYLE' => Configuration::get('MONEI_PAYPAL_STYLE', '{"height": "48px"}'),
         ];
     }
 
@@ -2477,7 +2477,7 @@ class Monei extends PaymentModule
                 'moneiCardInputStyle' => json_decode(Configuration::get('MONEI_CARD_INPUT_STYLE')),
                 'moneiBizumStyle' => json_decode(Configuration::get('MONEI_BIZUM_STYLE')),
                 'moneiPaymentRequestStyle' => json_decode(Configuration::get('MONEI_PAYMENT_REQUEST_STYLE')),
-                'moneiPayPalStyle' => json_decode(Configuration::get('MONEI_PAYPAL_STYLE')) ?: json_decode('{"height":"42"}'),
+                'moneiPayPalStyle' => json_decode(Configuration::get('MONEI_PAYPAL_STYLE')) ?: json_decode('{"height":"48px"}'),
                 'moneiErrorTitle' => $this->l('Payment Error'),
                 'moneiPaymentCreationFailed' => $this->l('Payment creation failed'),
                 'moneiPaymentProcessed' => $this->l('Payment processed'),
