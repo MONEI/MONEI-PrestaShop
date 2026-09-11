@@ -2,9 +2,19 @@ section.checkout-step .payment-options > div {
     margin-bottom: 1.25rem;
 }
 
+/*
+ * ⚠️ Anchored on the step's id, which both themes render, not on a class.
+ * classic wraps the step in section.checkout-step; hummingbird in section.step,
+ * so a class-scoped rule left the logos unsized there — Bizum and PayPal came
+ * out at their intrinsic size, each different. The margin is symmetric because
+ * classic puts the logo after the label text and hummingbird before it.
+ */
+#checkout-payment-step .payment-option img,
 section.checkout-step .payment-option img {
     height: 1.25rem;
-    margin-left: 0.5rem;
+    width: auto;
+    margin: 0 0.5rem;
+    vertical-align: middle;
 }
 
 section.checkout-step .payment-option label {
