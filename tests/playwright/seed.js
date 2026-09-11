@@ -233,6 +233,13 @@ const main = () => {
     const france = ensureShippableCountry('FR');
     process.stdout.write(`FR enabled (zone ${france.zone}), carriers: ${france.carriers}\n`);
 
+    // The United States is the control case for state resolution: it is the
+    // country with states that a wallet is likeliest to send, and its first state
+    // alphabetically is "AA", Armed Forces Americas — which is what every US
+    // express order used to be assigned to.
+    const usa = ensureShippableCountry('US');
+    process.stdout.write(`US enabled (zone ${usa.zone}), carriers: ${usa.carriers}\n`);
+
     // Make Spain the store default so the guest address form renders Spanish
     // fields on first paint. Changing the country in the form re-renders it over
     // AJAX to pick up country specific fields, and racing that re-render is a

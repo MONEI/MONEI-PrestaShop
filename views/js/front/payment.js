@@ -403,7 +403,7 @@ function initMoneiBizum() {
         .Bizum({
             accountId: moneiAccountId,
             // Required from monei.js v3 onward, as for CardInput.
-            amount: moneiAmount,
+            amount: moneiCurrentAmount(),
             currency: moneiCurrency,
             style: moneiBizumStyle || {},
             onBeforeOpen() {
@@ -433,6 +433,23 @@ function initMoneiBizum() {
         .render(moneiBizumRenderContainer);
 }
 
+/**
+ * The amount to initialise a component with, in minor units.
+ *
+ * ⚠️ Read from the rendered payment section when it carries one, and only then
+ * from the page-load global. onepagecheckoutps rebuilds the payment list over
+ * AJAX after a carrier, coupon or quantity change and calls the init functions
+ * again — the global still holds the total from page load, while the server
+ * creates the payment from the current cart. A component initialised from the
+ * stale global shows one amount and confirms another.
+ */
+const moneiCurrentAmount = () => {
+    const section = document.querySelector('.js-payment-monei[data-monei-amount]');
+    const fromMarkup = section ? parseInt(section.dataset.moneiAmount, 10) : NaN;
+
+    return Number.isFinite(fromMarkup) && fromMarkup > 0 ? fromMarkup : moneiAmount;
+};
+
 /* -------------------------------------------------------------------- card */
 
 function initMoneiCard() {
@@ -452,16 +469,33 @@ function initMoneiCard() {
     const moneiCardLayoutInUse =
         typeof moneiCardLayout !== 'undefined' && moneiCardLayout === 'single' ? 'single' : 'split';
 
-    // The container the template rendered decides what can mount. Falling back to
-    // whichever exists keeps a stale template from silently producing no field.
+    // The container the template rendered decides what can mount, and the layout
+    // follows it: a cached template from before split fields existed renders only
+    // the single container, and honouring the setting over the markup would show
+    // no card field and no error. Whichever container exists wins.
+    const moneiCardSplitContainer = document.getElementById('monei-card-number');
+    const moneiCardSingleContainer = document.getElementById('monei-card_container');
     const moneiCardRenderContainer =
         moneiCardLayoutInUse === 'split'
-            ? document.getElementById('monei-card-number')
-            : document.getElementById('monei-card_container');
+            ? moneiCardSplitContainer || moneiCardSingleContainer
+            : moneiCardSingleContainer || moneiCardSplitContainer;
     if (!moneiCardRenderContainer) return;
+    const moneiCardLayoutMounted =
+        moneiCardRenderContainer === moneiCardSplitContainer ? 'split' : 'single';
 
     const moneiCardHolderName = document.getElementById('monei-card-holder-name');
     const moneiCardErrors = document.getElementById('monei-card-errors');
+    // Both are dereferenced later, after the component has mounted. Missing
+    // either would leave a working card field with a Pay button that does
+    // nothing, which is worse than no field at all.
+    if (!moneiCardHolderName || !moneiCardErrors) {
+        moneiLog(
+            'error',
+            'CardInput',
+            'Card template is missing the holder name or errors element'
+        );
+        return;
+    }
 
     moneiAddChangeEventToCheckboxes(moneiConfirmationButton);
     moneiValidConditions()
@@ -492,7 +526,7 @@ function initMoneiCard() {
 
     let moneiCardInput;
 
-    if (moneiCardLayoutInUse === 'split') {
+    if (moneiCardLayoutMounted === 'split') {
         // One CardGroup carries the payment details; the three parts are
         // presentation only.
         //
@@ -500,7 +534,7 @@ function initMoneiCard() {
         // either, and the whole card field then fails to mount.
         const moneiCardGroup = monei.CardGroup({
             accountId: moneiAccountId,
-            amount: moneiAmount,
+            amount: moneiCurrentAmount(),
             currency: moneiCurrency,
             language: prestashop.language.iso_code,
             style: moneiCardStyle,
@@ -530,7 +564,7 @@ function initMoneiCard() {
             // ⚠️ Required from monei.js v3 onward. v2 accepted an accountId alone;
             // v3 throws "You need to provide paymentId or accountId amount and
             // currency" and renders no iframe, so the checkout shows no card field.
-            amount: moneiAmount,
+            amount: moneiCurrentAmount(),
             currency: moneiCurrency,
             onFocus: () => {
                 moneiCardRenderContainer.classList.add('is-focused');
@@ -619,7 +653,7 @@ function initMoneiGooglePay() {
         .PaymentRequest({
             accountId: moneiAccountId,
             style: moneiPaymentRequestStyle || {},
-            amount: moneiAmount,
+            amount: moneiCurrentAmount(),
             currency: moneiCurrency,
             onBeforeOpen: moneiValidConditions,
             onSubmit(result) {
@@ -673,7 +707,7 @@ function initMoneiApplePay() {
         .PaymentRequest({
             accountId: moneiAccountId,
             style: moneiPaymentRequestStyle || {},
-            amount: moneiAmount,
+            amount: moneiCurrentAmount(),
             currency: moneiCurrency,
             onBeforeOpen: moneiValidConditions,
             onSubmit(result) {
@@ -708,7 +742,7 @@ function initMoneiPayPal() {
         accountId: moneiAccountId,
         language: prestashop.language.iso_code,
         style: moneiPayPalStyle || {},
-        amount: moneiAmount,
+        amount: moneiCurrentAmount(),
         currency: moneiCurrency,
         transactionType: moneiPaymentAction === 'auth' ? 'AUTH' : 'SALE',
         onLoad() {

@@ -53,29 +53,37 @@ test.describe('express checkout: countries needing an identification number', ()
         return config;
     };
 
-    const ADDRESS = {
-        firstName: 'Ada',
-        lastName: 'Lovelace',
-        address1: 'Calle Mayor 1',
-        city: 'Madrid',
-        postalCode: '28013',
+    // The shape monei.js v3 emits on submit: the address nested under `address`.
+    const DETAILS = {
+        name: 'Ada Lovelace',
         phone: '600000000',
+        address: { line1: 'Calle Mayor 1', city: 'Madrid', zip: '28013' },
     };
 
     test('refuses a Spanish address with a message the shopper can act on', async ({ page }) => {
         const { endpoint, token } = await expressConfig(page);
 
-        await page.request.post(endpoint, {
-            data: { action: 'addToCart', token, productId: 1, productAttributeId: 1, quantity: 1 },
-        });
+        const cart = await (
+            await page.request.post(endpoint, {
+                data: {
+                    action: 'addToCart',
+                    token,
+                    productId: 1,
+                    productAttributeId: 1,
+                    quantity: 1,
+                },
+            })
+        ).json();
 
         const response = await page.request.post(endpoint, {
             data: {
                 action: 'createOrder',
                 token,
                 paymentMethod: 'paypal',
+                // The express cart is adopted only at createOrder, never at mount.
+                expressCartId: cart.expressCartId,
                 email: 'express-country-guard@example.com',
-                shippingAddress: { ...ADDRESS, countryCode: 'ES' },
+                shippingDetails: { ...DETAILS, address: { ...DETAILS.address, country: 'ES' } },
             },
         });
 
@@ -96,22 +104,33 @@ test.describe('express checkout: countries needing an identification number', ()
     }) => {
         const { endpoint, token } = await expressConfig(page);
 
-        await page.request.post(endpoint, {
-            data: { action: 'addToCart', token, productId: 1, productAttributeId: 1, quantity: 1 },
-        });
+        const cart = await (
+            await page.request.post(endpoint, {
+                data: {
+                    action: 'addToCart',
+                    token,
+                    productId: 1,
+                    productAttributeId: 1,
+                    quantity: 1,
+                },
+            })
+        ).json();
 
         const response = await page.request.post(endpoint, {
             data: {
                 action: 'createOrder',
                 token,
                 paymentMethod: 'paypal',
+                expressCartId: cart.expressCartId,
                 email: 'express-country-ok@example.com',
-                shippingAddress: {
-                    ...ADDRESS,
-                    address1: '1 Rue de Rivoli',
-                    city: 'Paris',
-                    postalCode: '75001',
-                    countryCode: 'FR',
+                shippingDetails: {
+                    ...DETAILS,
+                    address: {
+                        line1: '1 Rue de Rivoli',
+                        city: 'Paris',
+                        zip: '75001',
+                        country: 'FR',
+                    },
                 },
             },
         });

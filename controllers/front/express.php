@@ -68,6 +68,15 @@ class MoneiExpressModuleFrontController extends ModuleFrontController
                     $this->respond($this->actionUpdateShippingMethod());
 
                     break;
+                case 'restoreCart':
+                    // The client calls this when a failure lands after createOrder
+                    // has already adopted the express cart — confirmPayment being
+                    // rejected, for one. The server saw no failure, so nothing
+                    // else would return the shopper to their own basket.
+                    $this->cartService()->restore($this->context);
+                    $this->respond([]);
+
+                    break;
                 case 'createOrder':
                     $this->respond($this->actionCreateOrder());
 
@@ -75,12 +84,24 @@ class MoneiExpressModuleFrontController extends ModuleFrontController
                 default:
                     $this->fail('unknown_action', 'Unknown express action: ' . $action, 400);
             }
-        } catch (Exception $e) {
+        } catch (Throwable $e) {
             // Never leave the shopper's cart borrowed by a failed express payment.
+            // Throwable, not Exception: a TypeError from a typed service must
+            // reach here too, or the cart stays borrowed and the browser gets an
+            // HTML error page instead of the JSON this endpoint promises.
             $this->cartService()->restore($this->context);
 
             Monei::logError('[MONEI] Express ' . $action . ' failed: ' . $e->getMessage());
-            $this->fail('express_failed', $e->getMessage(), 400);
+
+            // Only the messages this controller wrote for the shopper go back to
+            // the browser. Anything else — a core exception, an SQL error, a
+            // type error — carries internal detail and gets the generic text.
+            $shopperFacing = $e instanceof PrestaShopException;
+            $this->fail(
+                'express_failed',
+                $shopperFacing ? $e->getMessage() : $this->module->l('The payment could not be completed. Please try again.', 'express'),
+                400
+            );
         }
     }
 
@@ -162,9 +183,20 @@ class MoneiExpressModuleFrontController extends ModuleFrontController
         $attributeId = (int) $this->value('productAttributeId');
         $quantity = max(1, (int) $this->value('quantity', 1));
 
-        $this->cartService()->start($this->context, $productId, $attributeId, $quantity);
+        // A stale express cart for the same container is replaced, not left
+        // behind: the shopper changing quantity or combination would otherwise
+        // litter one abandoned cart per change.
+        $replaces = (int) $this->value('replacesCartId');
 
-        return $this->cartPayload();
+        if ($replaces) {
+            $this->cartService()->discard($this->context, $replaces);
+        }
+
+        // Created but NOT adopted. The session keeps the shopper's own basket
+        // until the wallet approves; see ExpressCartService.
+        $cart = $this->cartService()->create($this->context, $productId, $attributeId, $quantity);
+
+        return ['expressCartId' => (int) $cart->id] + $this->cartPayload($cart);
     }
 
     /**
@@ -212,6 +244,28 @@ class MoneiExpressModuleFrontController extends ModuleFrontController
     private function actionCreateOrder()
     {
         $method = (string) $this->value('paymentMethod');
+
+        // ⚠️ Browser supplied. The resolver only decides which buttons render; it
+        // does not guard this endpoint, so without this a visitor could pay by a
+        // method the merchant disabled, or one excluded from express.
+        if (!in_array($method, $this->module->getExpressMethods(), true)) {
+            throw new PrestaShopException($this->module->l('This payment method is not available.', 'express'));
+        }
+
+        // The normal payment hooks hide MONEI for a currency the merchant turned
+        // off; this endpoint has to honour the same restriction.
+        if (!$this->module->isMoneiAvailable($this->context->cart)) {
+            throw new PrestaShopException($this->module->l('This payment method is not available.', 'express'));
+        }
+
+        // Product page express pays for a cart of its own. It becomes the session
+        // cart only now, once the wallet has approved — never at mount.
+        $expressCartId = (int) $this->value('expressCartId');
+
+        if ($expressCartId) {
+            $this->cartService()->adopt($this->context, $expressCartId);
+        }
+
         $address = $this->applyAddressFromInput();
 
         // ⚠️ The amount charged is always the one computed from the cart here. The
@@ -225,6 +279,15 @@ class MoneiExpressModuleFrontController extends ModuleFrontController
         // the sheet. monei.js v3 exposes shipping-change callbacks that would let
         // the sheet reprice; they are not wired yet.
         $this->selectCheapestCarrier();
+
+        // A physical cart with no carrier serving the wallet's address would be
+        // charged with no delivery option at all, and the order could not be
+        // built afterwards. Refuse before any money moves.
+        if (!$this->context->cart->isVirtualCart() && !(int) $this->context->cart->id_carrier) {
+            throw new PrestaShopException(
+                $this->module->l('No shipping method is available for this address. Please continue with the standard checkout.', 'express')
+            );
+        }
 
         $payment = Monei::getService('service.monei')->createMoneiPayment(
             $this->context->cart,
@@ -326,20 +389,136 @@ class MoneiExpressModuleFrontController extends ModuleFrontController
         );
     }
 
+    /**
+     * Refuse an address whose state the shop cannot match.
+     *
+     * ExpressOrderBuilder refuses too; this gives the shopper a translated reason.
+     * The alternative — assigning some state — is what this used to do, and it
+     * stored every US express order in the first state alphabetically, which in
+     * PrestaShop's data is "AA", Armed Forces Americas.
+     *
+     * @param array $normalized Output of ExpressAddressNormalizer::normalize()
+     *
+     * @throws PrestaShopException when a required state cannot be resolved
+     */
+    private function assertStateIsResolvable(array $normalized)
+    {
+        $countryId = (int) Country::getByIso($normalized['countryIso']);
+
+        if (!$countryId || !Country::containsStates($countryId)) {
+            return;
+        }
+
+        if (ExpressOrderBuilder::resolveState($countryId, (string) ($normalized['state'] ?? ''))) {
+            return;
+        }
+
+        throw new PrestaShopException(
+            $this->module->l('The delivery address is missing a state or region this store recognises. Please continue with the standard checkout.', 'express')
+        );
+    }
+
+    /**
+     * Refuse an address with no postcode.
+     *
+     * The normaliser fills other missing parts with a visible placeholder so an
+     * approved payment is not lost to validation, but a postcode is what a carrier
+     * delivers to. PayPal's documented partial address omits it; that shopper is
+     * better served by the standard checkout than by an undeliverable order.
+     *
+     * @param array $normalized Output of ExpressAddressNormalizer::normalize()
+     *
+     * @throws PrestaShopException when the postcode is missing
+     */
+    private function assertPostcodeIsPresent(array $normalized)
+    {
+        $countryId = (int) Country::getByIso($normalized['countryIso']);
+
+        if ($countryId && !(new Country($countryId))->need_zip_code) {
+            return;
+        }
+
+        if (trim((string) $normalized['postcode']) !== '') {
+            return;
+        }
+
+        throw new PrestaShopException(
+            $this->module->l('The delivery address is missing a postcode. Please continue with the standard checkout.', 'express')
+        );
+    }
+
+    /**
+     * Refuse an anonymous express order for an email that belongs to an account.
+     *
+     * ⚠️ The email is wallet supplied, so browser controlled. ExpressOrderBuilder
+     * refuses to reuse a registered customer for exactly that reason; this gives
+     * the shopper a translated explanation instead of the builder's exception.
+     * A customer who is actually signed in never reaches here — ensureCustomer
+     * returns the session's own account first.
+     *
+     * @param string $email Email from the wallet payload
+     *
+     * @throws PrestaShopException when a registered account owns the email
+     */
+    private function assertEmailIsNotARegisteredAccount($email)
+    {
+        if (Validate::isLoadedObject($this->context->customer)
+            && $this->context->customer->id
+            && !$this->context->customer->is_guest) {
+            return;
+        }
+
+        if (!ExpressOrderBuilder::registeredCustomerExists((string) $email)) {
+            return;
+        }
+
+        throw new PrestaShopException(
+            $this->module->l('An account already exists for this email address. Please sign in first, or continue with the standard checkout.', 'express')
+        );
+    }
+
     private function applyAddressFromInput()
     {
-        $payload = (array) $this->value('shippingAddress', []);
+        // shippingDetails / billingDetails are monei.js v3's own shapes, passed
+        // through by express.js. shippingAddress is what a cached copy of the
+        // previous client still sends.
+        $shippingPayload = (array) $this->value('shippingDetails', $this->value('shippingAddress', []));
+        $billingPayload = (array) $this->value('billingDetails', []);
         $email = (string) $this->value('email');
+        $builder = new ExpressOrderBuilder();
 
-        if (!$payload && !$email) {
+        // A signed-in customer already has an email and an address on file. Some
+        // wallets return neither for them — a virtual cart asks for no shipping
+        // and no payer email — and that must not read as a missing wallet email.
+        $signedIn = Validate::isLoadedObject($this->context->customer)
+            && $this->context->customer->id
+            && !$this->context->customer->is_guest;
+
+        if ($signedIn && $email === '') {
+            $email = (string) $this->context->customer->email;
+        }
+
+        // A virtual cart needs no delivery address at all. Normalising an empty
+        // payload here produced an empty country and a refusal after approval.
+        if ($this->context->cart->isVirtualCart()) {
+            if (!$signedIn) {
+                $this->assertEmailIsNotARegisteredAccount($email);
+                $builder->ensureCustomer($this->context, $email, ExpressAddressNormalizer::PLACEHOLDER, ExpressAddressNormalizer::PLACEHOLDER);
+            }
+
+            return ['incomplete' => false];
+        }
+
+        if (!$shippingPayload && !$email) {
             return ['incomplete' => true];
         }
 
-        $normalized = ExpressAddressNormalizer::normalize($payload);
+        $normalized = ExpressAddressNormalizer::normalize($shippingPayload);
 
         $this->assertCountryIsExpressable($normalized['countryIso']);
-
-        $builder = new ExpressOrderBuilder();
+        $this->assertStateIsResolvable($normalized);
+        $this->assertPostcodeIsPresent($normalized);
+        $this->assertEmailIsNotARegisteredAccount($email);
 
         $customer = $builder->ensureCustomer(
             $this->context,
@@ -348,7 +527,19 @@ class MoneiExpressModuleFrontController extends ModuleFrontController
             $normalized['lastName']
         );
 
-        $builder->applyAddress($this->context, $this->context->cart, $customer, $normalized);
+        $delivery = $builder->applyAddress($this->context, $this->context->cart, $customer, $normalized);
+
+        // A wallet may return a billing address that differs from the delivery
+        // one. It used to be discarded, so the invoice carried the delivery
+        // address. Only a complete one is stored; a partial billing address is
+        // not worth failing an approved payment over.
+        if ($billingPayload) {
+            $billing = ExpressAddressNormalizer::normalize($billingPayload);
+
+            if (!$billing['incomplete'] && $billing['countryIso'] !== '' && $billing != $normalized) {
+                $builder->applyBillingAddress($this->context, $this->context->cart, $customer, $billing, $delivery);
+            }
+        }
 
         return $normalized;
     }
@@ -356,9 +547,9 @@ class MoneiExpressModuleFrontController extends ModuleFrontController
     /**
      * Amount, currency, whether shipping applies, and the line item breakdown.
      */
-    private function cartPayload()
+    private function cartPayload(?Cart $cart = null)
     {
-        $cart = $this->context->cart;
+        $cart = $cart ?: $this->context->cart;
         $summary = $cart->getSummaryDetails(null, true);
         $currency = $this->context->currency->iso_code;
 
@@ -381,7 +572,7 @@ class MoneiExpressModuleFrontController extends ModuleFrontController
         }
 
         return [
-            'amount' => $this->cartAmount(),
+            'amount' => $this->cartAmount($cart),
             'currency' => $currency,
             'shippingRequired' => !$cart->isVirtualCart(),
             'items' => $items,
@@ -389,7 +580,7 @@ class MoneiExpressModuleFrontController extends ModuleFrontController
     }
 
     /**
-     * @return array<int, array{id: int, label: string, amount: int}>
+     * @return array<int, array{id: int, key: string, label: string, amount: int}>
      */
     private function shippingOptions()
     {
@@ -416,11 +607,13 @@ class MoneiExpressModuleFrontController extends ModuleFrontController
         return $options;
     }
 
-    private function cartAmount()
+    private function cartAmount(?Cart $cart = null)
     {
+        $cart = $cart ?: $this->context->cart;
+
         return Monei::getService('service.monei')->getCartAmount(
-            $this->context->cart->getSummaryDetails(null, true),
-            (int) $this->context->cart->id_currency
+            $cart->getSummaryDetails(null, true),
+            (int) $cart->id_currency
         );
     }
 

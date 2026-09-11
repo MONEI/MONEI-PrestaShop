@@ -33,16 +33,30 @@ class ExpressAddressNormalizer
      *
      * @param array $payload Wallet supplied address
      *
-     * @return array{firstName: string, lastName: string, address1: string, city: string, postcode: string, countryIso: string, phone: string, incomplete: bool}
+     * @return array{firstName: string, lastName: string, address1: string, address2: string, city: string, postcode: string, countryIso: string, state: string, phone: string, email: string, incomplete: bool}
      */
     public static function normalize(array $payload): array
     {
+        // ⚠️ monei.js v3 hands the wallet's contact over as BillingDetails:
+        // name, email and phone at the top, the address nested one level down.
+        // The first version of this read the address off the top level and got
+        // nothing — every real wallet payment for a physical cart then failed
+        // after the shopper had approved it. Flatten, so both shapes are read.
+        if (isset($payload['address']) && is_array($payload['address'])) {
+            $payload = $payload['address'] + $payload;
+        }
+
         $name = self::splitName((string) self::pick($payload, ['name', 'fullName']));
 
         $address1 = self::text($payload, ['address1', 'addressLine1', 'line1', 'street']);
+        $address2 = self::text($payload, ['address2', 'addressLine2', 'line2']);
         $city = self::text($payload, ['city', 'locality']);
         $postcode = self::text($payload, ['zip', 'postalCode', 'postcode']);
         $countryIso = strtoupper(self::text($payload, ['country', 'countryCode']));
+        // Apple Pay and Google Pay call it administrativeArea; PayPal admin_area_1
+        // or state. Carried through as given — resolving it against PrestaShop's
+        // state table is the order builder's job, because that needs the country.
+        $state = self::text($payload, ['state', 'region', 'administrativeArea', 'admin_area_1', 'province']);
 
         // Only the parts PrestaShop requires count towards "incomplete". A missing
         // phone number is normal and must not flag the address.
@@ -52,9 +66,12 @@ class ExpressAddressNormalizer
             'firstName' => $name[0] !== '' ? $name[0] : self::PLACEHOLDER,
             'lastName' => $name[1] !== '' ? $name[1] : self::PLACEHOLDER,
             'address1' => $address1 !== '' ? $address1 : self::PLACEHOLDER,
+            'address2' => $address2,
             'city' => $city !== '' ? $city : self::PLACEHOLDER,
             'postcode' => $postcode,
+            'email' => self::text($payload, ['email']),
             'countryIso' => $countryIso,
+            'state' => $state,
             'phone' => self::text($payload, ['phone', 'phoneNumber']),
             'incomplete' => $incomplete,
         ];

@@ -801,9 +801,14 @@ class MoneiService
         $this->saveMoneiPayment($moneiPayment, $orderId, $employeeId);
     }
 
-    public function capturePayment(int $orderId, int $amount)
+    public function capturePayment(int $orderId, int $amount, ?string $paymentId = null)
     {
-        $moneiPayment = Monei2Payment::findOneBy(['id_order' => $orderId]);
+        // A caller that already chose a row passes its id, so the row captured is
+        // the row it examined. Looking up by order alone is unordered and can
+        // land on another attempt when an order carries several.
+        $moneiPayment = $paymentId !== null
+            ? Monei2Payment::findOneBy(['id_payment' => $paymentId])
+            : Monei2Payment::findOneBy(['id_order' => $orderId]);
         if (!$moneiPayment) {
             throw new MoneiException('Payment record not found for order', MoneiException::ORDER_NOT_FOUND);
         }

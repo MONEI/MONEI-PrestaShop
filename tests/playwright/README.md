@@ -49,11 +49,12 @@ must be able to reach the store to do it. A localhost store satisfies neither
 half, so the challenge never renders and the spec waits for an order confirmation
 that can never arrive.
 
-This is why the Flashlight compose file ships an ngrok service. Start it, then
-point the suite at the tunnel:
+This is why the stack fronts the store with a tunnel — see the next section.
+The seed reads the tunnel's hostname from the container log and points the
+store at it, so normally nothing needs setting. To target a store elsewhere:
 
 ```bash
-MONEI_E2E_BASE_URL=https://your-tunnel.ngrok-free.dev npm run test:e2e
+MONEI_E2E_BASE_URL=https://your-host.trycloudflare.com npm run test:e2e
 ```
 
 Specs that need 3DS skip with a reason when the base URL is not HTTPS, rather

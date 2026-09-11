@@ -105,16 +105,42 @@
      * @param {HTMLElement} container Express container
      * @return {Promise<Object>} Cart details
      */
-    const prepareCart = async (container) => {
+    /**
+     * Price what the button will charge for.
+     *
+     * On a product page this creates an express cart, because only a real cart can
+     * price shipping and the wallet sheet must show the exact total. It does NOT
+     * become the session cart: that happens in completePayment, once the wallet
+     * has approved. Viewing a product page therefore never touches the shopper's
+     * own basket.
+     *
+     * One cart per container, shared by every method slot in it. The request is
+     * memoised so three buttons do not create three carts.
+     *
+     * @param {HTMLElement} container Express container
+     * @return {Promise<object>} Cart payload from the server
+     */
+    const prepareCart = (container) => {
         if (container.dataset.location !== 'product') {
             return request('getCartDetails');
         }
 
-        return request('addToCart', {
-            productId: parseInt(container.dataset.productId || '0', 10) || 0,
-            productAttributeId: selectedCombination(),
-            quantity: selectedQuantity(),
-        });
+        if (!container.moneiCartPromise) {
+            container.moneiCartPromise = request('addToCart', {
+                productId: parseInt(container.dataset.productId || '0', 10) || 0,
+                productAttributeId: selectedCombination(),
+                quantity: selectedQuantity(),
+                // A previous cart for this container is deleted server side, so
+                // changing quantity does not leave one abandoned cart per change.
+                replacesCartId: parseInt(container.dataset.expressCartId || '0', 10) || 0,
+            }).then((cart) => {
+                container.dataset.expressCartId = String(cart.expressCartId || '');
+
+                return cart;
+            });
+        }
+
+        return container.moneiCartPromise;
     };
 
     /**
@@ -125,10 +151,27 @@
      * @param {string}      method    Express method that started this
      */
     const completePayment = async (container, result, method) => {
+        // ⚠️ monei.js v3 reports the contact as billingDetails / shippingDetails,
+        // each { name, email, phone, address: { line1, line2, city, zip, state,
+        // country } }, and paymentMethod is the wallet that was used — a string.
+        // The first version of this read result.shippingAddress and
+        // result.paymentMethod.email, neither of which exists, so every real
+        // wallet payment for a physical cart failed after approval. Pass the
+        // SDK's own shapes through; the server normalises them.
+        const shipping = result.shippingDetails || null;
+        const billing = result.billingDetails || null;
+
         const order = await request('createOrder', {
-            paymentMethod: method,
-            email: result.paymentMethod && result.paymentMethod.email,
-            shippingAddress: result.shippingAddress || result.billingAddress || {},
+            // A PaymentRequest slot serves Apple Pay and Google Pay alike; the
+            // result says which one the shopper actually used.
+            paymentMethod: result.paymentMethod || method,
+            email: (shipping && shipping.email) || (billing && billing.email) || '',
+            shippingDetails: shipping || billing || {},
+            billingDetails: billing || {},
+            // Present only for product page express. The server adopts this cart
+            // as the session cart now — the first moment the shopper's own basket
+            // is set aside — and restores the basket if anything fails after.
+            expressCartId: parseInt(container.dataset.expressCartId || '0', 10) || 0,
         });
 
         const confirmed = await monei.confirmPayment({
@@ -152,9 +195,35 @@
      * @param {string}      method    Express method
      * @return {Object} Component callbacks
      */
+    /**
+     * Whether every required checkbox under the checkout's terms block is ticked.
+     *
+     * The ordinary MONEI components gate on this; the express buttons at the
+     * checkout location have to as well, or a wallet can complete a payment
+     * with the terms unaccepted. Elsewhere there is no such block and this is
+     * trivially true.
+     */
+    const conditionsAccepted = () => {
+        const block = document.getElementById('conditions-to-approve');
+
+        if (!block) {
+            return true;
+        }
+
+        return Array.from(block.querySelectorAll('input[type="checkbox"][required]')).every(
+            (box) => box.checked
+        );
+    };
+
     const handlers = (container, method) => ({
         onBeforeOpen: () => {
             clearError(container);
+
+            if (container.dataset.location === 'checkout' && !conditionsAccepted()) {
+                showError(container, moneiExpress.errorTerms);
+
+                return false;
+            }
 
             return true;
         },
@@ -170,6 +239,11 @@
                 // approving and the shopper being redirected lands here, and has
                 // to become something visible on this container.
                 showError(container, error.message);
+
+                // createOrder may already have adopted the express cart before
+                // confirmPayment was rejected. The server saw no failure, so it
+                // is asked to put the shopper's own basket back.
+                request('restoreCart').catch(() => {});
             }
         },
         onError: (error) => {
@@ -213,6 +287,10 @@
             monei
                 .PayPal({
                     ...common,
+                    // Without this PayPal opens with its default SALE intent while
+                    // the server creates an AUTH payment when pre-authorisation
+                    // is configured, and the two disagree at confirmation.
+                    transactionType: moneiExpress.paymentAction === 'auth' ? 'AUTH' : 'SALE',
                     style: moneiExpress.paypalStyle || {},
                 })
                 .render(slot);
@@ -248,9 +326,57 @@
         });
     };
 
+    /**
+     * Rebuild the product page buttons after a quantity or combination change.
+     *
+     * The wallet sheet's amount is fixed when a button mounts, so a shopper who
+     * changes the quantity after the page loads would otherwise approve the old
+     * total. PrestaShop announces the change on its event bus; each container is
+     * emptied and mounted again, which prices a fresh express cart.
+     */
+    const remountProductButtons = () => {
+        document
+            .querySelectorAll('[data-monei-express][data-location="product"]')
+            .forEach((container) => {
+                delete container.moneiCartPromise;
+                container.dataset.moneiMounted = '';
+
+                container.querySelectorAll('[data-monei-express-method]').forEach((slot) => {
+                    slot.innerHTML = '';
+                });
+            });
+
+        init();
+    };
+
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', init);
     } else {
         init();
+    }
+
+    /**
+     * Rebuild the cart page buttons after an AJAX cart change.
+     *
+     * The theme re-renders the cart block, including the express container,
+     * without a page load. The new container has no mounted buttons, and if the
+     * theme keeps the old one its amount is stale. Either way, mount again.
+     */
+    const remountCartButtons = () => {
+        document
+            .querySelectorAll('[data-monei-express][data-location="cart"]')
+            .forEach((container) => {
+                container.dataset.moneiMounted = '';
+                container.querySelectorAll('[data-monei-express-method]').forEach((slot) => {
+                    slot.innerHTML = '';
+                });
+            });
+
+        init();
+    };
+
+    if (typeof prestashop !== 'undefined' && typeof prestashop.on === 'function') {
+        prestashop.on('updatedProduct', remountProductButtons);
+        prestashop.on('updatedCart', remountCartButtons);
     }
 })();
