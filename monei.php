@@ -2933,7 +2933,10 @@ class Monei extends PaymentModule
             return null;
         }
 
-        $domain = Configuration::get('PS_SHOP_DOMAIN');
+        // ⚠️ The SSL domain, as registration uses. PS_SHOP_DOMAIN is the non-SSL
+        // one and goes stale when a merchant moves the shop and updates only the
+        // SSL domain, so the check probed the old host.
+        $domain = Tools::getShopDomainSsl();
         $url = 'https://' . $domain . '/.well-known/apple-developer-merchantid-domain-association';
 
         // Check if file is accessible
@@ -3077,6 +3080,7 @@ class Monei extends PaymentModule
         $info .= $this->l('PrestaShop root:') . ' ' . _PS_ROOT_DIR_ . '<br>';
         $info .= $this->l('SSL enabled:') . ' ' . (Configuration::get('PS_SSL_ENABLED') ? $this->l('Yes') : $this->l('No')) . '<br>';
         $info .= $this->l('Shop domain:') . ' ' . Configuration::get('PS_SHOP_DOMAIN') . '<br>';
+        $info .= $this->l('Shop SSL domain:') . ' ' . Tools::getShopDomainSsl() . '<br>';
 
         $info .= '</div></details>';
 
