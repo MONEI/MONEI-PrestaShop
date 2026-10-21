@@ -2373,23 +2373,33 @@ class Monei extends PaymentModule
     /**
      * Record a failed automatic capture against the order.
      *
-     * Uses the order's own note field. The module CLAUDE.md described a
-     * monei2_admin_order_message table, but no such table or entity exists, so
-     * there is nothing to write to but the order itself.
-     *
      * @param Order $order Order to annotate
      * @param string $reason Failure reason
      */
     private function addOrderCaptureNote(Order $order, $reason)
     {
+        $this->addOrderNote($order, '[MONEI] Automatic capture failed: ' . $reason);
+    }
+
+    /**
+     * Append a line to the order's note.
+     *
+     * Uses the order's own note field. The module CLAUDE.md described a
+     * monei2_admin_order_message table, but no such table or entity exists, so
+     * there is nothing to write to but the order itself.
+     *
+     * @param Order $order Order to annotate
+     * @param string $line Line to append
+     */
+    public function addOrderNote(Order $order, $line)
+    {
         try {
             $note = trim((string) $order->note);
-            $line = '[MONEI] Automatic capture failed: ' . $reason;
 
             $order->note = $note === '' ? $line : $note . "\n" . $line;
             $order->update();
         } catch (Exception $e) {
-            self::logError('[MONEI] Could not record the capture failure on the order: ' . $e->getMessage());
+            self::logError('[MONEI] Could not record a note on the order: ' . $e->getMessage());
         }
     }
 

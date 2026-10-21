@@ -254,6 +254,10 @@ class OrderService
         $orderState = new \OrderState($orderStateId);
         if (\Validate::isLoadedObject($orderState)) {
             if ($this->isValidStateTransition($order->current_state, $orderStateId)) {
+                if (!$this->paymentMatchesOrder($order, $moneiPayment)) {
+                    return;
+                }
+
                 \Monei::logDebug('[MONEI] Order status transition [order_id=' . $order->id
                     . ', from_state=' . $order->current_state
                     . ', to_state=' . $orderStateId
@@ -267,6 +271,39 @@ class OrderService
                 \Monei::logWarning('[MONEI] Invalid order state transition [order_id=' . $order->id . ', from_state=' . $order->current_state . ', to_state=' . $orderStateId . ']');
             }
         }
+    }
+
+    /**
+     * A payment changes the state of an existing order only when it is for the
+     * order's total and currency.
+     */
+    private function paymentMatchesOrder($order, $moneiPayment): bool
+    {
+        $orderAmount = PaymentAmountMatcher::toMinorUnits((float) $order->total_paid_tax_incl);
+        $orderCurrency = (string) (new \Currency((int) $order->id_currency))->iso_code;
+
+        if (PaymentAmountMatcher::matches(
+            (int) $moneiPayment->getAmount(),
+            (string) $moneiPayment->getCurrency(),
+            $orderAmount,
+            $orderCurrency
+        )) {
+            return true;
+        }
+
+        \Monei::logWarning('[MONEI] Payment does not match order, state not changed [order_id=' . $order->id
+            . ', payment_id=' . $moneiPayment->getId()
+            . ', payment_amount=' . $moneiPayment->getAmount()
+            . ', payment_currency=' . $moneiPayment->getCurrency()
+            . ', order_amount=' . $orderAmount
+            . ', order_currency=' . $orderCurrency . ']');
+
+        $this->moneiInstance->addOrderNote($order, '[MONEI] Payment ' . $moneiPayment->getId()
+            . ' (' . $moneiPayment->getAmount() . ' ' . $moneiPayment->getCurrency() . ')'
+            . ' does not match the order total (' . $orderAmount . ' ' . $orderCurrency . ').'
+            . ' The order state was not changed.');
+
+        return false;
     }
 
     public function updateOrderStateAfterRefund(int $orderId)
@@ -400,6 +437,26 @@ class OrderService
         $context = \Context::getContext();
         $context->monei_order_reference = $moneiPayment->getOrderId();
 
+        $cartAmount = $this->moneiService->getCartAmount($cart->getSummaryDetails(null, true), (int) $cart->id_currency);
+        $cartCurrency = (string) (new \Currency((int) $cart->id_currency))->iso_code;
+        $paymentMatchesCart = PaymentAmountMatcher::matches(
+            (int) $moneiPayment->getAmount(),
+            (string) $moneiPayment->getCurrency(),
+            (int) $cartAmount,
+            $cartCurrency
+        );
+
+        if (!$paymentMatchesCart) {
+            \Monei::logWarning('[MONEI] Payment does not match cart, creating order in failed state [cart_id=' . $cart->id
+                . ', payment_id=' . $moneiPayment->getId()
+                . ', payment_amount=' . $moneiPayment->getAmount()
+                . ', payment_currency=' . $moneiPayment->getCurrency()
+                . ', cart_amount=' . $cartAmount
+                . ', cart_currency=' . $cartCurrency . ']');
+
+            $orderStateId = (int) \Configuration::get('MONEI_STATUS_FAILED');
+        }
+
         \Monei::logDebug('[MONEI] Creating new order [cart_id=' . $cart->id
             . ', payment_id=' . $moneiPayment->getId()
             . ', amount=' . ($moneiPayment->getAmount() / 100)
@@ -423,6 +480,13 @@ class OrderService
         if ($order && \Validate::isLoadedObject($order)) {
             \Monei::logDebug('[MONEI] Order created successfully [order_id=' . $order->id
                 . ', reference=' . $order->reference . ']');
+
+            if (!$paymentMatchesCart) {
+                $this->moneiInstance->addOrderNote($order, '[MONEI] Payment ' . $moneiPayment->getId()
+                    . ' (' . $moneiPayment->getAmount() . ' ' . $moneiPayment->getCurrency() . ')'
+                    . ' does not match the cart total (' . $cartAmount . ' ' . $cartCurrency . ').'
+                    . ' The order was created in the failed state.');
+            }
         }
 
         return $order;
