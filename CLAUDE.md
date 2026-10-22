@@ -191,5 +191,5 @@ in a container rather than forcing `PHP_CS_FIXER_IGNORE_ENV`.
 ## Version Compatibility
 - PHP: ≥7.4 (composer platform configured)
 - PrestaShop: ≥8.0 (minimum supported version)
-- MONEI PHP SDK: ^2.6
+- MONEI PHP SDK: ^2.13
 - Build tools: Yarn 4.5.0 (packageManager field enforced)

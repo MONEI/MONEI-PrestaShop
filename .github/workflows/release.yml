@@ -17,6 +17,9 @@ jobs:
         key: ${{ runner.os }}-${{ hashFiles('**/composer.lock') }}
 
     - uses: php-actions/composer@v6
+      with:
+        dev: no
+        args: --optimize-autoloader
 
     - name: Archive Release
       run: |
