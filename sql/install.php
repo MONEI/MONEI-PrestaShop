@@ -43,7 +43,7 @@ $sql[] = 'CREATE TABLE IF NOT EXISTS `' . _DB_PREFIX_ . 'monei2_customer_card` (
     `brand` VARCHAR(50) DEFAULT NULL,
     `country` VARCHAR(4) DEFAULT NULL,
     `last_four` VARCHAR(20) NOT NULL,
-    `expiration` INT(11) NOT NULL,
+    `expiration` BIGINT NOT NULL,
     `tokenized` VARCHAR(255) NOT NULL,
     `date_add` DATETIME DEFAULT NULL,
     PRIMARY KEY (`id_customer_card`),

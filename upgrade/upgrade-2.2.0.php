@@ -7,8 +7,8 @@ if (!defined('_PS_VERSION_')) {
 /**
  * Upgrade to 2.2.0 - link payments to MONEI customers.
  *
- * Creates monei2_customer and attaches the hooks that delete a MONEI customer
- * together with the PrestaShop one.
+ * Creates monei2_customer, attaches the hooks that delete a MONEI customer
+ * together with the PrestaShop one, and widens the saved card expiry.
  */
 function upgrade_module_2_2_0($module)
 {
@@ -22,6 +22,14 @@ function upgrade_module_2_2_0($module)
         }
 
         $db = Db::getInstance();
+
+        // The card expiry is a Unix timestamp. A signed INT ends in January 2038, and
+        // a card save past it fails the order processing with it.
+        if (!$db->execute('ALTER TABLE `' . _DB_PREFIX_ . 'monei2_customer_card` MODIFY `expiration` BIGINT NOT NULL')) {
+            Monei::logError('[MONEI] Upgrade to 2.2.0 could not widen monei2_customer_card.expiration');
+
+            return false;
+        }
 
         // ⚠️ Hook::registerHook() deletes the module's module_shop row on every shop
         // in its list that is inactive or hidden from the employee running the

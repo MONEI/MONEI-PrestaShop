@@ -4,6 +4,7 @@ const { getConfig, mysql, psEval, setConfig } = require('../utils/ps-cli');
 const {
     ADDRESS,
     CARDS,
+    acceptConsents,
     addToCartAndCheckout,
     chooseShipping,
     completeThreeDs,
@@ -95,12 +96,7 @@ test.describe('customers: registered buyer', () => {
         const password = page.locator('#field-password[autocomplete="new-password"]');
         await expect(password).toBeVisible();
         await password.fill(throwawayPassword());
-        for (const id of ['#field-customer_privacy', '#field-psgdpr']) {
-            const box = page.locator(id);
-            if ((await box.count()) && (await box.isVisible())) {
-                await box.check();
-            }
-        }
+        await acceptConsents(page);
         await page.locator('#checkout-personal-information-step [type="submit"]').first().click();
         await expect(page.locator('#checkout-addresses-step')).toHaveClass(/-current/, {
             timeout: 30000,
@@ -110,7 +106,9 @@ test.describe('customers: registered buyer', () => {
         await chooseShipping(page);
         await selectPaymentOption(page, /credit card/i);
         await expectCardFieldsReady(page);
-        await fillCard(page, CARDS.direct);
+        // After January 2038: the expiry is stored as a Unix timestamp, which a
+        // signed INT column cannot hold, and the failed card save broke the order.
+        await fillCard(page, CARDS.direct, '05/45');
         await page.locator('#monei-tokenize-card').check();
         await placeOrder(page);
         await completeThreeDs(page);

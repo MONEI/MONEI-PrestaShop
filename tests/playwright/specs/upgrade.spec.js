@@ -36,6 +36,12 @@ const CUSTOMER_HOOKS = ['actionObjectCustomerDeleteAfter', 'actionObjectCustomer
 
 const customerTableExists = () => mysql("SHOW TABLES LIKE 'ps_monei2_customer';") !== '';
 
+const cardExpirationType = () =>
+    mysql(
+        'SELECT DATA_TYPE FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() ' +
+            "AND TABLE_NAME = 'ps_monei2_customer_card' AND COLUMN_NAME = 'expiration';"
+    );
+
 const SEEDED_DEFAULTS = {
     MONEI_CARD_LAYOUT: 'single',
     // 2.1.0 seeds product,cart,checkout; 2.1.1 migrates it back off checkout.
@@ -50,6 +56,10 @@ test.describe('upgrade to 2.2.0', () => {
         [...REGISTERED_HOOKS, REMOVED_HOOK, ...CUSTOMER_HOOKS].forEach(unregisterHook);
         // Only the 2.2.0 script creates it for an existing store.
         mysql('DROP TABLE IF EXISTS ps_monei2_customer;');
+        // Earlier releases store the card expiry in a signed INT, which ends in 2038,
+        // so a card saved past it by another spec cannot exist in that store.
+        mysql('DELETE FROM ps_monei2_customer_card WHERE expiration > 2147483647;');
+        mysql('ALTER TABLE ps_monei2_customer_card MODIFY expiration INT(11) NOT NULL;');
         Object.keys(SEEDED_DEFAULTS).forEach(deleteConfig);
         deleteConfig('MONEI_EXPRESS_ENABLED');
         deleteConfig('MONEI_CAPTURE_STATUS');
@@ -76,6 +86,7 @@ test.describe('upgrade to 2.2.0', () => {
         CUSTOMER_HOOKS.forEach((hook) =>
             expect(isHookRegistered(hook), `${hook} should be registered by the upgrade`).toBe(true)
         );
+        expect(cardExpirationType(), 'the upgrade should widen the card expiry').toBe('bigint');
 
         REGISTERED_HOOKS.forEach((hook) =>
             expect(isHookRegistered(hook), `${hook} should be registered by the upgrade`).toBe(true)

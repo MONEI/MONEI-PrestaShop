@@ -87,6 +87,24 @@ const addToCartAndCheckout = async (page, productPath = SIMPLE_PRODUCT_PATH) => 
 };
 
 /**
+ * Tick the consent boxes of the personal information step.
+ *
+ * They come from optional modules (customer privacy, psgdpr), so they are checked
+ * when present rather than assumed. Matched by name: classic renders them without
+ * an id.
+ *
+ * @param {import('@playwright/test').Page} page - Page
+ */
+const acceptConsents = async (page) => {
+    for (const name of ['customer_privacy', 'psgdpr']) {
+        const box = page.locator(`#checkout-personal-information-step input[name="${name}"]`);
+        if ((await box.count()) && (await box.isVisible())) {
+            await box.check();
+        }
+    }
+};
+
+/**
  * Complete the personal information step as a guest.
  *
  * @param {import('@playwright/test').Page} page  - Page
@@ -96,15 +114,7 @@ const fillPersonalInformation = async (page, email) => {
     await page.fill('#field-firstname', ADDRESS.firstName);
     await page.fill('#field-lastname', ADDRESS.lastName);
     await page.fill('#field-email', email);
-
-    // Consent checkboxes come from optional modules (customer privacy, psgdpr), so
-    // they are checked when present rather than assumed.
-    for (const id of ['#field-customer_privacy', '#field-psgdpr']) {
-        const box = page.locator(id);
-        if ((await box.count()) && (await box.isVisible())) {
-            await box.check();
-        }
-    }
+    await acceptConsents(page);
 
     await page.locator('#checkout-personal-information-step [type="submit"]').first().click();
     await expect(page.locator('#checkout-addresses-step')).toHaveClass(/-current/, {
@@ -264,8 +274,9 @@ const selectPaymentOption = async (page, label) => {
  *
  * @param {import('@playwright/test').Page} page   - Page
  * @param {string}                          number - Card number
+ * @param {string}                          expiry - Expiry, MM/YY
  */
-const fillCard = async (page, number) => {
+const fillCard = async (page, number, expiry = CARD_EXPIRY) => {
     // The cardholder name is a plain PrestaShop input rendered beside the fields
     // (onsite_card.tpl), not one of the hosted ones. Leaving it empty fails client
     // side with "Card holder name is not valid" and never reaches MONEI.
@@ -283,7 +294,7 @@ const fillCard = async (page, number) => {
         await page
             .frameLocator(COMPONENT_FRAME.cardExpiry)
             .getByTestId(CARD_PART_TEST_ID.expiry)
-            .fill(CARD_EXPIRY);
+            .fill(expiry);
         await page
             .frameLocator(COMPONENT_FRAME.cardCvc)
             .getByTestId(CARD_PART_TEST_ID.cvc)
@@ -297,7 +308,7 @@ const fillCard = async (page, number) => {
     const frame = page.frameLocator(COMPONENT_FRAME.card);
 
     await frame.getByTestId(CARD_PART_TEST_ID.number).fill(number);
-    await frame.getByTestId(CARD_PART_TEST_ID.expiry).fill(CARD_EXPIRY);
+    await frame.getByTestId(CARD_PART_TEST_ID.expiry).fill(expiry);
     await frame.getByTestId(CARD_PART_TEST_ID.cvc).fill(CARD_CVC);
 
     await settleCardFields(page);
@@ -603,6 +614,7 @@ const payWithPayPal = async (page, account = PAYPAL.approve) => {
 };
 
 module.exports = {
+    acceptConsents,
     BIZUM_PHONE,
     expectCardFieldsReady,
     approveInPayPal,
