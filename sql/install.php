@@ -72,6 +72,20 @@ $sql[] = 'CREATE TABLE IF NOT EXISTS `' . _DB_PREFIX_ . 'monei2_order_payment` (
     INDEX (`id_order`)
 ) ENGINE=' . _MYSQL_ENGINE_ . ' DEFAULT CHARSET=utf8;';
 
+// PrestaShop customer -> MONEI customer, per MONEI account and mode. Not dropped on
+// uninstall: the MONEI customers outlive the module, and only these rows let a
+// later erasure reach them.
+$sql[] = 'CREATE TABLE IF NOT EXISTS `' . _DB_PREFIX_ . 'monei2_customer` (
+    `id_monei2_customer` INT(11) NOT NULL AUTO_INCREMENT,
+    `id_customer` INT(11) NOT NULL,
+    `account_id` VARCHAR(64) NOT NULL,
+    `mode` VARCHAR(4) NOT NULL,
+    `monei_customer_id` VARCHAR(64) NOT NULL,
+    `date_add` DATETIME DEFAULT NULL,
+    PRIMARY KEY (`id_monei2_customer`),
+    UNIQUE KEY `monei2_customer_link` (`id_customer`, `account_id`, `mode`)
+) ENGINE=' . _MYSQL_ENGINE_ . ' DEFAULT CHARSET=utf8;';
+
 // Execute SQL queries
 foreach ($sql as $query) {
     if (Db::getInstance()->execute($query) === false) {

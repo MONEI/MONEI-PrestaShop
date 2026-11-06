@@ -6,6 +6,11 @@ use Monei\Model\PaymentPaymentMethod;
 use Monei\Model\PaymentStatus;
 use PsMonei\Entity\Monei2CustomerCard;
 use PsMonei\Entity\Monei2Payment;
+use PsMonei\Repository\CustomerMappingStore;
+use PsMonei\Service\Monei\CustomerService;
+use PsMonei\Service\Monei\GdprPayload;
+use PsMonei\Service\Monei\MoneiClientFactory;
+use PsMonei\Service\Monei\MoneiService;
 
 if (!defined('_PS_VERSION_')) {
     exit;
@@ -37,7 +42,7 @@ class Monei extends PaymentModule
     protected $moneiClient = false;
 
     const NAME = 'monei';
-    const VERSION = '2.1.4';
+    const VERSION = '2.2.0';
 
     private static $serviceContainer;
     private static $serviceList;
@@ -47,7 +52,7 @@ class Monei extends PaymentModule
         $this->displayName = 'MONEI Payments';
         $this->name = 'monei';
         $this->tab = 'payments_gateways';
-        $this->version = '2.1.4';
+        $this->version = '2.2.0';
         $this->author = 'MONEI';
         $this->need_instance = 0;
         $this->ps_versions_compliancy = ['min' => '8', 'max' => _PS_VERSION_];
@@ -131,6 +136,11 @@ class Monei extends PaymentModule
             && $this->registerHook('displayCustomerAccount')
             && $this->registerHook('actionDeleteGDPRCustomer')
             && $this->registerHook('actionExportGDPRData')
+            // Delete the MONEI customer with the PrestaShop one. The update hook
+            // catches the back-office soft delete, which sets `deleted` and calls
+            // update() rather than delete().
+            && $this->registerHook('actionObjectCustomerDeleteAfter')
+            && $this->registerHook('actionObjectCustomerUpdateAfter')
             && $this->registerHook('displayBackOfficeHeader')
             && $this->registerHook('displayAdminOrder')
             && $this->registerHook('displayPaymentByBinaries')
@@ -1156,8 +1166,7 @@ class Monei extends PaymentModule
             }
 
             // Create temporary MONEI client with provided credentials
-            $moneiClient = new Monei\MoneiClient($apiKey);
-            $moneiClient->setUserAgent(PsMonei\Service\Monei\MoneiService::getUserAgent());
+            $moneiClient = MoneiClientFactory::create($apiKey, MoneiService::getUserAgent());
 
             // Test the connection by trying to get payment methods for the account
             // The get() method takes account_id as the first parameter
@@ -2987,20 +2996,136 @@ class Monei extends PaymentModule
      */
     public function hookActionDeleteGDPRCustomer($customer)
     {
-        if (!empty($customer['id'])) {
-            try {
-                $customerCards = $this->getRepository(Monei2CustomerCard::class)->findBy(['id_customer' => (int) $customer['id']]);
-                if ($customerCards) {
-                    foreach ($customerCards as $customerCard) {
-                        $this->getRepository(Monei2CustomerCard::class)->remove($customerCard);
-                    }
-                }
+        $payload = GdprPayload::parse($customer);
 
-                return json_encode(true);
-            } catch (Exception $e) {
+        if (isset($payload['id'])) {
+            $customerIds = [$payload['id']];
+        } elseif (isset($payload['email'])) {
+            // psgdpr erasure by email deletes no Customer, so no object hook fires.
+            // Guests included: a guest can save a card.
+            $rows = Customer::getCustomersByEmail($payload['email']);
+            if (!is_array($rows)) {
                 return json_encode($this->l('MONEI Official: Unable to delete customer tokenized cards from database'));
             }
+
+            $customerIds = array_map(static function ($row) {
+                return (int) $row['id_customer'];
+            }, $rows);
+        } else {
+            return json_encode(true);
         }
+
+        $erased = true;
+        foreach ($customerIds as $idCustomer) {
+            $erased = $this->eraseCustomerData($idCustomer) && $erased;
+        }
+
+        return $erased
+            ? json_encode(true)
+            : json_encode($this->l('MONEI Official: Unable to delete customer tokenized cards from database'));
+    }
+
+    public function hookActionObjectCustomerDeleteAfter($params)
+    {
+        if (isset($params['object']) && $params['object'] instanceof Customer) {
+            $this->eraseCustomerData((int) $params['object']->id);
+        }
+    }
+
+    public function hookActionObjectCustomerUpdateAfter($params)
+    {
+        // The PS 8+ back-office delete with "do not allow registration again" sets
+        // `deleted` (to true, not 1) and calls update(), so no delete hook fires.
+        if (isset($params['object']) && $params['object'] instanceof Customer && $params['object']->deleted) {
+            $this->eraseCustomerData((int) $params['object']->id);
+        }
+    }
+
+    /**
+     * Deletes the customer at MONEI and their saved cards here.
+     *
+     * Two separate steps, each through Db: these hooks also fire from cron,
+     * webservice and CLI contexts, where the Doctrine repositories are unavailable,
+     * and a failure of one step must not skip the other.
+     */
+    private function eraseCustomerData(int $idCustomer): bool
+    {
+        if ($idCustomer <= 0) {
+            return true;
+        }
+
+        $erased = true;
+
+        try {
+            $erased = $this->buildCustomerService()->deleteCustomer($idCustomer);
+        } catch (Throwable $e) {
+            self::logError('[MONEI Customers] Deleting customer ' . $idCustomer . ' at MONEI failed: ' . $e->getMessage());
+            $erased = false;
+        }
+
+        try {
+            if (!Db::getInstance()->delete('monei2_customer_card', 'id_customer = ' . $idCustomer)) {
+                self::logError('[MONEI] Deleting the saved cards of customer ' . $idCustomer . ' failed');
+                $erased = false;
+            }
+        } catch (Throwable $e) {
+            self::logError('[MONEI] Deleting the saved cards of customer ' . $idCustomer . ' failed: ' . $e->getMessage());
+            $erased = false;
+        }
+
+        return $erased;
+    }
+
+    /**
+     * Builds the Customers API service without Doctrine or the service container,
+     * so the customer delete hooks work in every context.
+     */
+    public function buildCustomerService(): CustomerService
+    {
+        $readAccount = static function (int $idShop, bool $live): array {
+            $idShopGroup = (int) Shop::getGroupFromShop($idShop);
+
+            return [
+                'accountId' => (string) Configuration::get($live ? 'MONEI_ACCOUNT_ID' : 'MONEI_TEST_ACCOUNT_ID', null, $idShopGroup, $idShop),
+                'apiKey' => (string) Configuration::get($live ? 'MONEI_API_KEY' : 'MONEI_TEST_API_KEY', null, $idShopGroup, $idShop),
+                'mode' => $live ? 'live' : 'test',
+            ];
+        };
+
+        $accountForShop = static function (int $idShop) use ($readAccount): array {
+            $live = (bool) Configuration::get('MONEI_PRODUCTION_MODE', null, (int) Shop::getGroupFromShop($idShop), $idShop);
+
+            return $readAccount($idShop, $live);
+        };
+
+        // ⚠️ Not Shop::getShops(): its cache only holds the shops the context
+        // employee may see, and a restricted employee deleting a shared customer
+        // would then leave the other shops' MONEI customers in place.
+        $configuredAccounts = static function () use ($readAccount): array {
+            $shops = Db::getInstance()->executeS('SELECT `id_shop`, `active` FROM `' . _DB_PREFIX_ . 'shop`', true, false);
+            if (!is_array($shops)) {
+                throw new RuntimeException('Reading the shop list failed');
+            }
+
+            $settings = [];
+            foreach ($shops as $shop) {
+                foreach ([false, true] as $live) {
+                    $settings[] = $readAccount((int) $shop['id_shop'], $live) + ['active' => (bool) $shop['active']];
+                }
+            }
+
+            return CustomerService::mergeAccounts($settings);
+        };
+
+        $customersApi = static function (string $apiKey) {
+            return MoneiClientFactory::create($apiKey, MoneiService::getUserAgent())->customers;
+        };
+
+        $log = static function (string $message, int $severity) {
+            Monei::log($message, $severity);
+        };
+
+        return new CustomerService(new CustomerMappingStore(), $accountForShop, $configuredAccounts, $customersApi, $log);
     }
 
     public function hookActionExportGDPRData($customer)

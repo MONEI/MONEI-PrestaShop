@@ -4,6 +4,8 @@ const {
     getConfig,
     installedVersion,
     isHookRegistered,
+    mysql,
+    psEval,
     setInstalledVersion,
     unregisterHook,
     upgradeModule,
@@ -29,6 +31,11 @@ const REGISTERED_HOOKS = [
 // express block it drew.
 const REMOVED_HOOK = 'displayPaymentTop';
 
+// Attached by 2.2.0: they delete the MONEI customer with the PrestaShop one.
+const CUSTOMER_HOOKS = ['actionObjectCustomerDeleteAfter', 'actionObjectCustomerUpdateAfter'];
+
+const customerTableExists = () => mysql("SHOW TABLES LIKE 'ps_monei2_customer';") !== '';
+
 const SEEDED_DEFAULTS = {
     MONEI_CARD_LAYOUT: 'single',
     // 2.1.0 seeds product,cart,checkout; 2.1.1 migrates it back off checkout.
@@ -36,11 +43,13 @@ const SEEDED_DEFAULTS = {
     MONEI_EXPRESS_METHODS: 'applePay,googlePay,paypal',
 };
 
-test.describe('upgrade to 2.1.1', () => {
+test.describe('upgrade to 2.2.0', () => {
     test('attaches the surviving hooks, drops the payment-step one, seeds the defaults', async () => {
         // Rewind to the state a 2.0.18 merchant is in.
         setInstalledVersion('2.0.18');
-        [...REGISTERED_HOOKS, REMOVED_HOOK].forEach(unregisterHook);
+        [...REGISTERED_HOOKS, REMOVED_HOOK, ...CUSTOMER_HOOKS].forEach(unregisterHook);
+        // Only the 2.2.0 script creates it for an existing store.
+        mysql('DROP TABLE IF EXISTS ps_monei2_customer;');
         Object.keys(SEEDED_DEFAULTS).forEach(deleteConfig);
         deleteConfig('MONEI_EXPRESS_ENABLED');
         deleteConfig('MONEI_CAPTURE_STATUS');
@@ -50,9 +59,23 @@ test.describe('upgrade to 2.1.1', () => {
             expect(isHookRegistered(hook), `${hook} should start detached`).toBe(false)
         );
 
+        // Files deployed before the upgrade ran: a missing table must read as an
+        // error, never as "no mapping", or every checkout creates a MONEI customer.
+        expect(
+            psEval(
+                "Module::getInstanceByName('monei'); try { (new \\PsMonei\\Repository\\CustomerMappingStore())->findMapping(1, 'acc', 'test'); echo 'read'; } catch (\\Throwable $e) { echo 'threw'; }"
+            )
+        ).toBe('threw');
+
         upgradeModule();
 
-        expect(installedVersion()).toBe('2.1.1');
+        expect(installedVersion()).toBe('2.2.0');
+        expect(customerTableExists(), 'monei2_customer should be created by the upgrade').toBe(
+            true
+        );
+        CUSTOMER_HOOKS.forEach((hook) =>
+            expect(isHookRegistered(hook), `${hook} should be registered by the upgrade`).toBe(true)
+        );
 
         REGISTERED_HOOKS.forEach((hook) =>
             expect(isHookRegistered(hook), `${hook} should be registered by the upgrade`).toBe(true)

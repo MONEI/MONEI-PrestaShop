@@ -30,8 +30,9 @@ document.addEventListener('DOMContentLoaded', function (event) {
     }
 
     // Reset state when modal is closed
-    if (typeof $ !== 'undefined' && $('#deleteCardModal').length) {
-        $('#deleteCardModal').on('hidden.bs.modal', function () {
+    const deleteCardModal = document.getElementById('deleteCardModal');
+    if (deleteCardModal) {
+        const resetModal = function () {
             currentCardId = null;
             currentCardElement = null;
             // Reset button state
@@ -40,7 +41,14 @@ document.addEventListener('DOMContentLoaded', function (event) {
                 confirmBtn.disabled = false;
                 confirmBtn.textContent = MoneiVars.confirmRemoveCard || 'Confirm';
             }
-        });
+        };
+
+        // Bootstrap 5 (hummingbird) fires a native event; Bootstrap 4 (classic) a
+        // jQuery one, which native listeners do not receive.
+        deleteCardModal.addEventListener('hidden.bs.modal', resetModal);
+        if (typeof $ !== 'undefined') {
+            $(deleteCardModal).on('hidden.bs.modal', resetModal);
+        }
     }
 });
 
@@ -54,6 +62,7 @@ function ajaxDeleteTokenizedCard(customerCardId, itemCustomerCard) {
         action: 'deleteCustomerCard',
         ajax: true,
         customerCardId,
+        token: typeof prestashop !== 'undefined' ? prestashop.static_token : '',
     };
 
     deleteCustomerCardUrl.search = new URLSearchParams(params).toString();
@@ -66,10 +75,7 @@ function ajaxDeleteTokenizedCard(customerCardId, itemCustomerCard) {
     })
         .then((response) => response.json())
         .then((data) => {
-            // Hide the modal
-            if (typeof $ !== 'undefined' && $('#deleteCardModal').length) {
-                $('#deleteCardModal').modal('hide');
-            }
+            hideDeleteCardModal();
 
             if (data.success) {
                 // Show success message
@@ -99,10 +105,7 @@ function ajaxDeleteTokenizedCard(customerCardId, itemCustomerCard) {
             }
         })
         .catch((error) => {
-            // Hide the modal
-            if (typeof $ !== 'undefined' && $('#deleteCardModal').length) {
-                $('#deleteCardModal').modal('hide');
-            }
+            hideDeleteCardModal();
             showNotification('error', MoneiVars.unexpectedError || 'An unexpected error occurred.');
             // Only log in development/test environments
             if (
@@ -114,6 +117,25 @@ function ajaxDeleteTokenizedCard(customerCardId, itemCustomerCard) {
                 console.error('[MONEI CustomerCards] Failed to delete card:', error);
             }
         });
+}
+
+// Classic runs Bootstrap 4 (a jQuery plugin), hummingbird Bootstrap 5 (no jQuery).
+function hideDeleteCardModal() {
+    const modal = document.getElementById('deleteCardModal');
+    if (!modal) return;
+
+    const bs = window.bootstrap;
+    if (bs && bs.Modal && bs.Modal.getInstance) {
+        const instance = bs.Modal.getInstance(modal);
+        if (instance) {
+            instance.hide();
+            return;
+        }
+    }
+
+    if (typeof $ !== 'undefined' && typeof $.fn.modal === 'function') {
+        $(modal).modal('hide');
+    }
 }
 
 // Helper function to show notifications

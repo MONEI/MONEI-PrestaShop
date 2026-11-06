@@ -123,6 +123,8 @@ Tables (prefixed with `monei2_`):
 - `monei2_history`: Payment event history
 - `monei2_refund`: Refund records
 - `monei2_order_payment`: Links orders to payments
+- `monei2_customer`: PrestaShop customer → MONEI customer, per account and mode.
+  Kept on uninstall, so a later erasure can still reach the MONEI customers
 
 ### Payment Flow
 1. **Initiation**: Customer selects MONEI payment → `RedirectModuleFrontController`
@@ -155,6 +157,20 @@ $paymentService = Monei::getService('monei.service.payment');
   cart page. Key page detection off `php_self` instead, or nothing registers.
 - Product page express uses a cart of its own and points the context back
   afterwards, so the shopper's cart is never emptied.
+
+### Customers API
+
+- Shared with the WooCommerce and Magento plugins through one contract:
+  `docs/plans/20261105-monei-customers-api-contract.md`. Change it there first.
+- `CustomerService`, `PaymentCustomerLink`, `GdprPayload` and `MoneiClientFactory`
+  are pure: no PrestaShop classes, so the unit suite can load them.
+  `tests/Unit/ArchitectureTest.php` enforces it.
+- ⚠️ Build every MONEI client with `MoneiClientFactory`. `new MoneiClient($key)`
+  writes the key into the SDK's shared default Configuration, and every other
+  client in the request then sends it.
+- ⚠️ Customer data goes through `Db` with the query cache off, never Doctrine: the
+  delete hooks run from cron, webservice and CLI, where the repositories are null.
+- A PrestaShop guest has an `id_customer` too; guests are never linked.
 
 ### Frontend JavaScript Architecture
 - Runtime uses JavaScript files in `/views/js/` directly (vanilla JavaScript, no build required)

@@ -78,7 +78,10 @@ const addToCartAndCheckout = async (page, productPath = SIMPLE_PRODUCT_PATH) => 
 
     // The theme confirms the add through a modal rather than a navigation, so the
     // cart is only reliably populated once it has appeared.
-    await expect(page.locator('#blockcart-modal, .cart-content')).toBeVisible({ timeout: 20000 });
+    // .first(): the classic theme's modal contains a .cart-content of its own.
+    await expect(page.locator('#blockcart-modal, .cart-content').first()).toBeVisible({
+        timeout: 20000,
+    });
 
     await page.goto('/order', { waitUntil: 'domcontentloaded' });
 };
@@ -545,19 +548,33 @@ const approveInPayPal = async (popup, account) => {
 
     await expect(email).toBeVisible({ timeout: 60000 });
     await email.fill(account.email);
+    // PayPal's newer login page has no btnNext/btnLogin ids; match the buttons by
+    // name and keep the ids for the older page.
     await popup
-        .locator('[name="btnNext"], #btnNext')
+        .getByRole('button', { name: /^next$/i })
+        .or(popup.locator('[name="btnNext"], #btnNext'))
         .first()
         .click()
         .catch(() => {});
 
     const password = popup.locator('[name="login_password"], #password').first();
+    const logIn = popup
+        .getByRole('button', { name: /^log in$/i })
+        .or(popup.locator('[name="btnLogin"], #btnLogin'))
+        .first();
 
+    // ⚠️ Wait for the password step itself. The email step can already hold a
+    // password input, and a password typed there is lost when the step changes.
+    await expect(logIn).toBeVisible({ timeout: 60000 });
     await expect(password).toBeVisible({ timeout: 60000 });
     await password.fill(account.password);
-    await popup.locator('[name="btnLogin"], #btnLogin').first().click();
+    await logIn.click();
 
-    const submit = popup.getByTestId('submit-button-initial');
+    // The review page is localised (the sandbox account renders it in Spanish).
+    const submit = popup
+        .getByTestId('submit-button-initial')
+        .or(popup.getByRole('button', { name: /^(pay|pay now|pagar|continue|continuar)$/i }))
+        .first();
 
     await expect(submit).toBeVisible({ timeout: 90000 });
     await submit.click();

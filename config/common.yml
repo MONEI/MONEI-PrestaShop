@@ -60,6 +60,13 @@ services:
       - '@monei.repository.monei_customer_card'
       - '@monei.repository.monei_refund'
       - '@monei.repository.monei_history'
+      - '@monei.service.customer'
+
+  # Built by the module rather than wired here: the customer delete hooks also run
+  # where the container is unavailable, and must build it the same way.
+  monei.service.customer:
+    class: 'PsMonei\Service\Monei\CustomerService'
+    factory: ['@monei.module', 'buildCustomerService']
 
   monei.service.order:
     class: 'PsMonei\Service\Order\OrderService'
