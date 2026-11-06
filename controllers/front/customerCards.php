@@ -54,6 +54,14 @@ class MoneiCustomerCardsModuleFrontController extends ModuleFrontController
 
     public function displayAjaxDeleteCustomerCard()
     {
+        // ⚠️ Not FrontController::isTokenValid(): it passes every request while
+        // PS_TOKEN_ENABLE is off, which is the default. The delete also removes the
+        // card at MONEI, so a forged request must not reach it.
+        $token = Tools::getValue('token');
+        if (!is_string($token) || !hash_equals(Tools::getToken(false), $token)) {
+            $this->ajaxResponse(false, $this->module->l('Your session has expired. Please reload the page and try again.', 'customercards'));
+        }
+
         try {
             $customerCardId = (int) Tools::getValue('customerCardId');
             $customerCard = $this->module->getRepository(Monei2CustomerCard::class)->findOneBy([
@@ -62,6 +70,16 @@ class MoneiCustomerCardsModuleFrontController extends ModuleFrontController
             ]);
 
             if ($customerCard) {
+                try {
+                    $this->module->buildCustomerService()->deletePaymentMethod(
+                        (int) $this->context->shop->id,
+                        (int) $this->context->customer->id,
+                        $customerCard->getTokenized()
+                    );
+                } catch (Throwable $e) {
+                    Monei::logError('[MONEI Customers] Deleting the card at MONEI failed: ' . $e->getMessage());
+                }
+
                 $this->module->getRepository(Monei2CustomerCard::class)->remove($customerCard);
             }
 

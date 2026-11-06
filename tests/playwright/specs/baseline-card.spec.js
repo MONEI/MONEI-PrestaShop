@@ -10,6 +10,8 @@ const {
     placeOrder,
     selectPaymentOption,
 } = require('../utils/checkout');
+const { mappingsFor } = require('../utils/customers');
+const { mysql } = require('../utils/ps-cli');
 
 /**
  * Regression net for the JavaScript extraction in Task 4.
@@ -50,7 +52,7 @@ test.describe('baseline: card', () => {
     });
 
     test('card payment completes and reaches order confirmation', async ({ page }) => {
-        await goToPaymentStep(page);
+        const email = await goToPaymentStep(page);
         await selectPaymentOption(page, /credit card/i);
 
         await expectCardFieldsReady(page);
@@ -64,5 +66,10 @@ test.describe('baseline: card', () => {
         // Proves MONEI actually processed the card, rather than the order merely
         // being created and the confirmation page rendering.
         expect(details).toMatch(/4414/);
+
+        // A guest has an id_customer too, but is never linked to a MONEI customer.
+        const idGuest = mysql(`SELECT id_customer FROM ps_customer WHERE email = '${email}';`);
+        expect(idGuest).not.toBe('');
+        expect(mappingsFor(idGuest)).toEqual([]);
     });
 });

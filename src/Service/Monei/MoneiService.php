@@ -13,7 +13,6 @@ use Monei\Model\PaymentBillingDetails;
 use Monei\Model\PaymentCustomer;
 use Monei\Model\PaymentTransactionType;
 use Monei\Model\RefundPaymentRequest;
-use Monei\MoneiClient;
 use PrestaShop\PrestaShop\Adapter\LegacyContext;
 use PsMonei\Entity\Monei2CustomerCard;
 use PsMonei\Entity\Monei2History;
@@ -35,6 +34,8 @@ class MoneiService
     private $moneiCustomerCardRepository;
     private $moneiRefundRepository;
     private $moneiHistoryRepository;
+    /** @var CustomerService|null */
+    private $customerService;
     private $lastError;
 
     /**
@@ -54,13 +55,17 @@ class MoneiService
         MoneiPaymentRepository $moneiPaymentRepository,
         MoneiCustomerCardRepository $moneiCustomerCardRepository,
         MoneiRefundRepository $moneiRefundRepository,
-        MoneiHistoryRepository $moneiHistoryRepository
+        MoneiHistoryRepository $moneiHistoryRepository,
+        ?CustomerService $customerService = null
     ) {
         $this->legacyContext = $legacyContext;
         $this->moneiPaymentRepository = $moneiPaymentRepository;
         $this->moneiCustomerCardRepository = $moneiCustomerCardRepository;
         $this->moneiRefundRepository = $moneiRefundRepository;
         $this->moneiHistoryRepository = $moneiHistoryRepository;
+        // Optional: a container cached before the upgrade still builds this with
+        // five arguments. Without it, payments are not linked to a MONEI customer.
+        $this->customerService = $customerService;
     }
 
     /**
@@ -90,10 +95,7 @@ class MoneiService
             throw new MoneiException('Monei client not initialized.', MoneiException::MONEI_CLIENT_NOT_INITIALIZED);
         }
 
-        $client = new MoneiClient($apiKey);
-        $client->setUserAgent(self::getUserAgent());
-
-        return $client;
+        return MoneiClientFactory::create($apiKey, self::getUserAgent());
     }
 
     /**
@@ -723,7 +725,31 @@ class MoneiService
                 throw new MoneiException('The payment request is not valid', MoneiException::PAYMENT_REQUEST_NOT_VALID);
             }
 
-            $moneiPaymentResponse = $moneiClient->payments->create($createPaymentRequest);
+            if ($this->customerService !== null) {
+                $idShop = (int) \Context::getContext()->shop->id;
+
+                PaymentCustomerLink::link(
+                    $this->customerService,
+                    $createPaymentRequest,
+                    $idShop,
+                    (int) $customer->id,
+                    (bool) $customer->is_guest,
+                    (bool) $customer->deleted,
+                    $customerData
+                );
+
+                $moneiPaymentResponse = PaymentCustomerLink::create(
+                    $this->customerService,
+                    $createPaymentRequest,
+                    $idShop,
+                    (int) $customer->id,
+                    static function (CreatePaymentRequest $request) use ($moneiClient) {
+                        return $moneiClient->payments->create($request);
+                    }
+                );
+            } else {
+                $moneiPaymentResponse = $moneiClient->payments->create($createPaymentRequest);
+            }
 
             $this->saveMoneiPayment($moneiPaymentResponse);
 

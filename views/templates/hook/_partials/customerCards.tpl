@@ -46,6 +46,8 @@
                                     data-customer-card-id="{$customerCard.id|escape:'html':'UTF-8'}"
                                     data-toggle="modal" 
                                     data-target="#deleteCardModal"
+                                    data-bs-toggle="modal"
+                                    data-bs-target="#deleteCardModal"
                                     aria-label="{l s='Delete card ending in %s' mod='monei' sprintf=[$customerCard.lastFourWithMask|escape:'html':'UTF-8']}"
                                     title="{l s='Delete card' mod='monei'}">
                                         {if !$isWarehouseInstalled}
@@ -69,7 +71,7 @@
         <div class="modal-dialog modal-sm" role="document">
             <div class="modal-content">
                 <div class="modal-header clearfix">
-                    <button type="button" class="close pull-right" data-dismiss="modal" aria-label="Close">
+                    <button type="button" class="close pull-right" data-dismiss="modal" data-bs-dismiss="modal" aria-label="Close">
                         <span aria-hidden="true">&times;</span>
                     </button>
                     <h5 class="modal-title" id="deleteCardModalLabel">{l s='Remove Card' mod='monei'}</h5>
@@ -78,7 +80,7 @@
                     <p>{l s='Are you sure you want to remove this card?' mod='monei'}</p>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-default" data-dismiss="modal">{l s='Cancel' mod='monei'}</button>
+                    <button type="button" class="btn btn-default" data-dismiss="modal" data-bs-dismiss="modal">{l s='Cancel' mod='monei'}</button>
                     <button type="button" class="btn btn-danger" id="confirmDeleteCard">
                         {l s='Confirm' mod='monei'}
                     </button>

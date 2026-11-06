@@ -99,6 +99,15 @@ const ensureShippableCountry = (iso) => {
 
     mysql(`UPDATE ps_country SET active = 1 WHERE id_country = ${Number(id)};`);
 
+    // ⚠️ The module reset above copies only the countries active at that moment
+    // into ps_module_country. On a fresh store Spain is inactive then, so MONEI
+    // is not offered in it and the checkout says "no payment method available".
+    mysql(
+        `INSERT IGNORE INTO ps_module_country (id_module, id_shop, id_country) ` +
+            `SELECT m.id_module, s.id_shop, ${Number(id)} FROM ps_module m ` +
+            `JOIN ps_shop s WHERE m.name = 'monei';`
+    );
+
     // Enabling the country is not enough on its own: without a carrier serving
     // its zone the delivery step is a dead end.
     const carriers = mysql(
