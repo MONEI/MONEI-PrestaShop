@@ -30,6 +30,8 @@ jobs:
         # archive start there, so '/build/*' never matched anything — which is why
         # the output.log exclusion had to be written as 'monei/output.log'.
         # Anything missing here ships to merchants and to the Addons validator.
+        # DOCKER_ENV and docker_tag are written by php-actions/composer: the
+        # runner's environment, served publicly from every store's module folder.
         zip -r monei.zip monei \
           -x '*.git*' \
           -x 'monei/build/*' \
@@ -48,7 +50,9 @@ jobs:
           -x 'monei/.env' \
           -x 'monei/.playwright-mcp/*' \
           -x 'monei/.claude/*' \
-          -x 'monei/.nvmrc'
+          -x 'monei/.nvmrc' \
+          -x 'monei/DOCKER_ENV' \
+          -x 'monei/docker_tag'
         
     - name: Upload Release
       uses: ncipollo/release-action@v1.14.0
