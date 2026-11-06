@@ -42,13 +42,14 @@ class CustomerMappingStore implements CustomerMappingStoreInterface
 
     public function insertMapping(int $idCustomer, string $accountId, string $mode, string $moneiCustomerId): bool
     {
+        // Db::insert() quotes the values but does not escape them.
         return (bool) \Db::getInstance()->insert(
             self::TABLE,
             [
                 'id_customer' => (int) $idCustomer,
-                'account_id' => $accountId,
-                'mode' => $mode,
-                'monei_customer_id' => $moneiCustomerId,
+                'account_id' => pSQL($accountId),
+                'mode' => pSQL($mode),
+                'monei_customer_id' => pSQL($moneiCustomerId),
                 'date_add' => date('Y-m-d H:i:s'),
             ],
             false,

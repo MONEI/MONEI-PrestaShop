@@ -288,6 +288,12 @@ test.describe('customers: mapping store', () => {
         store(`$s->deleteMappingIfHolds(${id}, 'acc_same', 'test', 'cus_first');`);
         expect(store(`var_export($s->findMapping(${id}, 'acc_same', 'test'));`)).toBe('NULL');
 
+        // Db::insert() does not escape, so a quote would break the insert.
+        expect(
+            store(`var_export($s->insertMapping(${id}, "acc'quote", 'test', 'cus_quote'));`)
+        ).toBe('true');
+        expect(store(`echo $s->findMapping(${id}, "acc'quote", 'test');`)).toBe('cus_quote');
+
         store(`$s->insertMapping(${id}, 'acc_same', 'test', 'cus_third');`);
         store(`$s->deleteMapping(${id}, 'acc_same', 'test');`);
         expect(store(`echo $s->findMapping(${id}, 'acc_same', 'live');`)).toBe('cus_live');
