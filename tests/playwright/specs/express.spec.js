@@ -1,7 +1,7 @@
 const { test, expect } = require('../utils/test');
 const { fixture } = require('../utils/fixtures');
 const { goToPaymentStep } = require('../utils/checkout');
-const { setConfig } = require('../utils/ps-cli');
+const { getConfig, setConfig } = require('../utils/ps-cli');
 
 /**
  * ⚠️ PayPal renders a component frame and a prerender frame, both titled "PayPal",
@@ -60,6 +60,7 @@ test.describe('express checkout', () => {
     // mounted, with no error shown.
     test('mounts with the theme JS cache on', async ({ page }) => {
         enableExpress();
+        const jsCache = getConfig('PS_JS_THEME_CACHE');
         setConfig('PS_JS_THEME_CACHE', '1');
 
         try {
@@ -68,7 +69,7 @@ test.describe('express checkout', () => {
             await expect(page.locator('script[src*="/assets/cache/"]').first()).toBeAttached();
             await expect(page.locator(PAYPAL_BUTTON)).toBeVisible({ timeout: 60000 });
         } finally {
-            setConfig('PS_JS_THEME_CACHE', '0');
+            setConfig('PS_JS_THEME_CACHE', jsCache);
         }
     });
 
