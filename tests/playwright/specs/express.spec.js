@@ -55,6 +55,23 @@ test.describe('express checkout', () => {
         await expect(page.locator('[data-monei-express-error]')).toHaveText('');
     });
 
+    // Regression: with the theme's JS cache on (the PrestaShop 9.2 demo), express.js
+    // ran inside the bundle before monei.js loaded, bailed out, and no button ever
+    // mounted, with no error shown.
+    test('mounts with the theme JS cache on', async ({ page }) => {
+        enableExpress();
+        setConfig('PS_JS_THEME_CACHE', '1');
+
+        try {
+            await page.goto(PRODUCT, { waitUntil: 'domcontentloaded' });
+
+            await expect(page.locator('script[src*="/assets/cache/"]').first()).toBeAttached();
+            await expect(page.locator(PAYPAL_BUTTON)).toBeVisible({ timeout: 60000 });
+        } finally {
+            setConfig('PS_JS_THEME_CACHE', '0');
+        }
+    });
+
     test('is absent at the checkout payment step', async ({ page }) => {
         enableExpress('product,cart,checkout');
 
