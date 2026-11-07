@@ -790,8 +790,10 @@ test.describe('express checkout: guards on the payment path', () => {
     });
 
     // A wallet that supplies no payer country: the invoice goes to the shop's
-    // default country.
-    test('a virtual invoice without a payer country uses the shop’s country', async ({ page }) => {
+    // default country. Never in place of a country the payer did give.
+    test('a virtual invoice uses the shop’s country only when the payer gives none', async ({
+        page,
+    }) => {
         const product = Number(fixture('virtualProductId', 'MONEI_E2E_VIRTUAL_ID', '12'));
         const defaultCountry = getConfig('PS_COUNTRY_DEFAULT');
         const france = mysql("SELECT id_country FROM ps_country WHERE iso_code = 'FR';").trim();
@@ -821,6 +823,27 @@ test.describe('express checkout: guards on the payment path', () => {
             ).trim();
 
             expect(country).toBe(france);
+
+            // A payer's own country is never swapped for the shop's: Spain needs
+            // an identification number no wallet supplies, so it is refused.
+            const again = await expressConfig(page);
+            const spanish = await post(page, again.endpoint, {
+                action: 'addToCart',
+                token: again.token,
+                productId: product,
+                quantity: 1,
+            });
+            const refused = await post(page, again.endpoint, {
+                action: 'createOrder',
+                token: again.token,
+                paymentMethod: 'paypal',
+                expressCartId: spanish.expressCartId,
+                email: `spain-${Date.now()}@example.com`,
+                billingDetails: { name: 'Ada Lovelace', address: { country: 'ES' } },
+            });
+
+            expect(refused.ok, JSON.stringify(refused)).toBe(false);
+            expect(refused.message).toMatch(/not available/i);
         } finally {
             setConfig('PS_COUNTRY_DEFAULT', defaultCountry);
         }

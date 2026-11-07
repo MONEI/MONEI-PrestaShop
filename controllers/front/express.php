@@ -606,40 +606,38 @@ class MoneiExpressModuleFrontController extends ModuleFrontController
      * An invoice address for a virtual cart, from what the wallet supplied.
      *
      * PayPal's payer address is often only a country; the missing parts get the
-     * normaliser's placeholder, as for a physical cart. With no usable country the
-     * shop's default is taken.
+     * normaliser's placeholder, as for a physical cart. Only a wallet that sends
+     * no country gets the shop's default: a payer's own country is never swapped
+     * for another, which would invoice and tax them where they do not live.
      *
      * @param array $payload Wallet billing details, else shipping details
      *
      * @return array Output of ExpressAddressNormalizer::normalize()
      *
-     * @throws PrestaShopException when the shop can invoice to neither country
+     * @throws PrestaShopException when the shop cannot invoice to that country
      */
     private function virtualInvoiceAddress(array $payload)
     {
         $normalized = ExpressAddressNormalizer::normalize($payload);
-        $default = (string) Country::getIsoById((int) Configuration::get('PS_COUNTRY_DEFAULT'));
 
-        foreach ([$normalized['countryIso'], $default] as $iso) {
-            // PrestaShop 9 throws on an empty iso code rather than returning 0.
-            $countryId = $iso !== '' ? (int) Country::getByIso($iso, true) : 0;
-
-            // An identification number no wallet supplies, or a state the shop
-            // cannot match, would fail the address; see assertCountryIsExpressable.
-            if (!$countryId
-                || (new Country($countryId))->need_identification_number
-                || (Country::containsStates($countryId) && !ExpressOrderBuilder::resolveState($countryId, $normalized['state']))) {
-                continue;
-            }
-
-            $normalized['countryIso'] = $iso;
-
-            return $normalized;
+        if ($normalized['countryIso'] === '') {
+            $normalized['countryIso'] = (string) Country::getIsoById((int) Configuration::get('PS_COUNTRY_DEFAULT'));
         }
 
-        throw new PrestaShopException(
-            $this->module->l('Express checkout is not available for delivery to this country. Please continue with the standard checkout.', 'express')
-        );
+        // PrestaShop 9 throws on an empty iso code rather than returning 0.
+        $countryId = $normalized['countryIso'] !== '' ? (int) Country::getByIso($normalized['countryIso'], true) : 0;
+
+        // An identification number no wallet supplies, or a state the shop cannot
+        // match, would fail the address; see assertCountryIsExpressable.
+        if (!$countryId
+            || (new Country($countryId))->need_identification_number
+            || (Country::containsStates($countryId) && !ExpressOrderBuilder::resolveState($countryId, $normalized['state']))) {
+            throw new PrestaShopException(
+                $this->module->l('Express checkout is not available for delivery to this country. Please continue with the standard checkout.', 'express')
+            );
+        }
+
+        return $normalized;
     }
 
     private function applyAddressFromInput()
