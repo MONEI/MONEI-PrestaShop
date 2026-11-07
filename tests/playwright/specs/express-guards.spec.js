@@ -702,6 +702,13 @@ test.describe('express checkout: guards on the payment path', () => {
         ).trim();
 
         expect(carrier).toBe(dearer.id);
+
+        // Regression: the retry signed in a second guest for the same shopper.
+        const guests = mysql(
+            `SELECT COUNT(*) FROM ps_customer WHERE email = '${order.email}';`
+        ).trim();
+
+        expect(guests).toBe('1');
     });
 
     // Regression: a virtual cart was not given to the guest createOrder signs in,

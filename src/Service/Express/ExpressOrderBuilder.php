@@ -43,6 +43,14 @@ class ExpressOrderBuilder
             throw new \PrestaShopException('The wallet did not provide a usable email address');
         }
 
+        // The guest an earlier attempt in this session signed in: a retry after a
+        // refused total would otherwise add a guest per attempt. Taken from the
+        // session, never looked up by email.
+        if (\Validate::isLoadedObject($context->customer) && $context->customer->id && $context->customer->is_guest
+            && strcasecmp((string) $context->customer->email, $email) === 0) {
+            return $context->customer;
+        }
+
         // ⚠️ Never attach an existing account to an anonymous session. The email
         // comes from the wallet payload, which the browser controls, and the
         // cookie below is written with logged = 1 before any payment is confirmed.
