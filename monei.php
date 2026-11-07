@@ -2974,7 +2974,7 @@ class Monei extends PaymentModule
                     // Cache-bust on release so an upgraded merchant never gets stale assets.
                     'version' => $this->version,
                     'priority' => 300,
-                    'attributes' => 'async',
+                    'attributes' => 'defer',
                     'position' => 'bottom',
                 ]
             );
