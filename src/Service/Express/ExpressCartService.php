@@ -276,8 +276,15 @@ class ExpressCartService
     {
         $customerId = (int) $context->customer->id;
 
-        if ($customerId > 0) {
-            return (int) $cart->id_customer === $customerId;
+        if ($customerId > 0 && (int) $cart->id_customer === $customerId) {
+            return true;
+        }
+
+        // A guest customer signed in by an earlier express attempt still owns the
+        // carts its browser created before that, such as another container's.
+        // Never a registered account: its carts are matched by customer only.
+        if ($customerId > 0 && (!$context->customer->is_guest || (int) $cart->id_customer !== 0)) {
+            return false;
         }
 
         $guestId = (int) $context->cookie->id_guest;

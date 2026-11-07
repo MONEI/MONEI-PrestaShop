@@ -848,4 +848,43 @@ test.describe('express checkout: guards on the payment path', () => {
             setConfig('PS_COUNTRY_DEFAULT', defaultCountry);
         }
     });
+
+    // Regression: once createOrder signed the wallet's guest in, a sibling
+    // container's express cart (made by the same browser before that) failed the
+    // ownership check, and paying from it said "The express cart is not available".
+    test('a sibling express cart stays the shopper’s after the guest signs in', async ({
+        page,
+    }) => {
+        const { endpoint, token } = await expressConfig(page);
+        const add = () =>
+            post(page, endpoint, {
+                action: 'addToCart',
+                token,
+                productId: 1,
+                productAttributeId: 1,
+                quantity: 1,
+            });
+        const first = await add();
+        const sibling = await add();
+
+        const refused = await post(page, endpoint, {
+            action: 'createOrder',
+            token,
+            paymentMethod: 'paypal',
+            expressCartId: first.expressCartId,
+            email: `sibling-${Date.now()}@example.com`,
+            shippingDetails: DETAILS,
+            amount: first.amount + 1,
+        });
+
+        expect(refused.code).toBe('amount_changed');
+
+        const priced = await post(page, endpoint, {
+            action: 'getCartDetails',
+            token: refused.token,
+            expressCartId: sibling.expressCartId,
+        });
+
+        expect(priced.ok, JSON.stringify(priced)).toBe(true);
+    });
 });
