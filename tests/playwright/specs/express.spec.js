@@ -87,9 +87,11 @@ test.describe('express checkout', () => {
     });
 
     // Regression: express read the combination from a form field that no stock
-    // theme renders, so every variable product went to the express cart as its
-    // default combination, whatever the buyer picked, with no error shown.
-    test('puts the combination the buyer picked in the express cart', async ({ page }) => {
+    // theme renders, so every variable product went to the express cart with
+    // combination 0, whatever the buyer picked, with no error shown. The button is
+    // priced and the cart filled from the same posted fields and the same server
+    // resolution, so the priced combination is the one that goes in the cart.
+    test('prices the combination the buyer picked', async ({ page }) => {
         enableExpress();
 
         await page.goto(VARIABLE_PRODUCT, { waitUntil: 'domcontentloaded' });
@@ -102,26 +104,406 @@ test.describe('express checkout', () => {
         const remounted = page.waitForResponse(
             (response) =>
                 response.url().includes('module/monei/express') &&
-                (response.request().postData() || '').includes('"addToCart"')
+                (response.request().postData() || '').includes('"getSelectedProductData"')
         );
         await size.selectOption(sizeM);
-        const cart = await (await remounted).json();
+        const response = await remounted;
+        const { productAttributeId } = await response.json();
 
-        const line = mysql(
-            `SELECT id_product, id_product_attribute FROM ps_cart_product WHERE id_cart = ${Number(cart.expressCartId)};`
-        )
-            .trim()
-            .split(/\s+/);
-
-        expect(line[0]).toBe(String(fixture('variableProductId', 'MONEI_E2E_VARIABLE_ID', '1')));
+        expect(JSON.parse(response.request().postData()).productId).toBe(
+            Number(fixture('variableProductId', 'MONEI_E2E_VARIABLE_ID', '1'))
+        );
 
         // The combination must be one that carries size M, read from the catalogue
         // rather than from the page the client read it from.
         const hasSizeM = mysql(
-            `SELECT COUNT(*) FROM ps_product_attribute_combination WHERE id_product_attribute = ${Number(line[1])} AND id_attribute = ${Number(sizeM)};`
+            `SELECT COUNT(*) FROM ps_product_attribute_combination WHERE id_product_attribute = ${Number(productAttributeId)} AND id_attribute = ${Number(sizeM)};`
         ).trim();
 
-        expect(hasSizeM, `combination ${line[1]} should be size ${sizeM}`).toBe('1');
+        expect(hasSizeM, `combination ${productAttributeId} should be size ${sizeM}`).toBe('1');
+    });
+
+    // Regression: a theme without the details block (or with it renamed) sent
+    // combination 0 and the line went into the express cart with no combination.
+    test('keeps the combination on a theme without the details block', async ({ page }) => {
+        enableExpress();
+
+        await page.goto(VARIABLE_PRODUCT, { waitUntil: 'domcontentloaded' });
+        await expect(page.locator(PAYPAL_BUTTON)).toBeVisible({ timeout: 60000 });
+
+        // What such a theme renders: no element carrying data-product at all.
+        await page.evaluate(() =>
+            document.querySelectorAll('[data-product]').forEach((element) => {
+                element.removeAttribute('data-product');
+                element.classList.remove('js-product-details');
+                element.removeAttribute('id');
+            })
+        );
+
+        const size = page.locator('select[name="group[1]"]');
+        const sizeM = await size.locator('option').nth(1).getAttribute('value');
+
+        const remounted = page.waitForResponse(
+            (response) =>
+                response.url().includes('module/monei/express') &&
+                (response.request().postData() || '').includes('"getSelectedProductData"')
+        );
+        await size.selectOption(sizeM);
+        const { productAttributeId: combination } = await (await remounted).json();
+        const hasSizeM = mysql(
+            `SELECT COUNT(*) FROM ps_product_attribute_combination WHERE id_product_attribute = ${Number(combination)} AND id_attribute = ${Number(sizeM)};`
+        ).trim();
+
+        expect(hasSizeM, `combination ${combination} should be size ${sizeM}`).toBe('1');
+    });
+
+    // Regression: classic renders a quickview's hook in the modal footer, outside
+    // the quickview's form, and the block read the page's form behind it instead:
+    // the page product's size and quantity were charged. Hummingbird has no
+    // quickview on a product page, so the test builds classic's markup.
+    test('a quickview block reads the quickview’s form, not the page behind it', async ({
+        page,
+    }) => {
+        enableExpress();
+
+        await page.goto(VARIABLE_PRODUCT, { waitUntil: 'domcontentloaded' });
+        await expect(page.locator(PAYPAL_BUTTON)).toBeVisible({ timeout: 60000 });
+
+        const size = page.locator('select[name="group[1]"]').first();
+        const options = await size
+            .locator('option')
+            .evaluateAll((list) => list.map((option) => option.value));
+        const [pageSize, quickviewSize] = [options[1], options[2]];
+
+        await page.evaluate(
+            ({ productId, sizeValue }) => {
+                const modal = document.createElement('div');
+                modal.className = 'quickview';
+                modal.innerHTML = `
+                    <form id="add-to-cart-or-refresh">
+                        <select name="group[1]"><option value="${sizeValue}" selected></option></select>
+                        <input name="qty" value="2">
+                    </form>
+                    <div class="modal-footer">
+                        <div data-monei-express data-location="product" data-product-id="${productId}">
+                            <div data-monei-express-label hidden></div>
+                            <div data-monei-express-method="paypal"></div>
+                            <div data-monei-express-error role="alert"></div>
+                        </div>
+                    </div>`;
+                document.body.appendChild(modal);
+            },
+            {
+                productId: await page
+                    .locator('[data-monei-express]')
+                    .first()
+                    .getAttribute('data-product-id'),
+                sizeValue: quickviewSize,
+            }
+        );
+
+        const posted = [];
+        page.on('request', (request) => {
+            const body = request.postData() || '';
+
+            if (
+                request.url().includes('module/monei/express') &&
+                body.includes('"getSelectedProductData"')
+            ) {
+                posted.push(JSON.parse(body));
+            }
+        });
+
+        // Any product change remounts every product container, the quickview's too.
+        await size.selectOption(pageSize);
+
+        await expect
+            .poll(() => posted.find((data) => Number(data.quantity) === 2), { timeout: 30000 })
+            .toBeTruthy();
+        const quickview = posted.find((data) => Number(data.quantity) === 2);
+
+        expect(String(quickview.groups['1'])).toBe(quickviewSize);
+    });
+
+    // Regression: a product that cannot be bought (out of stock, below the
+    // minimum) showed "could not be added" at page load, and scrolled to it,
+    // before the shopper had clicked anything.
+    test('an out-of-stock product shows no block and no error', async ({ page }) => {
+        enableExpress();
+        const id = Number(fixture('simpleProductId', 'MONEI_E2E_PRODUCT_ID', '6'));
+        const quantity = psEval(`echo (int) StockAvailable::getQuantityAvailableByProduct(${id});`);
+        const outOfStock = psEval(`echo (int) StockAvailable::outOfStock(${id});`);
+        const orderOutOfStock = getConfig('PS_ORDER_OUT_OF_STOCK');
+
+        psEval(
+            `StockAvailable::setQuantity(${id}, 0, 0); StockAvailable::setProductOutOfStock(${id}, 0);`
+        );
+        setConfig('PS_ORDER_OUT_OF_STOCK', '0');
+
+        try {
+            const mounted = page.waitForResponse(
+                (response) =>
+                    response.url().includes('module/monei/express') &&
+                    (response.request().postData() || '').includes('"getSelectedProductData"')
+            );
+            await page.goto(PRODUCT, { waitUntil: 'domcontentloaded' });
+            expect((await mounted).ok(), 'the button should not be priced').toBe(false);
+
+            await expect(page.locator('[data-monei-express]')).toBeHidden();
+            await expect(page.locator('[data-monei-express-error]')).toHaveText('');
+        } finally {
+            psEval(
+                `StockAvailable::setQuantity(${id}, 0, ${Number(quantity)}); StockAvailable::setProductOutOfStock(${id}, ${Number(outOfStock)});`
+            );
+            setConfig('PS_ORDER_OUT_OF_STOCK', orderOutOfStock);
+        }
+    });
+
+    // Regression: the hidden block's slots were removed, so picking a combination
+    // that is in stock had nothing to remount into until a page reload. Stock
+    // themes hide this: core.js re-renders the additional-info block on every
+    // change. A theme that renders the hook outside that block keeps the old one.
+    test('appears when the shopper picks a combination in stock after one that is not', async ({
+        page,
+    }) => {
+        enableExpress();
+        const id = Number(fixture('variableProductId', 'MONEI_E2E_VARIABLE_ID', '1'));
+        const combination = Number(
+            mysql(
+                `SELECT id_product_attribute FROM ps_product_attribute WHERE id_product = ${id} AND default_on = 1;`
+            ).trim()
+        );
+        const quantity = psEval(
+            `echo (int) StockAvailable::getQuantityAvailableByProduct(${id}, ${combination});`
+        );
+        const outOfStock = psEval(`echo (int) StockAvailable::outOfStock(${id});`);
+        const orderOutOfStock = getConfig('PS_ORDER_OUT_OF_STOCK');
+
+        psEval(
+            `StockAvailable::setQuantity(${id}, ${combination}, 0); StockAvailable::setProductOutOfStock(${id}, 0);`
+        );
+        setConfig('PS_ORDER_OUT_OF_STOCK', '0');
+
+        try {
+            const mounted = page.waitForResponse(
+                (response) =>
+                    response.url().includes('module/monei/express') &&
+                    (response.request().postData() || '').includes('"getSelectedProductData"')
+            );
+            await page.goto(VARIABLE_PRODUCT, { waitUntil: 'domcontentloaded' });
+            expect((await mounted).ok(), 'the default combination should be refused').toBe(false);
+            await expect(page.locator('[data-monei-express]')).toBeHidden();
+
+            // Such a theme: core.js finds no additional-info block to replace.
+            await page.evaluate(() => {
+                window.prestashop.selectors.product.additionalInfos = '.no-such-block';
+            });
+
+            const size = page.locator('select[name="group[1]"]');
+            const current = await size.inputValue();
+            const other = await size
+                .locator(`option:not([value="${current}"])`)
+                .first()
+                .getAttribute('value');
+
+            await size.selectOption(other);
+
+            await expect(page.locator(PAYPAL_BUTTON)).toBeVisible({ timeout: 60000 });
+        } finally {
+            psEval(
+                `StockAvailable::setQuantity(${id}, ${combination}, ${Number(quantity)}); StockAvailable::setProductOutOfStock(${id}, ${Number(outOfStock)});`
+            );
+            setConfig('PS_ORDER_OUT_OF_STOCK', orderOutOfStock);
+        }
+    });
+
+    // Regression: the sheet was never repriced. The mount total carried no
+    // shipping, and createOrder picked its own carrier, so a shopper could approve
+    // one total and be charged another. monei.js is stubbed: the wallet sheet
+    // itself cannot be driven from a test.
+    test('the wallet reprices shipping, and its carrier and total reach createOrder', async ({
+        page,
+    }) => {
+        enableExpress();
+
+        await page.route('https://js.monei.com/v3/monei.js', (route) =>
+            route.fulfill({
+                contentType: 'application/javascript',
+                body: `window.monei = {
+                    PayPal: (props) => ({ render: () => { window.moneiPayPal = props; props.onLoad(true); } }),
+                    PaymentRequest: (props) => ({ render: () => props.onLoad(false) }),
+                    confirmPayment: async () => ({}),
+                };`,
+            })
+        );
+
+        let createOrder = null;
+        const after = [];
+
+        await page.route('**/module/monei/express**', (route) => {
+            const body = JSON.parse(route.request().postData() || '{}');
+
+            if (createOrder) {
+                after.push(body);
+            }
+
+            if (body.action !== 'createOrder') {
+                return route.continue();
+            }
+
+            createOrder = body;
+
+            // What the server answers when the cart total differs from the sheet's,
+            // after signing the wallet's guest in.
+            return route.fulfill({
+                status: 409,
+                contentType: 'application/json',
+                body: JSON.stringify({
+                    ok: false,
+                    code: 'amount_changed',
+                    message: 'The total changed',
+                    token: 'rotated',
+                }),
+            });
+        });
+
+        await page.goto(PRODUCT, { waitUntil: 'domcontentloaded' });
+        await page.waitForFunction(() => window.moneiPayPal);
+
+        // Regression: an address the shop cannot ship to (Spain needs an
+        // identification number) resolved an empty list, which monei.js reads on
+        // the first address as "no shipping needed".
+        const refused = await page.evaluate(() =>
+            window.moneiPayPal.onShippingAddressChange({ country: 'ES', zip: '28001' }).then(
+                () => 'resolved',
+                () => 'rejected'
+            )
+        );
+
+        expect(refused).toBe('rejected');
+
+        const opened = await page.evaluate(() =>
+            window.moneiPayPal.onShippingAddressChange({
+                country: 'FR',
+                city: 'Paris',
+                zip: '75001',
+            })
+        );
+        const dearer = opened.shippingOptions.find((option) => !option.selected);
+
+        expect(dearer, 'the shop should offer a second carrier to France').toBeTruthy();
+
+        const repriced = await page.evaluate(
+            (option) => window.moneiPayPal.onShippingOptionChange(option),
+            dearer
+        );
+
+        expect(repriced.amount).toBeGreaterThan(opened.amount);
+
+        await page.evaluate(
+            (option) =>
+                window.moneiPayPal.onSubmit({
+                    token: 'stub',
+                    paymentMethod: 'paypal',
+                    shippingOption: option,
+                    // The wallet's own total wins over the quote cached in the page:
+                    // callbacks can resolve out of order.
+                    finalAmount: option.finalAmount,
+                    shippingDetails: {
+                        name: 'Ada Lovelace',
+                        email: 'ada@example.com',
+                        address: {
+                            line1: '1 Rue de Rivoli',
+                            city: 'Paris',
+                            zip: '75001',
+                            country: 'FR',
+                        },
+                    },
+                }),
+            { ...dearer, finalAmount: repriced.amount + 1 }
+        );
+
+        await expect.poll(() => createOrder).toBeTruthy();
+        expect(createOrder.carrierId).toBe(dearer.id);
+        expect(createOrder.amount).toBe(repriced.amount + 1);
+
+        // The button is priced again from the express cart, with the new token.
+        await expect
+            .poll(() => after.find((body) => body.action === 'getCartDetails'))
+            .toBeTruthy();
+        const repricing = after.find((body) => body.action === 'getCartDetails');
+
+        expect(repricing.expressCartId).toBe(createOrder.expressCartId);
+        expect(after.every((body) => body.token === 'rotated')).toBe(true);
+        expect(createOrder.expressCartId).toBeGreaterThan(0);
+    });
+
+    // Regression: opening a wallet in a quickview deleted the cart the page's own
+    // container held for the same product, and paying from the page then failed
+    // with "The express cart is not available".
+    test('two containers for one product keep their own express carts', async ({ page }) => {
+        enableExpress();
+
+        await page.route('https://js.monei.com/v3/monei.js', (route) =>
+            route.fulfill({
+                contentType: 'application/javascript',
+                body: `window.moneiSlots = [];
+                window.monei = {
+                    PayPal: (props) => ({ render: (slot) => { window.moneiSlots.push({ props, slot }); props.onLoad(true); } }),
+                    PaymentRequest: (props) => ({ render: () => props.onLoad(false) }),
+                    confirmPayment: async () => ({}),
+                };`,
+            })
+        );
+
+        await page.goto(PRODUCT, { waitUntil: 'domcontentloaded' });
+        await page.waitForFunction(() => window.moneiSlots.length === 1);
+
+        // A quickview of the same product, as classic renders it.
+        await page.evaluate(() => {
+            const productId = document.querySelector('[data-monei-express]').dataset.productId;
+            const modal = document.createElement('div');
+
+            modal.className = 'quickview';
+            modal.innerHTML = `
+                <form id="add-to-cart-or-refresh"><input name="qty" value="1"></form>
+                <div data-monei-express data-location="product" data-product-id="${productId}">
+                    <div data-monei-express-label hidden></div>
+                    <div data-monei-express-method="paypal"></div>
+                    <div data-monei-express-error role="alert"></div>
+                </div>`;
+            document.body.appendChild(modal);
+            window.prestashop.emit('updatedProduct', {});
+        });
+        // Both containers mounted after the event: the page's remounts too.
+        await page.waitForFunction(() =>
+            [true, false].every((quickview) =>
+                window.moneiSlots
+                    .slice(1)
+                    .some((entry) => Boolean(entry.slot.closest('.quickview')) === quickview)
+            )
+        );
+
+        const open = (inQuickview) =>
+            page.evaluate(
+                (quickview) =>
+                    window.moneiSlots
+                        .filter((entry) => Boolean(entry.slot.closest('.quickview')) === quickview)
+                        .pop()
+                        .props.onShippingAddressChange({
+                            country: 'FR',
+                            city: 'Paris',
+                            zip: '75001',
+                        })
+                        .then((quote) => quote.amount),
+                inQuickview
+            );
+
+        await open(false);
+        await open(true);
+
+        // The page's container still owns its cart.
+        expect(await open(false)).toBeGreaterThan(0);
     });
 
     test('is absent at the checkout payment step', async ({ page }) => {

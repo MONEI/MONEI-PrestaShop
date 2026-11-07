@@ -26,6 +26,9 @@ class MoneiExpressModuleFrontController extends ModuleFrontController
     /** @var array */
     private $input = [];
 
+    /** @var bool Whether the request carried a valid token */
+    private $authorized = false;
+
     public function postProcess()
     {
         header('Content-Type: application/json');
@@ -35,6 +38,8 @@ class MoneiExpressModuleFrontController extends ModuleFrontController
         if (!$this->isAuthorizedRequest()) {
             $this->fail('forbidden', 'Invalid or missing security token', 403);
         }
+
+        $this->authorized = true;
 
         if (!(bool) Configuration::get('MONEI_EXPRESS_ENABLED')) {
             $this->fail('express_disabled', 'Express checkout is not enabled', 403);
@@ -62,10 +67,6 @@ class MoneiExpressModuleFrontController extends ModuleFrontController
                     break;
                 case 'getShippingOptions':
                     $this->respond($this->actionShippingOptions());
-
-                    break;
-                case 'updateShippingMethod':
-                    $this->respond($this->actionUpdateShippingMethod());
 
                     break;
                 case 'restoreCart':
@@ -144,33 +145,42 @@ class MoneiExpressModuleFrontController extends ModuleFrontController
      */
     private function actionCartDetails()
     {
-        return $this->cartPayload();
+        $expressCartId = (int) $this->value('expressCartId');
+
+        return $this->cartPayload($expressCartId ? $this->cartService()->owned($this->context, $expressCartId) : null);
     }
 
     /**
-     * Price and availability of the product a shopper is looking at.
+     * Price the product a shopper is looking at, without a cart.
+     *
+     * ⚠️ This prices the button at mount. A cart and a guest are created only when
+     * the shopper opens a wallet: a cart here would add a ps_cart row, and for a
+     * new visitor a ps_guest row, on every page view that runs JavaScript.
+     *
+     * Shipping is not included. The wallet reports an address as it opens, and the
+     * shipping quote reprices the sheet then; createOrder refuses a total that
+     * still differs from the one the shopper approved.
      */
     private function actionSelectedProductData()
     {
         $productId = (int) $this->value('productId');
-        $attributeId = (int) $this->value('productAttributeId');
+        $attributeId = $this->selectedCombination($productId);
         $quantity = max(1, (int) $this->value('quantity', 1));
 
-        $product = new Product($productId, false, (int) $this->context->language->id);
+        $product = $this->cartService()->assertPurchasable($this->context, $productId, $attributeId, $quantity);
 
-        if (!Validate::isLoadedObject($product) || !$product->active) {
-            throw new PrestaShopException('Product not available');
-        }
-
-        $price = Product::getPriceStatic($productId, true, $attributeId ?: null, 2);
+        $unit = Product::getPriceStatic($productId, true, $attributeId ?: null, 6, null, false, true, $quantity);
+        $precision = $this->context->getComputingPrecision();
+        $total = (int) Configuration::get('PS_ROUND_TYPE') === Order::ROUND_ITEM
+            ? Tools::ps_round($unit, $precision) * $quantity
+            : Tools::ps_round($unit * $quantity, $precision);
 
         return [
-            'productId' => $productId,
             'productAttributeId' => $attributeId,
-            'quantity' => $quantity,
-            'name' => $product->name,
-            'amount' => $this->toMinorUnits((float) $price * $quantity),
+            'amount' => $this->toMinorUnits($total),
             'currency' => $this->context->currency->iso_code,
+            'shippingRequired' => !$product->is_virtual,
+            'items' => [['label' => $product->name, 'amount' => $this->toMinorUnits($total)]],
         ];
     }
 
@@ -180,7 +190,7 @@ class MoneiExpressModuleFrontController extends ModuleFrontController
     private function actionAddToCart()
     {
         $productId = (int) $this->value('productId');
-        $attributeId = (int) $this->value('productAttributeId');
+        $attributeId = $this->selectedCombination($productId);
         $quantity = max(1, (int) $this->value('quantity', 1));
 
         // A stale express cart for the same container is replaced, not left
@@ -200,38 +210,146 @@ class MoneiExpressModuleFrontController extends ModuleFrontController
     }
 
     /**
-     * Carriers that can deliver this cart.
+     * Carriers for the address a wallet reports, and the total with one chosen.
+     *
+     * ⚠️ Writes nothing. While the sheet is open the wallet reports a partial
+     * address (no street, no name), so no customer or address can be created yet.
+     * The cart is priced the way PrestaShop prices a cart without a delivery
+     * address: in a country, here the wallet's, in the zone of its state when the
+     * shop has one. That is exact for core carriers, which price by zone.
+     * createOrder prices it again from the full address before any money moves.
      */
     private function actionShippingOptions()
     {
-        $this->applyAddressFromInput();
+        $expressCartId = (int) $this->value('expressCartId');
+        $cart = $expressCartId ? $this->cartService()->owned($this->context, $expressCartId) : $this->context->cart;
 
-        return [
-            'shippingOptions' => $this->shippingOptions(),
-        ] + $this->cartPayload();
+        if ($cart->isVirtualCart()) {
+            return ['shippingOptions' => []] + $this->cartPayload($cart);
+        }
+
+        $country = $this->walletCountry((array) $this->value('address', []));
+
+        if (!$country) {
+            // An empty list is how the wallet is told it cannot ship there.
+            return ['shippingOptions' => []] + $this->cartPayload($cart);
+        }
+
+        // Core reads the zone from the context country when the cart has no
+        // delivery address, and caches delivery options per country across carts.
+        Cart::resetStaticCache();
+        $this->context->country = $country;
+
+        // ⚠️ A carrier module may price by postcode, which only a stored address
+        // carries. Once createOrder has attached the wallet's full address (a
+        // refused total), a quote for the same country and postcode uses it, so
+        // the retry is quoted as the order will be.
+        if (!$this->isStoredAddress($cart, $country, (array) $this->value('address', []))) {
+            $cart->id_address_delivery = 0;
+        }
+
+        $options = $this->shippingOptions($cart, $country);
+
+        if (!$options) {
+            return ['shippingOptions' => []] + $this->cartPayload($cart);
+        }
+
+        $chosen = $this->chooseCarrier($options, (int) $this->value('carrierId'));
+        $cart->delivery_option = json_encode([(int) $cart->id_address_delivery => $chosen['key']]);
+        $cart->id_carrier = $chosen['id'];
+
+        $shippingOptions = [];
+
+        foreach ($options as $option) {
+            $shippingOptions[] = [
+                'id' => (string) $option['id'],
+                'label' => $option['label'],
+                'amount' => $option['amount'],
+                'selected' => $option['id'] === $chosen['id'],
+            ];
+        }
+
+        return ['shippingOptions' => $shippingOptions] + $this->cartPayload($cart);
     }
 
     /**
-     * Choose a carrier and report the recomputed totals.
+     * Whether the cart's delivery address is the one the wallet reports.
      *
-     * ⚠️ Returns the totals, and so do addToCart and getShippingOptions. The wallet
-     * sheet shows what the shopper is about to pay, and a sheet left showing a
-     * pre-shipping total is a sheet lying about the amount.
+     * @param Cart $cart Cart being quoted
+     * @param Country $country Country the wallet reports
+     * @param array $wallet Wallet address
      */
-    private function actionUpdateShippingMethod()
+    private function isStoredAddress(Cart $cart, Country $country, array $wallet)
     {
-        $carrierId = (int) $this->value('carrierId');
+        $address = new Address((int) $cart->id_address_delivery);
+        $postcode = ExpressAddressNormalizer::normalize($wallet)['postcode'];
 
-        if (!$carrierId) {
-            throw new PrestaShopException('No carrier selected');
+        return Validate::isLoadedObject($address)
+            && (int) $address->id_country === (int) $country->id
+            && $postcode !== ''
+            && strcasecmp(trim((string) $address->postcode), $postcode) === 0;
+    }
+
+    /**
+     * The country to price shipping in, from a wallet's partial address.
+     *
+     * @param array $address Wallet address: country, and state when it has one
+     *
+     * @return Country|null Null when express cannot deliver there
+     */
+    private function walletCountry(array $address)
+    {
+        $normalized = ExpressAddressNormalizer::normalize($address);
+        // PrestaShop 9 throws on an empty iso code rather than returning 0.
+        $countryId = $normalized['countryIso'] !== '' ? (int) Country::getByIso($normalized['countryIso'], true) : 0;
+
+        if (!$countryId) {
+            return null;
         }
 
-        $this->context->cart->setDeliveryOption([
-            (int) $this->context->cart->id_address_delivery => $carrierId . ',',
-        ]);
-        $this->context->cart->update();
+        $country = new Country($countryId, (int) $this->context->language->id);
 
-        return $this->cartPayload();
+        // createOrder refuses these; quoting them would promise a delivery that
+        // cannot be ordered.
+        if ($country->need_identification_number) {
+            return null;
+        }
+
+        // createOrder refuses a state it cannot resolve, so none is quoted.
+        if (Country::containsStates($countryId)) {
+            $stateId = ExpressOrderBuilder::resolveState($countryId, $normalized['state']);
+
+            if (!$stateId) {
+                return null;
+            }
+
+            $country->id_zone = (int) State::getIdZone($stateId);
+        }
+
+        return $country;
+    }
+
+    /**
+     * The carrier the wallet chose, or the cheapest when it chose none we offer.
+     *
+     * @param array<int, array{id: int, key: string, label: string, amount: int}> $options
+     * @param int $carrierId Carrier the wallet reported, 0 when none
+     *
+     * @return array{id: int, key: string, label: string, amount: int}
+     */
+    private function chooseCarrier(array $options, $carrierId)
+    {
+        foreach ($options as $option) {
+            if ($carrierId && $option['id'] === $carrierId) {
+                return $option;
+            }
+        }
+
+        usort($options, static function ($a, $b) {
+            return $a['amount'] <=> $b['amount'];
+        });
+
+        return $options[0];
     }
 
     /**
@@ -272,13 +390,9 @@ class MoneiExpressModuleFrontController extends ModuleFrontController
         // client never supplies it, so there is nothing to validate and nothing to
         // spoof: a wallet cannot talk the shop into a smaller total.
         //
-        // ⚠️ The sheet total is NOT pre-shipping: getSummaryDetails already prices
-        // the cart's current carrier. What can still move is the carrier itself —
-        // the address arrives with the shopper's approval, and the cheapest option
-        // for that zone is chosen here, which may differ from the one priced into
-        // the sheet. monei.js v3 exposes shipping-change callbacks that would let
-        // the sheet reprice; they are not wired yet.
-        $this->selectCheapestCarrier();
+        // The carrier the shopper picked in the sheet, when it can deliver to the
+        // full address; otherwise the cheapest that can.
+        $this->selectCarrier((int) $this->value('carrierId'));
 
         // A physical cart with no carrier serving the wallet's address would be
         // charged with no delivery option at all, and the order could not be
@@ -286,6 +400,23 @@ class MoneiExpressModuleFrontController extends ModuleFrontController
         if (!$this->context->cart->isVirtualCart() && !(int) $this->context->cart->id_carrier) {
             throw new PrestaShopException(
                 $this->module->l('No shipping method is available for this address. Please continue with the standard checkout.', 'express')
+            );
+        }
+
+        // ⚠️ The total the sheet showed is a quote: priced from the product at mount,
+        // or from a partial address while the sheet was open. Charging a different
+        // amount than the shopper approved is refused here, before any money moves;
+        // the client then prices the button from this cart. A client that sends no
+        // amount predates the quote and is not checked.
+        $approved = (int) $this->value('amount');
+        $amount = (int) $this->cartAmount();
+
+        if ($approved && $approved !== $amount) {
+            $this->cartService()->restore($this->context);
+            $this->fail(
+                'amount_changed',
+                $this->module->l('The total changed while the wallet was open. Please check it and try again.', 'express'),
+                409
             );
         }
 
@@ -311,11 +442,9 @@ class MoneiExpressModuleFrontController extends ModuleFrontController
     /**
      * Pick a carrier so a physical cart can be priced and shipped.
      *
-     * Express never asks the shopper to choose one: the wallet sheet has no way to
-     * present carriers. The cheapest available option is selected, which is the
-     * choice a shopper is least likely to object to.
+     * @param int $carrierId Carrier the shopper picked in the wallet, 0 when none
      */
-    private function selectCheapestCarrier()
+    private function selectCarrier($carrierId)
     {
         $cart = $this->context->cart;
 
@@ -323,18 +452,14 @@ class MoneiExpressModuleFrontController extends ModuleFrontController
             return;
         }
 
-        $options = $this->shippingOptions();
+        $options = $this->shippingOptions($cart);
 
         if (!$options) {
             return;
         }
 
-        usort($options, static function ($a, $b) {
-            return $a['amount'] <=> $b['amount'];
-        });
-
         $cart->setDeliveryOption([
-            (int) $cart->id_address_delivery => $options[0]['key'],
+            (int) $cart->id_address_delivery => $this->chooseCarrier($options, $carrierId)['key'],
         ]);
         $cart->update();
     }
@@ -477,6 +602,44 @@ class MoneiExpressModuleFrontController extends ModuleFrontController
         );
     }
 
+    /**
+     * An invoice address for a virtual cart, from what the wallet supplied.
+     *
+     * PayPal's payer address is often only a country; the missing parts get the
+     * normaliser's placeholder, as for a physical cart. Only a wallet that sends
+     * no country gets the shop's default: a payer's own country is never swapped
+     * for another, which would invoice and tax them where they do not live.
+     *
+     * @param array $payload Wallet billing details, else shipping details
+     *
+     * @return array Output of ExpressAddressNormalizer::normalize()
+     *
+     * @throws PrestaShopException when the shop cannot invoice to that country
+     */
+    private function virtualInvoiceAddress(array $payload)
+    {
+        $normalized = ExpressAddressNormalizer::normalize($payload);
+
+        if ($normalized['countryIso'] === '') {
+            $normalized['countryIso'] = (string) Country::getIsoById((int) Configuration::get('PS_COUNTRY_DEFAULT'));
+        }
+
+        // PrestaShop 9 throws on an empty iso code rather than returning 0.
+        $countryId = $normalized['countryIso'] !== '' ? (int) Country::getByIso($normalized['countryIso'], true) : 0;
+
+        // An identification number no wallet supplies, or a state the shop cannot
+        // match, would fail the address; see assertCountryIsExpressable.
+        if (!$countryId
+            || (new Country($countryId))->need_identification_number
+            || (Country::containsStates($countryId) && !ExpressOrderBuilder::resolveState($countryId, $normalized['state']))) {
+            throw new PrestaShopException(
+                $this->module->l('Express checkout is not available for delivery to this country. Please continue with the standard checkout.', 'express')
+            );
+        }
+
+        return $normalized;
+    }
+
     private function applyAddressFromInput()
     {
         // shippingDetails / billingDetails are monei.js v3's own shapes, passed
@@ -498,12 +661,33 @@ class MoneiExpressModuleFrontController extends ModuleFrontController
             $email = (string) $this->context->customer->email;
         }
 
-        // A virtual cart needs no delivery address at all. Normalising an empty
-        // payload here produced an empty country and a refusal after approval.
+        // A virtual cart needs no delivery address, and the wallet asks for none.
         if ($this->context->cart->isVirtualCart()) {
+            $customer = $this->context->customer;
+
             if (!$signedIn) {
                 $this->assertEmailIsNotARegisteredAccount($email);
-                $builder->ensureCustomer($this->context, $email, ExpressAddressNormalizer::PLACEHOLDER, ExpressAddressNormalizer::PLACEHOLDER);
+                $customer = $builder->ensureCustomer($this->context, $email, ExpressAddressNormalizer::PLACEHOLDER, ExpressAddressNormalizer::PLACEHOLDER);
+
+                // applyAddress() does this for a physical cart. Without it the
+                // signed-in guest no longer owns the express cart, and a retry
+                // after a refusal is refused as someone else's cart.
+                $this->context->cart->id_customer = (int) $customer->id;
+                $this->context->cart->secure_key = $customer->secure_key;
+                $this->context->cart->update();
+            }
+
+            // ⚠️ It still needs an invoice address: the MONEI payment and the
+            // PrestaShop order both refuse a cart without one, so a guest's virtual
+            // express payment failed after the wallet approved. The express cart
+            // copies the basket's addresses, which may be another customer's.
+            if (!Customer::customerHasAddress((int) $customer->id, (int) $this->context->cart->id_address_invoice)) {
+                $builder->applyAddress(
+                    $this->context,
+                    $this->context->cart,
+                    $customer,
+                    $this->virtualInvoiceAddress($billingPayload ?: $shippingPayload)
+                );
             }
 
             return ['incomplete' => false];
@@ -514,6 +698,13 @@ class MoneiExpressModuleFrontController extends ModuleFrontController
         }
 
         $normalized = ExpressAddressNormalizer::normalize($shippingPayload);
+
+        // PayPal's shipping details arrive empty when monei.js could not read the
+        // order; the payer's address is then the only one there is.
+        if ($normalized['countryIso'] === '' && $billingPayload) {
+            $shippingPayload = $billingPayload;
+            $normalized = ExpressAddressNormalizer::normalize($shippingPayload);
+        }
 
         $this->assertCountryIsExpressable($normalized['countryIso']);
         $this->assertStateIsResolvable($normalized);
@@ -580,14 +771,16 @@ class MoneiExpressModuleFrontController extends ModuleFrontController
     }
 
     /**
+     * @param Cart $cart Cart to deliver
+     * @param Country|null $country Country to price in when the cart has no address
+     *
      * @return array<int, array{id: int, key: string, label: string, amount: int}>
      */
-    private function shippingOptions()
+    private function shippingOptions(Cart $cart, ?Country $country = null)
     {
         $options = [];
-        $cart = $this->context->cart;
 
-        foreach ($cart->getDeliveryOptionList() as $addressOptions) {
+        foreach ($cart->getDeliveryOptionList($country, true) as $addressOptions) {
             foreach ($addressOptions as $key => $option) {
                 $carrier = reset($option['carrier_list']);
 
@@ -654,6 +847,24 @@ class MoneiExpressModuleFrontController extends ModuleFrontController
     }
 
     /**
+     * The combination the shopper picked, resolved server side.
+     *
+     * @param int $productId Product
+     *
+     * @return int Combination id, 0 for a product without combinations
+     */
+    private function selectedCombination($productId)
+    {
+        $groups = $this->value('groups', []);
+
+        return $this->cartService()->resolveCombination(
+            (int) $productId,
+            (int) $this->value('productAttributeId'),
+            is_array($groups) ? $groups : []
+        );
+    }
+
+    /**
      * Reuses the token convention the module already uses for createPayment,
      * rather than inventing a second scheme.
      */
@@ -669,14 +880,30 @@ class MoneiExpressModuleFrontController extends ModuleFrontController
 
     private function respond(array $payload)
     {
-        echo json_encode(['ok' => true] + $payload);
+        echo json_encode(['ok' => true] + $payload + $this->freshToken());
         exit;
     }
 
     private function fail($code, $message, $status)
     {
         http_response_code($status);
-        echo json_encode(['ok' => false, 'code' => $code, 'message' => $message]);
+        echo json_encode(['ok' => false, 'code' => $code, 'message' => $message] + $this->freshToken());
         exit;
+    }
+
+    /**
+     * The token the next request must carry.
+     *
+     * ⚠️ The token hashes the customer, and createOrder signs an anonymous
+     * shopper in as the wallet's guest customer. Every request after that, even
+     * when createOrder failed — the restore, the remount after a changed total,
+     * a second attempt — would be refused with the token the page was rendered
+     * with. Never handed to a request that failed the token check.
+     *
+     * @return array{token?: string}
+     */
+    private function freshToken()
+    {
+        return $this->authorized ? ['token' => Tools::getToken(false)] : [];
     }
 }

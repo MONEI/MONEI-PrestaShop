@@ -38,10 +38,18 @@
             data = null;
         }
 
+        // The server rotates the token when it signs the wallet's guest in.
+        if (data && data.token) {
+            moneiExpress.token = data.token;
+        }
+
         if (!response.ok || !data || data.ok !== true) {
             // Carries the server's own message where there is one: "the amount
             // changed while the wallet was open" is worth showing verbatim.
-            throw new Error((data && data.message) || moneiExpress.errorGeneric);
+            const error = new Error((data && data.message) || moneiExpress.errorGeneric);
+            error.code = data && data.code;
+
+            throw error;
         }
 
         return data;
@@ -70,87 +78,248 @@
         }
     };
 
-    // ⚠️ Read the product page's own form only: hummingbird's related-product
-    // miniatures are add-to-cart forms too, with their own quantity and combination.
+    // ⚠️ Read the product's own form only: hummingbird's related-product miniatures
+    // are add-to-cart forms too, with their own quantity and combination.
     const PRODUCT_FORM = '#add-to-cart-or-refresh';
+
+    // Combination PrestaShop reported in its last updatedProduct event.
+    let eventCombination = 0;
+
+    // Whether the shopper has changed the product on this page (quantity,
+    // combination). Only then is a failure to price the button theirs to see.
+    let shopperChangedProduct = false;
+
+    // Last express cart per product, so a remount into a re-rendered container
+    // (which carries no cart id) still replaces it instead of abandoning it.
+    const lastCartByProduct = {};
+
+    /**
+     * The add-to-cart form the container belongs to.
+     *
+     * A quickview opens its own copy of the form over the page, and a page-wide
+     * lookup reads the page behind it. ⚠️ Classic renders the quickview's hook in
+     * the modal footer, outside that form, so the modal is searched before the page.
+     *
+     * @param {HTMLElement} container Express container
+     * @return {HTMLElement|null} Form
+     */
+    const productForm = (container) => {
+        const own = container.closest(PRODUCT_FORM);
+
+        if (own) {
+            return own;
+        }
+
+        const modal = container.closest('.modal, .quickview');
+
+        return modal ? modal.querySelector(PRODUCT_FORM) : document.querySelector(PRODUCT_FORM);
+    };
+
+    /**
+     * Whether the container is a quickview's, not the product page's own.
+     *
+     * @param {HTMLElement} container Express container
+     * @return {boolean} True inside a quickview or other modal
+     */
+    const inQuickview = (container) => Boolean(container.closest('.modal, .quickview'));
 
     /**
      * Quantity the shopper chose, on a product page.
      *
+     * @param {HTMLElement} container Express container
      * @return {number} Quantity, at least 1
      */
-    const selectedQuantity = () => {
-        const input = document.querySelector(`${PRODUCT_FORM} input[name="qty"]`);
+    const selectedQuantity = (container) => {
+        const form = productForm(container);
+        const input = form && form.querySelector('input[name="qty"]');
 
         return Math.max(1, parseInt((input && input.value) || '1', 10) || 1);
+    };
+
+    /**
+     * The form's group[] choices, which the server resolves when no combination
+     * id can be read.
+     *
+     * @param {HTMLElement} container Express container
+     * @return {Object<string, number>} Attribute group id => attribute id
+     */
+    const selectedGroups = (container) => {
+        const form = productForm(container);
+        const groups = {};
+
+        if (!form) {
+            return groups;
+        }
+
+        form.querySelectorAll('[name^="group["]').forEach((field) => {
+            const match = field.name.match(/^group\[(\d+)\]$/);
+            const chosen =
+                field.tagName === 'SELECT' || (field.type !== 'radio' && field.type !== 'checkbox')
+                    ? true
+                    : field.checked;
+
+            if (match && chosen && field.value) {
+                groups[match[1]] = parseInt(field.value, 10) || 0;
+            }
+        });
+
+        return groups;
     };
 
     /**
      * Combination the shopper chose, on a product page.
      *
      * The form has no combination field: the theme picks it with group[] selects
-     * and reports the result in the product details block, which it re-renders
-     * on every change (classic and hummingbird alike).
+     * and reports the result in its product details block, re-rendered on every
+     * change, and in the updatedProduct event. Not every theme renders either, so
+     * 0 here is resolved from the group[] choices server side.
      *
-     * @return {number} Combination id, 0 when the product has none
+     * @param {HTMLElement} container Express container
+     * @return {number} Combination id, 0 when it cannot be read
      */
-    const selectedCombination = () => {
-        const details = document.querySelector('.js-product-details[data-product]');
-
-        try {
-            const product = JSON.parse((details && details.dataset.product) || '{}');
-
-            return parseInt(product.id_product_attribute || '0', 10) || 0;
-        } catch (error) {
+    const selectedCombination = (container) => {
+        // Both sources describe the page's product, never a quickview's.
+        if (inQuickview(container)) {
             return 0;
         }
+
+        const selectors = [
+            typeof prestashop !== 'undefined' &&
+                prestashop.selectors &&
+                prestashop.selectors.product &&
+                prestashop.selectors.product.details,
+            '.js-product-details',
+            '#product-details',
+        ].filter(Boolean);
+
+        for (const selector of selectors) {
+            const details = document.querySelector(selector);
+
+            if (details && details.dataset.product) {
+                try {
+                    const product = JSON.parse(details.dataset.product);
+
+                    return parseInt(product.id_product_attribute || '0', 10) || 0;
+                } catch (error) {
+                    break;
+                }
+            }
+        }
+
+        // A quickview emits updatedProduct too, so the event is the fallback.
+        return eventCombination;
     };
 
     /**
-     * Put the express product in a cart of its own, on a product page.
+     * What the button will charge, at mount.
      *
-     * On the cart page the shopper's cart is already the thing being paid for,
-     * so nothing is created.
-     *
-     * @param {HTMLElement} container Express container
-     * @return {Promise<Object>} Cart details
-     */
-    /**
-     * Price what the button will charge for.
-     *
-     * On a product page this creates an express cart, because only a real cart can
-     * price shipping and the wallet sheet must show the exact total. It does NOT
-     * become the session cart: that happens in completePayment, once the wallet
-     * has approved. Viewing a product page therefore never touches the shopper's
-     * own basket.
-     *
-     * One cart per container, shared by every method slot in it. The request is
-     * memoised so three buttons do not create three carts.
+     * ⚠️ On a product page this writes nothing: the product is priced without a
+     * cart, because a cart here added a ps_cart row, and for a new visitor a
+     * ps_guest row, on every page view. The cart is created when the shopper opens
+     * a wallet (expressCart), and once one exists the button is priced from it.
      *
      * @param {HTMLElement} container Express container
-     * @return {Promise<object>} Cart payload from the server
+     * @return {Promise<object>} Amount, currency, items, whether shipping applies
      */
-    const prepareCart = (container) => {
+    const priceButton = (container) => {
         if (container.dataset.location !== 'product') {
             return request('getCartDetails');
         }
 
-        if (!container.moneiCartPromise) {
-            container.moneiCartPromise = request('addToCart', {
-                productId: parseInt(container.dataset.productId || '0', 10) || 0,
-                productAttributeId: selectedCombination(),
-                quantity: selectedQuantity(),
-                // A previous cart for this container is deleted server side, so
-                // changing quantity does not leave one abandoned cart per change.
-                replacesCartId: parseInt(container.dataset.expressCartId || '0', 10) || 0,
-            }).then((cart) => {
-                container.dataset.expressCartId = String(cart.expressCartId || '');
+        const expressCartId = parseInt(container.dataset.expressCartId || '0', 10) || 0;
 
-                return cart;
+        if (expressCartId) {
+            return request('getCartDetails', { expressCartId });
+        }
+
+        return request('getSelectedProductData', {
+            productId: parseInt(container.dataset.productId || '0', 10) || 0,
+            productAttributeId: selectedCombination(container),
+            groups: selectedGroups(container),
+            quantity: selectedQuantity(container),
+        });
+    };
+
+    /**
+     * The express cart the payment is for, created on first use.
+     *
+     * It does NOT become the session cart: that happens in completePayment, once
+     * the wallet has approved, so a shopper who closes the sheet keeps their own
+     * basket. One cart per container, shared by every method slot in it.
+     *
+     * @param {HTMLElement} container Express container
+     * @return {Promise<number>} Express cart id, 0 off the product page
+     */
+    const expressCart = (container) => {
+        if (container.dataset.location !== 'product') {
+            return Promise.resolve(0);
+        }
+
+        if (!container.moneiCartPromise) {
+            const productId = parseInt(container.dataset.productId || '0', 10) || 0;
+            const existing = parseInt(container.dataset.expressCartId || '0', 10) || 0;
+            const previous = lastCartByProduct[productId] || 0;
+            // ⚠️ Another container for the same product (a quickview over its page)
+            // may still pay with that cart. A container the theme re-rendered is no
+            // longer in the page, so its cart is replaced.
+            const inUse = Array.from(document.querySelectorAll('[data-monei-express]')).some(
+                (other) =>
+                    other !== container &&
+                    (parseInt(other.dataset.expressCartId || '0', 10) || 0) === previous
+            );
+
+            container.moneiCartPromise = existing
+                ? Promise.resolve(existing)
+                : request('addToCart', {
+                      productId,
+                      productAttributeId: selectedCombination(container),
+                      groups: selectedGroups(container),
+                      quantity: selectedQuantity(container),
+                      // A previous cart for this product is deleted server side, so
+                      // changing quantity does not leave one abandoned cart per change.
+                      replacesCartId: previous && !inUse ? previous : 0,
+                  }).then((cart) => {
+                      const id = parseInt(cart.expressCartId || '0', 10) || 0;
+
+                      container.dataset.expressCartId = String(id || '');
+                      lastCartByProduct[productId] = id;
+
+                      return id;
+                  });
+
+            // A failed request is not memoised: the next open tries again.
+            container.moneiCartPromise.catch(() => {
+                delete container.moneiCartPromise;
             });
         }
 
         return container.moneiCartPromise;
+    };
+
+    /**
+     * Price shipping for the address the wallet reports.
+     *
+     * The address is partial while the sheet is open (no street), and nothing is
+     * written server side. The amount is kept, so createOrder can refuse a total
+     * that differs from the one the shopper approved.
+     *
+     * @param {HTMLElement} container Express container
+     * @param {Object}      address   Wallet address: country, state, city, zip
+     * @param {string}      carrierId Carrier the shopper picked, '' for the default
+     * @return {Promise<Object>} Shipping options and the new amount
+     */
+    const quoteShipping = async (container, address, carrierId = '') => {
+        container.moneiAddress = address || {};
+
+        const quote = await request('getShippingOptions', {
+            expressCartId: await expressCart(container),
+            address: container.moneiAddress,
+            carrierId,
+        });
+
+        container.moneiAmount = quote.amount;
+
+        return quote;
     };
 
     /**
@@ -181,7 +350,11 @@
             // Present only for product page express. The server adopts this cart
             // as the session cart now — the first moment the shopper's own basket
             // is set aside — and restores the basket if anything fails after.
-            expressCartId: parseInt(container.dataset.expressCartId || '0', 10) || 0,
+            expressCartId: await expressCart(container),
+            carrierId: (result.shippingOption && result.shippingOption.id) || '',
+            // What the shopper approved, as the wallet reports it; else the last
+            // quote the sheet was given. The server refuses to charge anything else.
+            amount: result.finalAmount || container.moneiAmount || 0,
         });
 
         const confirmed = await monei.confirmPayment({
@@ -228,6 +401,12 @@
                 // confirmPayment was rejected. The server saw no failure, so it
                 // is asked to put the shopper's own basket back.
                 request('restoreCart').catch(() => {});
+
+                // The quote was wrong (a discount the product price does not
+                // show). The express cart now exists, so a remount prices from it.
+                if (error.code === 'amount_changed') {
+                    remount(container);
+                }
             }
         },
         onError: (error) => {
@@ -243,7 +422,24 @@
      * @param {string}      method    Express method
      */
     const mount = async (container, slot, method) => {
-        const cart = await prepareCart(container);
+        let cart;
+
+        try {
+            cart = await priceButton(container);
+        } catch (error) {
+            // Out of stock, below the minimum quantity. At page load the shopper
+            // did nothing yet, so there is simply no button; after they changed the
+            // product, the change is what failed and they are told.
+            // ⚠️ Hidden, not reportLoaded(): that removes the slots, and a later
+            // combination that is in stock would have nothing to remount into.
+            if (shopperChangedProduct) {
+                showError(container, error.message);
+            } else {
+                container.hidden = true;
+            }
+
+            return;
+        }
 
         // ⚠️ A wallet component throws "need amount and currency" when the amount
         // is 0 — an empty cart, or a cart summary hook that rendered before the
@@ -255,7 +451,7 @@
             return;
         }
 
-        container.dataset.amount = String(cart.amount);
+        container.moneiAmount = cart.amount;
 
         const common = {
             accountId: moneiExpress.accountId,
@@ -263,20 +459,30 @@
             currency: cart.currency,
             onLoad: (isSupported) => reportLoaded(container, slot, isSupported),
             // Asks the wallet to collect a delivery address for a physical cart.
-            //
-            // The sheet total already carries shipping: Cart::getSummaryDetails
-            // prices the cart's current carrier before any address exists, and
-            // measured runs match what is charged (1912 -> 1912 free carrier,
-            // 2612 -> 2612 paid). What it cannot yet reflect is a change of
-            // carrier zone: the address arrives with the shopper's approval, and
-            // the cheapest option for that zone is picked server side afterwards.
-            //
-            // monei.js v3 does expose onShippingAddressChange/onShippingOptionChange
-            // on PaymentRequest, so this is closable — see PaymentRequestProps in
-            // @monei-js/components. Not wired yet.
             requestShipping: Boolean(cart.shippingRequired),
             ...handlers(container, method),
         };
+
+        if (cart.shippingRequired) {
+            // ⚠️ The mount amount carries no shipping on a product page, and the
+            // shopper may pick a dearer carrier, so the sheet is repriced from here.
+            // ⚠️ An address the shop cannot ship to rejects. monei.js reads an empty
+            // list on the first address as "no shipping needed", and the shopper
+            // approved a cart createOrder then refused; a rejection makes the wallet
+            // ask for another address. A failed quote rejects too.
+            common.onShippingAddressChange = (address) =>
+                quoteShipping(container, address).then((quote) => {
+                    if (!quote.shippingOptions.length) {
+                        throw new Error(moneiExpress.errorGeneric);
+                    }
+
+                    return { shippingOptions: quote.shippingOptions, amount: quote.amount };
+                });
+            common.onShippingOptionChange = (option) =>
+                quoteShipping(container, container.moneiAddress, option && option.id).then(
+                    (quote) => ({ amount: quote.amount })
+                );
+        }
 
         if (method === 'paypal') {
             monei
@@ -389,14 +595,33 @@
                 container.querySelectorAll('[data-monei-express-method]').forEach((slot) => {
                     const method = slot.dataset.moneiExpressMethod;
 
-                    mount(container, slot, method).catch((error) => {
-                        // A button that cannot even mount must say so rather than
-                        // leaving an empty gap the shopper will wait on.
-                        showError(container, error.message);
+                    mount(container, slot, method).catch(() => {
+                        // Errors are shown only for something the shopper did. A
+                        // button that cannot mount is dropped, and the block
+                        // collapses when none is left, so there is no empty gap.
+                        reportLoaded(container, slot, false);
                     });
                 });
             });
         });
+    };
+
+    /**
+     * Empty a container and mount it again.
+     *
+     * @param {HTMLElement} container Express container
+     */
+    const remount = (container) => {
+        container.dataset.moneiMounted = '';
+        // Back to the page-load state: a hidden container is never laid out, so
+        // whenVisible() would never mount it again.
+        container.hidden = !container.querySelector('[data-monei-express-method]');
+
+        container.querySelectorAll('[data-monei-express-method]').forEach((slot) => {
+            slot.innerHTML = '';
+        });
+
+        init();
     };
 
     /**
@@ -405,21 +630,23 @@
      * The wallet sheet's amount is fixed when a button mounts, so a shopper who
      * changes the quantity after the page loads would otherwise approve the old
      * total. PrestaShop announces the change on its event bus; each container is
-     * emptied and mounted again, which prices a fresh express cart.
+     * emptied and mounted again, which prices the new choice.
      */
-    const remountProductButtons = () => {
+    const remountProductButtons = (event) => {
+        shopperChangedProduct = true;
+
+        if (event && 'id_product_attribute' in event) {
+            eventCombination = parseInt(event.id_product_attribute || '0', 10) || 0;
+        }
+
         document
             .querySelectorAll('[data-monei-express][data-location="product"]')
             .forEach((container) => {
+                // The express cart holds the old product; the next open replaces it.
                 delete container.moneiCartPromise;
-                container.dataset.moneiMounted = '';
-
-                container.querySelectorAll('[data-monei-express-method]').forEach((slot) => {
-                    slot.innerHTML = '';
-                });
+                delete container.dataset.expressCartId;
+                remount(container);
             });
-
-        init();
     };
 
     if (document.readyState === 'loading') {
