@@ -394,6 +394,9 @@ test.describe('express checkout', () => {
                     token: 'stub',
                     paymentMethod: 'paypal',
                     shippingOption: option,
+                    // The wallet's own total wins over the quote cached in the page:
+                    // callbacks can resolve out of order.
+                    finalAmount: option.finalAmount,
                     shippingDetails: {
                         name: 'Ada Lovelace',
                         email: 'ada@example.com',
@@ -405,12 +408,12 @@ test.describe('express checkout', () => {
                         },
                     },
                 }),
-            dearer
+            { ...dearer, finalAmount: repriced.amount + 1 }
         );
 
         await expect.poll(() => createOrder).toBeTruthy();
         expect(createOrder.carrierId).toBe(dearer.id);
-        expect(createOrder.amount).toBe(repriced.amount);
+        expect(createOrder.amount).toBe(repriced.amount + 1);
 
         // The button is priced again from the express cart, with the new token.
         await expect

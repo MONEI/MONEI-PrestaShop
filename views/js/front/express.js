@@ -343,8 +343,9 @@
             // is set aside — and restores the basket if anything fails after.
             expressCartId: await expressCart(container),
             carrierId: (result.shippingOption && result.shippingOption.id) || '',
-            // What the sheet showed. The server refuses to charge anything else.
-            amount: container.moneiAmount || 0,
+            // What the shopper approved, as the wallet reports it; else the last
+            // quote the sheet was given. The server refuses to charge anything else.
+            amount: result.finalAmount || container.moneiAmount || 0,
         });
 
         const confirmed = await monei.confirmPayment({
