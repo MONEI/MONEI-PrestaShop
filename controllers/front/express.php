@@ -300,7 +300,8 @@ class MoneiExpressModuleFrontController extends ModuleFrontController
     private function walletCountry(array $address)
     {
         $normalized = ExpressAddressNormalizer::normalize($address);
-        $countryId = (int) Country::getByIso($normalized['countryIso'], true);
+        // PrestaShop 9 throws on an empty iso code rather than returning 0.
+        $countryId = $normalized['countryIso'] !== '' ? (int) Country::getByIso($normalized['countryIso'], true) : 0;
 
         if (!$countryId) {
             return null;
@@ -680,8 +681,9 @@ class MoneiExpressModuleFrontController extends ModuleFrontController
 
             // ⚠️ It still needs an invoice address: the MONEI payment and the
             // PrestaShop order both refuse a cart without one, so a guest's virtual
-            // express payment failed after the wallet approved.
-            if (!(int) $this->context->cart->id_address_invoice) {
+            // express payment failed after the wallet approved. The express cart
+            // copies the basket's addresses, which may be another customer's.
+            if (!Customer::customerHasAddress((int) $customer->id, (int) $this->context->cart->id_address_invoice)) {
                 $builder->applyAddress(
                     $this->context,
                     $this->context->cart,

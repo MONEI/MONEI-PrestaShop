@@ -639,6 +639,13 @@ test.describe('express checkout: guards on the payment path', () => {
         });
 
         expect(noState.shippingOptions).toEqual([]);
+
+        // A partial address with no country at all: PrestaShop 9 throws on an
+        // empty iso code.
+        const noCountry = await quote(page, endpoint, token, cart.expressCartId, { zip: '75001' });
+
+        expect(noCountry.ok, JSON.stringify(noCountry)).toBe(true);
+        expect(noCountry.shippingOptions).toEqual([]);
         expect(withState.shippingOptions.length).toBeGreaterThan(0);
     });
 
@@ -743,6 +750,15 @@ test.describe('express checkout: guards on the payment path', () => {
             billingDetails: { name: 'Ada Lovelace', address: { country: 'FR' } },
         };
 
+        // The express cart copies the basket's addresses: here, someone else's.
+        const stranger = mysql(
+            'SELECT id_address FROM ps_address WHERE id_customer > 0 AND deleted = 0 ORDER BY id_address LIMIT 1;'
+        ).trim();
+
+        mysql(
+            `UPDATE ps_cart SET id_address_invoice = ${Number(stranger)} WHERE id_cart = ${Number(cart.expressCartId)};`
+        );
+
         const refused = await post(page, endpoint, { ...order, token, amount: cart.amount + 1 });
 
         expect(refused.code).toBe('amount_changed');
@@ -763,10 +779,13 @@ test.describe('express checkout: guards on the payment path', () => {
 
         expect(charged.ok, JSON.stringify(charged)).toBe(true);
 
-        const country = mysql(
-            `SELECT co.iso_code FROM ps_cart c JOIN ps_address a ON a.id_address = c.id_address_invoice JOIN ps_country co ON co.id_country = a.id_country WHERE c.id_cart = ${Number(cart.expressCartId)};`
-        ).trim();
+        const [invoice, country] = mysql(
+            `SELECT a.id_address, co.iso_code FROM ps_cart c JOIN ps_address a ON a.id_address = c.id_address_invoice JOIN ps_country co ON co.id_country = a.id_country WHERE c.id_cart = ${Number(cart.expressCartId)};`
+        )
+            .trim()
+            .split(/\s+/);
 
+        expect(invoice, 'never the copied address of another customer').not.toBe(stranger);
         expect(country).toBe('FR');
     });
 
