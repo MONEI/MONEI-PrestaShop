@@ -216,8 +216,8 @@ class MoneiExpressModuleFrontController extends ModuleFrontController
      * address (no street, no name), so no customer or address can be created yet.
      * The cart is priced the way PrestaShop prices a cart without a delivery
      * address: in a country, here the wallet's, in the zone of its state when the
-     * shop has one. createOrder prices it again from the full address before any
-     * money moves.
+     * shop has one. That is exact for core carriers, which price by zone.
+     * createOrder prices it again from the full address before any money moves.
      */
     private function actionShippingOptions()
     {
@@ -239,7 +239,14 @@ class MoneiExpressModuleFrontController extends ModuleFrontController
         // delivery address, and caches delivery options per country across carts.
         Cart::resetStaticCache();
         $this->context->country = $country;
-        $cart->id_address_delivery = 0;
+
+        // ⚠️ A carrier module may price by postcode, which only a stored address
+        // carries. Once createOrder has attached the wallet's full address (a
+        // refused total), a quote for the same country and postcode uses it, so
+        // the retry is quoted as the order will be.
+        if (!$this->isStoredAddress($cart, $country, (array) $this->value('address', []))) {
+            $cart->id_address_delivery = 0;
+        }
 
         $options = $this->shippingOptions($cart, $country);
 
@@ -248,7 +255,7 @@ class MoneiExpressModuleFrontController extends ModuleFrontController
         }
 
         $chosen = $this->chooseCarrier($options, (int) $this->value('carrierId'));
-        $cart->delivery_option = json_encode([0 => $chosen['key']]);
+        $cart->delivery_option = json_encode([(int) $cart->id_address_delivery => $chosen['key']]);
         $cart->id_carrier = $chosen['id'];
 
         $shippingOptions = [];
@@ -263,6 +270,24 @@ class MoneiExpressModuleFrontController extends ModuleFrontController
         }
 
         return ['shippingOptions' => $shippingOptions] + $this->cartPayload($cart);
+    }
+
+    /**
+     * Whether the cart's delivery address is the one the wallet reports.
+     *
+     * @param Cart $cart Cart being quoted
+     * @param Country $country Country the wallet reports
+     * @param array $wallet Wallet address
+     */
+    private function isStoredAddress(Cart $cart, Country $country, array $wallet)
+    {
+        $address = new Address((int) $cart->id_address_delivery);
+        $postcode = ExpressAddressNormalizer::normalize($wallet)['postcode'];
+
+        return Validate::isLoadedObject($address)
+            && (int) $address->id_country === (int) $country->id
+            && $postcode !== ''
+            && strcasecmp(trim((string) $address->postcode), $postcode) === 0;
     }
 
     /**

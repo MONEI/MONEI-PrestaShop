@@ -678,10 +678,21 @@ test.describe('express checkout: guards on the payment path', () => {
         // Regression: the refusal ran after the wallet's customer was signed in,
         // which rotates the token, so every later request was refused. The
         // response carries the new one.
+        // The retry is quoted again, now from the address createOrder stored.
+        const requoted = await post(page, endpoint, {
+            action: 'getShippingOptions',
+            token: body.token,
+            expressCartId: cart.expressCartId,
+            address: PARIS,
+            carrierId: dearer.id,
+        });
+
+        expect(requoted.amount).toBe(approved.amount);
+
         const charged = await post(page, endpoint, {
             ...order,
-            token: body.token,
-            amount: approved.amount,
+            token: requoted.token,
+            amount: requoted.amount,
         });
 
         expect(charged.ok, JSON.stringify(charged)).toBe(true);
