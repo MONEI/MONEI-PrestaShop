@@ -385,6 +385,42 @@ test.describe('express checkout: guards on the payment path', () => {
         }
     });
 
+    // PayPal's payer address carries only country_code. Magento stored that as the
+    // billing address and refused the order; a partial one must leave the
+    // delivery address on the invoice.
+    test('a country-only billing address keeps the delivery address on the invoice', async ({
+        page,
+    }) => {
+        const { endpoint, token } = await expressConfig(page);
+        const cart = await post(page, endpoint, {
+            action: 'addToCart',
+            token,
+            productId: 1,
+            productAttributeId: 1,
+            quantity: 1,
+        });
+
+        const order = await post(page, endpoint, {
+            action: 'createOrder',
+            token,
+            paymentMethod: 'paypal',
+            expressCartId: cart.expressCartId,
+            email: `payer-${Date.now()}@example.com`,
+            shippingDetails: DETAILS,
+            billingDetails: { name: 'Ada Lovelace', address: { country: 'ES' } },
+        });
+
+        expect(order.ok, JSON.stringify(order)).toBe(true);
+
+        const [delivery, invoice] = mysql(
+            `SELECT id_address_delivery, id_address_invoice FROM ps_cart WHERE id_cart = ${Number(cart.expressCartId)};`
+        )
+            .trim()
+            .split(/\s+/);
+
+        expect(invoice).toBe(delivery);
+    });
+
     test('the wallet’s state is stored, and a missing one is refused rather than guessed', async ({
         page,
     }) => {
