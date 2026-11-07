@@ -692,4 +692,45 @@ test.describe('express checkout: guards on the payment path', () => {
 
         expect(carrier).toBe(dearer.id);
     });
+
+    // Regression: a virtual cart was not given to the guest createOrder signs in,
+    // so after a refusal (a changed total) the cart was no longer the session's
+    // and the button could not be repriced from it. Only with a basket to return
+    // to: without one the express cart stays the session cart, and PrestaShop
+    // hands it to the customer on the next request.
+    test('a virtual express cart stays the shopper’s after a refused total', async ({ page }) => {
+        const product = Number(fixture('virtualProductId', 'MONEI_E2E_VIRTUAL_ID', '12'));
+
+        await page.goto('/2-9-brown-bear-printed-sweater.html', { waitUntil: 'domcontentloaded' });
+        await page.locator('[data-button-action="add-to-cart"]').first().click();
+        await expect(page.locator('#blockcart-modal, .cart-content').first()).toBeVisible({
+            timeout: 20000,
+        });
+
+        const { endpoint, token } = await expressConfig(page);
+        const cart = await post(page, endpoint, {
+            action: 'addToCart',
+            token,
+            productId: product,
+            quantity: 1,
+        });
+        const order = {
+            action: 'createOrder',
+            paymentMethod: 'paypal',
+            expressCartId: cart.expressCartId,
+            email: `virtual-${Date.now()}@example.com`,
+        };
+
+        const refused = await post(page, endpoint, { ...order, token, amount: cart.amount + 1 });
+
+        expect(refused.code).toBe('amount_changed');
+
+        const repriced = await post(page, endpoint, {
+            action: 'getCartDetails',
+            token: refused.token,
+            expressCartId: cart.expressCartId,
+        });
+
+        expect(repriced.ok, JSON.stringify(repriced)).toBe(true);
+    });
 });

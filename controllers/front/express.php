@@ -602,7 +602,14 @@ class MoneiExpressModuleFrontController extends ModuleFrontController
         if ($this->context->cart->isVirtualCart()) {
             if (!$signedIn) {
                 $this->assertEmailIsNotARegisteredAccount($email);
-                $builder->ensureCustomer($this->context, $email, ExpressAddressNormalizer::PLACEHOLDER, ExpressAddressNormalizer::PLACEHOLDER);
+                $customer = $builder->ensureCustomer($this->context, $email, ExpressAddressNormalizer::PLACEHOLDER, ExpressAddressNormalizer::PLACEHOLDER);
+
+                // applyAddress() does this for a physical cart. Without it the
+                // signed-in guest no longer owns the express cart, and a retry
+                // after a refusal is refused as someone else's cart.
+                $this->context->cart->id_customer = (int) $customer->id;
+                $this->context->cart->secure_key = $customer->secure_key;
+                $this->context->cart->update();
             }
 
             return ['incomplete' => false];
