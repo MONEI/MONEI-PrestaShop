@@ -180,6 +180,10 @@ test.describe('payment methods: rendering', () => {
         const block = page.locator('.js-payment-monei-bizum');
 
         await expectRealSize(block.locator('iframe[title="monei_bizum_button"]'), 'Bizum button');
+        // The frame has its size before it paints; a shot taken then is blank white.
+        await expect(
+            block.frameLocator('iframe[title="monei_bizum_button"]').locator('button').first()
+        ).toBeVisible();
         await expect(block).toHaveScreenshot(shot('bizum'));
     });
 

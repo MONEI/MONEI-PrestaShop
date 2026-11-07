@@ -1,7 +1,7 @@
 const { test, expect } = require('../utils/test');
 const { fixture } = require('../utils/fixtures');
 const { goToPaymentStep } = require('../utils/checkout');
-const { setConfig } = require('../utils/ps-cli');
+const { getConfig, setConfig } = require('../utils/ps-cli');
 
 /**
  * ⚠️ PayPal renders a component frame and a prerender frame, both titled "PayPal",
@@ -53,6 +53,24 @@ test.describe('express checkout', () => {
 
         // Nothing went wrong, so the error region stays empty.
         await expect(page.locator('[data-monei-express-error]')).toHaveText('');
+    });
+
+    // Regression: with the theme's JS cache on (the PrestaShop 9.2 demo), express.js
+    // ran inside the bundle before monei.js loaded, bailed out, and no button ever
+    // mounted, with no error shown.
+    test('mounts with the theme JS cache on', async ({ page }) => {
+        enableExpress();
+        const jsCache = getConfig('PS_JS_THEME_CACHE');
+        setConfig('PS_JS_THEME_CACHE', '1');
+
+        try {
+            await page.goto(PRODUCT, { waitUntil: 'domcontentloaded' });
+
+            await expect(page.locator('script[src*="/assets/cache/"]').first()).toBeAttached();
+            await expect(page.locator(PAYPAL_BUTTON)).toBeVisible({ timeout: 60000 });
+        } finally {
+            setConfig('PS_JS_THEME_CACHE', jsCache);
+        }
     });
 
     test('is absent at the checkout payment step', async ({ page }) => {
