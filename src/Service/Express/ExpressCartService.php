@@ -51,6 +51,8 @@ class ExpressCartService
      */
     public function create(\Context $context, int $productId, int $productAttributeId, int $quantity): \Cart
     {
+        $this->ensureGuest($context);
+
         $cart = new \Cart();
         $cart->id_currency = (int) $context->currency->id;
         $cart->id_lang = (int) $context->language->id;
@@ -72,6 +74,26 @@ class ExpressCartService
         }
 
         return $cart;
+    }
+
+    /**
+     * Give a visitor without an account a guest id, the identity adopt() checks.
+     *
+     * ⚠️ PrestaShop assigns one only through the statsdata module; without it an
+     * express cart has no owner and every guest payment is refused. Called when
+     * the express page renders, so the parallel requests of one page load all
+     * carry the same id rather than each minting its own.
+     *
+     * @param \Context $context Shop context
+     */
+    public function ensureGuest(\Context $context): void
+    {
+        if ((int) $context->customer->id || (int) $context->cookie->id_guest) {
+            return;
+        }
+
+        \Guest::setNewGuest($context->cookie);
+        $context->cookie->write();
     }
 
     /**

@@ -31,7 +31,12 @@ test.describe('baseline: bizum', () => {
         await selectPaymentOption(page, /bizum/i);
 
         await expect(page.locator(COMPONENT_FRAME.bizum)).toBeVisible({ timeout: 30000 });
-        await page.frameLocator(COMPONENT_FRAME.bizum).locator('#bizum_button').click();
+        // The frame is on screen before MONEI has loaded its button into it, and it
+        // sits below the fold: scroll the frame itself into view before clicking.
+        const button = page.frameLocator(COMPONENT_FRAME.bizum).locator('#bizum_button');
+        await expect(button).toBeVisible({ timeout: 30000 });
+        await page.locator(COMPONENT_FRAME.bizum).scrollIntoViewIfNeeded();
+        await button.click();
 
         // `onBeforeOpen` returns false while the required terms checkbox is
         // unchecked, so the dialog must not appear.
@@ -43,7 +48,10 @@ test.describe('baseline: bizum', () => {
         await selectPaymentOption(page, /bizum/i);
         await acceptTerms(page);
 
-        await page.frameLocator(COMPONENT_FRAME.bizum).locator('#bizum_button').click();
+        const button = page.frameLocator(COMPONENT_FRAME.bizum).locator('#bizum_button');
+        await expect(button).toBeVisible({ timeout: 30000 });
+        await page.locator(COMPONENT_FRAME.bizum).scrollIntoViewIfNeeded();
+        await button.click();
 
         const dialog = page.frameLocator(COMPONENT_FRAME.bizumDialog);
 

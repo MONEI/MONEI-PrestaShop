@@ -7,6 +7,7 @@ use Monei\Model\PaymentStatus;
 use PsMonei\Entity\Monei2CustomerCard;
 use PsMonei\Entity\Monei2Payment;
 use PsMonei\Repository\CustomerMappingStore;
+use PsMonei\Service\Express\ExpressCartService;
 use PsMonei\Service\Monei\CustomerService;
 use PsMonei\Service\Monei\GdprPayload;
 use PsMonei\Service\Monei\MoneiClientFactory;
@@ -2688,7 +2689,7 @@ class Monei extends PaymentModule
             [
                 'server' => 'remote',
                 'priority' => 50,
-                'attribute' => 'defer',
+                'attributes' => 'defer',
             ]
         );
 
@@ -2699,7 +2700,7 @@ class Monei extends PaymentModule
                 // Cache-bust on release so an upgraded merchant never gets stale assets.
                 'version' => $this->version,
                 'priority' => 95,
-                'attribute' => 'defer',
+                'attributes' => 'defer',
                 'position' => 'bottom',
             ]
         );
@@ -2714,6 +2715,8 @@ class Monei extends PaymentModule
                 'media' => 'all',
             ]
         );
+
+        (new ExpressCartService())->ensureGuest($this->context);
 
         // Published here rather than from the display hooks: PrestaShop collects
         // the js_def block before content hooks render.
@@ -2854,7 +2857,7 @@ class Monei extends PaymentModule
                 [
                     'server' => 'remote',
                     'priority' => 50,
-                    'attribute' => 'defer',
+                    'attributes' => 'defer',
                 ]
             );
 
@@ -2868,7 +2871,7 @@ class Monei extends PaymentModule
                     // Cache-bust on release so an upgraded merchant never gets stale assets.
                     'version' => $this->version,
                     'priority' => 90,
-                    'attribute' => 'defer',
+                    'attributes' => 'defer',
                     'position' => 'bottom',
                 ]
             );
@@ -2880,7 +2883,7 @@ class Monei extends PaymentModule
                     // Cache-bust on release so an upgraded merchant never gets stale assets.
                     'version' => $this->version,
                     'priority' => 100,
-                    'attribute' => 'defer',
+                    'attributes' => 'defer',
                     'position' => 'bottom',
                 ]
             );
@@ -2971,7 +2974,7 @@ class Monei extends PaymentModule
                     // Cache-bust on release so an upgraded merchant never gets stale assets.
                     'version' => $this->version,
                     'priority' => 300,
-                    'attribute' => 'async',
+                    'attributes' => 'defer',
                     'position' => 'bottom',
                 ]
             );

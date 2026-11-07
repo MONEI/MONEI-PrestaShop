@@ -1,3 +1,5 @@
+const fs = require('fs');
+const path = require('path');
 const { test, expect } = require('../utils/test');
 const {
     deleteConfig,
@@ -79,7 +81,12 @@ test.describe('upgrade to 2.2.0', () => {
 
         upgradeModule();
 
-        expect(installedVersion()).toBe('2.2.0');
+        // PrestaShop records the version of the files on disk, not of the last script.
+        const filesVersion = fs
+            .readFileSync(path.resolve(__dirname, '../../../monei.php'), 'utf8')
+            .match(/const VERSION = '([^']+)'/)[1];
+
+        expect(installedVersion()).toBe(filesVersion);
         expect(customerTableExists(), 'monei2_customer should be created by the upgrade').toBe(
             true
         );

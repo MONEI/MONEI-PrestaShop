@@ -449,7 +449,13 @@ const paymentStarted = async (page, timeout = 15000) => {
  */
 const payWithBizum = async (page, phone = BIZUM_PHONE) => {
     await acceptTerms(page);
-    await page.frameLocator(COMPONENT_FRAME.bizum).locator('#bizum_button').click();
+
+    // The frame is on screen before MONEI has loaded its button into it, and it
+    // sits below the fold: scroll the frame itself into view before clicking.
+    const button = page.frameLocator(COMPONENT_FRAME.bizum).locator('#bizum_button');
+    await expect(button).toBeVisible({ timeout: 30000 });
+    await page.locator(COMPONENT_FRAME.bizum).scrollIntoViewIfNeeded();
+    await button.click();
 
     // Opening the button mounts a second, separate iframe carrying the phone entry
     // UI — `monei_bizum`, not the `monei_bizum_button` that was clicked.
