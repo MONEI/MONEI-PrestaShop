@@ -716,7 +716,7 @@ test.describe('express checkout: guards on the payment path', () => {
     // and the button could not be repriced from it. Only with a basket to return
     // to: without one the express cart stays the session cart, and PrestaShop
     // hands it to the customer on the next request.
-    test('a virtual express cart stays the shopper’s after a refused total', async ({ page }) => {
+    test('a guest can pay for a virtual product, also after a refused total', async ({ page }) => {
         const product = Number(fixture('virtualProductId', 'MONEI_E2E_VIRTUAL_ID', '12'));
 
         await page.goto('/2-9-brown-bear-printed-sweater.html', { waitUntil: 'domcontentloaded' });
@@ -737,6 +737,10 @@ test.describe('express checkout: guards on the payment path', () => {
             paymentMethod: 'paypal',
             expressCartId: cart.expressCartId,
             email: `virtual-${Date.now()}@example.com`,
+            // Regression: a guest's virtual cart had no address, and both the
+            // MONEI payment and the order refuse one without. PayPal's payer
+            // address is often only a country.
+            billingDetails: { name: 'Ada Lovelace', address: { country: 'FR' } },
         };
 
         const refused = await post(page, endpoint, { ...order, token, amount: cart.amount + 1 });
@@ -750,5 +754,56 @@ test.describe('express checkout: guards on the payment path', () => {
         });
 
         expect(repriced.ok, JSON.stringify(repriced)).toBe(true);
+
+        const charged = await post(page, endpoint, {
+            ...order,
+            token: repriced.token,
+            amount: repriced.amount,
+        });
+
+        expect(charged.ok, JSON.stringify(charged)).toBe(true);
+
+        const country = mysql(
+            `SELECT co.iso_code FROM ps_cart c JOIN ps_address a ON a.id_address = c.id_address_invoice JOIN ps_country co ON co.id_country = a.id_country WHERE c.id_cart = ${Number(cart.expressCartId)};`
+        ).trim();
+
+        expect(country).toBe('FR');
+    });
+
+    // A wallet that supplies no payer country: the invoice goes to the shop's
+    // default country.
+    test('a virtual invoice without a payer country uses the shop’s country', async ({ page }) => {
+        const product = Number(fixture('virtualProductId', 'MONEI_E2E_VIRTUAL_ID', '12'));
+        const defaultCountry = getConfig('PS_COUNTRY_DEFAULT');
+        const france = mysql("SELECT id_country FROM ps_country WHERE iso_code = 'FR';").trim();
+
+        setConfig('PS_COUNTRY_DEFAULT', france);
+
+        try {
+            const { endpoint, token } = await expressConfig(page);
+            const cart = await post(page, endpoint, {
+                action: 'addToCart',
+                token,
+                productId: product,
+                quantity: 1,
+            });
+            const order = await post(page, endpoint, {
+                action: 'createOrder',
+                token,
+                paymentMethod: 'paypal',
+                expressCartId: cart.expressCartId,
+                email: `nocountry-${Date.now()}@example.com`,
+            });
+
+            expect(order.ok, JSON.stringify(order)).toBe(true);
+
+            const country = mysql(
+                `SELECT a.id_country FROM ps_cart c JOIN ps_address a ON a.id_address = c.id_address_invoice WHERE c.id_cart = ${Number(cart.expressCartId)};`
+            ).trim();
+
+            expect(country).toBe(france);
+        } finally {
+            setConfig('PS_COUNTRY_DEFAULT', defaultCountry);
+        }
     });
 });

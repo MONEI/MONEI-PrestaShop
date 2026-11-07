@@ -601,6 +601,46 @@ class MoneiExpressModuleFrontController extends ModuleFrontController
         );
     }
 
+    /**
+     * An invoice address for a virtual cart, from what the wallet supplied.
+     *
+     * PayPal's payer address is often only a country; the missing parts get the
+     * normaliser's placeholder, as for a physical cart. With no usable country the
+     * shop's default is taken.
+     *
+     * @param array $payload Wallet billing details, else shipping details
+     *
+     * @return array Output of ExpressAddressNormalizer::normalize()
+     *
+     * @throws PrestaShopException when the shop can invoice to neither country
+     */
+    private function virtualInvoiceAddress(array $payload)
+    {
+        $normalized = ExpressAddressNormalizer::normalize($payload);
+        $default = (string) Country::getIsoById((int) Configuration::get('PS_COUNTRY_DEFAULT'));
+
+        foreach ([$normalized['countryIso'], $default] as $iso) {
+            // PrestaShop 9 throws on an empty iso code rather than returning 0.
+            $countryId = $iso !== '' ? (int) Country::getByIso($iso, true) : 0;
+
+            // An identification number no wallet supplies, or a state the shop
+            // cannot match, would fail the address; see assertCountryIsExpressable.
+            if (!$countryId
+                || (new Country($countryId))->need_identification_number
+                || (Country::containsStates($countryId) && !ExpressOrderBuilder::resolveState($countryId, $normalized['state']))) {
+                continue;
+            }
+
+            $normalized['countryIso'] = $iso;
+
+            return $normalized;
+        }
+
+        throw new PrestaShopException(
+            $this->module->l('Express checkout is not available for delivery to this country. Please continue with the standard checkout.', 'express')
+        );
+    }
+
     private function applyAddressFromInput()
     {
         // shippingDetails / billingDetails are monei.js v3's own shapes, passed
@@ -622,9 +662,10 @@ class MoneiExpressModuleFrontController extends ModuleFrontController
             $email = (string) $this->context->customer->email;
         }
 
-        // A virtual cart needs no delivery address at all. Normalising an empty
-        // payload here produced an empty country and a refusal after approval.
+        // A virtual cart needs no delivery address, and the wallet asks for none.
         if ($this->context->cart->isVirtualCart()) {
+            $customer = $this->context->customer;
+
             if (!$signedIn) {
                 $this->assertEmailIsNotARegisteredAccount($email);
                 $customer = $builder->ensureCustomer($this->context, $email, ExpressAddressNormalizer::PLACEHOLDER, ExpressAddressNormalizer::PLACEHOLDER);
@@ -635,6 +676,18 @@ class MoneiExpressModuleFrontController extends ModuleFrontController
                 $this->context->cart->id_customer = (int) $customer->id;
                 $this->context->cart->secure_key = $customer->secure_key;
                 $this->context->cart->update();
+            }
+
+            // ⚠️ It still needs an invoice address: the MONEI payment and the
+            // PrestaShop order both refuse a cart without one, so a guest's virtual
+            // express payment failed after the wallet approved.
+            if (!(int) $this->context->cart->id_address_invoice) {
+                $builder->applyAddress(
+                    $this->context,
+                    $this->context->cart,
+                    $customer,
+                    $this->virtualInvoiceAddress($billingPayload ?: $shippingPayload)
+                );
             }
 
             return ['incomplete' => false];
