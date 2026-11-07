@@ -88,14 +88,24 @@
     /**
      * The add-to-cart form the container belongs to.
      *
-     * A quickview opens its own copy of the form over the page; the container's
-     * closest one is that product's, where a page-wide lookup reads the page behind.
+     * A quickview opens its own copy of the form over the page, and a page-wide
+     * lookup reads the page behind it. ⚠️ Classic renders the quickview's hook in
+     * the modal footer, outside that form, so the modal is searched before the page.
      *
      * @param {HTMLElement} container Express container
      * @return {HTMLElement|null} Form
      */
-    const productForm = (container) =>
-        container.closest(PRODUCT_FORM) || document.querySelector(PRODUCT_FORM);
+    const productForm = (container) => {
+        const own = container.closest(PRODUCT_FORM);
+
+        if (own) {
+            return own;
+        }
+
+        const modal = container.closest('.modal, .quickview');
+
+        return modal ? modal.querySelector(PRODUCT_FORM) : document.querySelector(PRODUCT_FORM);
+    };
 
     /**
      * Whether the container is a quickview's, not the product page's own.

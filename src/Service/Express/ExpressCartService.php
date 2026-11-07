@@ -93,11 +93,11 @@ class ExpressCartService
     /**
      * The combination to buy, from what the browser sent.
      *
-     * The client reads the combination from the theme's product details block,
-     * which not every theme renders. A product with combinations must never be
-     * added without one (base price, product-level stock), so an id that is
-     * missing or not this product's is resolved from the posted group[] values,
-     * else the default combination, as PrestaShop's own CartController does.
+     * The posted group[] values decide, as in PrestaShop's own CartController: they
+     * are the form the shopper sees, where the id read from the theme's details
+     * block can be stale or missing. A product with combinations is never added
+     * without one (base price, product-level stock), so the default is the last
+     * resort.
      *
      * @param int $productId Product
      * @param int $productAttributeId Combination the browser sent, 0 when none
@@ -111,6 +111,16 @@ class ExpressCartService
             return 0;
         }
 
+        $attributes = array_values(array_filter(array_map('intval', $groups)));
+
+        if ($attributes) {
+            try {
+                return (int) \Product::getIdProductAttributeByIdAttributes($productId, $attributes, true);
+            } catch (\PrestaShopObjectNotFoundException $e) {
+                // No combination matches even in part: fall through.
+            }
+        }
+
         $owner = (int) \Db::getInstance()->getValue(
             'SELECT `id_product` FROM `' . _DB_PREFIX_ . 'product_attribute`'
             . ' WHERE `id_product_attribute` = ' . (int) $productAttributeId,
@@ -119,16 +129,6 @@ class ExpressCartService
 
         if ($productAttributeId > 0 && $owner === $productId) {
             return $productAttributeId;
-        }
-
-        $attributes = array_values(array_filter(array_map('intval', $groups)));
-
-        if ($attributes) {
-            $resolved = (int) \Product::getIdProductAttributeByIdAttributes($productId, $attributes, true);
-
-            if ($resolved > 0) {
-                return $resolved;
-            }
         }
 
         return (int) \Product::getDefaultAttribute($productId);

@@ -162,6 +162,71 @@ test.describe('express checkout', () => {
         expect(hasSizeM, `combination ${combination} should be size ${sizeM}`).toBe('1');
     });
 
+    // Regression: classic renders a quickview's hook in the modal footer, outside
+    // the quickview's form, and the block read the page's form behind it instead:
+    // the page product's size and quantity were charged. Hummingbird has no
+    // quickview on a product page, so the test builds classic's markup.
+    test('a quickview block reads the quickview’s form, not the page behind it', async ({
+        page,
+    }) => {
+        enableExpress();
+
+        await page.goto(VARIABLE_PRODUCT, { waitUntil: 'domcontentloaded' });
+        await expect(page.locator(PAYPAL_BUTTON)).toBeVisible({ timeout: 60000 });
+
+        const size = page.locator('select[name="group[1]"]').first();
+        const options = await size
+            .locator('option')
+            .evaluateAll((list) => list.map((option) => option.value));
+        const [pageSize, quickviewSize] = [options[1], options[2]];
+
+        await page.evaluate(
+            ({ productId, sizeValue }) => {
+                const modal = document.createElement('div');
+                modal.className = 'quickview';
+                modal.innerHTML = `
+                    <form id="add-to-cart-or-refresh">
+                        <select name="group[1]"><option value="${sizeValue}" selected></option></select>
+                        <input name="qty" value="2">
+                    </form>
+                    <div class="modal-footer">
+                        <div data-monei-express data-location="product" data-product-id="${productId}">
+                            <div data-monei-express-label hidden></div>
+                            <div data-monei-express-method="paypal"></div>
+                            <div data-monei-express-error role="alert"></div>
+                        </div>
+                    </div>`;
+                document.body.appendChild(modal);
+            },
+            {
+                productId: await page
+                    .locator('[data-monei-express]')
+                    .first()
+                    .getAttribute('data-product-id'),
+                sizeValue: quickviewSize,
+            }
+        );
+
+        const posted = [];
+        page.on('request', (request) => {
+            const body = request.postData() || '';
+
+            if (request.url().includes('module/monei/express') && body.includes('"addToCart"')) {
+                posted.push(JSON.parse(body));
+            }
+        });
+
+        // Any product change remounts every product container, the quickview's too.
+        await size.selectOption(pageSize);
+
+        await expect
+            .poll(() => posted.find((data) => Number(data.quantity) === 2), { timeout: 30000 })
+            .toBeTruthy();
+        const quickview = posted.find((data) => Number(data.quantity) === 2);
+
+        expect(String(quickview.groups['1'])).toBe(quickviewSize);
+    });
+
     // Regression: a product that cannot go into the express cart (out of stock,
     // below the minimum) showed "could not be added" at page load, and scrolled to
     // it, before the shopper had clicked anything.

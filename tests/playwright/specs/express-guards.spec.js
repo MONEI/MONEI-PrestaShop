@@ -303,6 +303,33 @@ test.describe('express checkout: guards on the payment path', () => {
         expect(lineOf(nothing), 'with nothing posted, the default combination').toBe(
             defaultCombination
         );
+
+        // Regression: a stale id from the details block beat the form the shopper
+        // sees. PrestaShop's CartController lets group[] decide.
+        const stale = await post(page, endpoint, {
+            action: 'addToCart',
+            token,
+            productId: product,
+            productAttributeId: Number(defaultCombination),
+            groups,
+            quantity: 1,
+        });
+
+        expect(lineOf(stale), 'the posted group[] values beat a stale id').toBe(other);
+
+        // Regression: core throws when no combination matches, so the default was
+        // never reached and the shopper saw "Cannot retrieve the id_product_attribute".
+        const unmatched = await post(page, endpoint, {
+            action: 'addToCart',
+            token,
+            productId: product,
+            productAttributeId: 0,
+            groups: { 1: 999999 },
+            quantity: 1,
+        });
+
+        expect(unmatched.ok, JSON.stringify(unmatched)).toBe(true);
+        expect(lineOf(unmatched), 'no match falls back to the default').toBe(defaultCombination);
     });
 
     // The product id is browser-supplied and Cart::updateQty() checks neither
