@@ -42,7 +42,7 @@ class Monei extends PaymentModule
     protected $moneiClient = false;
 
     const NAME = 'monei';
-    const VERSION = '2.2.2';
+    const VERSION = '2.2.3';
 
     private static $serviceContainer;
     private static $serviceList;
@@ -52,7 +52,7 @@ class Monei extends PaymentModule
         $this->displayName = 'MONEI Payments';
         $this->name = 'monei';
         $this->tab = 'payments_gateways';
-        $this->version = '2.2.2';
+        $this->version = '2.2.3';
         $this->author = 'MONEI';
         $this->need_instance = 0;
         $this->ps_versions_compliancy = ['min' => '8', 'max' => _PS_VERSION_];
