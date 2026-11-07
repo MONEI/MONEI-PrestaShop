@@ -457,12 +457,18 @@
         if (cart.shippingRequired) {
             // ⚠️ The mount amount carries no shipping on a product page, and the
             // shopper may pick a dearer carrier, so the sheet is repriced from here.
-            // An empty list tells the wallet it cannot ship to that address.
+            // ⚠️ An address the shop cannot ship to rejects. monei.js reads an empty
+            // list on the first address as "no shipping needed", and the shopper
+            // approved a cart createOrder then refused; a rejection makes the wallet
+            // ask for another address. A failed quote rejects too.
             common.onShippingAddressChange = (address) =>
-                quoteShipping(container, address).then(
-                    (quote) => ({ shippingOptions: quote.shippingOptions, amount: quote.amount }),
-                    () => ({ shippingOptions: [] })
-                );
+                quoteShipping(container, address).then((quote) => {
+                    if (!quote.shippingOptions.length) {
+                        throw new Error(moneiExpress.errorGeneric);
+                    }
+
+                    return { shippingOptions: quote.shippingOptions, amount: quote.amount };
+                });
             common.onShippingOptionChange = (option) =>
                 quoteShipping(container, container.moneiAddress, option && option.id).then(
                     (quote) => ({ amount: quote.amount })

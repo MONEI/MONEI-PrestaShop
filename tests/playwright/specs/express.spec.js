@@ -370,6 +370,18 @@ test.describe('express checkout', () => {
         await page.goto(PRODUCT, { waitUntil: 'domcontentloaded' });
         await page.waitForFunction(() => window.moneiPayPal);
 
+        // Regression: an address the shop cannot ship to (Spain needs an
+        // identification number) resolved an empty list, which monei.js reads on
+        // the first address as "no shipping needed".
+        const refused = await page.evaluate(() =>
+            window.moneiPayPal.onShippingAddressChange({ country: 'ES', zip: '28001' }).then(
+                () => 'resolved',
+                () => 'rejected'
+            )
+        );
+
+        expect(refused).toBe('rejected');
+
         const opened = await page.evaluate(() =>
             window.moneiPayPal.onShippingAddressChange({
                 country: 'FR',
