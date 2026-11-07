@@ -1,6 +1,6 @@
 const { test, expect } = require('../utils/test');
 const { fixture } = require('../utils/fixtures');
-const { mysql, setConfig } = require('../utils/ps-cli');
+const { console: psConsole, mysql, setConfig } = require('../utils/ps-cli');
 
 const PRODUCT = fixture(
     'simpleProductPath',
@@ -167,6 +167,40 @@ test.describe('express checkout: guards on the payment path', () => {
         expect(body.message).toMatch(/not available/i);
 
         await other.close();
+    });
+
+    // Regression: PrestaShop gives a visitor a guest id only through the statsdata
+    // module. With it off (the PrestaShop demo), the express cart had no owner and
+    // every guest express payment failed with "The express cart is not available".
+    test('a guest without a guest id can pay, with statsdata off', async ({ browser }) => {
+        psConsole(['prestashop:module', 'disable', 'statsdata']);
+        const context = await browser.newContext();
+
+        try {
+            const page = await context.newPage();
+            const { endpoint, token } = await expressConfig(page);
+            const cart = await post(page, endpoint, {
+                action: 'addToCart',
+                token,
+                productId: 1,
+                productAttributeId: 1,
+                quantity: 1,
+            });
+
+            const order = await post(page, endpoint, {
+                action: 'createOrder',
+                token,
+                paymentMethod: 'paypal',
+                expressCartId: cart.expressCartId,
+                email: `noguest-${Date.now()}@example.com`,
+                shippingDetails: DETAILS,
+            });
+
+            expect(order.ok, JSON.stringify(order)).toBe(true);
+        } finally {
+            await context.close();
+            psConsole(['prestashop:module', 'enable', 'statsdata']);
+        }
     });
 
     test('the wallet’s state is stored, and a missing one is refused rather than guessed', async ({

@@ -1,7 +1,7 @@
 const { test, expect } = require('../utils/test');
 const { fixture } = require('../utils/fixtures');
 const { goToPaymentStep } = require('../utils/checkout');
-const { getConfig, setConfig } = require('../utils/ps-cli');
+const { getConfig, mysql, psEval, setConfig } = require('../utils/ps-cli');
 
 /**
  * ⚠️ PayPal renders a component frame and a prerender frame, both titled "PayPal",
@@ -13,6 +13,12 @@ const PRODUCT = fixture(
     'simpleProductPath',
     'MONEI_E2E_PRODUCT_PATH',
     '/6-mug-the-best-is-yet-to-come.html'
+);
+
+const VARIABLE_PRODUCT = fixture(
+    'variableProductPath',
+    'MONEI_E2E_VARIABLE_PATH',
+    '/1-hummingbird-printed-t-shirt.html'
 );
 
 /**
@@ -56,21 +62,66 @@ test.describe('express checkout', () => {
     });
 
     // Regression: with the theme's JS cache on (the PrestaShop 9.2 demo), express.js
-    // ran inside the bundle before monei.js loaded, bailed out, and no button ever
-    // mounted, with no error shown.
+    // was bundled ahead of monei.js, because the module registered its scripts with
+    // `attribute` instead of `attributes` and so lost `defer`. It bailed out and no
+    // button ever mounted, with no error shown.
     test('mounts with the theme JS cache on', async ({ page }) => {
         enableExpress();
         const jsCache = getConfig('PS_JS_THEME_CACHE');
         setConfig('PS_JS_THEME_CACHE', '1');
+        // A bundle built earlier keeps its URL; clearing gives this run a fresh one.
+        psEval('Media::clearCache();');
 
         try {
             await page.goto(PRODUCT, { waitUntil: 'domcontentloaded' });
 
             await expect(page.locator('script[src*="/assets/cache/"]').first()).toBeAttached();
+            // Deferred and outside the bundle: the bundle runs before remote scripts.
+            await expect(
+                page.locator('script[src*="/modules/monei/views/js/front/express.js"][defer]')
+            ).toBeAttached();
             await expect(page.locator(PAYPAL_BUTTON)).toBeVisible({ timeout: 60000 });
         } finally {
             setConfig('PS_JS_THEME_CACHE', jsCache);
         }
+    });
+
+    // Regression: express read the combination from a form field that no stock
+    // theme renders, so every variable product went to the express cart as its
+    // default combination, whatever the buyer picked, with no error shown.
+    test('puts the combination the buyer picked in the express cart', async ({ page }) => {
+        enableExpress();
+
+        await page.goto(VARIABLE_PRODUCT, { waitUntil: 'domcontentloaded' });
+        await expect(page.locator(PAYPAL_BUTTON)).toBeVisible({ timeout: 60000 });
+
+        // Size M, the second option: not the default S.
+        const size = page.locator('select[name="group[1]"]');
+        const sizeM = await size.locator('option').nth(1).getAttribute('value');
+
+        const remounted = page.waitForResponse(
+            (response) =>
+                response.url().includes('module/monei/express') &&
+                (response.request().postData() || '').includes('"addToCart"')
+        );
+        await size.selectOption(sizeM);
+        const cart = await (await remounted).json();
+
+        const line = mysql(
+            `SELECT id_product, id_product_attribute FROM ps_cart_product WHERE id_cart = ${Number(cart.expressCartId)};`
+        )
+            .trim()
+            .split(/\s+/);
+
+        expect(line[0]).toBe(String(fixture('variableProductId', 'MONEI_E2E_VARIABLE_ID', '1')));
+
+        // The combination must be one that carries size M, read from the catalogue
+        // rather than from the page the client read it from.
+        const hasSizeM = mysql(
+            `SELECT COUNT(*) FROM ps_product_attribute_combination WHERE id_product_attribute = ${Number(line[1])} AND id_attribute = ${Number(sizeM)};`
+        ).trim();
+
+        expect(hasSizeM, `combination ${line[1]} should be size ${sizeM}`).toBe('1');
     });
 
     test('is absent at the checkout payment step', async ({ page }) => {

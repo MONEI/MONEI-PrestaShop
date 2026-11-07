@@ -157,6 +157,11 @@ $paymentService = Monei::getService('monei.service.payment');
   cart page. Key page detection off `php_self` instead, or nothing registers.
 - Product page express uses a cart of its own and points the context back
   afterwards, so the shopper's cart is never emptied.
+- ⚠️ A visitor gets a guest id only through the `statsdata` module. The express
+  cart is owned by that id, so `ExpressCartService::ensureGuest()` assigns one when
+  the express page renders; without it every guest express payment is refused.
+- The chosen combination comes from `.js-product-details[data-product]`: neither
+  stock theme puts `id_product_attribute` in the product form.
 
 ### Customers API
 
@@ -187,6 +192,9 @@ $paymentService = Monei::getService('monei.service.payment');
   from a display hook reaches the page as nothing at all
 - ⚠️ Nothing in `payment.js` may read an `addJsDef` value at load time: the theme
   prints that block after the external scripts. Read them inside functions
+- ⚠️ `registerJavascript` takes `'attributes' => 'defer'`, plural. The singular key
+  is silently ignored, and with "Smart cache for JavaScript" on the script is then
+  bundled ahead of the remote `monei.js`
 - The five `initMonei*` functions are global on purpose — `front.js` calls them by
   name to re-initialise MONEI when the `onepagecheckoutps` module rebuilds the
   payment list

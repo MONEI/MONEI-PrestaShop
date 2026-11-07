@@ -70,9 +70,8 @@
         }
     };
 
-    // ⚠️ Scoped to the product's own form: on PS 9.2 hummingbird the related
-    // product miniatures carry add-to-cart forms with their own id_product_attribute,
-    // and an unscoped lookup sent a neighbour's combination.
+    // ⚠️ Read the product page's own form only: hummingbird's related-product
+    // miniatures are add-to-cart forms too, with their own quantity and combination.
     const PRODUCT_FORM = '#add-to-cart-or-refresh';
 
     /**
@@ -81,7 +80,7 @@
      * @return {number} Quantity, at least 1
      */
     const selectedQuantity = () => {
-        const input = document.querySelector(`${PRODUCT_FORM} input[name="qty"], #quantity_wanted`);
+        const input = document.querySelector(`${PRODUCT_FORM} input[name="qty"]`);
 
         return Math.max(1, parseInt((input && input.value) || '1', 10) || 1);
     };
@@ -89,12 +88,22 @@
     /**
      * Combination the shopper chose, on a product page.
      *
+     * The form has no combination field: the theme picks it with group[] selects
+     * and reports the result in the product details block, which it re-renders
+     * on every change (classic and hummingbird alike).
+     *
      * @return {number} Combination id, 0 when the product has none
      */
     const selectedCombination = () => {
-        const input = document.querySelector(`${PRODUCT_FORM} input[name="id_product_attribute"]`);
+        const details = document.querySelector('.js-product-details[data-product]');
 
-        return parseInt((input && input.value) || '0', 10) || 0;
+        try {
+            const product = JSON.parse((details && details.dataset.product) || '{}');
+
+            return parseInt(product.id_product_attribute || '0', 10) || 0;
+        } catch (error) {
+            return 0;
+        }
     };
 
     /**
@@ -359,9 +368,13 @@
     };
 
     const init = () => {
-        // ⚠️ Checked here, never at load: with the theme's JS cache on, this file
-        // runs inside the bundle before monei.js has loaded.
+        // ⚠️ Checked here, never at load, and retried once the page has loaded:
+        // monei.js is a remote script and can still be arriving.
         if (typeof moneiExpress === 'undefined' || typeof monei === 'undefined') {
+            if (document.readyState !== 'complete') {
+                window.addEventListener('load', init, { once: true });
+            }
+
             return;
         }
 
