@@ -19,13 +19,12 @@ namespace PsMonei\Service\Express;
  * ever runs.
  *
  * ⚠️ Creating the cart and switching the session to it are two separate steps on
- * purpose. The cart has to exist while the button is merely on screen, because
- * the wallet sheet needs an exact total and only a real cart can price shipping.
- * But the session must not move until the wallet approves: a mount happens on
- * every product page view, for every configured method, and switching the
- * session there swapped the shopper's basket for a one-item cart just for
- * looking at a product — and with several methods, overwrote the record of
- * which cart to return to.
+ * purpose. The cart is created when the shopper opens a wallet, because only a
+ * real cart can price shipping for the address the wallet reports; a button that
+ * is merely on screen is priced from the product, so a page view writes nothing.
+ * The session must not move until the wallet approves: the shopper can still
+ * close the sheet, and a session switched at open swapped their basket for a
+ * one-item cart.
  */
 class ExpressCartService
 {
@@ -51,20 +50,7 @@ class ExpressCartService
      */
     public function create(\Context $context, int $productId, int $productAttributeId, int $quantity): \Cart
     {
-        // The id comes from the browser, and Cart::updateQty() checks none of this.
-        // Visibility is not checked: "nowhere" hides a product from listings, but
-        // it stays for sale on its own URL.
-        $product = new \Product($productId, false, null, (int) $context->shop->id);
-
-        if (!\Validate::isLoadedObject($product)
-            || !$product->active
-            || !$product->available_for_order
-            || !$product->isAssociatedToShop((int) $context->shop->id)
-            || !$product->checkAccess((int) $context->customer->id)
-        ) {
-            throw new \PrestaShopException('The product is not available');
-        }
-
+        $this->assertPurchasable($context, $productId, $productAttributeId, $quantity);
         $this->ensureGuest($context);
 
         $cart = new \Cart();
@@ -85,6 +71,74 @@ class ExpressCartService
             $cart->delete();
 
             throw new \PrestaShopException('The product could not be added to the express cart');
+        }
+
+        return $cart;
+    }
+
+    /**
+     * Refuse a product that PrestaShop's own add to cart would refuse.
+     *
+     * The id comes from the browser, and Cart::updateQty() checks none of this.
+     * Visibility is not checked: "nowhere" hides a product from listings, but it
+     * stays for sale on its own URL. Stock is checked here too, because the button
+     * is priced without a cart and nothing else would refuse it before the click.
+     *
+     * @param \Context $context Shop context
+     * @param int $productId Product to buy
+     * @param int $productAttributeId Combination, 0 when the product has none
+     * @param int $quantity Quantity
+     *
+     * @return \Product The product, loaded in the context language
+     *
+     * @throws \PrestaShopException when the product is not for sale here
+     */
+    public function assertPurchasable(\Context $context, int $productId, int $productAttributeId, int $quantity): \Product
+    {
+        $product = new \Product($productId, false, (int) $context->language->id, (int) $context->shop->id);
+
+        if (!\Validate::isLoadedObject($product)
+            || !$product->active
+            || !$product->available_for_order
+            || \Configuration::isCatalogMode()
+            || !$product->isAssociatedToShop((int) $context->shop->id)
+            || !$product->checkAccess((int) $context->customer->id)
+            // A wallet cannot collect an engraving or an upload.
+            || \Product::getRequiredCustomizableFieldsStatic($productId)
+        ) {
+            throw new \PrestaShopException('The product is not available');
+        }
+
+        $minimum = $productAttributeId
+            ? (int) \ProductAttribute::getAttributeMinimalQty($productAttributeId)
+            : (int) $product->minimal_quantity;
+
+        if ($quantity < max(1, $minimum)) {
+            throw new \PrestaShopException('The quantity is below the minimum for this product');
+        }
+
+        if (!\Product::isAvailableWhenOutOfStock($product->out_of_stock)
+            && \Product::getQuantity($productId, $productAttributeId ?: null) < $quantity) {
+            throw new \PrestaShopException('There are not enough products in stock');
+        }
+
+        return $product;
+    }
+
+    /**
+     * An express cart this session created.
+     *
+     * @param \Context $context Shop context
+     * @param int $cartId Express cart previously returned by create()
+     *
+     * @throws \PrestaShopException when the cart is missing or not the caller's
+     */
+    public function owned(\Context $context, int $cartId): \Cart
+    {
+        $cart = new \Cart($cartId);
+
+        if (!\Validate::isLoadedObject($cart) || !$this->isOwnedBySession($context, $cart)) {
+            throw new \PrestaShopException('The express cart is not available');
         }
 
         return $cart;
@@ -131,7 +185,11 @@ class ExpressCartService
             return $productAttributeId;
         }
 
-        return (int) \Product::getDefaultAttribute($productId);
+        // As CartController: an in-stock combination when the shop does not sell
+        // out of stock.
+        $inStockOnly = (int) !\Product::isAvailableWhenOutOfStock(\StockAvailable::outOfStock($productId));
+
+        return (int) (\Product::getDefaultAttribute($productId, $inStockOnly) ?: \Product::getDefaultAttribute($productId));
     }
 
     /**
@@ -142,7 +200,8 @@ class ExpressCartService
      * when an express cart is created: a guest row on every page render would
      * bring back the table growth merchants avoid by turning statsdata off, and
      * would pre-empt statsdata's own first-visit tracking when it is on. The
-     * client makes one addToCart per container, so one page load mints one id.
+     * client creates the cart when the shopper opens a wallet, never at mount, so
+     * a page view mints no id and two containers cannot race to mint two.
      *
      * @param \Context $context Shop context
      */
@@ -173,11 +232,7 @@ class ExpressCartService
      */
     public function adopt(\Context $context, int $cartId): \Cart
     {
-        $cart = new \Cart($cartId);
-
-        if (!\Validate::isLoadedObject($cart) || !$this->isOwnedBySession($context, $cart)) {
-            throw new \PrestaShopException('The express cart is not available');
-        }
+        $cart = $this->owned($context, $cartId);
 
         if ((int) $context->cookie->id_cart !== (int) $cart->id) {
             // Remember where to go back to before switching, so a failure part

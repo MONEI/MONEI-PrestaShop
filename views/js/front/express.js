@@ -41,7 +41,10 @@
         if (!response.ok || !data || data.ok !== true) {
             // Carries the server's own message where there is one: "the amount
             // changed while the wallet was open" is worth showing verbatim.
-            throw new Error((data && data.message) || moneiExpress.errorGeneric);
+            const error = new Error((data && data.message) || moneiExpress.errorGeneric);
+            error.code = data && data.code;
+
+            throw error;
         }
 
         return data;
@@ -203,57 +206,106 @@
     };
 
     /**
-     * Put the express product in a cart of its own, on a product page.
+     * What the button will charge, at mount.
      *
-     * On the cart page the shopper's cart is already the thing being paid for,
-     * so nothing is created.
-     *
-     * @param {HTMLElement} container Express container
-     * @return {Promise<Object>} Cart details
-     */
-    /**
-     * Price what the button will charge for.
-     *
-     * On a product page this creates an express cart, because only a real cart can
-     * price shipping and the wallet sheet must show the exact total. It does NOT
-     * become the session cart: that happens in completePayment, once the wallet
-     * has approved. Viewing a product page therefore never touches the shopper's
-     * own basket.
-     *
-     * One cart per container, shared by every method slot in it. The request is
-     * memoised so three buttons do not create three carts.
+     * ⚠️ On a product page this writes nothing: the product is priced without a
+     * cart, because a cart here added a ps_cart row, and for a new visitor a
+     * ps_guest row, on every page view. The cart is created when the shopper opens
+     * a wallet (expressCart), and once one exists the button is priced from it.
      *
      * @param {HTMLElement} container Express container
-     * @return {Promise<object>} Cart payload from the server
+     * @return {Promise<object>} Amount, currency, items, whether shipping applies
      */
-    const prepareCart = (container) => {
+    const priceButton = (container) => {
         if (container.dataset.location !== 'product') {
             return request('getCartDetails');
         }
 
+        const expressCartId = parseInt(container.dataset.expressCartId || '0', 10) || 0;
+
+        if (expressCartId) {
+            return request('getCartDetails', { expressCartId });
+        }
+
+        return request('getSelectedProductData', {
+            productId: parseInt(container.dataset.productId || '0', 10) || 0,
+            productAttributeId: selectedCombination(container),
+            groups: selectedGroups(container),
+            quantity: selectedQuantity(container),
+        });
+    };
+
+    /**
+     * The express cart the payment is for, created on first use.
+     *
+     * It does NOT become the session cart: that happens in completePayment, once
+     * the wallet has approved, so a shopper who closes the sheet keeps their own
+     * basket. One cart per container, shared by every method slot in it.
+     *
+     * @param {HTMLElement} container Express container
+     * @return {Promise<number>} Express cart id, 0 off the product page
+     */
+    const expressCart = (container) => {
+        if (container.dataset.location !== 'product') {
+            return Promise.resolve(0);
+        }
+
         if (!container.moneiCartPromise) {
             const productId = parseInt(container.dataset.productId || '0', 10) || 0;
+            const existing = parseInt(container.dataset.expressCartId || '0', 10) || 0;
 
-            container.moneiCartPromise = request('addToCart', {
-                productId,
-                productAttributeId: selectedCombination(container),
-                groups: selectedGroups(container),
-                quantity: selectedQuantity(container),
-                // A previous cart for this product is deleted server side, so
-                // changing quantity does not leave one abandoned cart per change.
-                replacesCartId:
-                    parseInt(container.dataset.expressCartId || '0', 10) ||
-                    lastCartByProduct[productId] ||
-                    0,
-            }).then((cart) => {
-                container.dataset.expressCartId = String(cart.expressCartId || '');
-                lastCartByProduct[productId] = parseInt(cart.expressCartId || '0', 10) || 0;
+            container.moneiCartPromise = existing
+                ? Promise.resolve(existing)
+                : request('addToCart', {
+                      productId,
+                      productAttributeId: selectedCombination(container),
+                      groups: selectedGroups(container),
+                      quantity: selectedQuantity(container),
+                      // A previous cart for this product is deleted server side, so
+                      // changing quantity does not leave one abandoned cart per change.
+                      replacesCartId: lastCartByProduct[productId] || 0,
+                  }).then((cart) => {
+                      const id = parseInt(cart.expressCartId || '0', 10) || 0;
 
-                return cart;
+                      container.dataset.expressCartId = String(id || '');
+                      lastCartByProduct[productId] = id;
+
+                      return id;
+                  });
+
+            // A failed request is not memoised: the next open tries again.
+            container.moneiCartPromise.catch(() => {
+                delete container.moneiCartPromise;
             });
         }
 
         return container.moneiCartPromise;
+    };
+
+    /**
+     * Price shipping for the address the wallet reports.
+     *
+     * The address is partial while the sheet is open (no street), and nothing is
+     * written server side. The amount is kept, so createOrder can refuse a total
+     * that differs from the one the shopper approved.
+     *
+     * @param {HTMLElement} container Express container
+     * @param {Object}      address   Wallet address: country, state, city, zip
+     * @param {string}      carrierId Carrier the shopper picked, '' for the default
+     * @return {Promise<Object>} Shipping options and the new amount
+     */
+    const quoteShipping = async (container, address, carrierId = '') => {
+        container.moneiAddress = address || {};
+
+        const quote = await request('getShippingOptions', {
+            expressCartId: await expressCart(container),
+            address: container.moneiAddress,
+            carrierId,
+        });
+
+        container.moneiAmount = quote.amount;
+
+        return quote;
     };
 
     /**
@@ -284,7 +336,10 @@
             // Present only for product page express. The server adopts this cart
             // as the session cart now — the first moment the shopper's own basket
             // is set aside — and restores the basket if anything fails after.
-            expressCartId: parseInt(container.dataset.expressCartId || '0', 10) || 0,
+            expressCartId: await expressCart(container),
+            carrierId: (result.shippingOption && result.shippingOption.id) || '',
+            // What the sheet showed. The server refuses to charge anything else.
+            amount: container.moneiAmount || 0,
         });
 
         const confirmed = await monei.confirmPayment({
@@ -331,6 +386,12 @@
                 // confirmPayment was rejected. The server saw no failure, so it
                 // is asked to put the shopper's own basket back.
                 request('restoreCart').catch(() => {});
+
+                // The quote was wrong (a discount the product price does not
+                // show). The express cart now exists, so a remount prices from it.
+                if (error.code === 'amount_changed') {
+                    remount(container);
+                }
             }
         },
         onError: (error) => {
@@ -349,7 +410,7 @@
         let cart;
 
         try {
-            cart = await prepareCart(container);
+            cart = await priceButton(container);
         } catch (error) {
             // Out of stock, below the minimum quantity. At page load the shopper
             // did nothing yet, so there is simply no button; after they changed the
@@ -375,7 +436,7 @@
             return;
         }
 
-        container.dataset.amount = String(cart.amount);
+        container.moneiAmount = cart.amount;
 
         const common = {
             accountId: moneiExpress.accountId,
@@ -383,20 +444,24 @@
             currency: cart.currency,
             onLoad: (isSupported) => reportLoaded(container, slot, isSupported),
             // Asks the wallet to collect a delivery address for a physical cart.
-            //
-            // The sheet total already carries shipping: Cart::getSummaryDetails
-            // prices the cart's current carrier before any address exists, and
-            // measured runs match what is charged (1912 -> 1912 free carrier,
-            // 2612 -> 2612 paid). What it cannot yet reflect is a change of
-            // carrier zone: the address arrives with the shopper's approval, and
-            // the cheapest option for that zone is picked server side afterwards.
-            //
-            // monei.js v3 does expose onShippingAddressChange/onShippingOptionChange
-            // on PaymentRequest, so this is closable — see PaymentRequestProps in
-            // @monei-js/components. Not wired yet.
             requestShipping: Boolean(cart.shippingRequired),
             ...handlers(container, method),
         };
+
+        if (cart.shippingRequired) {
+            // ⚠️ The mount amount carries no shipping on a product page, and the
+            // shopper may pick a dearer carrier, so the sheet is repriced from here.
+            // An empty list tells the wallet it cannot ship to that address.
+            common.onShippingAddressChange = (address) =>
+                quoteShipping(container, address).then(
+                    (quote) => ({ shippingOptions: quote.shippingOptions, amount: quote.amount }),
+                    () => ({ shippingOptions: [] })
+                );
+            common.onShippingOptionChange = (option) =>
+                quoteShipping(container, container.moneiAddress, option && option.id).then(
+                    (quote) => ({ amount: quote.amount })
+                );
+        }
 
         if (method === 'paypal') {
             monei
@@ -521,12 +586,30 @@
     };
 
     /**
+     * Empty a container and mount it again.
+     *
+     * @param {HTMLElement} container Express container
+     */
+    const remount = (container) => {
+        container.dataset.moneiMounted = '';
+        // Back to the page-load state: a hidden container is never laid out, so
+        // whenVisible() would never mount it again.
+        container.hidden = !container.querySelector('[data-monei-express-method]');
+
+        container.querySelectorAll('[data-monei-express-method]').forEach((slot) => {
+            slot.innerHTML = '';
+        });
+
+        init();
+    };
+
+    /**
      * Rebuild the product page buttons after a quantity or combination change.
      *
      * The wallet sheet's amount is fixed when a button mounts, so a shopper who
      * changes the quantity after the page loads would otherwise approve the old
      * total. PrestaShop announces the change on its event bus; each container is
-     * emptied and mounted again, which prices a fresh express cart.
+     * emptied and mounted again, which prices the new choice.
      */
     const remountProductButtons = (event) => {
         shopperChangedProduct = true;
@@ -538,18 +621,11 @@
         document
             .querySelectorAll('[data-monei-express][data-location="product"]')
             .forEach((container) => {
+                // The express cart holds the old product; the next open replaces it.
                 delete container.moneiCartPromise;
-                container.dataset.moneiMounted = '';
-                // Back to the page-load state: a hidden container is never laid
-                // out, so whenVisible() would never mount it again.
-                container.hidden = !container.querySelector('[data-monei-express-method]');
-
-                container.querySelectorAll('[data-monei-express-method]').forEach((slot) => {
-                    slot.innerHTML = '';
-                });
+                delete container.dataset.expressCartId;
+                remount(container);
             });
-
-        init();
     };
 
     if (document.readyState === 'loading') {

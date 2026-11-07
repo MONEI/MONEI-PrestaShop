@@ -88,8 +88,10 @@ test.describe('express checkout', () => {
 
     // Regression: express read the combination from a form field that no stock
     // theme renders, so every variable product went to the express cart with
-    // combination 0, whatever the buyer picked, with no error shown.
-    test('puts the combination the buyer picked in the express cart', async ({ page }) => {
+    // combination 0, whatever the buyer picked, with no error shown. The button is
+    // priced and the cart filled from the same posted fields and the same server
+    // resolution, so the priced combination is the one that goes in the cart.
+    test('prices the combination the buyer picked', async ({ page }) => {
         enableExpress();
 
         await page.goto(VARIABLE_PRODUCT, { waitUntil: 'domcontentloaded' });
@@ -102,26 +104,23 @@ test.describe('express checkout', () => {
         const remounted = page.waitForResponse(
             (response) =>
                 response.url().includes('module/monei/express') &&
-                (response.request().postData() || '').includes('"addToCart"')
+                (response.request().postData() || '').includes('"getSelectedProductData"')
         );
         await size.selectOption(sizeM);
-        const cart = await (await remounted).json();
+        const response = await remounted;
+        const { productAttributeId } = await response.json();
 
-        const line = mysql(
-            `SELECT id_product, id_product_attribute FROM ps_cart_product WHERE id_cart = ${Number(cart.expressCartId)};`
-        )
-            .trim()
-            .split(/\s+/);
-
-        expect(line[0]).toBe(String(fixture('variableProductId', 'MONEI_E2E_VARIABLE_ID', '1')));
+        expect(JSON.parse(response.request().postData()).productId).toBe(
+            Number(fixture('variableProductId', 'MONEI_E2E_VARIABLE_ID', '1'))
+        );
 
         // The combination must be one that carries size M, read from the catalogue
         // rather than from the page the client read it from.
         const hasSizeM = mysql(
-            `SELECT COUNT(*) FROM ps_product_attribute_combination WHERE id_product_attribute = ${Number(line[1])} AND id_attribute = ${Number(sizeM)};`
+            `SELECT COUNT(*) FROM ps_product_attribute_combination WHERE id_product_attribute = ${Number(productAttributeId)} AND id_attribute = ${Number(sizeM)};`
         ).trim();
 
-        expect(hasSizeM, `combination ${line[1]} should be size ${sizeM}`).toBe('1');
+        expect(hasSizeM, `combination ${productAttributeId} should be size ${sizeM}`).toBe('1');
     });
 
     // Regression: a theme without the details block (or with it renamed) sent
@@ -147,14 +146,10 @@ test.describe('express checkout', () => {
         const remounted = page.waitForResponse(
             (response) =>
                 response.url().includes('module/monei/express') &&
-                (response.request().postData() || '').includes('"addToCart"')
+                (response.request().postData() || '').includes('"getSelectedProductData"')
         );
         await size.selectOption(sizeM);
-        const cart = await (await remounted).json();
-
-        const combination = mysql(
-            `SELECT id_product_attribute FROM ps_cart_product WHERE id_cart = ${Number(cart.expressCartId)};`
-        ).trim();
+        const { productAttributeId: combination } = await (await remounted).json();
         const hasSizeM = mysql(
             `SELECT COUNT(*) FROM ps_product_attribute_combination WHERE id_product_attribute = ${Number(combination)} AND id_attribute = ${Number(sizeM)};`
         ).trim();
@@ -211,7 +206,10 @@ test.describe('express checkout', () => {
         page.on('request', (request) => {
             const body = request.postData() || '';
 
-            if (request.url().includes('module/monei/express') && body.includes('"addToCart"')) {
+            if (
+                request.url().includes('module/monei/express') &&
+                body.includes('"getSelectedProductData"')
+            ) {
                 posted.push(JSON.parse(body));
             }
         });
@@ -227,9 +225,9 @@ test.describe('express checkout', () => {
         expect(String(quickview.groups['1'])).toBe(quickviewSize);
     });
 
-    // Regression: a product that cannot go into the express cart (out of stock,
-    // below the minimum) showed "could not be added" at page load, and scrolled to
-    // it, before the shopper had clicked anything.
+    // Regression: a product that cannot be bought (out of stock, below the
+    // minimum) showed "could not be added" at page load, and scrolled to it,
+    // before the shopper had clicked anything.
     test('an out-of-stock product shows no block and no error', async ({ page }) => {
         enableExpress();
         const id = Number(fixture('simpleProductId', 'MONEI_E2E_PRODUCT_ID', '6'));
@@ -246,10 +244,10 @@ test.describe('express checkout', () => {
             const mounted = page.waitForResponse(
                 (response) =>
                     response.url().includes('module/monei/express') &&
-                    (response.request().postData() || '').includes('"addToCart"')
+                    (response.request().postData() || '').includes('"getSelectedProductData"')
             );
             await page.goto(PRODUCT, { waitUntil: 'domcontentloaded' });
-            expect((await mounted).ok(), 'the express cart should be refused').toBe(false);
+            expect((await mounted).ok(), 'the button should not be priced').toBe(false);
 
             await expect(page.locator('[data-monei-express]')).toBeHidden();
             await expect(page.locator('[data-monei-express-error]')).toHaveText('');
@@ -290,7 +288,7 @@ test.describe('express checkout', () => {
             const mounted = page.waitForResponse(
                 (response) =>
                     response.url().includes('module/monei/express') &&
-                    (response.request().postData() || '').includes('"addToCart"')
+                    (response.request().postData() || '').includes('"getSelectedProductData"')
             );
             await page.goto(VARIABLE_PRODUCT, { waitUntil: 'domcontentloaded' });
             expect((await mounted).ok(), 'the default combination should be refused').toBe(false);
@@ -317,6 +315,90 @@ test.describe('express checkout', () => {
             );
             setConfig('PS_ORDER_OUT_OF_STOCK', orderOutOfStock);
         }
+    });
+
+    // Regression: the sheet was never repriced. The mount total carried no
+    // shipping, and createOrder picked its own carrier, so a shopper could approve
+    // one total and be charged another. monei.js is stubbed: the wallet sheet
+    // itself cannot be driven from a test.
+    test('the wallet reprices shipping, and its carrier and total reach createOrder', async ({
+        page,
+    }) => {
+        enableExpress();
+
+        await page.route('https://js.monei.com/v3/monei.js', (route) =>
+            route.fulfill({
+                contentType: 'application/javascript',
+                body: `window.monei = {
+                    PayPal: (props) => ({ render: () => { window.moneiPayPal = props; props.onLoad(true); } }),
+                    PaymentRequest: (props) => ({ render: () => props.onLoad(false) }),
+                    confirmPayment: async () => ({}),
+                };`,
+            })
+        );
+
+        let createOrder = null;
+
+        await page.route('**/module/monei/express**', (route) => {
+            const body = JSON.parse(route.request().postData() || '{}');
+
+            if (body.action !== 'createOrder') {
+                return route.continue();
+            }
+
+            createOrder = body;
+
+            return route.fulfill({
+                contentType: 'application/json',
+                body: JSON.stringify({ ok: false, message: 'stopped by the test' }),
+            });
+        });
+
+        await page.goto(PRODUCT, { waitUntil: 'domcontentloaded' });
+        await page.waitForFunction(() => window.moneiPayPal);
+
+        const opened = await page.evaluate(() =>
+            window.moneiPayPal.onShippingAddressChange({
+                country: 'FR',
+                city: 'Paris',
+                zip: '75001',
+            })
+        );
+        const dearer = opened.shippingOptions.find((option) => !option.selected);
+
+        expect(dearer, 'the shop should offer a second carrier to France').toBeTruthy();
+
+        const repriced = await page.evaluate(
+            (option) => window.moneiPayPal.onShippingOptionChange(option),
+            dearer
+        );
+
+        expect(repriced.amount).toBeGreaterThan(opened.amount);
+
+        await page.evaluate(
+            (option) =>
+                window.moneiPayPal.onSubmit({
+                    token: 'stub',
+                    paymentMethod: 'paypal',
+                    shippingOption: option,
+                    shippingDetails: {
+                        name: 'Ada Lovelace',
+                        email: 'ada@example.com',
+                        address: {
+                            line1: '1 Rue de Rivoli',
+                            city: 'Paris',
+                            zip: '75001',
+                            country: 'FR',
+                        },
+                    },
+                }),
+            dearer
+        );
+
+        await expect.poll(() => createOrder).toBeTruthy();
+        expect(createOrder.carrierId).toBe(dearer.id);
+        expect(createOrder.amount).toBe(repriced.amount);
+        expect(createOrder.expressCartId).toBeGreaterThan(0);
     });
 
     test('is absent at the checkout payment step', async ({ page }) => {

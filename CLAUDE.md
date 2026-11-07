@@ -157,10 +157,16 @@ $paymentService = Monei::getService('monei.service.payment');
   cart page. Key page detection off `php_self` instead, or nothing registers.
 - Product page express uses a cart of its own and points the context back
   afterwards, so the shopper's cart is never emptied.
+- ⚠️ The product page button is priced without a cart (`getSelectedProductData`).
+  The express cart is created when the shopper opens a wallet, never at mount: a
+  cart at mount added a `ps_cart` and a `ps_guest` row on every page view.
+- The wallet's shipping callbacks call `getShippingOptions`, which prices the
+  wallet's partial address and writes nothing. `createOrder` takes the wallet's
+  carrier and refuses a total that differs from the one the sheet showed.
 - ⚠️ A visitor gets a guest id only through the `statsdata` module. The express
   cart is owned by that id, so `ExpressCartService::create()` assigns one through
   `ensureGuest()`; without it every guest express payment is refused. Never assign
-  one at render time: every crawler hit would add a `ps_guest` row.
+  one at render or mount time: every page view would add a `ps_guest` row.
 - The client reads the combination from the product details block and also posts
   the `group[]` values: neither stock theme puts `id_product_attribute` in the
   product form, and some themes have no details block.
