@@ -52,12 +52,13 @@ class ExpressCartService
     public function create(\Context $context, int $productId, int $productAttributeId, int $quantity): \Cart
     {
         // The id comes from the browser, and Cart::updateQty() checks none of this.
+        // Visibility is not checked: "nowhere" hides a product from listings, but
+        // it stays for sale on its own URL.
         $product = new \Product($productId, false, null, (int) $context->shop->id);
 
         if (!\Validate::isLoadedObject($product)
             || !$product->active
             || !$product->available_for_order
-            || $product->visibility === 'none'
             || !$product->isAssociatedToShop((int) $context->shop->id)
             || !$product->checkAccess((int) $context->customer->id)
         ) {

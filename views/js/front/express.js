@@ -344,10 +344,12 @@
             // Out of stock, below the minimum quantity. At page load the shopper
             // did nothing yet, so there is simply no button; after they changed the
             // product, the change is what failed and they are told.
+            // ⚠️ Hidden, not reportLoaded(): that removes the slots, and a later
+            // combination that is in stock would have nothing to remount into.
             if (shopperChangedProduct) {
                 showError(container, error.message);
             } else {
-                reportLoaded(container, slot, false);
+                container.hidden = true;
             }
 
             return;
@@ -528,6 +530,9 @@
             .forEach((container) => {
                 delete container.moneiCartPromise;
                 container.dataset.moneiMounted = '';
+                // Back to the page-load state: a hidden container is never laid
+                // out, so whenVisible() would never mount it again.
+                container.hidden = !container.querySelector('[data-monei-express-method]');
 
                 container.querySelectorAll('[data-monei-express-method]').forEach((slot) => {
                     slot.innerHTML = '';

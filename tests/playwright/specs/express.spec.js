@@ -196,6 +196,64 @@ test.describe('express checkout', () => {
         }
     });
 
+    // Regression: the hidden block's slots were removed, so picking a combination
+    // that is in stock had nothing to remount into until a page reload. Stock
+    // themes hide this: core.js re-renders the additional-info block on every
+    // change. A theme that renders the hook outside that block keeps the old one.
+    test('appears when the shopper picks a combination in stock after one that is not', async ({
+        page,
+    }) => {
+        enableExpress();
+        const id = Number(fixture('variableProductId', 'MONEI_E2E_VARIABLE_ID', '1'));
+        const combination = Number(
+            mysql(
+                `SELECT id_product_attribute FROM ps_product_attribute WHERE id_product = ${id} AND default_on = 1;`
+            ).trim()
+        );
+        const quantity = psEval(
+            `echo (int) StockAvailable::getQuantityAvailableByProduct(${id}, ${combination});`
+        );
+        const outOfStock = psEval(`echo (int) StockAvailable::outOfStock(${id});`);
+        const orderOutOfStock = getConfig('PS_ORDER_OUT_OF_STOCK');
+
+        psEval(
+            `StockAvailable::setQuantity(${id}, ${combination}, 0); StockAvailable::setProductOutOfStock(${id}, 0);`
+        );
+        setConfig('PS_ORDER_OUT_OF_STOCK', '0');
+
+        try {
+            const mounted = page.waitForResponse(
+                (response) =>
+                    response.url().includes('module/monei/express') &&
+                    (response.request().postData() || '').includes('"addToCart"')
+            );
+            await page.goto(VARIABLE_PRODUCT, { waitUntil: 'domcontentloaded' });
+            expect((await mounted).ok(), 'the default combination should be refused').toBe(false);
+            await expect(page.locator('[data-monei-express]')).toBeHidden();
+
+            // Such a theme: core.js finds no additional-info block to replace.
+            await page.evaluate(() => {
+                window.prestashop.selectors.product.additionalInfos = '.no-such-block';
+            });
+
+            const size = page.locator('select[name="group[1]"]');
+            const current = await size.inputValue();
+            const other = await size
+                .locator(`option:not([value="${current}"])`)
+                .first()
+                .getAttribute('value');
+
+            await size.selectOption(other);
+
+            await expect(page.locator(PAYPAL_BUTTON)).toBeVisible({ timeout: 60000 });
+        } finally {
+            psEval(
+                `StockAvailable::setQuantity(${id}, ${combination}, ${Number(quantity)}); StockAvailable::setProductOutOfStock(${id}, ${Number(outOfStock)});`
+            );
+            setConfig('PS_ORDER_OUT_OF_STOCK', orderOutOfStock);
+        }
+    });
+
     test('is absent at the checkout payment step', async ({ page }) => {
         enableExpress('product,cart,checkout');
 

@@ -331,6 +331,33 @@ test.describe('express checkout: guards on the payment path', () => {
         }
     });
 
+    // Visibility "nowhere" hides a product from listings only: PrestaShop still
+    // sells it on its own URL, so express must too.
+    test('a product hidden from listings can still be bought', async ({ page }) => {
+        const product = Number(fixture('simpleProductId', 'MONEI_E2E_PRODUCT_ID', '6'));
+        const visibility = mysql(
+            `SELECT visibility FROM ps_product_shop WHERE id_product = ${product} LIMIT 1;`
+        ).trim();
+        const { endpoint, token } = await expressConfig(page);
+
+        mysql(`UPDATE ps_product_shop SET visibility = 'none' WHERE id_product = ${product};`);
+
+        try {
+            const body = await post(page, endpoint, {
+                action: 'addToCart',
+                token,
+                productId: product,
+                quantity: 1,
+            });
+
+            expect(body.ok, JSON.stringify(body)).toBe(true);
+        } finally {
+            mysql(
+                `UPDATE ps_product_shop SET visibility = '${visibility}' WHERE id_product = ${product};`
+            );
+        }
+    });
+
     test('the wallet’s state is stored, and a missing one is refused rather than guessed', async ({
         page,
     }) => {
