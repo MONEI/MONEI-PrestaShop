@@ -47,10 +47,23 @@ class ExpressCartService
      *
      * @return \Cart The express cart, not yet the current one
      *
-     * @throws \PrestaShopException when the product cannot be added
+     * @throws \PrestaShopException when the product is not for sale here, or cannot be added
      */
     public function create(\Context $context, int $productId, int $productAttributeId, int $quantity): \Cart
     {
+        // The id comes from the browser, and Cart::updateQty() checks none of this.
+        $product = new \Product($productId, false, null, (int) $context->shop->id);
+
+        if (!\Validate::isLoadedObject($product)
+            || !$product->active
+            || !$product->available_for_order
+            || $product->visibility === 'none'
+            || !$product->isAssociatedToShop((int) $context->shop->id)
+            || !$product->checkAccess((int) $context->customer->id)
+        ) {
+            throw new \PrestaShopException('The product is not available');
+        }
+
         $this->ensureGuest($context);
 
         $cart = new \Cart();
@@ -77,12 +90,58 @@ class ExpressCartService
     }
 
     /**
+     * The combination to buy, from what the browser sent.
+     *
+     * The client reads the combination from the theme's product details block,
+     * which not every theme renders. A product with combinations must never be
+     * added without one (base price, product-level stock), so an id that is
+     * missing or not this product's is resolved from the posted group[] values,
+     * else the default combination, as PrestaShop's own CartController does.
+     *
+     * @param int $productId Product
+     * @param int $productAttributeId Combination the browser sent, 0 when none
+     * @param array $groups Posted group[] values: attribute group id => attribute id
+     *
+     * @return int Combination id, 0 for a product without combinations
+     */
+    public function resolveCombination(int $productId, int $productAttributeId, array $groups): int
+    {
+        if (!\Combination::isFeatureActive() || !\Product::getProductAttributesIds($productId)) {
+            return 0;
+        }
+
+        $owner = (int) \Db::getInstance()->getValue(
+            'SELECT `id_product` FROM `' . _DB_PREFIX_ . 'product_attribute`'
+            . ' WHERE `id_product_attribute` = ' . (int) $productAttributeId,
+            false
+        );
+
+        if ($productAttributeId > 0 && $owner === $productId) {
+            return $productAttributeId;
+        }
+
+        $attributes = array_values(array_filter(array_map('intval', $groups)));
+
+        if ($attributes) {
+            $resolved = (int) \Product::getIdProductAttributeByIdAttributes($productId, $attributes, true);
+
+            if ($resolved > 0) {
+                return $resolved;
+            }
+        }
+
+        return (int) \Product::getDefaultAttribute($productId);
+    }
+
+    /**
      * Give a visitor without an account a guest id, the identity adopt() checks.
      *
      * ⚠️ PrestaShop assigns one only through the statsdata module; without it an
-     * express cart has no owner and every guest payment is refused. Called when
-     * the express page renders, so the parallel requests of one page load all
-     * carry the same id rather than each minting its own.
+     * express cart has no owner and every guest payment is refused. Called only
+     * when an express cart is created: a guest row on every page render would
+     * bring back the table growth merchants avoid by turning statsdata off, and
+     * would pre-empt statsdata's own first-visit tracking when it is on. The
+     * client makes one addToCart per container, so one page load mints one id.
      *
      * @param \Context $context Shop context
      */

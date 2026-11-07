@@ -70,40 +70,126 @@
         }
     };
 
-    // ⚠️ Read the product page's own form only: hummingbird's related-product
-    // miniatures are add-to-cart forms too, with their own quantity and combination.
+    // ⚠️ Read the product's own form only: hummingbird's related-product miniatures
+    // are add-to-cart forms too, with their own quantity and combination.
     const PRODUCT_FORM = '#add-to-cart-or-refresh';
+
+    // Combination PrestaShop reported in its last updatedProduct event.
+    let eventCombination = 0;
+
+    // Whether the shopper has changed the product on this page (quantity,
+    // combination). Only then is a failure to price the button theirs to see.
+    let shopperChangedProduct = false;
+
+    // Last express cart per product, so a remount into a re-rendered container
+    // (which carries no cart id) still replaces it instead of abandoning it.
+    const lastCartByProduct = {};
+
+    /**
+     * The add-to-cart form the container belongs to.
+     *
+     * A quickview opens its own copy of the form over the page; the container's
+     * closest one is that product's, where a page-wide lookup reads the page behind.
+     *
+     * @param {HTMLElement} container Express container
+     * @return {HTMLElement|null} Form
+     */
+    const productForm = (container) =>
+        container.closest(PRODUCT_FORM) || document.querySelector(PRODUCT_FORM);
+
+    /**
+     * Whether the container is a quickview's, not the product page's own.
+     *
+     * @param {HTMLElement} container Express container
+     * @return {boolean} True inside a quickview or other modal
+     */
+    const inQuickview = (container) => Boolean(container.closest('.modal, .quickview'));
 
     /**
      * Quantity the shopper chose, on a product page.
      *
+     * @param {HTMLElement} container Express container
      * @return {number} Quantity, at least 1
      */
-    const selectedQuantity = () => {
-        const input = document.querySelector(`${PRODUCT_FORM} input[name="qty"]`);
+    const selectedQuantity = (container) => {
+        const form = productForm(container);
+        const input = form && form.querySelector('input[name="qty"]');
 
         return Math.max(1, parseInt((input && input.value) || '1', 10) || 1);
+    };
+
+    /**
+     * The form's group[] choices, which the server resolves when no combination
+     * id can be read.
+     *
+     * @param {HTMLElement} container Express container
+     * @return {Object<string, number>} Attribute group id => attribute id
+     */
+    const selectedGroups = (container) => {
+        const form = productForm(container);
+        const groups = {};
+
+        if (!form) {
+            return groups;
+        }
+
+        form.querySelectorAll('[name^="group["]').forEach((field) => {
+            const match = field.name.match(/^group\[(\d+)\]$/);
+            const chosen =
+                field.tagName === 'SELECT' || (field.type !== 'radio' && field.type !== 'checkbox')
+                    ? true
+                    : field.checked;
+
+            if (match && chosen && field.value) {
+                groups[match[1]] = parseInt(field.value, 10) || 0;
+            }
+        });
+
+        return groups;
     };
 
     /**
      * Combination the shopper chose, on a product page.
      *
      * The form has no combination field: the theme picks it with group[] selects
-     * and reports the result in the product details block, which it re-renders
-     * on every change (classic and hummingbird alike).
+     * and reports the result in its product details block, re-rendered on every
+     * change, and in the updatedProduct event. Not every theme renders either, so
+     * 0 here is resolved from the group[] choices server side.
      *
-     * @return {number} Combination id, 0 when the product has none
+     * @param {HTMLElement} container Express container
+     * @return {number} Combination id, 0 when it cannot be read
      */
-    const selectedCombination = () => {
-        const details = document.querySelector('.js-product-details[data-product]');
-
-        try {
-            const product = JSON.parse((details && details.dataset.product) || '{}');
-
-            return parseInt(product.id_product_attribute || '0', 10) || 0;
-        } catch (error) {
+    const selectedCombination = (container) => {
+        // Both sources describe the page's product, never a quickview's.
+        if (inQuickview(container)) {
             return 0;
         }
+
+        const selectors = [
+            typeof prestashop !== 'undefined' &&
+                prestashop.selectors &&
+                prestashop.selectors.product &&
+                prestashop.selectors.product.details,
+            '.js-product-details',
+            '#product-details',
+        ].filter(Boolean);
+
+        for (const selector of selectors) {
+            const details = document.querySelector(selector);
+
+            if (details && details.dataset.product) {
+                try {
+                    const product = JSON.parse(details.dataset.product);
+
+                    return parseInt(product.id_product_attribute || '0', 10) || 0;
+                } catch (error) {
+                    break;
+                }
+            }
+        }
+
+        // A quickview emits updatedProduct too, so the event is the fallback.
+        return eventCombination;
     };
 
     /**
@@ -136,15 +222,22 @@
         }
 
         if (!container.moneiCartPromise) {
+            const productId = parseInt(container.dataset.productId || '0', 10) || 0;
+
             container.moneiCartPromise = request('addToCart', {
-                productId: parseInt(container.dataset.productId || '0', 10) || 0,
-                productAttributeId: selectedCombination(),
-                quantity: selectedQuantity(),
-                // A previous cart for this container is deleted server side, so
+                productId,
+                productAttributeId: selectedCombination(container),
+                groups: selectedGroups(container),
+                quantity: selectedQuantity(container),
+                // A previous cart for this product is deleted server side, so
                 // changing quantity does not leave one abandoned cart per change.
-                replacesCartId: parseInt(container.dataset.expressCartId || '0', 10) || 0,
+                replacesCartId:
+                    parseInt(container.dataset.expressCartId || '0', 10) ||
+                    lastCartByProduct[productId] ||
+                    0,
             }).then((cart) => {
                 container.dataset.expressCartId = String(cart.expressCartId || '');
+                lastCartByProduct[productId] = parseInt(cart.expressCartId || '0', 10) || 0;
 
                 return cart;
             });
@@ -243,7 +336,22 @@
      * @param {string}      method    Express method
      */
     const mount = async (container, slot, method) => {
-        const cart = await prepareCart(container);
+        let cart;
+
+        try {
+            cart = await prepareCart(container);
+        } catch (error) {
+            // Out of stock, below the minimum quantity. At page load the shopper
+            // did nothing yet, so there is simply no button; after they changed the
+            // product, the change is what failed and they are told.
+            if (shopperChangedProduct) {
+                showError(container, error.message);
+            } else {
+                reportLoaded(container, slot, false);
+            }
+
+            return;
+        }
 
         // ⚠️ A wallet component throws "need amount and currency" when the amount
         // is 0 — an empty cart, or a cart summary hook that rendered before the
@@ -389,10 +497,11 @@
                 container.querySelectorAll('[data-monei-express-method]').forEach((slot) => {
                     const method = slot.dataset.moneiExpressMethod;
 
-                    mount(container, slot, method).catch((error) => {
-                        // A button that cannot even mount must say so rather than
-                        // leaving an empty gap the shopper will wait on.
-                        showError(container, error.message);
+                    mount(container, slot, method).catch(() => {
+                        // Errors are shown only for something the shopper did. A
+                        // button that cannot mount is dropped, and the block
+                        // collapses when none is left, so there is no empty gap.
+                        reportLoaded(container, slot, false);
                     });
                 });
             });
@@ -407,7 +516,13 @@
      * total. PrestaShop announces the change on its event bus; each container is
      * emptied and mounted again, which prices a fresh express cart.
      */
-    const remountProductButtons = () => {
+    const remountProductButtons = (event) => {
+        shopperChangedProduct = true;
+
+        if (event && 'id_product_attribute' in event) {
+            eventCombination = parseInt(event.id_product_attribute || '0', 10) || 0;
+        }
+
         document
             .querySelectorAll('[data-monei-express][data-location="product"]')
             .forEach((container) => {

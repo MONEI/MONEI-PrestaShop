@@ -87,8 +87,8 @@ test.describe('express checkout', () => {
     });
 
     // Regression: express read the combination from a form field that no stock
-    // theme renders, so every variable product went to the express cart as its
-    // default combination, whatever the buyer picked, with no error shown.
+    // theme renders, so every variable product went to the express cart with
+    // combination 0, whatever the buyer picked, with no error shown.
     test('puts the combination the buyer picked in the express cart', async ({ page }) => {
         enableExpress();
 
@@ -122,6 +122,78 @@ test.describe('express checkout', () => {
         ).trim();
 
         expect(hasSizeM, `combination ${line[1]} should be size ${sizeM}`).toBe('1');
+    });
+
+    // Regression: a theme without the details block (or with it renamed) sent
+    // combination 0 and the line went into the express cart with no combination.
+    test('keeps the combination on a theme without the details block', async ({ page }) => {
+        enableExpress();
+
+        await page.goto(VARIABLE_PRODUCT, { waitUntil: 'domcontentloaded' });
+        await expect(page.locator(PAYPAL_BUTTON)).toBeVisible({ timeout: 60000 });
+
+        // What such a theme renders: no element carrying data-product at all.
+        await page.evaluate(() =>
+            document.querySelectorAll('[data-product]').forEach((element) => {
+                element.removeAttribute('data-product');
+                element.classList.remove('js-product-details');
+                element.removeAttribute('id');
+            })
+        );
+
+        const size = page.locator('select[name="group[1]"]');
+        const sizeM = await size.locator('option').nth(1).getAttribute('value');
+
+        const remounted = page.waitForResponse(
+            (response) =>
+                response.url().includes('module/monei/express') &&
+                (response.request().postData() || '').includes('"addToCart"')
+        );
+        await size.selectOption(sizeM);
+        const cart = await (await remounted).json();
+
+        const combination = mysql(
+            `SELECT id_product_attribute FROM ps_cart_product WHERE id_cart = ${Number(cart.expressCartId)};`
+        ).trim();
+        const hasSizeM = mysql(
+            `SELECT COUNT(*) FROM ps_product_attribute_combination WHERE id_product_attribute = ${Number(combination)} AND id_attribute = ${Number(sizeM)};`
+        ).trim();
+
+        expect(hasSizeM, `combination ${combination} should be size ${sizeM}`).toBe('1');
+    });
+
+    // Regression: a product that cannot go into the express cart (out of stock,
+    // below the minimum) showed "could not be added" at page load, and scrolled to
+    // it, before the shopper had clicked anything.
+    test('an out-of-stock product shows no block and no error', async ({ page }) => {
+        enableExpress();
+        const id = Number(fixture('simpleProductId', 'MONEI_E2E_PRODUCT_ID', '6'));
+        const quantity = psEval(`echo (int) StockAvailable::getQuantityAvailableByProduct(${id});`);
+        const outOfStock = psEval(`echo (int) StockAvailable::outOfStock(${id});`);
+        const orderOutOfStock = getConfig('PS_ORDER_OUT_OF_STOCK');
+
+        psEval(
+            `StockAvailable::setQuantity(${id}, 0, 0); StockAvailable::setProductOutOfStock(${id}, 0);`
+        );
+        setConfig('PS_ORDER_OUT_OF_STOCK', '0');
+
+        try {
+            const mounted = page.waitForResponse(
+                (response) =>
+                    response.url().includes('module/monei/express') &&
+                    (response.request().postData() || '').includes('"addToCart"')
+            );
+            await page.goto(PRODUCT, { waitUntil: 'domcontentloaded' });
+            expect((await mounted).ok(), 'the express cart should be refused').toBe(false);
+
+            await expect(page.locator('[data-monei-express]')).toBeHidden();
+            await expect(page.locator('[data-monei-express-error]')).toHaveText('');
+        } finally {
+            psEval(
+                `StockAvailable::setQuantity(${id}, 0, ${Number(quantity)}); StockAvailable::setProductOutOfStock(${id}, ${Number(outOfStock)});`
+            );
+            setConfig('PS_ORDER_OUT_OF_STOCK', orderOutOfStock);
+        }
     });
 
     test('is absent at the checkout payment step', async ({ page }) => {

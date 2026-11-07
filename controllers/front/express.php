@@ -153,7 +153,7 @@ class MoneiExpressModuleFrontController extends ModuleFrontController
     private function actionSelectedProductData()
     {
         $productId = (int) $this->value('productId');
-        $attributeId = (int) $this->value('productAttributeId');
+        $attributeId = $this->selectedCombination($productId);
         $quantity = max(1, (int) $this->value('quantity', 1));
 
         $product = new Product($productId, false, (int) $this->context->language->id);
@@ -180,7 +180,7 @@ class MoneiExpressModuleFrontController extends ModuleFrontController
     private function actionAddToCart()
     {
         $productId = (int) $this->value('productId');
-        $attributeId = (int) $this->value('productAttributeId');
+        $attributeId = $this->selectedCombination($productId);
         $quantity = max(1, (int) $this->value('quantity', 1));
 
         // A stale express cart for the same container is replaced, not left
@@ -651,6 +651,24 @@ class MoneiExpressModuleFrontController extends ModuleFrontController
     private function cartService()
     {
         return new ExpressCartService();
+    }
+
+    /**
+     * The combination the shopper picked, resolved server side.
+     *
+     * @param int $productId Product
+     *
+     * @return int Combination id, 0 for a product without combinations
+     */
+    private function selectedCombination($productId)
+    {
+        $groups = $this->value('groups', []);
+
+        return $this->cartService()->resolveCombination(
+            (int) $productId,
+            (int) $this->value('productAttributeId'),
+            is_array($groups) ? $groups : []
+        );
     }
 
     /**

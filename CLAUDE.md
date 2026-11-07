@@ -158,10 +158,13 @@ $paymentService = Monei::getService('monei.service.payment');
 - Product page express uses a cart of its own and points the context back
   afterwards, so the shopper's cart is never emptied.
 - ⚠️ A visitor gets a guest id only through the `statsdata` module. The express
-  cart is owned by that id, so `ExpressCartService::ensureGuest()` assigns one when
-  the express page renders; without it every guest express payment is refused.
-- The chosen combination comes from `.js-product-details[data-product]`: neither
-  stock theme puts `id_product_attribute` in the product form.
+  cart is owned by that id, so `ExpressCartService::create()` assigns one through
+  `ensureGuest()`; without it every guest express payment is refused. Never assign
+  one at render time: every crawler hit would add a `ps_guest` row.
+- The client reads the combination from the product details block and also posts
+  the `group[]` values: neither stock theme puts `id_product_attribute` in the
+  product form, and some themes have no details block.
+  `ExpressCartService::resolveCombination()` decides on the server.
 
 ### Customers API
 

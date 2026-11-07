@@ -20,9 +20,12 @@ function upgrade_module_2_2_2($module)
         Monei::logDebug('[MONEI] Upgrade to 2.2.2 completed successfully');
 
         return true;
-    } catch (Exception $e) {
-        Monei::logError('[MONEI] Upgrade to 2.2.2 failed: ' . $e->getMessage());
+    } catch (Throwable $e) {
+        // A stale bundle is not worth a failed upgrade: under open_basedir the
+        // cache clear can throw a TypeError, and the scripts still load on the next
+        // cache clear the merchant runs.
+        Monei::logError('[MONEI] Upgrade to 2.2.2 could not clear the theme cache: ' . $e->getMessage());
 
-        return false;
+        return true;
     }
 }

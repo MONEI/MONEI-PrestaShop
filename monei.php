@@ -7,7 +7,6 @@ use Monei\Model\PaymentStatus;
 use PsMonei\Entity\Monei2CustomerCard;
 use PsMonei\Entity\Monei2Payment;
 use PsMonei\Repository\CustomerMappingStore;
-use PsMonei\Service\Express\ExpressCartService;
 use PsMonei\Service\Monei\CustomerService;
 use PsMonei\Service\Monei\GdprPayload;
 use PsMonei\Service\Monei\MoneiClientFactory;
@@ -2715,8 +2714,6 @@ class Monei extends PaymentModule
                 'media' => 'all',
             ]
         );
-
-        (new ExpressCartService())->ensureGuest($this->context);
 
         // Published here rather than from the display hooks: PrestaShop collects
         // the js_def block before content hooks render.

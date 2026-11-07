@@ -169,16 +169,33 @@ test.describe('express checkout: guards on the payment path', () => {
         await other.close();
     });
 
+    const statsdataActive = () =>
+        mysql("SELECT active FROM ps_module WHERE name = 'statsdata';").trim() === '1';
+
+    const waitForMount = (page) =>
+        page.waitForResponse(
+            (response) =>
+                response.url().includes('module/monei/express') &&
+                (response.request().postData() || '').includes('"addToCart"')
+        );
+
     // Regression: PrestaShop gives a visitor a guest id only through the statsdata
     // module. With it off (the PrestaShop demo), the express cart had no owner and
     // every guest express payment failed with "The express cart is not available".
     test('a guest without a guest id can pay, with statsdata off', async ({ browser }) => {
+        const statsdataWasOn = statsdataActive();
         psConsole(['prestashop:module', 'disable', 'statsdata']);
         const context = await browser.newContext();
 
         try {
             const page = await context.newPage();
+            const mounted = waitForMount(page);
             const { endpoint, token } = await expressConfig(page);
+
+            // The page's own first express request mints the guest id; the calls
+            // below follow it, as a shopper's click would.
+            await mounted;
+
             const cart = await post(page, endpoint, {
                 action: 'addToCart',
                 token,
@@ -199,7 +216,118 @@ test.describe('express checkout: guards on the payment path', () => {
             expect(order.ok, JSON.stringify(order)).toBe(true);
         } finally {
             await context.close();
-            psConsole(['prestashop:module', 'enable', 'statsdata']);
+
+            if (statsdataWasOn) {
+                psConsole(['prestashop:module', 'enable', 'statsdata']);
+            }
+        }
+    });
+
+    // Regression: 2.2.2 minted a guest id on every product page render, so every
+    // cookieless request (a crawler) inserted a ps_guest row: the growth merchants
+    // avoid by turning statsdata off.
+    test('a page view that never calls express adds no guest row', async ({ browser }) => {
+        const statsdataWasOn = statsdataActive();
+        psConsole(['prestashop:module', 'disable', 'statsdata']);
+        const context = await browser.newContext();
+
+        try {
+            const guests = () => Number(mysql('SELECT COUNT(*) FROM ps_guest;').trim());
+            const before = guests();
+
+            // A crawler: the HTML only, no scripts, so express never runs.
+            const response = await context.request.get(PRODUCT);
+
+            expect(response.ok()).toBe(true);
+            expect(await response.text()).toContain('data-monei-express');
+            expect(guests()).toBe(before);
+        } finally {
+            await context.close();
+
+            if (statsdataWasOn) {
+                psConsole(['prestashop:module', 'enable', 'statsdata']);
+            }
+        }
+    });
+
+    // Regression: a theme without the details block the client reads sent
+    // combination 0, and the cart line was added with no combination (base price,
+    // product-level stock).
+    test('a combination the browser could not read is resolved, never left empty', async ({
+        page,
+    }) => {
+        const product = Number(fixture('variableProductId', 'MONEI_E2E_VARIABLE_ID', '1'));
+        const defaultCombination = mysql(
+            `SELECT id_product_attribute FROM ps_product_attribute WHERE id_product = ${product} AND default_on = 1;`
+        ).trim();
+        const other = mysql(
+            `SELECT id_product_attribute FROM ps_product_attribute WHERE id_product = ${product} AND id_product_attribute <> ${Number(defaultCombination)} ORDER BY id_product_attribute LIMIT 1;`
+        ).trim();
+        const groups = Object.fromEntries(
+            mysql(
+                `SELECT a.id_attribute_group, a.id_attribute FROM ps_product_attribute_combination pac JOIN ps_attribute a ON a.id_attribute = pac.id_attribute WHERE pac.id_product_attribute = ${Number(other)};`
+            )
+                .trim()
+                .split('\n')
+                .map((row) => row.split(/\s+/))
+        );
+
+        const mounted = waitForMount(page);
+        const { endpoint, token } = await expressConfig(page);
+        await mounted;
+
+        const lineOf = (cart) =>
+            mysql(
+                `SELECT id_product_attribute FROM ps_cart_product WHERE id_cart = ${Number(cart.expressCartId)};`
+            ).trim();
+
+        const fromGroups = await post(page, endpoint, {
+            action: 'addToCart',
+            token,
+            productId: product,
+            productAttributeId: 0,
+            groups,
+            quantity: 1,
+        });
+
+        expect(lineOf(fromGroups), 'the posted group[] values pick the combination').toBe(other);
+
+        const nothing = await post(page, endpoint, {
+            action: 'addToCart',
+            token,
+            productId: product,
+            productAttributeId: 0,
+            quantity: 1,
+        });
+
+        expect(lineOf(nothing), 'with nothing posted, the default combination').toBe(
+            defaultCombination
+        );
+    });
+
+    // The product id is browser-supplied and Cart::updateQty() checks neither
+    // status nor visibility: a disabled product could be bought through express.
+    test('a product that is not for sale cannot be put in an express cart', async ({ page }) => {
+        const product = Number(fixture('simpleProductId', 'MONEI_E2E_PRODUCT_ID', '6'));
+        const carts = () => Number(mysql('SELECT MAX(id_cart) FROM ps_cart;').trim());
+        const { endpoint, token } = await expressConfig(page);
+
+        mysql(`UPDATE ps_product_shop SET active = 0 WHERE id_product = ${product};`);
+
+        try {
+            const before = carts();
+            const body = await post(page, endpoint, {
+                action: 'addToCart',
+                token,
+                productId: product,
+                quantity: 1,
+            });
+
+            expect(body.ok).toBe(false);
+            expect(body.message).toMatch(/not available/i);
+            expect(carts()).toBe(before);
+        } finally {
+            mysql(`UPDATE ps_product_shop SET active = 1 WHERE id_product = ${product};`);
         }
     });
 
