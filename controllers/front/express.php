@@ -26,6 +26,9 @@ class MoneiExpressModuleFrontController extends ModuleFrontController
     /** @var array */
     private $input = [];
 
+    /** @var bool Whether the request carried a valid token */
+    private $authorized = false;
+
     public function postProcess()
     {
         header('Content-Type: application/json');
@@ -35,6 +38,8 @@ class MoneiExpressModuleFrontController extends ModuleFrontController
         if (!$this->isAuthorizedRequest()) {
             $this->fail('forbidden', 'Invalid or missing security token', 403);
         }
+
+        $this->authorized = true;
 
         if (!(bool) Configuration::get('MONEI_EXPRESS_ENABLED')) {
             $this->fail('express_disabled', 'Express checkout is not enabled', 403);
@@ -284,12 +289,15 @@ class MoneiExpressModuleFrontController extends ModuleFrontController
             return null;
         }
 
-        if (Country::containsStates($countryId) && $normalized['state'] !== '') {
+        // createOrder refuses a state it cannot resolve, so none is quoted.
+        if (Country::containsStates($countryId)) {
             $stateId = ExpressOrderBuilder::resolveState($countryId, $normalized['state']);
 
-            if ($stateId) {
-                $country->id_zone = (int) State::getIdZone($stateId);
+            if (!$stateId) {
+                return null;
             }
+
+            $country->id_zone = (int) State::getIdZone($stateId);
         }
 
         return $country;
@@ -787,14 +795,30 @@ class MoneiExpressModuleFrontController extends ModuleFrontController
 
     private function respond(array $payload)
     {
-        echo json_encode(['ok' => true] + $payload);
+        echo json_encode(['ok' => true] + $payload + $this->freshToken());
         exit;
     }
 
     private function fail($code, $message, $status)
     {
         http_response_code($status);
-        echo json_encode(['ok' => false, 'code' => $code, 'message' => $message]);
+        echo json_encode(['ok' => false, 'code' => $code, 'message' => $message] + $this->freshToken());
         exit;
+    }
+
+    /**
+     * The token the next request must carry.
+     *
+     * ⚠️ The token hashes the customer, and createOrder signs an anonymous
+     * shopper in as the wallet's guest customer. Every request after that, even
+     * when createOrder failed — the restore, the remount after a changed total,
+     * a second attempt — would be refused with the token the page was rendered
+     * with. Never handed to a request that failed the token check.
+     *
+     * @return array{token?: string}
+     */
+    private function freshToken()
+    {
+        return $this->authorized ? ['token' => Tools::getToken(false)] : [];
     }
 }

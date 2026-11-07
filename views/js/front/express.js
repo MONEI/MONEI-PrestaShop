@@ -38,6 +38,11 @@
             data = null;
         }
 
+        // The server rotates the token when it signs the wallet's guest in.
+        if (data && data.token) {
+            moneiExpress.token = data.token;
+        }
+
         if (!response.ok || !data || data.ok !== true) {
             // Carries the server's own message where there is one: "the amount
             // changed while the wallet was open" is worth showing verbatim.

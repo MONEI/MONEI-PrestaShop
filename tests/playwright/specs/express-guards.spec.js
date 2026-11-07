@@ -629,6 +629,17 @@ test.describe('express checkout: guards on the payment path', () => {
         });
 
         expect(spain.shippingOptions).toEqual([]);
+
+        // Nor where createOrder cannot resolve the state.
+        const texas = { country: 'US', city: 'Austin', zip: '73301' };
+        const noState = await quote(page, endpoint, token, cart.expressCartId, texas);
+        const withState = await quote(page, endpoint, token, cart.expressCartId, {
+            ...texas,
+            state: 'TX',
+        });
+
+        expect(noState.shippingOptions).toEqual([]);
+        expect(withState.shippingOptions.length).toBeGreaterThan(0);
     });
 
     // Regression: createOrder picked the cheapest carrier whatever the sheet
@@ -664,12 +675,12 @@ test.describe('express checkout: guards on the payment path', () => {
         expect(refused.status()).toBe(409);
         expect(body.code).toBe('amount_changed');
 
-        // The refusal ran after the wallet's customer was signed in, which
-        // rotates the session token.
-        const again = await expressConfig(page);
-        const charged = await post(page, again.endpoint, {
+        // Regression: the refusal ran after the wallet's customer was signed in,
+        // which rotates the token, so every later request was refused. The
+        // response carries the new one.
+        const charged = await post(page, endpoint, {
             ...order,
-            token: again.token,
+            token: body.token,
             amount: approved.amount,
         });
 

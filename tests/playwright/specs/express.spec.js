@@ -338,9 +338,14 @@ test.describe('express checkout', () => {
         );
 
         let createOrder = null;
+        const after = [];
 
         await page.route('**/module/monei/express**', (route) => {
             const body = JSON.parse(route.request().postData() || '{}');
+
+            if (createOrder) {
+                after.push(body);
+            }
 
             if (body.action !== 'createOrder') {
                 return route.continue();
@@ -348,9 +353,17 @@ test.describe('express checkout', () => {
 
             createOrder = body;
 
+            // What the server answers when the cart total differs from the sheet's,
+            // after signing the wallet's guest in.
             return route.fulfill({
+                status: 409,
                 contentType: 'application/json',
-                body: JSON.stringify({ ok: false, message: 'stopped by the test' }),
+                body: JSON.stringify({
+                    ok: false,
+                    code: 'amount_changed',
+                    message: 'The total changed',
+                    token: 'rotated',
+                }),
             });
         });
 
@@ -398,6 +411,15 @@ test.describe('express checkout', () => {
         await expect.poll(() => createOrder).toBeTruthy();
         expect(createOrder.carrierId).toBe(dearer.id);
         expect(createOrder.amount).toBe(repriced.amount);
+
+        // The button is priced again from the express cart, with the new token.
+        await expect
+            .poll(() => after.find((body) => body.action === 'getCartDetails'))
+            .toBeTruthy();
+        const repricing = after.find((body) => body.action === 'getCartDetails');
+
+        expect(repricing.expressCartId).toBe(createOrder.expressCartId);
+        expect(after.every((body) => body.token === 'rotated')).toBe(true);
         expect(createOrder.expressCartId).toBeGreaterThan(0);
     });
 
