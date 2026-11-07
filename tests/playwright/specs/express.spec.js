@@ -438,6 +438,74 @@ test.describe('express checkout', () => {
         expect(createOrder.expressCartId).toBeGreaterThan(0);
     });
 
+    // Regression: opening a wallet in a quickview deleted the cart the page's own
+    // container held for the same product, and paying from the page then failed
+    // with "The express cart is not available".
+    test('two containers for one product keep their own express carts', async ({ page }) => {
+        enableExpress();
+
+        await page.route('https://js.monei.com/v3/monei.js', (route) =>
+            route.fulfill({
+                contentType: 'application/javascript',
+                body: `window.moneiSlots = [];
+                window.monei = {
+                    PayPal: (props) => ({ render: (slot) => { window.moneiSlots.push({ props, slot }); props.onLoad(true); } }),
+                    PaymentRequest: (props) => ({ render: () => props.onLoad(false) }),
+                    confirmPayment: async () => ({}),
+                };`,
+            })
+        );
+
+        await page.goto(PRODUCT, { waitUntil: 'domcontentloaded' });
+        await page.waitForFunction(() => window.moneiSlots.length === 1);
+
+        // A quickview of the same product, as classic renders it.
+        await page.evaluate(() => {
+            const productId = document.querySelector('[data-monei-express]').dataset.productId;
+            const modal = document.createElement('div');
+
+            modal.className = 'quickview';
+            modal.innerHTML = `
+                <form id="add-to-cart-or-refresh"><input name="qty" value="1"></form>
+                <div data-monei-express data-location="product" data-product-id="${productId}">
+                    <div data-monei-express-label hidden></div>
+                    <div data-monei-express-method="paypal"></div>
+                    <div data-monei-express-error role="alert"></div>
+                </div>`;
+            document.body.appendChild(modal);
+            window.prestashop.emit('updatedProduct', {});
+        });
+        // Both containers mounted after the event: the page's remounts too.
+        await page.waitForFunction(() =>
+            [true, false].every((quickview) =>
+                window.moneiSlots
+                    .slice(1)
+                    .some((entry) => Boolean(entry.slot.closest('.quickview')) === quickview)
+            )
+        );
+
+        const open = (inQuickview) =>
+            page.evaluate(
+                (quickview) =>
+                    window.moneiSlots
+                        .filter((entry) => Boolean(entry.slot.closest('.quickview')) === quickview)
+                        .pop()
+                        .props.onShippingAddressChange({
+                            country: 'FR',
+                            city: 'Paris',
+                            zip: '75001',
+                        })
+                        .then((quote) => quote.amount),
+                inQuickview
+            );
+
+        await open(false);
+        await open(true);
+
+        // The page's container still owns its cart.
+        expect(await open(false)).toBeGreaterThan(0);
+    });
+
     test('is absent at the checkout payment step', async ({ page }) => {
         enableExpress('product,cart,checkout');
 

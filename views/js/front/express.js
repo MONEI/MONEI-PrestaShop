@@ -258,6 +258,15 @@
         if (!container.moneiCartPromise) {
             const productId = parseInt(container.dataset.productId || '0', 10) || 0;
             const existing = parseInt(container.dataset.expressCartId || '0', 10) || 0;
+            const previous = lastCartByProduct[productId] || 0;
+            // ⚠️ Another container for the same product (a quickview over its page)
+            // may still pay with that cart. A container the theme re-rendered is no
+            // longer in the page, so its cart is replaced.
+            const inUse = Array.from(document.querySelectorAll('[data-monei-express]')).some(
+                (other) =>
+                    other !== container &&
+                    (parseInt(other.dataset.expressCartId || '0', 10) || 0) === previous
+            );
 
             container.moneiCartPromise = existing
                 ? Promise.resolve(existing)
@@ -268,7 +277,7 @@
                       quantity: selectedQuantity(container),
                       // A previous cart for this product is deleted server side, so
                       // changing quantity does not leave one abandoned cart per change.
-                      replacesCartId: lastCartByProduct[productId] || 0,
+                      replacesCartId: previous && !inUse ? previous : 0,
                   }).then((cart) => {
                       const id = parseInt(cart.expressCartId || '0', 10) || 0;
 
