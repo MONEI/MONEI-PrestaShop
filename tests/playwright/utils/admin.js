@@ -18,7 +18,11 @@ const login = async (page) => {
     await page.fill('#email', ADMIN_USER);
     await page.fill('#passwd', ADMIN_PASSWORD);
     await page.locator('#submit_login').click();
-    await expect(page.locator('body')).toBeVisible();
+    // ⚠️ PrestaShop 8 signs in over AJAX and then redirects from JavaScript. A
+    // navigation started before that redirect is aborted (net::ERR_ABORTED).
+    await page.waitForURL((url) => !/controller=AdminLogin|\/login\b/.test(url.href), {
+        timeout: 60000,
+    });
 };
 
 /**
