@@ -2,7 +2,6 @@
 
 use PsMonei\Repository\ConfigurationStore;
 use PsMonei\Service\Monei\CallbackVerifier;
-use PsMonei\Service\Monei\ConnectService;
 use PsMonei\Service\Monei\MoneiClientFactory;
 use PsMonei\Service\Monei\MoneiService;
 
@@ -100,7 +99,10 @@ class MoneiValidationModuleFrontController extends ModuleFrontController
             'time',
             function (string $paymentId): ?array {
                 $row = Db::getInstance()->getRow(
-                    'SELECT `id_cart`, `id_order_monei`, `status` FROM `' . _DB_PREFIX_ . 'monei2_payment` WHERE `id_payment` = \'' . pSQL($paymentId) . '\'',
+                    'SELECT p.`id_cart`, p.`id_order_monei`, p.`status`, c.`id_shop_group`, c.`id_shop`'
+                    . ' FROM `' . _DB_PREFIX_ . 'monei2_payment` p'
+                    . ' LEFT JOIN `' . _DB_PREFIX_ . 'cart` c ON c.`id_cart` = p.`id_cart`'
+                    . ' WHERE p.`id_payment` = \'' . pSQL($paymentId) . '\'',
                     false
                 );
                 if (!$row) {
@@ -114,11 +116,11 @@ class MoneiValidationModuleFrontController extends ModuleFrontController
                     'status' => (string) $row['status'],
                     'monei' => $order === null || $order->module === $this->module->name,
                     'paid' => $order !== null && $order->hasBeenPaid() > 0,
+                    'idShopGroup' => (int) $row['id_shop_group'],
+                    'idShop' => (int) $row['id_shop'],
                 ];
             },
-            static function (string $mode, string $paymentId) {
-                $apiKey = (string) Configuration::get(ConnectService::KEYS[$mode]['apiKey']);
-
+            static function (string $apiKey, string $paymentId) {
                 return MoneiClientFactory::create($apiKey, MoneiService::getUserAgent())->payments->get($paymentId);
             }
         );

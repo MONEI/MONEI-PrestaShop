@@ -45,7 +45,7 @@ class CallbackVerifierTest extends TestCase
 
     private static function row(array $overrides = []): array
     {
-        return $overrides + ['orderId' => '1001', 'status' => 'PENDING', 'monei' => true, 'paid' => false];
+        return $overrides + ['orderId' => '1001', 'status' => 'PENDING', 'monei' => true, 'paid' => false, 'idShopGroup' => 0, 'idShop' => 0];
     }
 
     private static function paymentFields(string $status, array $overrides = []): array
@@ -81,20 +81,23 @@ class CallbackVerifierTest extends TestCase
         ]);
     }
 
-    private function verifier(InMemoryConfigurationStore $store): CallbackVerifier
+    /**
+     * @param int[] $requestScope The shop group and shop the request came in on
+     */
+    private function verifier(InMemoryConfigurationStore $store, array $requestScope = [0, 0]): CallbackVerifier
     {
         return new CallbackVerifier(
             $store,
-            0,
-            0,
+            $requestScope[0],
+            $requestScope[1],
             function () {
                 return $this->now;
             },
             function (string $paymentId) {
                 return $this->rows[$paymentId] ?? null;
             },
-            function (string $mode, string $id) {
-                $this->fetches[] = [$mode, $id];
+            function (string $apiKey, string $id) {
+                $this->fetches[] = [$apiKey, $id];
                 if ($this->fetchFails) {
                     throw new ApiException('[0] cURL error 28', 0);
                 }
@@ -157,7 +160,7 @@ class CallbackVerifierTest extends TestCase
 
         $decision = $this->verifier(self::connectedShop())->verify($body, $signature);
 
-        $this->assertSame([['test', self::ID]], $this->fetches);
+        $this->assertSame([[self::KEY, self::ID]], $this->fetches);
         $this->assertSame(200, $decision['status']);
         $this->assertSame([
             'id' => self::ID,
@@ -410,22 +413,62 @@ class CallbackVerifierTest extends TestCase
     }
 
     /**
-     * Bug: a callback of the other mode is checked with the selected mode's key, so
-     * Live callbacks of a shop in test mode fail. Each mode verifies with its own key.
+     * Bug: a signed callback of the other mode settles an order: anyone with the
+     * merchant's test key can sign a test payment made for a live cart. Each mode still
+     * verifies with its own key, so a test signature on a live body is no live proof.
+     *
+     * @dataProvider signedCallbacksOfTheOtherMode
      */
-    public function testLivemodePicksTheKeyOfItsMode(): void
+    public function testASignedCallbackOfTheOtherModeChangesNothing(string $element, string $signingKey, array $expected): void
     {
         $store = self::store([
             'MONEI_PRODUCTION_MODE' => '0',
             'MONEI_TEST_API_KEY' => 'pk_test_manual',
             'MONEI_API_KEY' => 'pk_live_manual',
+            'MONEI_SIGNING_SECRET' => 'mksec_live',
         ]);
         $body = self::body(self::paymentFields('SUCCEEDED', ['livemode' => true]));
 
-        $live = $this->verifier($store)->verify($body, self::sign($body, 'v1', 'pk_live_manual'));
-        $test = $this->verifier($store)->verify($body, self::sign($body, 'v1', 'pk_test_manual'));
+        $decision = $this->verifier($store)->verify($body, self::sign($body, $element, $signingKey));
 
-        $this->assertSame([200, 401], [$live['status'], $test['status']]);
+        $this->assertSame($expected, [$decision['status'], $decision['payment'], $decision['reason']]);
+        $this->assertSame([], $this->fetches);
+    }
+
+    public function signedCallbacksOfTheOtherMode(): array
+    {
+        return [
+            'v2 of the live secret, shop in test mode' => ['v2', 'mksec_live', [200, null, 'livemode']],
+            'v1 of the live key, shop in test mode' => ['v1', 'pk_live_manual', [200, null, 'livemode']],
+            'v1 of the test key on a live body' => ['v1', 'pk_test_manual', [401, null, 'signature']],
+        ];
+    }
+
+    /**
+     * Bug: on a multistore install, a callback that comes in on shop 1 for a payment
+     * of shop 2 is checked, or fetched, with shop 1's credentials, so shop 1's account
+     * can settle shop 2's order.
+     */
+    public function testThePaymentIsCheckedWithTheCredentialsOfTheShopThatOwnsIt(): void
+    {
+        $store = self::store(['MONEI_PRODUCTION_MODE' => '0']);
+        $store->set('MONEI_TEST_API_KEY', 'pk_test_shop1', 1, 1);
+        $store->set('MONEI_TEST_API_KEY', 'mk_test_shop2', 1, 2);
+        $store->set('MONEI_TEST_SIGNING_SECRET', 'mksec_shop2', 1, 2);
+        $this->rows[self::ID] = self::row(['idShopGroup' => 1, 'idShop' => 2]);
+        $body = self::body($this->remote);
+        $onShop1 = $this->verifier($store, [1, 1]);
+
+        $shop2Signed = $onShop1->verify($body, self::sign($body, 'v2', 'mksec_shop2'));
+        $shop1Signed = $onShop1->verify($body, self::sign($body, 'v1', 'pk_test_shop1'));
+        $store->set('MONEI_TEST_API_KEY', 'pk_test_shop2', 1, 2);
+        $manualShop2 = $onShop1->verify($body, self::sign($body, 'v1', 'pk_test_shop1'));
+
+        $this->assertSame('SUCCEEDED', $shop2Signed['payment']->getStatus());
+        // Shop 1's signature proves nothing for shop 2: its connected key fetches the payment.
+        $this->assertSame([['mk_test_shop2', self::ID]], $this->fetches);
+        $this->assertSame(200, $shop1Signed['status']);
+        $this->assertSame([401, 'signature'], [$manualShop2['status'], $manualShop2['reason']]);
     }
 
     /**
