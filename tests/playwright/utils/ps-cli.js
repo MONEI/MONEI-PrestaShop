@@ -239,6 +239,26 @@ const setOrderState = (orderId, stateId) =>
     );
 
 /**
+ * Set the stock of a product or combination, and the product's out-of-stock policy.
+ *
+ * ⚠️ An employee has to be in context, as in setOrderState. PrestaShop 9 records
+ * a stock movement that refuses a null employee, and a CLI bootstrap has none:
+ * the quantity is written, then the call dies, and the product stays out of stock
+ * for every spec after it.
+ *
+ * @param {string|number} productId     - Product id
+ * @param {string|number} combinationId - Combination id, 0 for the product
+ * @param {string|number} quantity      - Quantity
+ * @param {string|number} outOfStock    - Out-of-stock policy
+ */
+const setStock = (productId, combinationId, quantity, outOfStock) =>
+    psEval(
+        `Context::getContext()->employee = new Employee(1);` +
+            `StockAvailable::setQuantity(${Number(productId)}, ${Number(combinationId)}, ${Number(quantity)});` +
+            `StockAvailable::setProductOutOfStock(${Number(productId)}, ${Number(outOfStock)});`
+    );
+
+/**
  * Id of the most recently created order.
  *
  * @return {string} Order id, empty when the store has no orders
@@ -400,6 +420,7 @@ module.exports = {
     resetModule,
     setConfig,
     setOrderState,
+    setStock,
     uninstallModule,
     upgradeModule,
 };

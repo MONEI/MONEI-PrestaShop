@@ -1,7 +1,7 @@
 const { test, expect } = require('../utils/test');
 const { fixture } = require('../utils/fixtures');
 const { goToPaymentStep } = require('../utils/checkout');
-const { getConfig, mysql, psEval, setConfig } = require('../utils/ps-cli');
+const { getConfig, mysql, psEval, setConfig, setStock } = require('../utils/ps-cli');
 
 /**
  * ⚠️ PayPal renders a component frame and a prerender frame, both titled "PayPal",
@@ -235,9 +235,7 @@ test.describe('express checkout', () => {
         const outOfStock = psEval(`echo (int) StockAvailable::outOfStock(${id});`);
         const orderOutOfStock = getConfig('PS_ORDER_OUT_OF_STOCK');
 
-        psEval(
-            `StockAvailable::setQuantity(${id}, 0, 0); StockAvailable::setProductOutOfStock(${id}, 0);`
-        );
+        setStock(id, 0, 0, 0);
         setConfig('PS_ORDER_OUT_OF_STOCK', '0');
 
         try {
@@ -252,9 +250,7 @@ test.describe('express checkout', () => {
             await expect(page.locator('[data-monei-express]')).toBeHidden();
             await expect(page.locator('[data-monei-express-error]')).toHaveText('');
         } finally {
-            psEval(
-                `StockAvailable::setQuantity(${id}, 0, ${Number(quantity)}); StockAvailable::setProductOutOfStock(${id}, ${Number(outOfStock)});`
-            );
+            setStock(id, 0, Number(quantity), Number(outOfStock));
             setConfig('PS_ORDER_OUT_OF_STOCK', orderOutOfStock);
         }
     });
@@ -279,9 +275,7 @@ test.describe('express checkout', () => {
         const outOfStock = psEval(`echo (int) StockAvailable::outOfStock(${id});`);
         const orderOutOfStock = getConfig('PS_ORDER_OUT_OF_STOCK');
 
-        psEval(
-            `StockAvailable::setQuantity(${id}, ${combination}, 0); StockAvailable::setProductOutOfStock(${id}, 0);`
-        );
+        setStock(id, combination, 0, 0);
         setConfig('PS_ORDER_OUT_OF_STOCK', '0');
 
         try {
@@ -310,9 +304,7 @@ test.describe('express checkout', () => {
 
             await expect(page.locator(PAYPAL_BUTTON)).toBeVisible({ timeout: 60000 });
         } finally {
-            psEval(
-                `StockAvailable::setQuantity(${id}, ${combination}, ${Number(quantity)}); StockAvailable::setProductOutOfStock(${id}, ${Number(outOfStock)});`
-            );
+            setStock(id, combination, Number(quantity), Number(outOfStock));
             setConfig('PS_ORDER_OUT_OF_STOCK', orderOutOfStock);
         }
     });
