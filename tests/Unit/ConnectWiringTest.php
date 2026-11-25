@@ -105,6 +105,8 @@ class ConnectWiringTest extends TestCase
             '$moneiPayment=$verifiedPayment??$this->moneiService->getMoneiPayment($moneiPaymentId);',
             $this->method('src/Service/Order/OrderService.php', 'createOrUpdateOrder')
         );
+        // Nothing createOrUpdateOrder calls fetches again, the payment method display included.
+        $this->assertSame(1, substr_count($this->code('src/Service/Order/OrderService.php'), 'getMoneiPayment('));
     }
 
     /**
@@ -211,19 +213,66 @@ class ConnectWiringTest extends TestCase
     }
 
     /**
-     * Bug: a settings tab left open during a connect writes the old key back over the
-     * new one; or the form loses the fingerprints, so every save looks stale.
+     * Bug: a settings tab rendered before a connect or a disconnect writes the old
+     * keys and mode back over the new ones; or the form loses the fingerprints, so
+     * every save looks stale.
      */
-    public function testTheSettingsSaveSkipsTheModesChangedInAnotherTab(): void
+    public function testAStaleSettingsSaveIsRefusedBeforeAnyWrite(): void
     {
         $save = $this->method(self::MODULE, 'postProcess');
 
+        $this->assertMatchesRegularExpression('/if\(\$this->connectService\(\)->staleModes\(\[[^]]*\],\.\.\.\$this->shopScope\(\)\)\)\{return\$this->displayWarning\(/', $save);
+        $this->assertBefore('->staleModes(', '$this->validateApiCredentials($form_values)', $save, 'refused before the validation calls MONEI');
+        $this->assertStringContainsString('\'fields_value\'=>$this->settingsFormValues(),', $this->method(self::MODULE, 'renderForm'));
+        $this->assertStringContainsString('return$values+$this->keyFingerprintValues();', $this->method(self::MODULE, 'settingsFormValues'));
+    }
+
+    /**
+     * Bug: the settings page prints a connected key in full, or an empty key field
+     * (the form never shows a connected key) wipes the key on save or fails the
+     * credential check.
+     */
+    public function testAConnectedKeyIsNeverRenderedAndAnEmptyFieldKeepsIt(): void
+    {
         $this->assertStringContainsString(
-            'foreach($staleModesas$mode){unset($form_values[ConnectService::KEYS[$mode][\'accountId\']],$form_values[ConnectService::KEYS[$mode][\'apiKey\']]);}',
-            $save
+            'if(strpos((string)$values[$keys[\'apiKey\']],\'mk_\')===0){$values[$keys[\'apiKey\']]=\'\';}',
+            $this->method(self::MODULE, 'settingsFormValues')
         );
-        $this->assertBefore('$staleModes=$this->connectService()->staleModes(', 'foreach(array_keys($form_values)as$key){', $save, 'stale modes dropped before the save loop');
-        $this->assertStringContainsString('\'fields_value\'=>$this->getConfigFormValues()+$this->keyFingerprintValues(),', $this->method(self::MODULE, 'renderForm'));
+        $this->assertStringContainsString(
+            'if((string)Tools::getValue($keys[\'apiKey\'])===\'\'&&$this->submittedApiKey($keys[\'apiKey\'])!==\'\'){unset($form_values[$keys[\'apiKey\']]);}',
+            $this->method(self::MODULE, 'postProcess')
+        );
+        $validate = $this->method(self::MODULE, 'validateApiCredentials');
+        $this->assertStringContainsString('$apiKey=$this->submittedApiKey(\'MONEI_API_KEY\');', $validate);
+        $this->assertStringContainsString('$testApiKey=$this->submittedApiKey(\'MONEI_TEST_API_KEY\');', $validate);
+    }
+
+    /**
+     * Bug: the callback log holds the customer and card data of a payment.
+     */
+    public function testTheCallbackLogsAnAllowlistOfThePayment(): void
+    {
+        preg_match_all('/\$payment->get(\w+)\(\)/', (string) strstr($this->code(self::VALIDATION), 'Monei::logDebug(\'[MONEI]Webhookreceived'), $getters);
+
+        $this->assertSame(
+            ['Id', 'OrderId', 'Status', 'StatusCode', 'Amount', 'Currency', 'Livemode'],
+            array_slice($getters[1], 0, 7)
+        );
+    }
+
+    /**
+     * Bug: an AUTHORIZED or SUCCEEDED payment for another amount marks the order
+     * authorized or paid. The fetch path relies on this check in createOrUpdateOrder:
+     * it runs for every status.
+     */
+    public function testTheAmountCheckOfAnOrderRunsForEveryStatus(): void
+    {
+        $orders = 'src/Service/Order/OrderService.php';
+
+        $this->assertStringContainsString('if(!$this->paymentMatchesOrder($order,$moneiPayment)){return;}', $this->method($orders, 'updateExistingOrder'));
+        $this->assertStringContainsString('if(!$paymentMatchesCart){', $this->method($orders, 'createNewOrder'));
+        $this->assertStringContainsString('$orderStateId=(int)\Configuration::get(\'MONEI_STATUS_FAILED\');', $this->method($orders, 'createNewOrder'));
+        $this->assertStringNotContainsString('getStatus()===', $this->method($orders, 'paymentMatchesOrder'));
     }
 
     /**

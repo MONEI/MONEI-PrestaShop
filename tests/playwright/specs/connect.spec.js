@@ -91,7 +91,8 @@ const postWithoutTheAdminCheck = async (page, playwright, submit) => {
     const form = { [submit]: '1' };
     const anonymous = await playwright.request.newContext({ baseURL: baseUrl() });
     const noSession = await anonymous.post(configureUrlWithToken('0123456789abcdef'), { form });
-    const landings = [new URL(noSession.url()).pathname];
+    // PrestaShop 9 lands on /login, PrestaShop 8 on controller=AdminLogin.
+    const landings = [noSession.url()];
     await anonymous.dispose();
 
     await login(page);
@@ -113,7 +114,7 @@ test.describe('Connect with MONEI', () => {
         // No session ends on the login page. ⚠️ PrestaShop 9 answers a wrong or
         // missing token with a redirect to its own route plus a valid token, and
         // runs getContent: the branch's own token check is what refuses these.
-        expect(landings[0]).toMatch(/login/);
+        expect(landings[0]).toMatch(/login/i);
         expect(landings.slice(1)).toEqual(['200 refused', '200 refused']);
         expect(stateRows()).toBe(before);
     });
@@ -127,7 +128,7 @@ test.describe('Connect with MONEI', () => {
 
         const landings = await postWithoutTheAdminCheck(page, playwright, 'submitMoneiDisconnect');
 
-        expect(landings[0]).toMatch(/login/);
+        expect(landings[0]).toMatch(/login/i);
         expect(landings.slice(1)).toEqual(['200 refused', '200 refused']);
         expect(credentialsDigest(), 'credentials unchanged').toBe(before);
     });
@@ -160,13 +161,21 @@ test.describe('Connect with MONEI', () => {
         }
     });
 
-    test('a connected mode settles an unsigned callback through its payment row and a fetch', async ({
+    test('a connected mode takes an unsigned callback only for a MONEI order awaiting payment', async ({
         playwright,
     }) => {
-        const paymentId = mysql(
-            'SELECT id_payment FROM ps_monei2_payment ORDER BY date_add DESC LIMIT 1;'
+        const paidPaymentId = mysql(
+            'SELECT p.id_payment FROM ps_monei2_payment p JOIN ps_orders o ON o.id_cart = p.id_cart ' +
+                'JOIN ps_order_state s ON s.id_order_state = o.current_state ' +
+                "WHERE s.paid = 1 AND o.module = 'monei' LIMIT 1;"
         );
-        test.skip(!paymentId, 'No monei2_payment row yet: run a payment spec first.');
+        test.skip(!paidPaymentId, 'No paid MONEI order yet: run a payment spec first.');
+        // A payment whose cart has no order yet.
+        const pendingPaymentId = 'e2e0'.repeat(8);
+        mysql(
+            'INSERT INTO ps_monei2_payment (id_payment, id_cart, amount, status, date_add, date_upd) ' +
+                `VALUES ('${pendingPaymentId}', 999999, 100, 'PENDING', NOW(), NOW());`
+        );
         // Live is connected with a key MONEI refuses; Test keeps the seeded manual key.
         const restore = keep(['MONEI_ACCOUNT_ID', 'MONEI_API_KEY', 'MONEI_SIGNING_SECRET']);
         Object.entries(FAKE_LIVE).forEach(([key, value]) => setConfig(key, value));
@@ -176,22 +185,28 @@ test.describe('Connect with MONEI', () => {
         const callback = await playwright.request.newContext({ baseURL: baseUrl() });
 
         try {
-            const post = (id) =>
-                callback.post('/index.php?fc=module&module=monei&controller=validation', {
-                    data: { id, livemode: true, status: 'SUCCEEDED', orderId: '1' },
-                    maxRedirects: 0,
-                });
-            // No header: the 401 is only for a shop without a scoped key. No row:
-            // not a payment of this shop, nothing for MONEI to retry.
-            const unknown = await post('0'.repeat(32));
-            // The row exists: the fetch runs with the stored key, which MONEI refuses.
-            const known = await post(paymentId);
+            const post = async (id) =>
+                (
+                    await callback.post('/index.php?fc=module&module=monei&controller=validation', {
+                        data: { id, livemode: true, status: 'SUCCEEDED', orderId: '1' },
+                        maxRedirects: 0,
+                    })
+                ).status();
 
-            expect([unknown.status(), known.status()]).toEqual([200, 503]);
+            // No header: the 401 is only for a shop without a scoped key.
+            expect({
+                // Not a payment of this shop: nothing for MONEI to retry.
+                unknown: await post('0'.repeat(32)),
+                // Awaits payment: the fetch runs with the stored key, which MONEI refuses.
+                pending: await post(pendingPaymentId),
+                // Already paid: no fetch, no change.
+                paid: await post(paidPaymentId),
+            }).toEqual({ unknown: 200, pending: 503, paid: 200 });
             expect(orderPayments(), 'the forged SUCCEEDED body changed nothing').toBe(before);
         } finally {
             await callback.dispose();
             restore();
+            mysql(`DELETE FROM ps_monei2_payment WHERE id_payment = '${pendingPaymentId}';`);
             mysql(`DELETE FROM ps_configuration WHERE name = 'MONEI_CALLBACK_FETCH_ATTEMPTS';`);
         }
     });
@@ -245,6 +260,66 @@ test.describe('Connect with MONEI', () => {
             ).toBeVisible();
             expect(getConfig('MONEI_TEST_API_KEY')).toBe('mk_test_e2e_not_a_key');
             expect(getConfig('MONEI_TEST_SIGNING_SECRET')).toBe('mksec_test_e2e');
+        } finally {
+            restore();
+        }
+    });
+
+    test('the settings page never shows a connected key, and an empty field keeps it', async ({
+        page,
+    }) => {
+        const restore = keep(['MONEI_TEST_API_KEY', 'MONEI_TEST_SIGNING_SECRET']);
+        setConfig('MONEI_TEST_API_KEY', 'mk_test_e2e_not_a_key');
+        setConfig('MONEI_TEST_SIGNING_SECRET', 'mksec_test_e2e');
+
+        try {
+            await openModuleConfiguration(page);
+            await page.locator('a[href="#panel-conf-1"]').click();
+            const field = page.locator('input[name="MONEI_TEST_API_KEY"]');
+
+            expect(await page.content()).not.toContain('mk_test_e2e_not_a_key');
+            expect([await field.inputValue(), await field.getAttribute('placeholder')]).toEqual([
+                '',
+                '•••• _key',
+            ]);
+
+            await page.locator('button[name="submitMoneiModule"]').click();
+            await expect(page.locator('.alert-success').first()).toBeVisible();
+            expect(getConfig('MONEI_TEST_API_KEY')).toBe('mk_test_e2e_not_a_key');
+            expect(getConfig('MONEI_TEST_SIGNING_SECRET')).toBe('mksec_test_e2e');
+        } finally {
+            restore();
+        }
+    });
+
+    test('a settings tab rendered before a Disconnect restores neither keys nor mode', async ({
+        page,
+    }) => {
+        const restore = keep([
+            ...CREDENTIALS,
+            'MONEI_TEST_SIGNING_SECRET',
+            'MONEI_PRODUCTION_MODE',
+        ]);
+        setConfig('MONEI_TEST_API_KEY', 'mk_test_e2e_not_a_key');
+
+        try {
+            await openModuleConfiguration(page);
+            await page.locator('a[href="#panel-conf-1"]').click();
+            // Another tab disconnects and switches the mode after this form rendered.
+            ['MONEI_TEST_ACCOUNT_ID', 'MONEI_TEST_API_KEY', 'MONEI_TEST_SIGNING_SECRET'].forEach(
+                (key) => setConfig(key, '')
+            );
+            setConfig('MONEI_PRODUCTION_MODE', '1');
+            await page.locator('button[name="submitMoneiModule"]').click();
+
+            await expect(
+                page.locator('.alert', { hasText: 'The API keys changed in another tab' }).first()
+            ).toBeVisible();
+            expect(
+                ['MONEI_TEST_ACCOUNT_ID', 'MONEI_TEST_API_KEY', 'MONEI_PRODUCTION_MODE'].map(
+                    getConfig
+                )
+            ).toEqual(['', '', '1']);
         } finally {
             restore();
         }

@@ -105,11 +105,17 @@ final class ConnectService
     }
 
     /**
-     * Clear the credentials of each connected mode (mk_). A manual pk_ mode keeps its
-     * keys. The keys stay active at MONEI until the merchant revokes them.
+     * Clear the credentials of each connected mode (mk_), and every pending state. A
+     * manual pk_ mode keeps its keys. The keys stay active at MONEI until the merchant
+     * revokes them.
      */
     public function disconnect(int $idShopGroup, int $idShop): void
     {
+        // A connect started before the disconnect must not finish after it.
+        foreach ($this->store->globalNamesWithPrefix(self::STATE_PREFIX) as $name) {
+            $this->store->deleteGlobal($name);
+        }
+
         foreach ($this->apiKeys($idShopGroup, $idShop) as $mode => $apiKey) {
             if (strpos($apiKey, 'mk_') !== 0) {
                 continue;

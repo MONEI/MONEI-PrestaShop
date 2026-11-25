@@ -429,7 +429,7 @@ class ConnectServiceTest extends TestCase
      * Bug: a disconnect on one shop deletes its rows, and the shop then reads the
      * credentials of the whole installation (possibly another account) instead of
      * none; or it clears a manual pk_ mode, which the merchant typed in and the
-     * connect never touched.
+     * connect never touched; or a connect started before it finishes after it.
      */
     public function testDisconnectEmptiesOnlyTheConnectedModesAtTheShop(): void
     {
@@ -440,6 +440,7 @@ class ConnectServiceTest extends TestCase
 
         $this->service($store)->disconnect(1, 2);
 
+        $this->assertSame([], $store->globalNamesWithPrefix(ConnectService::STATE_PREFIX), 'a pending connect must not finish after the disconnect');
         $shop = self::credentials($store, 1, 2);
         $this->assertSame(['', '', ''], [$shop['MONEI_ACCOUNT_ID'], $shop['MONEI_API_KEY'], $shop['MONEI_SIGNING_SECRET']]);
         $this->assertSame(['acc-test-shop', 'pk_test_shop'], [$shop['MONEI_TEST_ACCOUNT_ID'], $shop['MONEI_TEST_API_KEY']]);

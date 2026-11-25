@@ -63,10 +63,14 @@ class MoneiValidationModuleFrontController extends ModuleFrontController
         $payment = $decision['payment'];
 
         try {
+            // An allowlist: a payment also holds customer and card data.
             Monei::logDebug('[MONEI] Webhook received [payment_id=' . $payment->getId()
+                . ', order_id=' . $payment->getOrderId()
                 . ', status=' . $payment->getStatus()
+                . ', status_code=' . $payment->getStatusCode()
                 . ', amount=' . $payment->getAmount()
-                . ', order_id=' . $payment->getOrderId() . ']');
+                . ', currency=' . $payment->getCurrency()
+                . ', livemode=' . ($payment->getLivemode() ? '1' : '0') . ']');
 
             Monei::getService('service.order')->createOrUpdateOrder($payment->getId(), false, $payment);
 
@@ -94,7 +98,7 @@ class MoneiValidationModuleFrontController extends ModuleFrontController
             (int) Shop::getContextShopGroupID(true),
             (int) Shop::getContextShopID(true),
             'time',
-            static function (string $paymentId): ?array {
+            function (string $paymentId): ?array {
                 $row = Db::getInstance()->getRow(
                     'SELECT `id_cart`, `id_order_monei` FROM `' . _DB_PREFIX_ . 'monei2_payment` WHERE `id_payment` = \'' . pSQL($paymentId) . '\'',
                     false
@@ -102,11 +106,26 @@ class MoneiValidationModuleFrontController extends ModuleFrontController
                 if (!$row) {
                     return null;
                 }
+                $orderId = (string) $row['id_order_monei'];
                 $idOrder = (int) Order::getIdByCartId((int) $row['id_cart']);
+                if (!$idOrder) {
+                    return ['orderId' => $orderId, 'monei' => true, 'awaitingPayment' => true];
+                }
+
+                $order = new Order($idOrder);
+                $state = new OrderState((int) $order->current_state);
+                $closed = array_map('intval', [
+                    Configuration::get('PS_OS_CANCELED'),
+                    Configuration::get('PS_OS_REFUND'),
+                    Configuration::get('MONEI_STATUS_REFUNDED'),
+                    Configuration::get('MONEI_STATUS_PARTIALLY_REFUNDED'),
+                ]);
 
                 return [
-                    'orderId' => (string) $row['id_order_monei'],
-                    'paid' => $idOrder > 0 && (new Order($idOrder))->hasBeenPaid() > 0,
+                    'orderId' => $orderId,
+                    'monei' => $order->module === $this->module->name,
+                    'awaitingPayment' => !$state->paid && !$state->shipped && !$state->delivery
+                        && !in_array((int) $order->current_state, $closed, true),
                 ];
             },
             static function (string $mode, string $paymentId) {

@@ -913,23 +913,26 @@ class Monei extends PaymentModule
                 $section = $this->l('General');
                 $form_values = $this->getConfigFormValues();
 
+                // A connect or a disconnect in another tab changed the keys after this
+                // form was rendered: its fields would write the old keys and mode back.
+                if ($this->connectService()->staleModes([
+                    'live' => (string) Tools::getValue('monei_key_fingerprint_live'),
+                    'test' => (string) Tools::getValue('monei_key_fingerprint_test'),
+                ], ...$this->shopScope())) {
+                    return $this->displayWarning($this->l('The API keys changed in another tab, so nothing was saved. Reload the page.'));
+                }
+
+                // The form never shows a connected key: an empty field keeps it.
+                foreach (ConnectService::KEYS as $keys) {
+                    if ((string) Tools::getValue($keys['apiKey']) === '' && $this->submittedApiKey($keys['apiKey']) !== '') {
+                        unset($form_values[$keys['apiKey']]);
+                    }
+                }
+
                 // Validate API credentials for the enabled environment
                 $validationResult = $this->validateApiCredentials($form_values);
                 if ($validationResult !== true) {
                     return $validationResult;
-                }
-
-                // A connect in another tab changed a mode's key after this form was
-                // rendered: saving that mode's fields would write the old key back.
-                $staleModes = $this->connectService()->staleModes([
-                    'live' => (string) Tools::getValue('monei_key_fingerprint_live'),
-                    'test' => (string) Tools::getValue('monei_key_fingerprint_test'),
-                ], ...$this->shopScope());
-                foreach ($staleModes as $mode) {
-                    unset($form_values[ConnectService::KEYS[$mode]['accountId']], $form_values[ConnectService::KEYS[$mode]['apiKey']]);
-                }
-                if ($staleModes) {
-                    $this->warning[] = $this->l('The API keys changed in another tab, so they were not saved. Reload the page.');
                 }
 
                 break;
@@ -1163,7 +1166,7 @@ class Monei extends PaymentModule
         if ($isProductionMode === '1' || $isProductionMode === 'on' || $isProductionMode === 1 || $isProductionMode === true) {
             // Validate production credentials
             $accountId = Tools::getValue('MONEI_ACCOUNT_ID');
-            $apiKey = Tools::getValue('MONEI_API_KEY');
+            $apiKey = $this->submittedApiKey('MONEI_API_KEY');
 
             if (empty($accountId) || empty($apiKey)) {
                 return $this->displayError($this->l('Production environment cannot be enabled without valid Account ID and API Key.'));
@@ -1176,7 +1179,7 @@ class Monei extends PaymentModule
         } else {
             // When switching to test mode (production disabled), validate test credentials
             $testAccountId = Tools::getValue('MONEI_TEST_ACCOUNT_ID');
-            $testApiKey = Tools::getValue('MONEI_TEST_API_KEY');
+            $testApiKey = $this->submittedApiKey('MONEI_TEST_API_KEY');
 
             // Only validate test credentials if they are provided
             // This allows switching to test mode even if test credentials are not yet configured
@@ -1424,6 +1427,41 @@ class Monei extends PaymentModule
     }
 
     /**
+     * The API key a settings save submits. The form never shows a connected (mk_)
+     * key, so an empty field means the stored one.
+     */
+    private function submittedApiKey(string $key): string
+    {
+        $value = (string) Tools::getValue($key);
+        $stored = (string) Configuration::get($key);
+
+        return $value === '' && strpos($stored, 'mk_') === 0 ? $stored : $value;
+    }
+
+    /**
+     * The settings form values without a connected (mk_) key: the page would show it
+     * in full. The field stays empty, with its last 4 characters as the placeholder.
+     */
+    private function settingsFormValues(): array
+    {
+        $values = $this->getConfigFormValues();
+        foreach (ConnectService::KEYS as $keys) {
+            if (strpos((string) $values[$keys['apiKey']], 'mk_') === 0) {
+                $values[$keys['apiKey']] = '';
+            }
+        }
+
+        return $values + $this->keyFingerprintValues();
+    }
+
+    private function apiKeyPlaceholder(string $key, string $example): string
+    {
+        $stored = (string) Configuration::get($key);
+
+        return strpos($stored, 'mk_') === 0 ? '•••• ' . substr($stored, -4) : $example;
+    }
+
+    /**
      * The fingerprint of each mode's stored key, which the settings form posts back,
      * so a save can tell that a connect in another tab changed the keys.
      */
@@ -1637,7 +1675,7 @@ class Monei extends PaymentModule
         $helper->token = Tools::getAdminTokenLite('AdminModules');
 
         $helper->tpl_vars = [
-            'fields_value' => $this->getConfigFormValues() + $this->keyFingerprintValues(), /* Add values for your inputs */
+            'fields_value' => $this->settingsFormValues(),
             'languages' => $this->context->controller->getLanguages(),
             'id_language' => $this->context->language->id,
         ];
@@ -1693,7 +1731,7 @@ class Monei extends PaymentModule
                         'desc' => $this->l('Your MONEI API Key. Available at your MONEI dashboard.'),
                         'name' => 'MONEI_API_KEY',
                         'label' => $this->l('API Key'),
-                        'placeholder' => 'pk_live_7h3m4n1f3st0k3yf0r3x4mpl3purp0s3',
+                        'placeholder' => $this->apiKeyPlaceholder('MONEI_API_KEY', 'pk_live_7h3m4n1f3st0k3yf0r3x4mpl3purp0s3'),
                         'class' => 'monei-production-field',
                     ],
                     [
@@ -1713,7 +1751,7 @@ class Monei extends PaymentModule
                         'desc' => $this->l('Your MONEI Test API Key. Available at your MONEI dashboard.'),
                         'name' => 'MONEI_TEST_API_KEY',
                         'label' => $this->l('Test API Key'),
-                        'placeholder' => 'pk_test_d3m0t3stk3yf0rd3v3l0pm3ntus4g3',
+                        'placeholder' => $this->apiKeyPlaceholder('MONEI_TEST_API_KEY', 'pk_test_d3m0t3stk3yf0rd3v3l0pm3ntus4g3'),
                         'class' => 'monei-test-field',
                     ],
                     ['type' => 'hidden', 'name' => 'monei_key_fingerprint_live'],

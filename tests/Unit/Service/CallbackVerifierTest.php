@@ -27,7 +27,7 @@ class CallbackVerifierTest extends TestCase
 
     /** @var int */
     private $now = 1700000000;
-    /** @var array<string, array{orderId: string, paid: bool}> monei2_payment rows by payment id */
+    /** @var array<string, array{orderId: string, monei: bool, awaitingPayment: bool}> monei2_payment rows by payment id */
     private $rows = [];
     /** @var array<string, mixed> Fields of the payment that MONEI answers */
     private $remote = [];
@@ -39,8 +39,13 @@ class CallbackVerifierTest extends TestCase
     protected function setUp(): void
     {
         // A row without an order: the order is created later, from the cart.
-        $this->rows = [self::ID => ['orderId' => '1001', 'paid' => false]];
+        $this->rows = [self::ID => self::row()];
         $this->remote = self::paymentFields('SUCCEEDED');
+    }
+
+    private static function row(array $overrides = []): array
+    {
+        return $overrides + ['orderId' => '1001', 'monei' => true, 'awaitingPayment' => true];
     }
 
     private static function paymentFields(string $status, array $overrides = []): array
@@ -203,10 +208,9 @@ class CallbackVerifierTest extends TestCase
      *
      * @dataProvider paymentsThatChangeNothing
      */
-    public function testAFetchedPaymentThatDoesNotFitChangesNothing(array $remote, bool $paid): void
+    public function testAFetchedPaymentThatDoesNotFitChangesNothing(array $remote): void
     {
         $this->remote = $remote;
-        $this->rows[self::ID]['paid'] = $paid;
 
         $decision = $this->verifier(self::connectedShop())->verify(self::body(self::paymentFields('SUCCEEDED')), null);
 
@@ -217,10 +221,10 @@ class CallbackVerifierTest extends TestCase
     public function paymentsThatChangeNothing(): array
     {
         return [
-            'forged SUCCEEDED, MONEI says PENDING' => [self::paymentFields('PENDING'), false],
-            'FAILED for an order already paid' => [self::paymentFields('FAILED'), true],
-            'another orderId' => [self::paymentFields('SUCCEEDED', ['orderId' => '1002']), false],
-            'another payment id' => [self::paymentFields('SUCCEEDED', ['id' => str_repeat('b', 32)]), false],
+            'forged SUCCEEDED, MONEI says PENDING' => [self::paymentFields('PENDING')],
+            'another orderId' => [self::paymentFields('SUCCEEDED', ['orderId' => '1002'])],
+            'another payment id' => [self::paymentFields('SUCCEEDED', ['id' => str_repeat('b', 32)])],
+            'a live payment on a shop in test mode' => [self::paymentFields('SUCCEEDED', ['livemode' => true])],
         ];
     }
 
@@ -272,6 +276,31 @@ class CallbackVerifierTest extends TestCase
     }
 
     /**
+     * Bug: an unsigned callback reopens an order that is paid, cancelled, refunded or
+     * shipped (a forged SUCCEEDED for a cancelled order), or changes a cart paid with
+     * another payment module.
+     *
+     * @dataProvider rowsThatTakeNoCallback
+     */
+    public function testARowWhoseOrderNoLongerAwaitsAMoneiPaymentAnswers200WithNoFetch(array $row): void
+    {
+        $this->rows[self::ID] = $row;
+
+        $decision = $this->verifier(self::connectedShop())->verify(self::body(self::paymentFields('SUCCEEDED')), null);
+
+        $this->assertSame([200, null], [$decision['status'], $decision['payment']]);
+        $this->assertSame([], $this->fetches);
+    }
+
+    public function rowsThatTakeNoCallback(): array
+    {
+        return [
+            'an order that no longer awaits payment' => [self::row(['awaitingPayment' => false])],
+            'a cart paid with another module' => [self::row(['monei' => false])],
+        ];
+    }
+
+    /**
      * Bug: a status this SDK does not know makes the fetch fail with 503, so MONEI
      * retries a callback that can never settle.
      */
@@ -311,7 +340,7 @@ class CallbackVerifierTest extends TestCase
     {
         $store = self::connectedShop();
         for ($payment = 1; $payment <= 13; ++$payment) {
-            $this->rows[sprintf('%032x', $payment)] = ['orderId' => '1001', 'paid' => false];
+            $this->rows[sprintf('%032x', $payment)] = self::row();
         }
         $last = 0;
         for ($attempt = 0; $attempt < 61; ++$attempt) {
