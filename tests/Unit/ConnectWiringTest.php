@@ -284,6 +284,44 @@ class ConnectWiringTest extends TestCase
     }
 
     /**
+     * Bug: a capture, void, refund or renewal changes a payment at MONEI without
+     * writing its monei2_payment status. The fetch path takes only a forward move from
+     * that status, so a stale AUTHORIZED lets an unsigned replay of SUCCEEDED through.
+     * A new kind of change fails this test until its row write is added here.
+     */
+    public function testEveryChangeOfAPaymentWritesItsRowStatus(): void
+    {
+        $calls = [];
+        $files = [self::ROOT . '/monei.php'];
+        foreach (['src', 'controllers', 'upgrade'] as $dir) {
+            foreach (new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator(self::ROOT . '/' . $dir, \FilesystemIterator::SKIP_DOTS)) as $file) {
+                if ($file->getExtension() === 'php') {
+                    $files[] = $file->getPathname();
+                }
+            }
+        }
+        foreach ($files as $file) {
+            preg_match_all('/->(payments->(?:capture|cancel|refund|create|confirm|recurring)|subscriptions->\w+)\(/', $this->code(substr($file, strlen(self::ROOT) + 1)), $found);
+            foreach ($found[1] as $call) {
+                $calls[] = basename($file) . ' ' . $call;
+            }
+        }
+        sort($calls);
+
+        $this->assertSame([
+            'MoneiService.php payments->capture',
+            'MoneiService.php payments->create',
+            'MoneiService.php payments->create',
+            'MoneiService.php payments->refund',
+        ], $calls);
+        $service = 'src/Service/Monei/MoneiService.php';
+        $this->assertBefore('->payments->capture(', '$moneiPayment->setStatus($capturedPayment->getStatus());', $this->method($service, 'capturePayment'), 'capture writes the status');
+        $this->assertBefore('$moneiPayment->setStatus($capturedPayment->getStatus());', '$this->moneiPaymentRepository->save($moneiPayment);', $this->method($service, 'capturePayment'), 'capture saves the row');
+        $this->assertBefore('->payments->refund(', '$this->saveMoneiPayment($moneiPayment,$orderId,$employeeId);', $this->method($service, 'createRefund'), 'refund saves the row');
+        $this->assertStringContainsString('$this->saveMoneiPayment($moneiPaymentResponse);', $this->method($service, 'createMoneiPayment'));
+    }
+
+    /**
      * Bug: a refused connect hides what to do: cap must say to revoke unused keys,
      * not_approved that Live comes after approval and the shop stays in test mode.
      */
