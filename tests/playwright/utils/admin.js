@@ -35,10 +35,11 @@ const moduleConfigureUrl = () =>
         // the browser actually signs in as. A CLI bootstrap has no employee in
         // context, and a token computed for "no employee" is simply rejected as
         // invalid.
+        // No LIMIT: PrestaShop 8's getValue appends one, and a second is a syntax error.
         '$employeeId = (int) Db::getInstance()->getValue(' +
             "'SELECT id_employee FROM '._DB_PREFIX_.'employee WHERE email = \"' . pSQL('" +
             ADMIN_USER +
-            "') . '\" LIMIT 1'" +
+            "') . '\"'" +
             ');' +
             "$id = Tab::getIdFromClassName('AdminModules');" +
             "$token = Tools::getAdminToken('AdminModules'.$id.$employeeId);" +
