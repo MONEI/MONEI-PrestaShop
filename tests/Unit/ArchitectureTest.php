@@ -12,6 +12,8 @@ use PHPUnit\Framework\TestCase;
  */
 class ArchitectureTest extends TestCase
 {
+    use SourceCode;
+
     private const ROOT = __DIR__ . '/../..';
 
     /**
@@ -24,6 +26,9 @@ class ArchitectureTest extends TestCase
         'src/Service/Monei/GdprPayload.php',
         'src/Service/Monei/MoneiClientFactory.php',
         'src/Repository/CustomerMappingStoreInterface.php',
+        'src/Service/Monei/ConnectService.php',
+        'src/Service/Monei/CallbackVerifier.php',
+        'src/Repository/ConfigurationStoreInterface.php',
     ];
 
     public function testPureClassesReferenceNoGuardedOrPrestaShopClass(): void
@@ -124,19 +129,5 @@ class ArchitectureTest extends TestCase
         }
 
         return $files;
-    }
-
-    private function codeWithoutComments(string $file): string
-    {
-        $code = '';
-        foreach (token_get_all((string) file_get_contents($file)) as $token) {
-            if (is_array($token) && in_array($token[0], [T_COMMENT, T_DOC_COMMENT], true)) {
-                continue;
-            }
-
-            $code .= is_array($token) ? $token[1] : $token;
-        }
-
-        return $code;
     }
 }

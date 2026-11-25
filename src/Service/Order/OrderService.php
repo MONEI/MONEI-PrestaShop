@@ -6,6 +6,7 @@ if (!defined('_PS_VERSION_')) {
     exit;
 }
 
+use Monei\Model\Payment;
 use Monei\Model\PaymentStatus;
 use Order;
 use PsMonei\Exception\OrderException;
@@ -40,7 +41,11 @@ class OrderService
         }
     }
 
-    public function createOrUpdateOrder($moneiPaymentId, bool $redirectToConfirmationPage = false)
+    /**
+     * @param Payment|null $verifiedPayment The payment a callback's CallbackVerifier
+     *                                      returned, used instead of a new fetch
+     */
+    public function createOrUpdateOrder($moneiPaymentId, bool $redirectToConfirmationPage = false, ?Payment $verifiedPayment = null)
     {
         $connection = \Db::getInstance();
 
@@ -75,7 +80,7 @@ class OrderService
                 return;
             }
 
-            $moneiPayment = $this->moneiService->getMoneiPayment($moneiPaymentId);
+            $moneiPayment = $verifiedPayment ?? $this->moneiService->getMoneiPayment($moneiPaymentId);
 
             $cartId = $this->moneiService->getCartIdFromPayment($moneiPayment);
 
