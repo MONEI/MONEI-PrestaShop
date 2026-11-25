@@ -919,6 +919,19 @@ class Monei extends PaymentModule
                     return $validationResult;
                 }
 
+                // A connect in another tab changed a mode's key after this form was
+                // rendered: saving that mode's fields would write the old key back.
+                $staleModes = $this->connectService()->staleModes([
+                    'live' => (string) Tools::getValue('monei_key_fingerprint_live'),
+                    'test' => (string) Tools::getValue('monei_key_fingerprint_test'),
+                ], ...$this->shopScope());
+                foreach ($staleModes as $mode) {
+                    unset($form_values[ConnectService::KEYS[$mode]['accountId']], $form_values[ConnectService::KEYS[$mode]['apiKey']]);
+                }
+                if ($staleModes) {
+                    $this->warning[] = $this->l('The API keys changed in another tab, so they were not saved. Reload the page.');
+                }
+
                 break;
             case 2:
                 $section = $this->l('Payment Methods');
@@ -1411,12 +1424,26 @@ class Monei extends PaymentModule
     }
 
     /**
-     * Whether to invite the shop to connect: a stored key is pk_, and the employee has
-     * not dismissed the invitation.
+     * The fingerprint of each mode's stored key, which the settings form posts back,
+     * so a save can tell that a connect in another tab changed the keys.
+     */
+    private function keyFingerprintValues(): array
+    {
+        $keys = $this->connectService()->apiKeys(...$this->shopScope());
+
+        return [
+            'monei_key_fingerprint_live' => ConnectService::keyFingerprint($keys['live']),
+            'monei_key_fingerprint_test' => ConnectService::keyFingerprint($keys['test']),
+        ];
+    }
+
+    /**
+     * Whether to invite the shop to connect: a stored key is pk_, the shop can show
+     * the Connect button, and the employee has not dismissed the invitation.
      */
     private function shouldInviteToConnect(): bool
     {
-        if (!empty($this->context->cookie->monei_hide_connect_notice)) {
+        if (!empty($this->context->cookie->monei_hide_connect_notice) || $this->connectRedirectUri() === null) {
             return false;
         }
 
@@ -1610,7 +1637,7 @@ class Monei extends PaymentModule
         $helper->token = Tools::getAdminTokenLite('AdminModules');
 
         $helper->tpl_vars = [
-            'fields_value' => $this->getConfigFormValues(), /* Add values for your inputs */
+            'fields_value' => $this->getConfigFormValues() + $this->keyFingerprintValues(), /* Add values for your inputs */
             'languages' => $this->context->controller->getLanguages(),
             'id_language' => $this->context->language->id,
         ];
@@ -1689,6 +1716,8 @@ class Monei extends PaymentModule
                         'placeholder' => 'pk_test_d3m0t3stk3yf0rd3v3l0pm3ntus4g3',
                         'class' => 'monei-test-field',
                     ],
+                    ['type' => 'hidden', 'name' => 'monei_key_fingerprint_live'],
+                    ['type' => 'hidden', 'name' => 'monei_key_fingerprint_test'],
                     [
                         'type' => 'switch',
                         'label' => $this->l('Allow Credit Card Tokenization'),

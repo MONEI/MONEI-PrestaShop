@@ -60,9 +60,9 @@ final class CallbackVerifier
     }
 
     /**
-     * The payment to process, or null with the HTTP status to answer: 400 a failed
-     * pre-check, 401 a bad signature, 503 a failed fetch, 200 a payment that must not
-     * change the order.
+     * The payment to process, or null with the HTTP status to answer: 400 a malformed
+     * callback, 401 a bad signature, 503 a failed fetch or a spent fetch quota, 200 a
+     * payment that must not change the order.
      *
      * @param string $body Raw request body
      * @param string|null $signature MONEI-Signature header, null when absent
@@ -101,15 +101,21 @@ final class CallbackVerifier
             return self::refused(400, 'format');
         }
         $row = ($this->findPayment)($id);
+        // Not a payment of this shop: nothing to retry.
         if ($row === null) {
-            return self::refused(400, 'payment');
+            return self::refused(200, 'payment');
         }
+        // Temporary: MONEI retries a 503.
         if (!$this->takeQuota($id)) {
-            return self::refused(400, 'quota');
+            return self::refused(503, 'quota');
         }
 
         try {
             $payment = ($this->fetch)($mode, $id);
+        } catch (\InvalidArgumentException $e) {
+            // The SDK's deserialize refuses a status it does not know. A retry gets
+            // the same answer, so it is not a 503.
+            return self::refused(200, 'status');
         } catch (\Throwable $e) {
             return self::refused(503, 'fetch');
         }

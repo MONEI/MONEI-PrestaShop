@@ -105,13 +105,16 @@ final class ConnectService
     }
 
     /**
-     * Clear the stored credentials of both modes. The keys stay active at MONEI
-     * until the merchant revokes them.
+     * Clear the credentials of each connected mode (mk_). A manual pk_ mode keeps its
+     * keys. The keys stay active at MONEI until the merchant revokes them.
      */
     public function disconnect(int $idShopGroup, int $idShop): void
     {
-        foreach (self::KEYS as $keys) {
-            foreach ($keys as $key) {
+        foreach ($this->apiKeys($idShopGroup, $idShop) as $mode => $apiKey) {
+            if (strpos($apiKey, 'mk_') !== 0) {
+                continue;
+            }
+            foreach (self::KEYS[$mode] as $key) {
                 // An empty value, never a delete: a shop without its own row would
                 // read the credentials of its group or of the whole installation.
                 $this->store->set($key, '', $idShopGroup, $idShop);
@@ -142,6 +145,36 @@ final class ConnectService
             'live' => $this->store->get(self::KEYS['live']['apiKey'], $idShopGroup, $idShop),
             'test' => $this->store->get(self::KEYS['test']['apiKey'], $idShopGroup, $idShop),
         ];
+    }
+
+    /**
+     * The fingerprint of a stored key, which the settings form carries from render
+     * to save.
+     */
+    public static function keyFingerprint(string $apiKey): string
+    {
+        return hash('sha256', $apiKey);
+    }
+
+    /**
+     * The modes whose stored key changed since the settings form was rendered, such
+     * as by a connect in another tab. A save of such a mode would write the old key
+     * back.
+     *
+     * @param array<string, string> $renderedFingerprints keyFingerprint() of each mode at render time
+     *
+     * @return string[]
+     */
+    public function staleModes(array $renderedFingerprints, int $idShopGroup, int $idShop): array
+    {
+        $stale = [];
+        foreach ($this->apiKeys($idShopGroup, $idShop) as $mode => $apiKey) {
+            if (!hash_equals(self::keyFingerprint($apiKey), (string) ($renderedFingerprints[$mode] ?? ''))) {
+                $stale[] = $mode;
+            }
+        }
+
+        return $stale;
     }
 
     /**
@@ -181,11 +214,11 @@ final class ConnectService
                 continue;
             }
             $keys = $result[$mode];
-            // /allowed-payment-methods answers 400 for a mode without an enabled provider:
-            // any answer but 401 or 403 proves the key.
+            // /allowed-payment-methods answers 400 for a mode without an enabled provider,
+            // so a 400 proves the key as a 2xx does. Any other answer proves nothing.
             $status = ($this->probe)($keys['apiKey']);
-            if (in_array($status, [0, 401, 403], true)) {
-                $problems[] = ['mode' => $mode, 'code' => 'keyRejected'];
+            if ($status !== 400 && ($status < 200 || $status > 299)) {
+                $problems[] = ['mode' => $mode, 'code' => in_array($status, [401, 403], true) ? 'keyRejected' : 'temporarily_unavailable'];
 
                 continue;
             }

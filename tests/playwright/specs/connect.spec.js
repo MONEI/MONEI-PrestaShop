@@ -181,12 +181,13 @@ test.describe('Connect with MONEI', () => {
                     data: { id, livemode: true, status: 'SUCCEEDED', orderId: '1' },
                     maxRedirects: 0,
                 });
-            // No header: the 401 is only for a shop without a scoped key.
+            // No header: the 401 is only for a shop without a scoped key. No row:
+            // not a payment of this shop, nothing for MONEI to retry.
             const unknown = await post('0'.repeat(32));
             // The row exists: the fetch runs with the stored key, which MONEI refuses.
             const known = await post(paymentId);
 
-            expect([unknown.status(), known.status()]).toEqual([400, 503]);
+            expect([unknown.status(), known.status()]).toEqual([200, 503]);
             expect(orderPayments(), 'the forged SUCCEEDED body changed nothing').toBe(before);
         } finally {
             await callback.dispose();
@@ -224,6 +225,41 @@ test.describe('Connect with MONEI', () => {
         } finally {
             restore();
         }
+    });
+
+    test('a settings tab left open during a connect keeps the new key and secret', async ({
+        page,
+    }) => {
+        const restore = keep(['MONEI_TEST_API_KEY', 'MONEI_TEST_SIGNING_SECRET']);
+
+        try {
+            await openModuleConfiguration(page);
+            await page.locator('a[href="#panel-conf-1"]').click();
+            // The connect in another tab, after this form rendered the manual key.
+            setConfig('MONEI_TEST_API_KEY', 'mk_test_e2e_not_a_key');
+            setConfig('MONEI_TEST_SIGNING_SECRET', 'mksec_test_e2e');
+            await page.locator('button[name="submitMoneiModule"]').click();
+
+            await expect(
+                page.locator('.alert', { hasText: 'The API keys changed in another tab' }).first()
+            ).toBeVisible();
+            expect(getConfig('MONEI_TEST_API_KEY')).toBe('mk_test_e2e_not_a_key');
+            expect(getConfig('MONEI_TEST_SIGNING_SECRET')).toBe('mksec_test_e2e');
+        } finally {
+            restore();
+        }
+    });
+
+    test('an http shop is not invited to connect', async ({ page }) => {
+        test.skip(HTTPS, MANUAL_SKIP_REASON);
+
+        await openModuleConfiguration(page);
+
+        await expect(
+            page.locator('.alert', {
+                hasText: 'Connect with MONEI to stop storing your account API key.',
+            })
+        ).toHaveCount(0);
     });
 
     test('an http shop shows "Use manual keys" and no button', async ({ page }) => {
@@ -297,6 +333,7 @@ test.describe('Connect with MONEI', () => {
     test('a manual-key shop is invited to connect, and an employee can dismiss it', async ({
         page,
     }) => {
+        test.skip(!HTTPS, CONNECT_SKIP_REASON);
         expect(
             getConfig('MONEI_TEST_API_KEY').startsWith('pk_'),
             'the seeded store uses a manual key'
@@ -320,7 +357,7 @@ test.describe('Connect with MONEI', () => {
         await expect(notice).toHaveCount(0);
     });
 
-    test('Disconnect clears the credentials of both modes', async ({ page }) => {
+    test('Disconnect clears the connected mode and keeps a manual one', async ({ page }) => {
         const restore = keep([
             ...CREDENTIALS,
             'MONEI_SIGNING_SECRET',
@@ -340,9 +377,13 @@ test.describe('Connect with MONEI', () => {
             ).toBeVisible();
             await expect(page.locator('#monei-disconnect')).toHaveCount(0);
             expect(
-                [...CREDENTIALS, 'MONEI_SIGNING_SECRET'].map(getConfig),
-                'every credential cleared'
-            ).toEqual(['', '', '', '', '']);
+                ['MONEI_ACCOUNT_ID', 'MONEI_API_KEY', 'MONEI_SIGNING_SECRET'].map(getConfig),
+                'the connected Live mode is cleared'
+            ).toEqual(['', '', '']);
+            expect(
+                getConfig('MONEI_TEST_API_KEY').startsWith('pk_test_'),
+                'the manual Test key stays'
+            ).toBe(true);
         } finally {
             restore();
         }

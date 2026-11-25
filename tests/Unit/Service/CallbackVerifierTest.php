@@ -254,14 +254,40 @@ class CallbackVerifierTest extends TestCase
     public function bodiesRefusedBeforeAFetch(): array
     {
         return [
-            'a payment id without a row' => [self::paymentFields('SUCCEEDED', ['id' => str_repeat('c', 32)]), null],
             'malformed id' => [self::paymentFields('SUCCEEDED', ['id' => '../payments']), null],
             'a header that does not parse' => [self::paymentFields('SUCCEEDED'), 'v1=abc'],
         ];
     }
 
     /**
-     * Bug: one payment makes unbounded fetches, or the quota never frees up.
+     * Bug: a callback for a payment this shop never made makes the shop call MONEI,
+     * or answers an error that MONEI retries for nothing.
+     */
+    public function testAPaymentIdWithoutARowAnswers200WithNoFetch(): void
+    {
+        $decision = $this->verifier(self::connectedShop())->verify(self::body(self::paymentFields('SUCCEEDED', ['id' => str_repeat('c', 32)])), null);
+
+        $this->assertSame([200, null], [$decision['status'], $decision['payment']]);
+        $this->assertSame([], $this->fetches);
+    }
+
+    /**
+     * Bug: a status this SDK does not know makes the fetch fail with 503, so MONEI
+     * retries a callback that can never settle.
+     */
+    public function testAFetchedStatusTheSdkDoesNotKnowAnswers200(): void
+    {
+        $this->remote = self::paymentFields('SOMETHING_NEW');
+
+        $decision = $this->verifier(self::connectedShop())->verify(self::body(self::paymentFields('SUCCEEDED')), null);
+
+        $this->assertSame([200, null], [$decision['status'], $decision['payment']]);
+        $this->assertCount(1, $this->fetches);
+    }
+
+    /**
+     * Bug: one payment makes unbounded fetches, or the quota never frees up. A spent
+     * quota answers 503, so MONEI retries the callback once the minute is over.
      */
     public function testThePaymentQuotaRefusesThe6thAttemptInAMinuteAndFreesAfter61S(): void
     {
@@ -274,7 +300,7 @@ class CallbackVerifierTest extends TestCase
         $this->now += 61;
         $statuses[] = $this->verifier($store)->verify($body, null)['status'];
 
-        $this->assertSame([200, 200, 200, 200, 200, 400, 200], $statuses);
+        $this->assertSame([200, 200, 200, 200, 200, 503, 200], $statuses);
         $this->assertCount(6, $this->fetches);
     }
 
@@ -294,7 +320,7 @@ class CallbackVerifierTest extends TestCase
             $last = $this->verifier($store)->verify(self::body($this->remote), null)['status'];
         }
 
-        $this->assertSame(400, $last);
+        $this->assertSame(503, $last);
         $this->assertCount(60, $this->fetches);
     }
 

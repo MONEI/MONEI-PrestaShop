@@ -251,21 +251,24 @@ class ConnectServiceTest extends TestCase
     }
 
     /**
-     * Bug: a key the edge refuses replaces working credentials, or a 400 (a mode with
-     * no enabled provider) is taken for a refused key and blocks the connect.
+     * Bug: a key the edge refuses, or a test call MONEI did not answer, replaces
+     * working credentials; or a 400 (a mode with no enabled provider) is taken for a
+     * refused key and blocks the connect. A refusal and a missing answer say different
+     * things to the merchant.
      *
      * @dataProvider callAnswers
      */
-    public function testTheTestCallAnswerDecidesTheSwitch(int $status, array $expectedTest): void
+    public function testTheTestCallAnswerDecidesTheSwitch(int $status, array $expectedTest, array $expectedCodes): void
     {
         $store = self::manualShop();
         $this->exchangeAnswer = ['test' => self::keys('test', 'acc-test-new')];
         $this->statuses = ['mk_test_new' => $status];
 
-        $this->service($store)->complete(self::STATE, 'the-code');
+        $result = $this->service($store)->complete(self::STATE, 'the-code');
 
         $credentials = self::credentials($store);
         $this->assertSame($expectedTest, [$credentials['MONEI_TEST_ACCOUNT_ID'], $credentials['MONEI_TEST_API_KEY'], $credentials['MONEI_TEST_SIGNING_SECRET']]);
+        $this->assertSame($expectedCodes, self::codes($result));
     }
 
     public function callAnswers(): array
@@ -274,10 +277,12 @@ class ConnectServiceTest extends TestCase
         $kept = ['acc-test-old', 'pk_test_old', ''];
 
         return [
-            '400 proves the key' => [400, $new],
-            '401' => [401, $kept],
-            '403' => [403, $kept],
-            'no answer' => [0, $kept],
+            '400 proves the key' => [400, $new, []],
+            '401' => [401, $kept, [['test', 'keyRejected']]],
+            '403' => [403, $kept, [['test', 'keyRejected']]],
+            '500' => [500, $kept, [['test', 'temporarily_unavailable']]],
+            '429' => [429, $kept, [['test', 'temporarily_unavailable']]],
+            'no answer' => [0, $kept, [['test', 'temporarily_unavailable']]],
         ];
     }
 
@@ -422,20 +427,41 @@ class ConnectServiceTest extends TestCase
 
     /**
      * Bug: a disconnect on one shop deletes its rows, and the shop then reads the
-     * credentials of the whole installation (possibly another account) instead of none.
+     * credentials of the whole installation (possibly another account) instead of
+     * none; or it clears a manual pk_ mode, which the merchant typed in and the
+     * connect never touched.
      */
-    public function testDisconnectWritesEmptyValuesForBothModesAtTheShop(): void
+    public function testDisconnectEmptiesOnlyTheConnectedModesAtTheShop(): void
     {
         $store = self::manualShop();
-        foreach (['MONEI_ACCOUNT_ID' => 'acc-shop', 'MONEI_API_KEY' => 'mk_live_shop', 'MONEI_SIGNING_SECRET' => 'mksec_live_shop', 'MONEI_TEST_API_KEY' => 'mk_test_shop'] as $key => $value) {
+        foreach (['MONEI_ACCOUNT_ID' => 'acc-shop', 'MONEI_API_KEY' => 'mk_live_shop', 'MONEI_SIGNING_SECRET' => 'mksec_live_shop', 'MONEI_TEST_ACCOUNT_ID' => 'acc-test-shop', 'MONEI_TEST_API_KEY' => 'pk_test_shop'] as $key => $value) {
             $store->set($key, $value, 1, 2);
         }
 
         $this->service($store)->disconnect(1, 2);
 
         $shop = self::credentials($store, 1, 2);
-        unset($shop['MONEI_PRODUCTION_MODE']);
-        $this->assertSame(['', '', '', '', '', ''], array_values($shop));
+        $this->assertSame(['', '', ''], [$shop['MONEI_ACCOUNT_ID'], $shop['MONEI_API_KEY'], $shop['MONEI_SIGNING_SECRET']]);
+        $this->assertSame(['acc-test-shop', 'pk_test_shop'], [$shop['MONEI_TEST_ACCOUNT_ID'], $shop['MONEI_TEST_API_KEY']]);
         $this->assertSame('pk_live_old', $store->get('MONEI_API_KEY', 0, 0));
+    }
+
+    /**
+     * Bug: a settings tab left open while the merchant connects in another tab saves
+     * the old pk_ key back, and the secret rule then deletes the new signing secret.
+     */
+    public function testAModeWhoseKeyChangedSinceTheFormRenderedIsStale(): void
+    {
+        $store = self::manualShop();
+        $rendered = [
+            'live' => ConnectService::keyFingerprint('pk_live_old'),
+            'test' => ConnectService::keyFingerprint('pk_test_old'),
+        ];
+        $service = $this->service($store);
+        $before = $service->staleModes($rendered, 0, 0);
+        $store->set('MONEI_TEST_API_KEY', 'mk_test_new', 0, 0);
+
+        $this->assertSame([[], ['test']], [$before, $service->staleModes($rendered, 0, 0)]);
+        $this->assertSame(['live', 'test'], $service->staleModes([], 0, 0));
     }
 }

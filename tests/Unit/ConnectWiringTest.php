@@ -211,6 +211,30 @@ class ConnectWiringTest extends TestCase
     }
 
     /**
+     * Bug: a settings tab left open during a connect writes the old key back over the
+     * new one; or the form loses the fingerprints, so every save looks stale.
+     */
+    public function testTheSettingsSaveSkipsTheModesChangedInAnotherTab(): void
+    {
+        $save = $this->method(self::MODULE, 'postProcess');
+
+        $this->assertStringContainsString(
+            'foreach($staleModesas$mode){unset($form_values[ConnectService::KEYS[$mode][\'accountId\']],$form_values[ConnectService::KEYS[$mode][\'apiKey\']]);}',
+            $save
+        );
+        $this->assertBefore('$staleModes=$this->connectService()->staleModes(', 'foreach(array_keys($form_values)as$key){', $save, 'stale modes dropped before the save loop');
+        $this->assertStringContainsString('\'fields_value\'=>$this->getConfigFormValues()+$this->keyFingerprintValues(),', $this->method(self::MODULE, 'renderForm'));
+    }
+
+    /**
+     * Bug: a shop that cannot connect (an http shop) is invited to connect anyway.
+     */
+    public function testTheNoticeShowsOnlyWhereConnectCanShow(): void
+    {
+        $this->assertStringContainsString('||$this->connectRedirectUri()===null){returnfalse;}', $this->method(self::MODULE, 'shouldInviteToConnect'));
+    }
+
+    /**
      * Bug: a refused connect hides what to do: cap must say to revoke unused keys,
      * not_approved that Live comes after approval and the shop stays in test mode.
      */
