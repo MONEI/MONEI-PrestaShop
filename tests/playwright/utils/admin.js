@@ -5,9 +5,10 @@ const { psEval } = require('./ps-cli');
 /**
  * Log in to the back office.
  *
- * @param {import('@playwright/test').Page} page - Page
+ * @param {import('@playwright/test').Page} page                 - Page
+ * @param {{email: string, password: string}} [employee] - Another employee than the admin
  */
-const login = async (page) => {
+const login = async (page, employee = { email: ADMIN_USER, password: ADMIN_PASSWORD }) => {
     await page.goto(`${ADMIN_PATH}/`, { waitUntil: 'domcontentloaded' });
 
     // Already authenticated from an earlier navigation in the same context.
@@ -15,8 +16,8 @@ const login = async (page) => {
         return;
     }
 
-    await page.fill('#email', ADMIN_USER);
-    await page.fill('#passwd', ADMIN_PASSWORD);
+    await page.fill('#email', employee.email);
+    await page.fill('#passwd', employee.password);
     await page.locator('#submit_login').click();
     // ⚠️ PrestaShop 8 signs in over AJAX and then redirects from JavaScript. A
     // navigation started before that redirect is aborted (net::ERR_ABORTED).

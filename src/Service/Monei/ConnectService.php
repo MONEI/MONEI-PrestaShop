@@ -173,7 +173,10 @@ final class ConnectService
      * as by a connect in another tab. A save of such a mode would write the old key
      * back.
      *
-     * @param array<string, string> $renderedFingerprints keyFingerprint() of each mode at render time
+     * A mode without a posted fingerprint is not checked: a form rendered before the
+     * fingerprints existed would otherwise lose its keys and mode on every save.
+     *
+     * @param array<string, string> $renderedFingerprints keyFingerprint() of each mode at render time, as posted
      *
      * @return string[]
      */
@@ -181,7 +184,7 @@ final class ConnectService
     {
         $stale = [];
         foreach ($this->apiKeys($idShopGroup, $idShop) as $mode => $apiKey) {
-            if (!hash_equals(self::keyFingerprint($apiKey), (string) ($renderedFingerprints[$mode] ?? ''))) {
+            if (isset($renderedFingerprints[$mode]) && !hash_equals(self::keyFingerprint($apiKey), (string) $renderedFingerprints[$mode])) {
                 $stale[] = $mode;
             }
         }

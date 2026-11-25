@@ -81,6 +81,11 @@ class CallbackVerifierTest extends TestCase
         ]);
     }
 
+    private static function manualShop(): InMemoryConfigurationStore
+    {
+        return self::store(['MONEI_PRODUCTION_MODE' => '0', 'MONEI_TEST_API_KEY' => 'pk_test_manual']);
+    }
+
     /**
      * @param int[] $requestScope The shop group and shop the request came in on
      */
@@ -337,8 +342,23 @@ class CallbackVerifierTest extends TestCase
 
         $decision = $this->verifier(self::connectedShop())->verify(self::body(self::paymentFields('SUCCEEDED')), null);
 
-        $this->assertSame([200, null], [$decision['status'], $decision['payment']]);
+        $this->assertSame([200, null, 'unknownValue'], [$decision['status'], $decision['payment'], $decision['reason']]);
+        $this->assertStringContainsString('PaymentStatus', $decision['detail']);
         $this->assertCount(1, $this->fetches);
+    }
+
+    /**
+     * Bug: a v2-signed body with a status this SDK does not know is dropped, and the
+     * log does not say why.
+     */
+    public function testASignedStatusTheSdkDoesNotKnowAnswers200WithTheReason(): void
+    {
+        $body = self::body(self::paymentFields('SOMETHING_NEW'));
+
+        $decision = $this->verifier(self::connectedShop())->verify($body, self::sign($body, 'v2', self::SECRET));
+
+        $this->assertSame([200, null, 'unknownValue'], [$decision['status'], $decision['payment'], $decision['reason']]);
+        $this->assertStringContainsString('PaymentStatus', $decision['detail']);
     }
 
     /**
@@ -381,22 +401,80 @@ class CallbackVerifierTest extends TestCase
     }
 
     /**
-     * Bug: a manual pk_ shop loses its v1 check (a forged body settles an order), or
-     * starts to fetch.
+     * Bug: a manual pk_ shop loses its v1 check, so a forged body is fetched or settles
+     * an order.
      */
-    public function testAManualPkShopVerifiesV1AsToday(): void
+    public function testAManualPkShopRefusesAV1OfAnotherKey(): void
     {
-        $store = self::store(['MONEI_PRODUCTION_MODE' => '0', 'MONEI_TEST_API_KEY' => 'pk_test_manual']);
+        $store = self::manualShop();
         $body = self::body($this->remote);
         $verifier = $this->verifier($store);
 
-        $valid = $verifier->verify($body, self::sign($body, 'v1', 'pk_test_manual'));
         $forged = $verifier->verify($body, self::sign($body, 'v1', 'pk_test_other'));
         $absent = $verifier->verify($body, null);
 
-        $this->assertSame([200, 401, 401], [$valid['status'], $forged['status'], $absent['status']]);
-        $this->assertSame('SUCCEEDED', $valid['payment']->getStatus());
+        $this->assertSame([401, 401], [$forged['status'], $absent['status']]);
         $this->assertSame([], $this->fetches);
+    }
+
+    /**
+     * Bug: a v1 body settles as it was signed. v1 does not check the timestamp, so a
+     * resent SUCCEEDED body makes a paid order after the payment was canceled.
+     */
+    public function testAV1CallbackSettlesThePaymentFetchedWithTheShopsKey(): void
+    {
+        $this->remote = self::paymentFields('CANCELED');
+        $body = self::body(self::paymentFields('SUCCEEDED'));
+
+        $decision = $this->verifier(self::manualShop())->verify($body, self::sign($body, 'v1', 'pk_test_manual'));
+
+        $this->assertSame('CANCELED', $decision['payment']->getStatus());
+        $this->assertSame([['pk_test_manual', self::ID]], $this->fetches);
+    }
+
+    /**
+     * Bug: the payment a v1 callback fetches is not checked against its row, so a
+     * signed callback of one order settles another.
+     */
+    public function testAV1FetchedPaymentOfAnotherOrderChangesNothing(): void
+    {
+        $this->remote = self::paymentFields('SUCCEEDED', ['orderId' => '9999']);
+        $body = self::body(self::paymentFields('SUCCEEDED'));
+
+        $decision = $this->verifier(self::manualShop())->verify($body, self::sign($body, 'v1', 'pk_test_manual'));
+
+        $this->assertSame([200, null, 'orderId'], [$decision['status'], $decision['payment'], $decision['reason']]);
+    }
+
+    /**
+     * Bug: a v1 callback of a payment without a monei2_payment row is dropped, which
+     * 2.2.3 processed. Its signature proves it, so it is fetched like any other.
+     */
+    public function testAV1CallbackWithoutARowIsFetched(): void
+    {
+        $this->rows = [];
+        $body = self::body($this->remote);
+
+        $decision = $this->verifier(self::manualShop())->verify($body, self::sign($body, 'v1', 'pk_test_manual'));
+
+        $this->assertSame('SUCCEEDED', $decision['payment']->getStatus());
+        $this->assertCount(1, $this->fetches);
+    }
+
+    /**
+     * Bug: signed v1 callbacks spend the fetch quota, so the 6th callback of a payment
+     * in a minute answers 503.
+     */
+    public function testV1CallbacksSpendNoFetchQuota(): void
+    {
+        $store = self::manualShop();
+        $body = self::body($this->remote);
+        $statuses = [];
+        for ($i = 0; $i < 6; ++$i) {
+            $statuses[] = $this->verifier($store)->verify($body, self::sign($body, 'v1', 'pk_test_manual'))['status'];
+        }
+
+        $this->assertSame([200, 200, 200, 200, 200, 200], $statuses);
     }
 
     /**

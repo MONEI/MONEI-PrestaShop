@@ -850,6 +850,8 @@ class Monei extends PaymentModule
          */
         if ($this->isFormSubmitted() && !$this->hasFormToken()) {
             $message .= $this->displayError($this->l('The security token is not valid. Reload the page and try again.'));
+        } elseif ((Tools::isSubmit('submitMoneiConnect') || Tools::isSubmit('submitMoneiDisconnect')) && !$this->canChangeKeys()) {
+            $message .= $this->displayError($this->l('You do not have permission to connect or disconnect MONEI.'));
         } elseif (Tools::isSubmit('submitMoneiConnect')) {
             if (($redirectUri = $this->connectRedirectUri()) === null) {
                 $message .= $this->displayError($this->l('Connect with MONEI is not available for this shop. Use manual keys.'));
@@ -861,7 +863,7 @@ class Monei extends PaymentModule
                 [$idShopGroup, $idShop] = $this->shopScope();
                 Tools::redirect($this->connectService()->begin($redirectUri, $idShopGroup, $idShop, $settingsUrl));
             }
-        } elseif (Tools::isSubmit('submitMoneiDisconnect')) {
+        } elseif (Tools::isSubmit('submitMoneiDisconnect') && Tools::strtoupper($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
             $this->connectService()->disconnect(...$this->shopScope());
             $message .= $this->displayConfirmation($this->l('MONEI disconnected. The keys stay active until you revoke them in the MONEI Dashboard.'));
         } elseif ((bool) Tools::isSubmit('submitMoneiModule')) {
@@ -968,10 +970,13 @@ class Monei extends PaymentModule
                 // A connect or a disconnect in another tab changed the keys after this
                 // form was rendered: its key fields and mode would write the old values
                 // back. The other settings of the form still save.
-                if ($this->connectService()->staleModes([
-                    'live' => (string) Tools::getValue('monei_key_fingerprint_live'),
-                    'test' => (string) Tools::getValue('monei_key_fingerprint_test'),
-                ], ...$this->shopScope())) {
+                $renderedFingerprints = [];
+                foreach (['live', 'test'] as $mode) {
+                    if (Tools::getIsset('monei_key_fingerprint_' . $mode)) {
+                        $renderedFingerprints[$mode] = (string) Tools::getValue('monei_key_fingerprint_' . $mode);
+                    }
+                }
+                if ($this->connectService()->staleModes($renderedFingerprints, ...$this->shopScope())) {
                     unset($form_values['MONEI_PRODUCTION_MODE']);
                     foreach (ConnectService::KEYS as $keys) {
                         unset($form_values[$keys['accountId']], $form_values[$keys['apiKey']]);
@@ -1336,6 +1341,19 @@ class Monei extends PaymentModule
         }
 
         return Connect::callbackProblem(ConnectService::CLIENT, $uri) === null ? $uri : null;
+    }
+
+    /**
+     * The access the legacy configure page requires on PrestaShop 8. PrestaShop 9
+     * calls getContent() for an employee with read access on Modules only.
+     */
+    private function canChangeKeys(): bool
+    {
+        $employee = $this->context->employee;
+
+        return $employee instanceof Employee
+            && $this->getPermission('configure', $employee)
+            && $employee->can('edit', 'AdminModulesSf');
     }
 
     /**

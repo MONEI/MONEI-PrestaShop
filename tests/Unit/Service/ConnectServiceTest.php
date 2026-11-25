@@ -468,6 +468,17 @@ class ConnectServiceTest extends TestCase
         $store->set('MONEI_TEST_API_KEY', 'mk_test_new', 0, 0);
 
         $this->assertSame([[], ['test']], [$before, $service->staleModes($rendered, 0, 0)]);
-        $this->assertSame(['live', 'test'], $service->staleModes([], 0, 0));
+    }
+
+    /**
+     * Bug: a settings tab rendered before the upgrade posts no fingerprints, so its
+     * save drops the keys and the mode with a false "changed in another tab" warning.
+     * A posted fingerprint that does not match still counts.
+     */
+    public function testOnlyAPostedFingerprintIsChecked(): void
+    {
+        $service = $this->service(self::manualShop());
+
+        $this->assertSame([[], ['live']], [$service->staleModes([], 0, 0), $service->staleModes(['live' => ''], 0, 0)]);
     }
 }
