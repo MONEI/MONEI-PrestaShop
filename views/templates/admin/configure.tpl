@@ -68,6 +68,33 @@
 
                     <!-- BASIC CONFIGURATION -->
                     <div class="tab-pane" id="panel-conf-1">
+                        {* Connect is the main flow: admin.js collapses the manual key fields while it is available. *}
+                        <div class="panel" id="monei-connect-panel" data-manual-keys="{if $monei_connect.canConnect}closed{else}open{/if}">
+                            <h3><i class="icon icon-link"></i> {l s='Connect with MONEI' mod='monei'}</h3>
+                            <p>
+                                {if $monei_connect.canConnect}
+                                    <form method="post" action="{$monei_connect.action|escape:'html':'UTF-8'}" target="_blank" style="display:inline">
+                                        <input type="hidden" name="monei_form_token" value="{$monei_connect.token|escape:'html':'UTF-8'}">
+                                        <button type="submit" name="submitMoneiConnect" value="1" id="monei-connect" class="btn btn-primary">{l s='Connect with MONEI' mod='monei'}</button>
+                                    </form>
+                                {else}
+                                    <span id="monei-connect-manual">{l s='Use manual keys. Connect with MONEI needs a public HTTPS address for this shop.' mod='monei'}</span>
+                                {/if}
+                                {if $monei_connect.connected}
+                                    <form method="post" action="{$monei_connect.action|escape:'html':'UTF-8'}" style="display:inline">
+                                        <input type="hidden" name="monei_form_token" value="{$monei_connect.token|escape:'html':'UTF-8'}">
+                                        <button type="submit" name="submitMoneiDisconnect" value="1" id="monei-disconnect" class="btn btn-default">{l s='Disconnect' mod='monei'}</button>
+                                    </form>
+                                {/if}
+                            </p>
+                            {if $monei_connect.keyLast4}
+                                <p id="monei-key-in-use">{l s='Key in use (%s): ending in' sprintf=[$monei_connect.mode] mod='monei'} {$monei_connect.keyLast4|escape:'html':'UTF-8'}</p>
+                            {/if}
+                            <p><a href="{$monei_connect.dashboardKeysUrl|escape:'html':'UTF-8'}" target="_blank" rel="noopener">{l s='Manage and revoke API keys in the MONEI Dashboard' mod='monei'}</a></p>
+                            {if $monei_connect.canConnect}
+                                <p><a href="#" id="monei-manual-keys-toggle">{l s='Enter API keys manually' mod='monei'}</a></p>
+                            {/if}
+                        </div>
                         {$helper_form_1} {* HelperForm, no escaping *}
                     </div>
 

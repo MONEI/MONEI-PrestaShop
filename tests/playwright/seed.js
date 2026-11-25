@@ -27,11 +27,12 @@ const { FIXTURES_FILE, writeFixtures } = require('./utils/fixtures');
  * @param {string} apiKey - API key from the environment
  */
 const assertTestKey = (apiKey) => {
-    if (!apiKey.startsWith('pk_test_')) {
+    // pk_test_ is a manual key; mk_test_ the key of a connected shop.
+    if (!/^(pk|mk)_test_/.test(apiKey)) {
         throw new Error(
             'MONEI_TEST_API_KEY does not look like a test mode key (expected a ' +
-                'pk_test_ prefix). The suite takes a payment on every run, so it ' +
-                'refuses to seed against a live account.'
+                'pk_test_ or mk_test_ prefix). The suite takes a payment on every run, ' +
+                'so it refuses to seed against a live account.'
         );
     }
 };
@@ -174,6 +175,13 @@ const main = () => {
     setConfig('MONEI_TEST_API_KEY', apiKey);
     setConfig('MONEI_PRODUCTION_MODE', '0');
 
+    // Optional: the signing secret a connect stores with an mk_test_ key. Without
+    // it, callbacks of a connected shop settle through the payment fetch.
+    const signingSecret = (process.env.MONEI_TEST_SIGNING_SECRET || '').trim();
+    if (signingSecret) {
+        setConfig('MONEI_TEST_SIGNING_SECRET', signingSecret);
+    }
+
     // Required, not optional. Without an account id the module renders no payment
     // option at all: MONEI answers `400 Either accountId or paymentId must be
     // provided`, the method list comes back empty, and the checkout says "no
@@ -190,7 +198,7 @@ const main = () => {
     if (!getConfig('MONEI_TEST_ACCOUNT_ID')) {
         throw new Error('The MONEI account id did not persist.');
     }
-    if (!getConfig('MONEI_TEST_API_KEY').startsWith('pk_test_')) {
+    if (getConfig('MONEI_TEST_API_KEY') !== apiKey) {
         throw new Error(
             'The MONEI test API key did not persist. Something reset the module ' +
                 'after the credentials were written.'

@@ -8,21 +8,37 @@
         },
     };
 
+    // Connect is the main flow: the manual key fields stay collapsed while the shop
+    // can connect, until the merchant asks for them.
+    let manualKeysOpen = true;
+
     // Simple toggle function
     function toggleFields() {
         const isProduction = $('input[name="MONEI_PRODUCTION_MODE"]:checked').val() === '1';
 
         // Show/hide production fields
-        $('.monei-production-field').closest('.form-group').toggle(isProduction);
+        $('.monei-production-field')
+            .closest('.form-group')
+            .toggle(manualKeysOpen && isProduction);
 
         // Show/hide test fields
-        $('.monei-test-field').closest('.form-group').toggle(!isProduction);
+        $('.monei-test-field')
+            .closest('.form-group')
+            .toggle(manualKeysOpen && !isProduction);
     }
 
     // Initialize on document ready
     $(document).ready(function () {
+        manualKeysOpen = $('#monei-connect-panel').data('manual-keys') !== 'closed';
+
         // Set up radio button change handler
         $('input[name="MONEI_PRODUCTION_MODE"]').change(toggleFields);
+        $('#monei-manual-keys-toggle').on('click', function (event) {
+            event.preventDefault();
+            manualKeysOpen = true;
+            $(this).closest('p').hide();
+            toggleFields();
+        });
 
         // Initial toggle
         toggleFields();

@@ -40,7 +40,7 @@ class FormTokenWiringTest extends TestCase
         $this->assertStringContainsString('if($this->isFormSubmitted()&&!$this->hasFormToken()){', $content);
         $this->assertLessThan(strpos($content, 'Tools::isSubmit('), strpos($content, '$this->isFormSubmitted()'));
         $this->assertSame(
-            ['submitMoneiModule', 'submitMoneiModuleGateways', 'submitMoneiModuleStatus', 'submitMoneiModuleComponentStyle', 'submitMoneiModuleExpress'],
+            ['submitMoneiConnect', 'submitMoneiDisconnect', 'submitMoneiModule', 'submitMoneiModuleGateways', 'submitMoneiModuleStatus', 'submitMoneiModuleComponentStyle', 'submitMoneiModuleExpress'],
             $dispatched[1]
         );
         $this->assertSame("'" . implode("','", $dispatched[1]) . "',", $list[1]);

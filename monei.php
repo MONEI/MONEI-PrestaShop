@@ -2,11 +2,14 @@
 
 require_once dirname(__FILE__) . '/vendor/autoload.php';
 
+use Monei\Connect;
 use Monei\Model\PaymentPaymentMethod;
 use Monei\Model\PaymentStatus;
 use PsMonei\Entity\Monei2CustomerCard;
 use PsMonei\Entity\Monei2Payment;
+use PsMonei\Repository\ConfigurationStore;
 use PsMonei\Repository\CustomerMappingStore;
+use PsMonei\Service\Monei\ConnectService;
 use PsMonei\Service\Monei\CustomerService;
 use PsMonei\Service\Monei\GdprPayload;
 use PsMonei\Service\Monei\MoneiClientFactory;
@@ -658,6 +661,13 @@ class Monei extends PaymentModule
         Configuration::deleteByName('MONEI_ACCOUNT_ID');
         Configuration::deleteByName('MONEI_TEST_API_KEY');
         Configuration::deleteByName('MONEI_TEST_ACCOUNT_ID');
+        Configuration::deleteByName('MONEI_SIGNING_SECRET');
+        Configuration::deleteByName('MONEI_TEST_SIGNING_SECRET');
+        Configuration::deleteByName('MONEI_CONNECT_MESSAGES');
+        Configuration::deleteByName(PsMonei\Service\Monei\CallbackVerifier::QUOTA_KEY);
+        foreach ((new ConfigurationStore())->globalNamesWithPrefix(ConnectService::STATE_PREFIX) as $state) {
+            Configuration::deleteByName($state);
+        }
         Configuration::deleteByName('MONEI_EXPIRE_TIME');
         // Gateways
         Configuration::deleteByName('MONEI_ALLOW_CARD');
@@ -840,6 +850,20 @@ class Monei extends PaymentModule
          */
         if ($this->isFormSubmitted() && !$this->hasFormToken()) {
             $message .= $this->displayError($this->l('The security token is not valid. Reload the page and try again.'));
+        } elseif (Tools::isSubmit('submitMoneiConnect')) {
+            if (($redirectUri = $this->connectRedirectUri()) === null) {
+                $message .= $this->displayError($this->l('Connect with MONEI is not available for this shop. Use manual keys.'));
+            } else {
+                // ⚠️ Not getAdminLink(): on PrestaShop 9 it adds the session's _token even
+                // without a token, and this URL is stored and shown on a front page.
+                $settingsUrl = $this->context->link->getAdminBaseLink() . basename(_PS_ADMIN_DIR_)
+                    . '/index.php?controller=AdminModules&configure=' . $this->name;
+                [$idShopGroup, $idShop] = $this->shopScope();
+                Tools::redirect($this->connectService()->begin($redirectUri, $idShopGroup, $idShop, $settingsUrl));
+            }
+        } elseif (Tools::isSubmit('submitMoneiDisconnect')) {
+            $this->connectService()->disconnect(...$this->shopScope());
+            $message .= $this->displayConfirmation($this->l('MONEI disconnected. The keys stay active until you revoke them in the MONEI Dashboard.'));
         } elseif ((bool) Tools::isSubmit('submitMoneiModule')) {
             $message .= $this->postProcess(1);
         } elseif (Tools::isSubmit('submitMoneiModuleGateways')) {
@@ -858,8 +882,11 @@ class Monei extends PaymentModule
             $message = $applePayNotification . $message;
         }
 
+        $message .= $this->connectMessages() . $this->connectNotice();
+
         // Assign values
         $this->context->smarty->assign([
+            'monei_connect' => $this->connectPanel(),
             'module_dir' => $this->_path,
             'module_version' => $this->version,
             'module_name' => $this->name,
@@ -879,6 +906,8 @@ class Monei extends PaymentModule
      * needs the form token.
      */
     private const FORM_SUBMITS = [
+        'submitMoneiConnect',
+        'submitMoneiDisconnect',
         'submitMoneiModule',
         'submitMoneiModuleGateways',
         'submitMoneiModuleStatus',
@@ -936,6 +965,29 @@ class Monei extends PaymentModule
                 $section = $this->l('General');
                 $form_values = $this->getConfigFormValues();
 
+                // A connect or a disconnect in another tab changed the keys after this
+                // form was rendered: its key fields and mode would write the old values
+                // back. The other settings of the form still save.
+                if ($this->connectService()->staleModes([
+                    'live' => (string) Tools::getValue('monei_key_fingerprint_live'),
+                    'test' => (string) Tools::getValue('monei_key_fingerprint_test'),
+                ], ...$this->shopScope())) {
+                    unset($form_values['MONEI_PRODUCTION_MODE']);
+                    foreach (ConnectService::KEYS as $keys) {
+                        unset($form_values[$keys['accountId']], $form_values[$keys['apiKey']]);
+                    }
+                    $this->warning[] = $this->l('The MONEI keys changed in another tab, so the key fields were not saved. Reload this page.');
+
+                    break;
+                }
+
+                // The form never shows a connected key: an empty field keeps it.
+                foreach (ConnectService::KEYS as $keys) {
+                    if ((string) Tools::getValue($keys['apiKey']) === '' && $this->submittedApiKey($keys['apiKey']) !== '') {
+                        unset($form_values[$keys['apiKey']]);
+                    }
+                }
+
                 // Validate API credentials for the enabled environment
                 $validationResult = $this->validateApiCredentials($form_values);
                 if ($validationResult !== true) {
@@ -980,6 +1032,10 @@ class Monei extends PaymentModule
         // Store previous Apple Pay state
         $previousApplePayState = Configuration::get('MONEI_ALLOW_APPLE');
 
+        $connect = $this->connectService();
+        $scope = $this->shopScope();
+        $keysBefore = $connect->apiKeys(...$scope);
+
         foreach (array_keys($form_values) as $key) {
             // For validated payment methods, use the validated value
             if ($which === 2 && isset($validatedValues) && array_key_exists($key, $validatedValues)) {
@@ -1002,6 +1058,8 @@ class Monei extends PaymentModule
                 Configuration::updateValue($configKey, $value);
             }
         }
+
+        $connect->forgetSecretsOfChangedKeys($keysBefore, ...$scope);
 
         // Check if Apple Pay was just enabled
         $currentApplePayState = Configuration::get('MONEI_ALLOW_APPLE');
@@ -1167,7 +1225,7 @@ class Monei extends PaymentModule
         if ($isProductionMode === '1' || $isProductionMode === 'on' || $isProductionMode === 1 || $isProductionMode === true) {
             // Validate production credentials
             $accountId = Tools::getValue('MONEI_ACCOUNT_ID');
-            $apiKey = Tools::getValue('MONEI_API_KEY');
+            $apiKey = $this->submittedApiKey('MONEI_API_KEY');
 
             if (empty($accountId) || empty($apiKey)) {
                 return $this->displayError($this->l('Production environment cannot be enabled without valid Account ID and API Key.'));
@@ -1180,7 +1238,7 @@ class Monei extends PaymentModule
         } else {
             // When switching to test mode (production disabled), validate test credentials
             $testAccountId = Tools::getValue('MONEI_TEST_ACCOUNT_ID');
-            $testApiKey = Tools::getValue('MONEI_TEST_API_KEY');
+            $testApiKey = $this->submittedApiKey('MONEI_TEST_API_KEY');
 
             // Only validate test credentials if they are provided
             // This allows switching to test mode even if test credentials are not yet configured
@@ -1230,6 +1288,280 @@ class Monei extends PaymentModule
 
             return false;
         }
+    }
+
+    /**
+     * The broker. MONEI_CONNECT_BASE_URL (a constant, else an environment variable)
+     * points it at a dev broker.
+     */
+    private static function connectBrokerUrl(): string
+    {
+        $url = defined('MONEI_CONNECT_BASE_URL') ? constant('MONEI_CONNECT_BASE_URL') : getenv('MONEI_CONNECT_BASE_URL');
+
+        return is_string($url) && $url !== '' ? $url : Connect::BASE_URL;
+    }
+
+    public function connectService(): ConnectService
+    {
+        return new ConnectService(
+            new ConfigurationStore(),
+            'time',
+            [Connect::class, 'exchange'],
+            static function (string $apiKey): int {
+                try {
+                    MoneiClientFactory::create($apiKey, MoneiService::getUserAgent())->paymentMethods->getAllowed();
+
+                    return 200;
+                } catch (Monei\ApiException $e) {
+                    return (int) $e->getCode();
+                } catch (Throwable $e) {
+                    return 0;
+                }
+            },
+            self::connectBrokerUrl()
+        );
+    }
+
+    /**
+     * The redirect URI that the start sends, or null when the broker would refuse the
+     * callback URL. The configuration form and the start branch both use it, so the
+     * form shows the button only for a URI the start sends.
+     */
+    private function connectRedirectUri(): ?string
+    {
+        try {
+            $uri = Connect::canonicalRedirectUri($this->context->link->getModuleLink($this->name, 'connect'));
+        } catch (InvalidArgumentException $e) {
+            return null;
+        }
+
+        return Connect::callbackProblem(ConnectService::CLIENT, $uri) === null ? $uri : null;
+    }
+
+    /**
+     * The shop group and shop being edited, 0 for none, as Configuration::updateValue
+     * reads them.
+     *
+     * @return int[]
+     */
+    private function shopScope(): array
+    {
+        return [(int) Shop::getContextShopGroupID(true), (int) Shop::getContextShopID(true)];
+    }
+
+    /**
+     * After a switch: register the Apple Pay domain with each new key, on a fresh client.
+     *
+     * @param array<string, array{accountId: string, apiKey: string, signingSecret: string}> $switched
+     * @param array{idShopGroup: int, idShop: int} $scope
+     */
+    public function afterConnectSwitch(array $switched, array $scope): void
+    {
+        if (!Configuration::get('MONEI_ALLOW_APPLE', null, $scope['idShopGroup'], $scope['idShop'])) {
+            return;
+        }
+
+        $this->copyApplePayDomainVerificationFile();
+        $request = new Monei\Model\RegisterApplePayDomainRequest();
+        $request->setDomainName(str_replace(['www.', 'https://', 'http://'], '', Tools::getShopDomainSsl(false, true)));
+
+        foreach ($switched as $mode => $keys) {
+            try {
+                MoneiClientFactory::create($keys['apiKey'], MoneiService::getUserAgent())->applePayDomain->register($request);
+            } catch (Throwable $e) {
+                // The new key works: an Apple Pay error keeps the switch.
+                Monei::logError('[MONEI] Apple Pay domain registration after connect failed (' . $mode . '): ' . $e->getMessage());
+            }
+        }
+    }
+
+    /**
+     * Keep the messages of a connect for the shop, to show them once on its
+     * configuration page: a front route cannot make a valid admin link.
+     *
+     * @param string[] $messages
+     * @param array{idShopGroup: int, idShop: int} $scope
+     */
+    public function storeConnectMessages(array $messages, array $scope): void
+    {
+        (new ConfigurationStore())->set('MONEI_CONNECT_MESSAGES', (string) json_encode($messages), $scope['idShopGroup'], $scope['idShop']);
+    }
+
+    private function connectMessages(): string
+    {
+        $store = new ConfigurationStore();
+        $messages = json_decode($store->get('MONEI_CONNECT_MESSAGES', ...$this->shopScope()), true);
+        if (!is_array($messages) || !$messages) {
+            return '';
+        }
+
+        $store->set('MONEI_CONNECT_MESSAGES', '', ...$this->shopScope());
+
+        return $this->displayInformation(implode('<br>', array_map(static function ($message) {
+            return htmlspecialchars((string) $message, ENT_QUOTES, 'UTF-8');
+        }, $messages)));
+    }
+
+    /**
+     * The text of a connect problem.
+     *
+     * @param string|null $mode 'live', 'test', or null for the whole connect
+     * @param string $code A ConnectService problem, an OAuth error code, or a broker code of the mode
+     */
+    public function connectProblemMessage(?string $mode, string $code): string
+    {
+        $messages = [
+            'missingCode' => $this->l('MONEI did not send a code. Nothing was changed.'),
+            'unknownState' => $this->l('This connect link is not valid or was already used. Start again from the MONEI module configuration.'),
+            'expiredState' => $this->l('This connect link expired. Start again from the MONEI module configuration.'),
+            'otherAccount' => $this->l('This shop uses another MONEI account. Disconnect first.'),
+            'otherAccountManual' => $this->l('The Live keys of this shop belong to another MONEI account. To connect this account, switch off Real environment, clear the Live Account ID and API Key fields, save, and connect again.'),
+            'access_denied' => $this->l('MONEI refused the connect. Nothing was changed.'),
+            'invalid_grant' => $this->l('The connect code is not valid or expired. Start again from the MONEI module configuration.'),
+            'temporarily_unavailable' => $this->l('MONEI is not available now. Try again later.'),
+            'keyRejected' => $this->l('The new key did not work, so the current credentials stay in use.'),
+            'cap' => $this->l('Your MONEI account has too many API keys. Revoke unused keys in the MONEI Dashboard, then connect again.'),
+            'not_approved' => $this->l('Live keys come after MONEI approves your account. The shop stays in test mode.'),
+            'blocked' => $this->l('MONEI refused a key for this account.'),
+            'ineligible' => $this->l('This MONEI account cannot get a key for this mode.'),
+        ];
+        $message = $messages[$code] ?? $this->l('Connect with MONEI failed. Nothing was changed.');
+
+        if ($mode === 'live') {
+            return sprintf($this->l('Live: %s'), $message);
+        }
+        if ($mode === 'test') {
+            return sprintf($this->l('Test: %s'), $message);
+        }
+
+        return $message;
+    }
+
+    /**
+     * Connect or "Use manual keys", Disconnect, and the last 4 characters of the key in use.
+     */
+    private function connectPanel(): array
+    {
+        $connect = $this->connectService();
+        $live = (bool) Configuration::get('MONEI_PRODUCTION_MODE');
+        $key = $connect->apiKeys(...$this->shopScope())[$live ? 'live' : 'test'];
+
+        return [
+            'action' => $this->configureUrl(),
+            'token' => $this->formToken(),
+            'canConnect' => $this->connectRedirectUri() !== null,
+            'connected' => $connect->isConnected(...$this->shopScope()),
+            'keyLast4' => $key === '' ? '' : substr($key, -4),
+            'mode' => $live ? $this->l('Live') : $this->l('Test'),
+            'dashboardKeysUrl' => 'https://dashboard.monei.com/settings/api',
+        ];
+    }
+
+    /**
+     * The module configure URL with its token, as the HelperForm forms post to it.
+     */
+    private function configureUrl(): string
+    {
+        return $this->context->link->getAdminLink('AdminModules', false)
+            . '&configure=' . $this->name . '&tab_module=' . $this->tab . '&module_name=' . $this->name
+            . '&token=' . Tools::getAdminTokenLite('AdminModules');
+    }
+
+    /**
+     * The API key a settings save submits. The form never shows a connected (mk_)
+     * key, so an empty field means the stored one.
+     */
+    private function submittedApiKey(string $key): string
+    {
+        $value = (string) Tools::getValue($key);
+        $stored = (string) Configuration::get($key);
+
+        return $value === '' && strpos($stored, 'mk_') === 0 ? $stored : $value;
+    }
+
+    /**
+     * The settings form values without a connected (mk_) key: the page would show it
+     * in full. The field stays empty, with its last 4 characters as the placeholder.
+     */
+    private function settingsFormValues(): array
+    {
+        $values = $this->getConfigFormValues();
+        foreach (ConnectService::KEYS as $keys) {
+            if (strpos((string) $values[$keys['apiKey']], 'mk_') === 0) {
+                $values[$keys['apiKey']] = '';
+            }
+        }
+
+        return $values + $this->keyFingerprintValues();
+    }
+
+    private function isConnectedKey(string $key): bool
+    {
+        return strpos((string) Configuration::get($key), 'mk_') === 0;
+    }
+
+    private function apiKeyDescription(string $key, string $manual): string
+    {
+        return $this->isConnectedKey($key) ? $this->l('Set by Connect with MONEI. Leave empty to keep this key.') : $manual;
+    }
+
+    private function apiKeyPlaceholder(string $key, string $example): string
+    {
+        return $this->isConnectedKey($key) ? '•••• ' . substr((string) Configuration::get($key), -4) : $example;
+    }
+
+    /**
+     * The fingerprint of each mode's stored key, which the settings form posts back,
+     * so a save can tell that a connect in another tab changed the keys.
+     */
+    private function keyFingerprintValues(): array
+    {
+        $keys = $this->connectService()->apiKeys(...$this->shopScope());
+
+        return [
+            'monei_key_fingerprint_live' => ConnectService::keyFingerprint($keys['live']),
+            'monei_key_fingerprint_test' => ConnectService::keyFingerprint($keys['test']),
+        ];
+    }
+
+    /**
+     * Whether to invite the shop to connect: a stored key is pk_, the shop can show
+     * the Connect button, and the employee has not dismissed the invitation.
+     */
+    private function shouldInviteToConnect(): bool
+    {
+        if (!empty($this->context->cookie->monei_hide_connect_notice) || $this->connectRedirectUri() === null) {
+            return false;
+        }
+
+        foreach ($this->connectService()->apiKeys(...$this->shopScope()) as $key) {
+            if (strpos($key, 'pk_') === 0) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function connectNoticeText(string $dismissUrl): string
+    {
+        return '<strong>' . $this->l('Connect with MONEI to stop storing your account API key.') . '</strong> '
+            . '<a href="' . htmlspecialchars($this->context->link->getAdminLink('AdminModules', true, [], ['configure' => $this->name]), ENT_QUOTES, 'UTF-8') . '">'
+            . $this->l('Go to MONEI settings') . '</a> | '
+            . '<a href="' . htmlspecialchars($dismissUrl, ENT_QUOTES, 'UTF-8') . '">' . $this->l('Dismiss') . '</a>';
+    }
+
+    /**
+     * The invitation on the module configuration page, where PrestaShop 9 prints no
+     * informations of the legacy controller.
+     */
+    private function connectNotice(): string
+    {
+        if (Tools::getValue('monei_hide_connect_notice')) {
+            $this->context->cookie->monei_hide_connect_notice = 1;
+        }
+
+        return $this->shouldInviteToConnect() ? $this->displayInformation($this->connectNoticeText($this->configureUrl() . '&monei_hide_connect_notice=1')) : '';
     }
 
     /**
@@ -1392,7 +1724,7 @@ class Monei extends PaymentModule
         $helper->token = Tools::getAdminTokenLite('AdminModules');
 
         $helper->tpl_vars = [
-            'fields_value' => $this->getConfigFormValues(), /* Add values for your inputs */
+            'fields_value' => $this->settingsFormValues(),
             'languages' => $this->context->controller->getLanguages(),
             'id_language' => $this->context->language->id,
         ];
@@ -1445,10 +1777,12 @@ class Monei extends PaymentModule
                         'col' => 3,
                         'type' => 'text',
                         'prefix' => '<i class="icon icon-key"></i>',
-                        'desc' => $this->l('Your MONEI API Key. Available at your MONEI dashboard.'),
+                        'desc' => $this->apiKeyDescription('MONEI_API_KEY', $this->l('Your MONEI API Key. Available at your MONEI dashboard.')),
                         'name' => 'MONEI_API_KEY',
+                        // HelperForm renders only autocomplete="off": no password manager fills it.
+                        'autocomplete' => !$this->isConnectedKey('MONEI_API_KEY'),
                         'label' => $this->l('API Key'),
-                        'placeholder' => 'pk_live_7h3m4n1f3st0k3yf0r3x4mpl3purp0s3',
+                        'placeholder' => $this->apiKeyPlaceholder('MONEI_API_KEY', 'pk_live_7h3m4n1f3st0k3yf0r3x4mpl3purp0s3'),
                         'class' => 'monei-production-field',
                     ],
                     [
@@ -1465,12 +1799,16 @@ class Monei extends PaymentModule
                         'col' => 3,
                         'type' => 'text',
                         'prefix' => '<i class="icon icon-key"></i>',
-                        'desc' => $this->l('Your MONEI Test API Key. Available at your MONEI dashboard.'),
+                        'desc' => $this->apiKeyDescription('MONEI_TEST_API_KEY', $this->l('Your MONEI Test API Key. Available at your MONEI dashboard.')),
                         'name' => 'MONEI_TEST_API_KEY',
+                        // HelperForm renders only autocomplete="off": no password manager fills it.
+                        'autocomplete' => !$this->isConnectedKey('MONEI_TEST_API_KEY'),
                         'label' => $this->l('Test API Key'),
-                        'placeholder' => 'pk_test_d3m0t3stk3yf0rd3v3l0pm3ntus4g3',
+                        'placeholder' => $this->apiKeyPlaceholder('MONEI_TEST_API_KEY', 'pk_test_d3m0t3stk3yf0rd3v3l0pm3ntus4g3'),
                         'class' => 'monei-test-field',
                     ],
+                    ['type' => 'hidden', 'name' => 'monei_key_fingerprint_live'],
+                    ['type' => 'hidden', 'name' => 'monei_key_fingerprint_test'],
                     [
                         'type' => 'switch',
                         'label' => $this->l('Allow Credit Card Tokenization'),
@@ -3221,6 +3559,19 @@ class Monei extends PaymentModule
 
     public function hookDisplayBackOfficeHeader()
     {
+        // The legacy layout prints the controller's informations after this hook runs.
+        // getContent shows the invitation on the module page itself.
+        if ($this->context->controller instanceof AdminController
+            && Tools::getValue('configure') !== $this->name
+            && $this->shouldInviteToConnect()) {
+            if (Tools::getValue('monei_hide_connect_notice')) {
+                $this->context->cookie->monei_hide_connect_notice = 1;
+            } else {
+                $uri = (string) $_SERVER['REQUEST_URI'];
+                $this->context->controller->informations[] = $this->connectNoticeText($uri . (strpos($uri, '?') === false ? '?' : '&') . 'monei_hide_connect_notice=1');
+            }
+        }
+
         $this->context->controller->addCSS($this->_path . 'views/css/admin/admin.css');
         $this->context->controller->addJS($this->_path . 'views/js/admin/admin.js');
 

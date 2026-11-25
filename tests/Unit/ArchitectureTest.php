@@ -26,6 +26,9 @@ class ArchitectureTest extends TestCase
         'src/Service/Monei/GdprPayload.php',
         'src/Service/Monei/MoneiClientFactory.php',
         'src/Repository/CustomerMappingStoreInterface.php',
+        'src/Service/Monei/ConnectService.php',
+        'src/Service/Monei/CallbackVerifier.php',
+        'src/Repository/ConfigurationStoreInterface.php',
     ];
 
     public function testPureClassesReferenceNoGuardedOrPrestaShopClass(): void
