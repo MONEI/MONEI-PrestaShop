@@ -22,6 +22,7 @@ class ConnectServiceTest extends TestCase
     private const STATE = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
     private const REDIRECT = 'https://shop.example/module/monei/connect';
     private const BROKER = 'https://oauth.example';
+    private const SETTINGS = 'https://shop.example/admin-x/index.php?controller=AdminModules&configure=monei';
 
     /** @var array[] */
     private $exchanges = [];
@@ -62,6 +63,7 @@ class ConnectServiceTest extends TestCase
             'verifier' => 'the-verifier',
             'redirectUri' => self::REDIRECT,
             'scope' => ['idShopGroup' => $idShopGroup, 'idShop' => $idShop],
+            'settingsUrl' => self::SETTINGS,
             'createdAt' => $createdAt,
         ]);
     }
@@ -153,10 +155,12 @@ class ConnectServiceTest extends TestCase
         $this->exchangeAnswer = ['test' => self::keys('test', 'acc-test-old')];
         $service = $this->service($store);
 
-        $service->complete(self::STATE, 'the-code');
+        $first = $service->complete(self::STATE, 'the-code');
         $second = $service->complete(self::STATE, 'the-code');
 
         $this->assertSame([['the-code', 'the-verifier', 'prestashop', self::REDIRECT, self::BROKER]], $this->exchanges);
+        // The result page sends the merchant back to the settings of the admin who started.
+        $this->assertSame([self::SETTINGS, ''], [$first['settingsUrl'], $second['settingsUrl']]);
         $this->assertSame([[null, 'unknownState']], self::codes($second));
         $this->assertArrayNotHasKey(ConnectService::STATE_PREFIX . self::STATE, $store->globals);
     }
@@ -190,7 +194,7 @@ class ConnectServiceTest extends TestCase
         $store->setGlobal($old, self::entry(self::NOW - 1200));
         $store->setGlobal($young, self::entry(self::NOW - 1199));
 
-        $url = $this->service($store)->begin(self::REDIRECT, 1, 2);
+        $url = $this->service($store)->begin(self::REDIRECT, 1, 2, self::SETTINGS);
 
         $this->assertArrayNotHasKey($old, $store->globals);
         $this->assertArrayHasKey($young, $store->globals);
@@ -199,6 +203,7 @@ class ConnectServiceTest extends TestCase
         $entry = json_decode($store->globals[ConnectService::STATE_PREFIX . $query['state']], true);
         $this->assertSame(self::REDIRECT, $entry['redirectUri']);
         $this->assertSame(['idShopGroup' => 1, 'idShop' => 2], $entry['scope']);
+        $this->assertSame(self::SETTINGS, $entry['settingsUrl']);
         $this->assertSame(self::NOW, $entry['createdAt']);
         $this->assertSame(64, strlen($entry['verifier']));
     }

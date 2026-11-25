@@ -854,7 +854,12 @@ class Monei extends PaymentModule
             } elseif (($redirectUri = $this->connectRedirectUri()) === null) {
                 $message .= $this->displayError($this->l('Connect with MONEI is not available for this shop. Use manual keys.'));
             } else {
-                Tools::redirect($this->connectService()->begin($redirectUri, ...$this->shopScope()));
+                // ⚠️ Not getAdminLink(): on PrestaShop 9 it adds the session's _token even
+                // without a token, and this URL is stored and shown on a front page.
+                $settingsUrl = $this->context->link->getAdminBaseLink() . basename(_PS_ADMIN_DIR_)
+                    . '/index.php?controller=AdminModules&configure=' . $this->name;
+                [$idShopGroup, $idShop] = $this->shopScope();
+                Tools::redirect($this->connectService()->begin($redirectUri, $idShopGroup, $idShop, $settingsUrl));
             }
         } elseif (Tools::isSubmit('submitMoneiDisconnect')) {
             if (!$this->hasConnectFormToken()) {

@@ -48,8 +48,11 @@ final class ConnectService
     /**
      * Store a new state for the shop scope and return the broker URL. Entries of
      * abandoned starts are deleted first.
+     *
+     * @param string $settingsUrl Where the result page sends the merchant back: a
+     *                            front route cannot build a back-office link
      */
-    public function begin(string $redirectUri, int $idShopGroup, int $idShop): string
+    public function begin(string $redirectUri, int $idShopGroup, int $idShop, string $settingsUrl = ''): string
     {
         $now = ($this->clock)();
         foreach ($this->store->globalNamesWithPrefix(self::STATE_PREFIX) as $name) {
@@ -63,6 +66,7 @@ final class ConnectService
             'verifier' => $start['verifier'],
             'redirectUri' => $redirectUri,
             'scope' => ['idShopGroup' => $idShopGroup, 'idShop' => $idShop],
+            'settingsUrl' => $settingsUrl,
             'createdAt' => $now,
         ]));
 
@@ -72,7 +76,7 @@ final class ConnectService
     /**
      * Handle the callback. The result is stored for the shop scope of the state.
      *
-     * @return array{switched: array<string, array{accountId: string, apiKey: string, signingSecret: string}>, problems: list<array{mode: string|null, code: string}>, scope: array{idShopGroup: int, idShop: int}|null}
+     * @return array{switched: array<string, array{accountId: string, apiKey: string, signingSecret: string}>, problems: list<array{mode: string|null, code: string}>, scope: array{idShopGroup: int, idShop: int}|null, settingsUrl: string}
      */
     public function complete(string $state, string $code): array
     {
@@ -95,13 +99,15 @@ final class ConnectService
             'idShop' => (int) ($entry['scope']['idShop'] ?? 0),
         ];
 
+        $settingsUrl = (string) ($entry['settingsUrl'] ?? '');
+
         try {
             $result = ($this->exchange)($code, (string) $entry['verifier'], self::CLIENT, (string) $entry['redirectUri'], $this->baseUrl);
         } catch (ConnectException $e) {
-            return self::failed($e->getError(), $scope);
+            return ['settingsUrl' => $settingsUrl] + self::failed($e->getError(), $scope);
         }
 
-        return $this->swap($result, $scope['idShopGroup'], $scope['idShop']) + ['scope' => $scope];
+        return $this->swap($result, $scope['idShopGroup'], $scope['idShop']) + ['scope' => $scope, 'settingsUrl' => $settingsUrl];
     }
 
     /**
@@ -257,6 +263,6 @@ final class ConnectService
 
     private static function failed(string $code, ?array $scope = null): array
     {
-        return ['switched' => [], 'problems' => [['mode' => null, 'code' => $code]], 'scope' => $scope];
+        return ['switched' => [], 'problems' => [['mode' => null, 'code' => $code]], 'scope' => $scope, 'settingsUrl' => ''];
     }
 }

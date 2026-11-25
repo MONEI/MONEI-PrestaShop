@@ -27,7 +27,7 @@ class MoneiConnectModuleFrontController extends ModuleFrontController
             $result = $module->connectService()->complete((string) Tools::getValue('state'), (string) Tools::getValue('code'));
         } catch (Throwable $e) {
             Monei::logError('[MONEI] Connect failed: ' . get_class($e));
-            $result = ['switched' => [], 'problems' => [['mode' => null, 'code' => 'temporarily_unavailable']], 'scope' => null];
+            $result = ['switched' => [], 'problems' => [['mode' => null, 'code' => 'temporarily_unavailable']], 'scope' => null, 'settingsUrl' => ''];
         }
 
         if ($result['switched']) {
@@ -35,28 +35,48 @@ class MoneiConnectModuleFrontController extends ModuleFrontController
         }
 
         $messages = [];
+        $lines = [];
         if ($result['switched']) {
             $messages[] = $module->l('MONEI connected.', 'connect');
         }
+        foreach (array_keys($result['switched']) as $mode) {
+            $lines[] = ['ok' => true, 'text' => sprintf($module->l('%s: connected.', 'connect'), $mode === 'live' ? $module->l('Live', 'connect') : $module->l('Test', 'connect'))];
+        }
         foreach ($result['problems'] as $problem) {
-            $messages[] = $module->connectProblemMessage($problem['mode'], $problem['code']);
+            $message = $module->connectProblemMessage($problem['mode'], $problem['code']);
+            $messages[] = $message;
+            $lines[] = ['ok' => false, 'text' => $message];
         }
 
         // Without a valid state nothing names a shop, so nothing is stored for one.
         $refused = $result['scope'] === null;
         if (!$refused) {
             $module->storeConnectMessages($messages, $result['scope']);
-            $messages[] = $module->l('You can close this tab.', 'connect');
         }
+
+        if ($result['switched']) {
+            $title = $module->l('MONEI is connected', 'connect');
+        } elseif ($refused) {
+            $title = $module->l('This connect link does not work', 'connect');
+        } else {
+            $title = $module->l('MONEI is not connected', 'connect');
+        }
+
+        $this->context->smarty->assign([
+            'monei_connect_result' => [
+                'state' => $result['switched'] ? 'connected' : ($refused ? 'refused' : 'failed'),
+                'title' => $title,
+                'lines' => $lines,
+                'settingsUrl' => $result['settingsUrl'],
+                'logoUrl' => $module->getPathUri() . 'views/img/monei-logo.svg',
+                'lang' => (string) $this->context->language->iso_code,
+            ],
+        ]);
 
         http_response_code($refused ? 400 : 200);
         header('Content-Type: text/html; charset=utf-8');
-        echo '<!doctype html><html><head><meta charset="utf-8"><meta name="robots" content="noindex">'
-            . '<title>' . htmlspecialchars($module->l('Connect with MONEI', 'connect'), ENT_QUOTES, 'UTF-8') . '</title></head><body>';
-        foreach ($messages as $message) {
-            echo '<p>' . htmlspecialchars($message, ENT_QUOTES, 'UTF-8') . '</p>';
-        }
-        echo '</body></html>';
+        // A whole page, not the shop theme: nothing on it loads from another host.
+        echo $this->context->smarty->fetch($module->getLocalPath() . 'views/templates/front/connect_result.tpl');
         exit;
     }
 }
