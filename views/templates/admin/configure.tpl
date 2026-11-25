@@ -74,7 +74,7 @@
                             <p>
                                 {if $monei_connect.canConnect}
                                     <form method="post" action="{$monei_connect.action|escape:'html':'UTF-8'}" target="_blank" style="display:inline">
-                                        <input type="hidden" name="monei_connect_token" value="{$monei_connect.token|escape:'html':'UTF-8'}">
+                                        <input type="hidden" name="monei_form_token" value="{$monei_connect.token|escape:'html':'UTF-8'}">
                                         <button type="submit" name="submitMoneiConnect" value="1" id="monei-connect" class="btn btn-primary">{l s='Connect with MONEI' mod='monei'}</button>
                                     </form>
                                 {else}
@@ -82,7 +82,7 @@
                                 {/if}
                                 {if $monei_connect.connected}
                                     <form method="post" action="{$monei_connect.action|escape:'html':'UTF-8'}" style="display:inline">
-                                        <input type="hidden" name="monei_connect_token" value="{$monei_connect.token|escape:'html':'UTF-8'}">
+                                        <input type="hidden" name="monei_form_token" value="{$monei_connect.token|escape:'html':'UTF-8'}">
                                         <button type="submit" name="submitMoneiDisconnect" value="1" id="monei-disconnect" class="btn btn-default">{l s='Disconnect' mod='monei'}</button>
                                     </form>
                                 {/if}

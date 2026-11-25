@@ -356,9 +356,7 @@ test.describe('Connect with MONEI', () => {
         expect(await form.getAttribute('target')).toBe('_blank');
         const fields = {
             submitMoneiConnect: '1',
-            monei_connect_token: await form
-                .locator('input[name="monei_connect_token"]')
-                .inputValue(),
+            monei_form_token: await form.locator('input[name="monei_form_token"]').inputValue(),
         };
 
         // Each hop by hand, so the broker page itself is never loaded: the dev

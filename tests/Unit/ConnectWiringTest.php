@@ -134,7 +134,7 @@ class ConnectWiringTest extends TestCase
         $this->assertStringContainsString('($redirectUri=$this->connectRedirectUri())===null', $this->branch('submitMoneiConnect'));
         $this->assertStringContainsString('\'canConnect\'=>$this->connectRedirectUri()!==null', $this->method(self::MODULE, 'connectPanel'));
         $this->assertMatchesRegularExpression(
-            '/\{if \$monei_connect\.canConnect\}\s*<form[^>]*>\s*<input type="hidden" name="monei_connect_token"[^>]*>\s*<button type="submit" name="submitMoneiConnect"/',
+            '/\{if \$monei_connect\.canConnect\}\s*<form[^>]*>\s*<input type="hidden" name="monei_form_token"[^>]*>\s*<button type="submit" name="submitMoneiConnect"/',
             (string) file_get_contents(self::ROOT . '/views/templates/admin/configure.tpl')
         );
     }
@@ -146,14 +146,10 @@ class ConnectWiringTest extends TestCase
      */
     public function testOnlyTheStartBranchStoresAStateAfterTheToken(): void
     {
-        $branch = $this->branch('submitMoneiConnect');
-
-        $this->assertBefore('if(!$this->hasConnectFormToken()){', '->begin(', $branch, 'token before the state write');
+        // FormTokenWiringTest pins every submit of getContent to the form token check.
+        $this->assertBefore('if($this->isFormSubmitted()&&!$this->hasFormToken()){', "Tools::isSubmit('submitMoneiConnect')", $this->method(self::MODULE, 'getContent'), 'token before the state write');
+        $this->assertStringContainsString('->begin(', $this->branch('submitMoneiConnect'));
         $this->assertSame(1, substr_count($this->code(self::MODULE), '->begin('));
-        $this->assertStringContainsString(
-            'returnhash_equals($this->connectFormToken(),(string)Tools::getValue(\'monei_connect_token\'));',
-            $this->method(self::MODULE, 'hasConnectFormToken')
-        );
         foreach (glob(self::ROOT . '/controllers/front/*.php') as $file) {
             $code = $this->code(substr($file, strlen(self::ROOT) + 1));
             $this->assertStringNotContainsString('->begin(', $code, $file);
@@ -167,9 +163,8 @@ class ConnectWiringTest extends TestCase
      */
     public function testOnlyTheDisconnectBranchClearsAfterTheToken(): void
     {
-        $branch = $this->branch('submitMoneiDisconnect');
-
-        $this->assertBefore('if(!$this->hasConnectFormToken()){', '->disconnect(', $branch, 'token before the clear');
+        $this->assertBefore('if($this->isFormSubmitted()&&!$this->hasFormToken()){', "Tools::isSubmit('submitMoneiDisconnect')", $this->method(self::MODULE, 'getContent'), 'token before the clear');
+        $this->assertStringContainsString('->disconnect(', $this->branch('submitMoneiDisconnect'));
         $this->assertSame(1, substr_count($this->code(self::MODULE), '->disconnect('));
         foreach (glob(self::ROOT . '/controllers/front/*.php') as $file) {
             $this->assertStringNotContainsString('->disconnect(', $this->code(substr($file, strlen(self::ROOT) + 1)), $file);

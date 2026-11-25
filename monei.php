@@ -848,10 +848,10 @@ class Monei extends PaymentModule
         /*
          * If values have been submitted in the form, process.
          */
-        if (Tools::isSubmit('submitMoneiConnect')) {
-            if (!$this->hasConnectFormToken()) {
-                $message .= $this->displayError($this->l('The security token is not valid. Reload the page and try again.'));
-            } elseif (($redirectUri = $this->connectRedirectUri()) === null) {
+        if ($this->isFormSubmitted() && !$this->hasFormToken()) {
+            $message .= $this->displayError($this->l('The security token is not valid. Reload the page and try again.'));
+        } elseif (Tools::isSubmit('submitMoneiConnect')) {
+            if (($redirectUri = $this->connectRedirectUri()) === null) {
                 $message .= $this->displayError($this->l('Connect with MONEI is not available for this shop. Use manual keys.'));
             } else {
                 // ⚠️ Not getAdminLink(): on PrestaShop 9 it adds the session's _token even
@@ -862,12 +862,8 @@ class Monei extends PaymentModule
                 Tools::redirect($this->connectService()->begin($redirectUri, $idShopGroup, $idShop, $settingsUrl));
             }
         } elseif (Tools::isSubmit('submitMoneiDisconnect')) {
-            if (!$this->hasConnectFormToken()) {
-                $message .= $this->displayError($this->l('The security token is not valid. Reload the page and try again.'));
-            } else {
-                $this->connectService()->disconnect(...$this->shopScope());
-                $message .= $this->displayConfirmation($this->l('MONEI disconnected. The keys stay active until you revoke them in the MONEI Dashboard.'));
-            }
+            $this->connectService()->disconnect(...$this->shopScope());
+            $message .= $this->displayConfirmation($this->l('MONEI disconnected. The keys stay active until you revoke them in the MONEI Dashboard.'));
         } elseif ((bool) Tools::isSubmit('submitMoneiModule')) {
             $message .= $this->postProcess(1);
         } elseif (Tools::isSubmit('submitMoneiModuleGateways')) {
@@ -903,6 +899,57 @@ class Monei extends PaymentModule
         ]);
 
         return $message . $this->context->smarty->fetch($this->local_path . 'views/templates/admin/configure.tpl');
+    }
+
+    /**
+     * The submits of the configuration forms. Each one changes settings, so each one
+     * needs the form token.
+     */
+    private const FORM_SUBMITS = [
+        'submitMoneiConnect',
+        'submitMoneiDisconnect',
+        'submitMoneiModule',
+        'submitMoneiModuleGateways',
+        'submitMoneiModuleStatus',
+        'submitMoneiModuleComponentStyle',
+        'submitMoneiModuleExpress',
+    ];
+
+    private function isFormSubmitted(): bool
+    {
+        foreach (self::FORM_SUBMITS as $submit) {
+            if (Tools::isSubmit($submit)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * The token the configuration forms post.
+     *
+     * ⚠️ Not the admin token. PrestaShop 9 answers a wrong or missing token on the
+     * module configure URL with a redirect to its own route that adds a valid token,
+     * and then runs getContent, so a cross-site POST would change the settings. Its
+     * token is also salted on every request, so it cannot be compared here.
+     */
+    private function formToken(): string
+    {
+        return hash_hmac('sha256', 'monei_form_' . (int) $this->context->employee->id, _COOKIE_KEY_);
+    }
+
+    private function hasFormToken(): bool
+    {
+        return hash_equals($this->formToken(), (string) Tools::getValue('monei_form_token'));
+    }
+
+    private function generateFormWithToken(HelperForm $helper, array $form): string
+    {
+        $form['form']['input'][] = ['type' => 'hidden', 'name' => 'monei_form_token'];
+        $helper->tpl_vars['fields_value']['monei_form_token'] = $this->formToken();
+
+        return $helper->generateForm([$form]);
     }
 
     /**
@@ -1303,24 +1350,6 @@ class Monei extends PaymentModule
     }
 
     /**
-     * The token the Connect and Disconnect forms post.
-     *
-     * ⚠️ Not the admin token alone. PrestaShop 9 answers a wrong or missing token on
-     * the module configure URL with a redirect to its own route that adds a valid
-     * token, and then runs getContent. Its token is also salted on every request, so
-     * it cannot be compared here.
-     */
-    private function connectFormToken(): string
-    {
-        return hash_hmac('sha256', 'monei_connect_' . (int) $this->context->employee->id, _COOKIE_KEY_);
-    }
-
-    private function hasConnectFormToken(): bool
-    {
-        return hash_equals($this->connectFormToken(), (string) Tools::getValue('monei_connect_token'));
-    }
-
-    /**
      * After a switch: register the Apple Pay domain with each new key, on a fresh client.
      *
      * @param array<string, array{accountId: string, apiKey: string, signingSecret: string}> $switched
@@ -1419,7 +1448,7 @@ class Monei extends PaymentModule
 
         return [
             'action' => $this->configureUrl(),
-            'token' => $this->connectFormToken(),
+            'token' => $this->formToken(),
             'canConnect' => $this->connectRedirectUri() !== null,
             'connected' => $connect->isConnected(...$this->shopScope()),
             'keyLast4' => $key === '' ? '' : substr($key, -4),
@@ -1700,7 +1729,7 @@ class Monei extends PaymentModule
             'id_language' => $this->context->language->id,
         ];
 
-        return $helper->generateForm([$this->getConfigForm()]);
+        return $this->generateFormWithToken($helper, $this->getConfigForm());
     }
 
     /**
@@ -1899,7 +1928,7 @@ class Monei extends PaymentModule
             'id_language' => $this->context->language->id,
         ];
 
-        return $helper->generateForm([$this->getConfigFormGateways()]);
+        return $this->generateFormWithToken($helper, $this->getConfigFormGateways());
     }
 
     /**
@@ -2143,7 +2172,7 @@ class Monei extends PaymentModule
             'id_language' => $this->context->language->id,
         ];
 
-        return $helper->generateForm([$this->getConfigFormStatus()]);
+        return $this->generateFormWithToken($helper, $this->getConfigFormStatus());
     }
 
     /**
@@ -2323,7 +2352,7 @@ class Monei extends PaymentModule
             'id_language' => $this->context->language->id,
         ];
 
-        return $helper->generateForm([$this->getConfigFormExpress()]);
+        return $this->generateFormWithToken($helper, $this->getConfigFormExpress());
     }
 
     protected function getConfigFormExpress()
@@ -2414,7 +2443,7 @@ class Monei extends PaymentModule
             'id_language' => $this->context->language->id,
         ];
 
-        return $helper->generateForm([$this->getConfigFormComponentStyle()]);
+        return $this->generateFormWithToken($helper, $this->getConfigFormComponentStyle());
     }
 
     protected function getConfigFormComponentStyle()
