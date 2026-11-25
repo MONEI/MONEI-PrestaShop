@@ -1,6 +1,13 @@
 const { test, expect } = require('../utils/test');
 const { fixture } = require('../utils/fixtures');
-const { console: psConsole, getConfig, mysql, psEval, setConfig } = require('../utils/ps-cli');
+const {
+    console: psConsole,
+    getConfig,
+    mysql,
+    psEval,
+    setConfig,
+    setStock,
+} = require('../utils/ps-cli');
 
 const PRODUCT = fixture(
     'simpleProductPath',
@@ -334,9 +341,7 @@ test.describe('express checkout: guards on the payment path', () => {
         const outOfStock = psEval(`echo (int) StockAvailable::outOfStock(${product});`);
         const orderOutOfStock = getConfig('PS_ORDER_OUT_OF_STOCK');
 
-        psEval(
-            `StockAvailable::setQuantity(${product}, ${Number(defaultCombination)}, 0); StockAvailable::setProductOutOfStock(${product}, 0);`
-        );
+        setStock(product, Number(defaultCombination), 0, 0);
         setConfig('PS_ORDER_OUT_OF_STOCK', '0');
 
         try {
@@ -353,9 +358,7 @@ test.describe('express checkout: guards on the payment path', () => {
                 defaultCombination
             );
         } finally {
-            psEval(
-                `StockAvailable::setQuantity(${product}, ${Number(defaultCombination)}, ${Number(stock)}); StockAvailable::setProductOutOfStock(${product}, ${Number(outOfStock)});`
-            );
+            setStock(product, Number(defaultCombination), Number(stock), Number(outOfStock));
             setConfig('PS_ORDER_OUT_OF_STOCK', orderOutOfStock);
         }
     });
