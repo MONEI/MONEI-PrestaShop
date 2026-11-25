@@ -20,6 +20,8 @@ jobs:
       with:
         dev: no
         args: --optimize-autoloader
+        # The MONEI PHP SDK requires mbstring, which this action's image lacks.
+        php_extensions: mbstring
 
     - name: Archive Release
       run: |
