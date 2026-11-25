@@ -27,7 +27,7 @@ class CallbackVerifierTest extends TestCase
 
     /** @var int */
     private $now = 1700000000;
-    /** @var array<string, array{orderId: string, monei: bool, awaitingPayment: bool}> monei2_payment rows by payment id */
+    /** @var array<string, array{orderId: string, status: string, monei: bool, paid: bool}> monei2_payment rows by payment id */
     private $rows = [];
     /** @var array<string, mixed> Fields of the payment that MONEI answers */
     private $remote = [];
@@ -45,7 +45,7 @@ class CallbackVerifierTest extends TestCase
 
     private static function row(array $overrides = []): array
     {
-        return $overrides + ['orderId' => '1001', 'monei' => true, 'awaitingPayment' => true];
+        return $overrides + ['orderId' => '1001', 'status' => 'PENDING', 'monei' => true, 'paid' => false];
     }
 
     private static function paymentFields(string $status, array $overrides = []): array
@@ -276,15 +276,12 @@ class CallbackVerifierTest extends TestCase
     }
 
     /**
-     * Bug: an unsigned callback reopens an order that is paid, cancelled, refunded or
-     * shipped (a forged SUCCEEDED for a cancelled order), or changes a cart paid with
-     * another payment module.
-     *
-     * @dataProvider rowsThatTakeNoCallback
+     * Bug: a callback for a cart paid with another payment module makes the shop call
+     * MONEI.
      */
-    public function testARowWhoseOrderNoLongerAwaitsAMoneiPaymentAnswers200WithNoFetch(array $row): void
+    public function testACartPaidWithAnotherModuleAnswers200WithNoFetch(): void
     {
-        $this->rows[self::ID] = $row;
+        $this->rows[self::ID] = self::row(['monei' => false]);
 
         $decision = $this->verifier(self::connectedShop())->verify(self::body(self::paymentFields('SUCCEEDED')), null);
 
@@ -292,11 +289,35 @@ class CallbackVerifierTest extends TestCase
         $this->assertSame([], $this->fetches);
     }
 
-    public function rowsThatTakeNoCallback(): array
+    /**
+     * Bug: an unsigned callback replays a status already processed (a SUCCEEDED for an
+     * order the merchant cancelled since), moves a payment backwards, or drops a real
+     * move: a late payment of a cancelled order, the capture or the void of an
+     * authorization. The order's state does not decide: the stored MONEI status does.
+     *
+     * @dataProvider moves
+     */
+    public function testOnlyAForwardMoveFromTheStoredStatusIsProcessed(array $row, string $fetched, ?string $processed): void
+    {
+        $this->rows[self::ID] = self::row($row);
+        $this->remote = self::paymentFields($fetched);
+
+        $decision = $this->verifier(self::connectedShop())->verify(self::body(self::paymentFields('SUCCEEDED')), null);
+
+        $this->assertSame($processed, $decision['payment'] === null ? null : $decision['payment']->getStatus());
+        $this->assertSame(200, $decision['status']);
+    }
+
+    public function moves(): array
     {
         return [
-            'an order that no longer awaits payment' => [self::row(['awaitingPayment' => false])],
-            'a cart paid with another module' => [self::row(['monei' => false])],
+            'stored SUCCEEDED, order cancelled, fetched SUCCEEDED' => [['status' => 'SUCCEEDED', 'paid' => true], 'SUCCEEDED', null],
+            'stored none, order cancelled, fetched SUCCEEDED' => [['status' => ''], 'SUCCEEDED', 'SUCCEEDED'],
+            'stored PENDING, order cancelled, fetched SUCCEEDED' => [['status' => 'PENDING'], 'SUCCEEDED', 'SUCCEEDED'],
+            'stored AUTHORIZED, fetched SUCCEEDED' => [['status' => 'AUTHORIZED'], 'SUCCEEDED', 'SUCCEEDED'],
+            'stored AUTHORIZED, fetched CANCELED' => [['status' => 'AUTHORIZED'], 'CANCELED', 'CANCELED'],
+            'stored SUCCEEDED, fetched AUTHORIZED' => [['status' => 'SUCCEEDED', 'paid' => true], 'AUTHORIZED', null],
+            'stored PENDING, order already paid, fetched FAILED' => [['status' => 'PENDING', 'paid' => true], 'FAILED', null],
         ];
     }
 

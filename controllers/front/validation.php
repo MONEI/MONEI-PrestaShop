@@ -100,32 +100,20 @@ class MoneiValidationModuleFrontController extends ModuleFrontController
             'time',
             function (string $paymentId): ?array {
                 $row = Db::getInstance()->getRow(
-                    'SELECT `id_cart`, `id_order_monei` FROM `' . _DB_PREFIX_ . 'monei2_payment` WHERE `id_payment` = \'' . pSQL($paymentId) . '\'',
+                    'SELECT `id_cart`, `id_order_monei`, `status` FROM `' . _DB_PREFIX_ . 'monei2_payment` WHERE `id_payment` = \'' . pSQL($paymentId) . '\'',
                     false
                 );
                 if (!$row) {
                     return null;
                 }
-                $orderId = (string) $row['id_order_monei'];
                 $idOrder = (int) Order::getIdByCartId((int) $row['id_cart']);
-                if (!$idOrder) {
-                    return ['orderId' => $orderId, 'monei' => true, 'awaitingPayment' => true];
-                }
-
-                $order = new Order($idOrder);
-                $state = new OrderState((int) $order->current_state);
-                $closed = array_map('intval', [
-                    Configuration::get('PS_OS_CANCELED'),
-                    Configuration::get('PS_OS_REFUND'),
-                    Configuration::get('MONEI_STATUS_REFUNDED'),
-                    Configuration::get('MONEI_STATUS_PARTIALLY_REFUNDED'),
-                ]);
+                $order = $idOrder ? new Order($idOrder) : null;
 
                 return [
-                    'orderId' => $orderId,
-                    'monei' => $order->module === $this->module->name,
-                    'awaitingPayment' => !$state->paid && !$state->shipped && !$state->delivery
-                        && !in_array((int) $order->current_state, $closed, true),
+                    'orderId' => (string) $row['id_order_monei'],
+                    'status' => (string) $row['status'],
+                    'monei' => $order === null || $order->module === $this->module->name,
+                    'paid' => $order !== null && $order->hasBeenPaid() > 0,
                 ];
             },
             static function (string $mode, string $paymentId) {

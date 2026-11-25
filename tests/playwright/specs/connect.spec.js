@@ -161,15 +161,9 @@ test.describe('Connect with MONEI', () => {
         }
     });
 
-    test('a connected mode takes an unsigned callback only for a MONEI order awaiting payment', async ({
+    test('a connected mode settles an unsigned callback through its payment row and a fetch', async ({
         playwright,
     }) => {
-        const paidPaymentId = mysql(
-            'SELECT p.id_payment FROM ps_monei2_payment p JOIN ps_orders o ON o.id_cart = p.id_cart ' +
-                'JOIN ps_order_state s ON s.id_order_state = o.current_state ' +
-                "WHERE s.paid = 1 AND o.module = 'monei' LIMIT 1;"
-        );
-        test.skip(!paidPaymentId, 'No paid MONEI order yet: run a payment spec first.');
         // A payment whose cart has no order yet.
         const pendingPaymentId = 'e2e0'.repeat(8);
         mysql(
@@ -197,11 +191,9 @@ test.describe('Connect with MONEI', () => {
             expect({
                 // Not a payment of this shop: nothing for MONEI to retry.
                 unknown: await post('0'.repeat(32)),
-                // Awaits payment: the fetch runs with the stored key, which MONEI refuses.
+                // A row: the fetch runs with the stored key, which MONEI refuses.
                 pending: await post(pendingPaymentId),
-                // Already paid: no fetch, no change.
-                paid: await post(paidPaymentId),
-            }).toEqual({ unknown: 200, pending: 503, paid: 200 });
+            }).toEqual({ unknown: 200, pending: 503 });
             expect(orderPayments(), 'the forged SUCCEEDED body changed nothing').toBe(before);
         } finally {
             await callback.dispose();

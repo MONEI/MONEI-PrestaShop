@@ -27,8 +27,22 @@ final class CallbackVerifier
     private const PAYMENT_QUOTA = 5;
     private const SHOP_QUOTA = 60;
     private const WINDOW = 60;
-    /** The statuses MONEI sends callbacks for (payments-service handleCallback.ts). */
-    private const PROCESSED = ['AUTHORIZED', 'SUCCEEDED', 'CANCELED', 'FAILED', 'PAID_OUT'];
+    private const OPEN = ['AUTHORIZED', 'SUCCEEDED', 'FAILED', 'CANCELED'];
+    /**
+     * The statuses an unsigned callback may move a payment to, by the status stored
+     * for it. Only statuses MONEI sends callbacks for (payments-service
+     * handleCallback.ts), and only forward: a replay of a status already processed
+     * changes nothing, such as a SUCCEEDED for an order the merchant cancelled since.
+     */
+    private const FORWARD = [
+        '' => self::OPEN,
+        'PENDING' => self::OPEN,
+        'FAILED' => self::OPEN,
+        'CANCELED' => self::OPEN,
+        'EXPIRED' => self::OPEN,
+        'AUTHORIZED' => ['SUCCEEDED', 'CANCELED'],
+        'SUCCEEDED' => ['PAID_OUT'],
+    ];
 
     /** @var ConfigurationStoreInterface */
     private $store;
@@ -38,7 +52,7 @@ final class CallbackVerifier
     private $idShop;
     /** @var callable(): int */
     private $clock;
-    /** @var callable(string): (array{orderId: string, monei: bool, awaitingPayment: bool}|null) The monei2_payment row of a payment id, and the order of its cart */
+    /** @var callable(string): (array{orderId: string, status: string, monei: bool, paid: bool}|null) The monei2_payment row of a payment id, and the order of its cart */
     private $findPayment;
     /** @var callable(string, string): Payment Fetch a payment with the key of a mode */
     private $fetch;
@@ -109,11 +123,6 @@ final class CallbackVerifier
         if (!$row['monei']) {
             return self::refused(200, 'module');
         }
-        // An unsigned callback never reopens an order that is paid, shipped,
-        // cancelled or refunded.
-        if (!$row['awaitingPayment']) {
-            return self::refused(200, 'order');
-        }
         // Temporary: MONEI retries a 503.
         if (!$this->takeQuota($id)) {
             return self::refused(503, 'quota');
@@ -138,8 +147,12 @@ final class CallbackVerifier
         if ((bool) $payment->getLivemode() !== (bool) $this->value('MONEI_PRODUCTION_MODE')) {
             return self::refused(200, 'livemode');
         }
-        if (!in_array($payment->getStatus(), self::PROCESSED, true)) {
+        $status = $payment->getStatus();
+        if (!in_array($status, self::FORWARD[$row['status']] ?? [], true)) {
             return self::refused(200, 'status');
+        }
+        if ($row['paid'] && in_array($status, ['FAILED', 'CANCELED'], true)) {
+            return self::refused(200, 'paid');
         }
 
         return self::accepted($payment);
