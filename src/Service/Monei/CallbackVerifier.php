@@ -27,7 +27,6 @@ final class CallbackVerifier
     private const PAYMENT_QUOTA = 5;
     private const SHOP_QUOTA = 60;
     private const WINDOW = 60;
-    private const OPEN = ['AUTHORIZED', 'SUCCEEDED', 'FAILED', 'CANCELED'];
     /**
      * The statuses an unsigned callback may move a payment to, by the status stored
      * for it. Only statuses MONEI sends callbacks for (payments-service
@@ -35,11 +34,11 @@ final class CallbackVerifier
      * changes nothing, such as a SUCCEEDED for an order the merchant cancelled since.
      */
     private const FORWARD = [
-        '' => self::OPEN,
-        'PENDING' => self::OPEN,
-        'FAILED' => self::OPEN,
-        'CANCELED' => self::OPEN,
-        'EXPIRED' => self::OPEN,
+        '' => ['AUTHORIZED', 'SUCCEEDED', 'FAILED', 'CANCELED'],
+        'PENDING' => ['AUTHORIZED', 'SUCCEEDED', 'FAILED', 'CANCELED'],
+        'EXPIRED' => ['AUTHORIZED', 'SUCCEEDED', 'FAILED', 'CANCELED'],
+        'FAILED' => ['AUTHORIZED', 'SUCCEEDED', 'CANCELED'],
+        'CANCELED' => ['AUTHORIZED', 'SUCCEEDED', 'FAILED'],
         'AUTHORIZED' => ['SUCCEEDED', 'CANCELED'],
         'SUCCEEDED' => ['PAID_OUT'],
     ];
@@ -149,7 +148,7 @@ final class CallbackVerifier
         }
         $status = $payment->getStatus();
         if (!in_array($status, self::FORWARD[$row['status']] ?? [], true)) {
-            return self::refused(200, 'status');
+            return self::refused(200, 'notForward');
         }
         if ($row['paid'] && in_array($status, ['FAILED', 'CANCELED'], true)) {
             return self::refused(200, 'paid');

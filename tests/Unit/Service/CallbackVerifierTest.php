@@ -297,7 +297,7 @@ class CallbackVerifierTest extends TestCase
      *
      * @dataProvider moves
      */
-    public function testOnlyAForwardMoveFromTheStoredStatusIsProcessed(array $row, string $fetched, ?string $processed): void
+    public function testOnlyAForwardMoveFromTheStoredStatusIsProcessed(array $row, string $fetched, ?string $processed, string $reason = 'notForward'): void
     {
         $this->rows[self::ID] = self::row($row);
         $this->remote = self::paymentFields($fetched);
@@ -305,7 +305,7 @@ class CallbackVerifierTest extends TestCase
         $decision = $this->verifier(self::connectedShop())->verify(self::body(self::paymentFields('SUCCEEDED')), null);
 
         $this->assertSame($processed, $decision['payment'] === null ? null : $decision['payment']->getStatus());
-        $this->assertSame(200, $decision['status']);
+        $this->assertSame([200, $processed === null ? $reason : 'ok'], [$decision['status'], $decision['reason']]);
     }
 
     public function moves(): array
@@ -317,7 +317,10 @@ class CallbackVerifierTest extends TestCase
             'stored AUTHORIZED, fetched SUCCEEDED' => [['status' => 'AUTHORIZED'], 'SUCCEEDED', 'SUCCEEDED'],
             'stored AUTHORIZED, fetched CANCELED' => [['status' => 'AUTHORIZED'], 'CANCELED', 'CANCELED'],
             'stored SUCCEEDED, fetched AUTHORIZED' => [['status' => 'SUCCEEDED', 'paid' => true], 'AUTHORIZED', null],
-            'stored PENDING, order already paid, fetched FAILED' => [['status' => 'PENDING', 'paid' => true], 'FAILED', null],
+            'stored FAILED, fetched FAILED' => [['status' => 'FAILED'], 'FAILED', null],
+            'stored CANCELED, fetched CANCELED' => [['status' => 'CANCELED'], 'CANCELED', null],
+            'stored REFUNDED, fetched SUCCEEDED' => [['status' => 'REFUNDED'], 'SUCCEEDED', null],
+            'stored PENDING, order already paid, fetched FAILED' => [['status' => 'PENDING', 'paid' => true], 'FAILED', null, 'paid'],
         ];
     }
 
