@@ -248,7 +248,7 @@ test.describe('Connect with MONEI', () => {
             await page.locator('button[name="submitMoneiModule"]').click();
 
             await expect(
-                page.locator('.alert', { hasText: 'The API keys changed in another tab' }).first()
+                page.locator('.alert', { hasText: 'The MONEI keys changed in another tab' }).first()
             ).toBeVisible();
             expect(getConfig('MONEI_TEST_API_KEY')).toBe('mk_test_e2e_not_a_key');
             expect(getConfig('MONEI_TEST_SIGNING_SECRET')).toBe('mksec_test_e2e');
@@ -305,7 +305,7 @@ test.describe('Connect with MONEI', () => {
             await page.locator('button[name="submitMoneiModule"]').click();
 
             await expect(
-                page.locator('.alert', { hasText: 'The API keys changed in another tab' }).first()
+                page.locator('.alert', { hasText: 'The MONEI keys changed in another tab' }).first()
             ).toBeVisible();
             expect(
                 ['MONEI_TEST_ACCOUNT_ID', 'MONEI_TEST_API_KEY', 'MONEI_PRODUCTION_MODE'].map(
@@ -336,12 +336,21 @@ test.describe('Connect with MONEI', () => {
 
         await expect(page.locator('#monei-connect-manual')).toContainText('Use manual keys');
         await expect(page.locator('#monei-connect')).toHaveCount(0);
+        // Manual keys are the only way here, so their fields are open.
+        await page.locator('a[href="#panel-conf-1"]').click();
+        await expect(page.locator('input[name="MONEI_TEST_API_KEY"]')).toBeVisible();
+        await expect(page.locator('#monei-manual-keys-toggle')).toHaveCount(0);
     });
 
     test('an https shop starts at the broker with S256 and its callback', async ({ page }) => {
         test.skip(!HTTPS, CONNECT_SKIP_REASON);
 
         await openModuleConfiguration(page);
+        // Connect is the main flow: the manual key fields wait for a click.
+        await page.locator('a[href="#panel-conf-1"]').click();
+        await expect(page.locator('input[name="MONEI_TEST_API_KEY"]')).toBeHidden();
+        await page.locator('#monei-manual-keys-toggle').click();
+        await expect(page.locator('input[name="MONEI_TEST_API_KEY"]')).toBeVisible();
         const form = page.locator('form:has(#monei-connect)');
         // The button opens a new tab, so the settings page stays open.
         expect(await form.getAttribute('target')).toBe('_blank');

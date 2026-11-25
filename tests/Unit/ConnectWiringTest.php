@@ -214,15 +214,18 @@ class ConnectWiringTest extends TestCase
 
     /**
      * Bug: a settings tab rendered before a connect or a disconnect writes the old
-     * keys and mode back over the new ones; or the form loses the fingerprints, so
-     * every save looks stale.
+     * keys and mode back over the new ones, or calls MONEI with them; or the form loses
+     * the fingerprints, so every save looks stale.
      */
-    public function testAStaleSettingsSaveIsRefusedBeforeAnyWrite(): void
+    public function testAStaleSettingsSaveKeepsTheKeysAndTheMode(): void
     {
         $save = $this->method(self::MODULE, 'postProcess');
 
-        $this->assertMatchesRegularExpression('/if\(\$this->connectService\(\)->staleModes\(\[[^]]*\],\.\.\.\$this->shopScope\(\)\)\)\{return\$this->displayWarning\(/', $save);
-        $this->assertBefore('->staleModes(', '$this->validateApiCredentials($form_values)', $save, 'refused before the validation calls MONEI');
+        $this->assertMatchesRegularExpression(
+            '/if\(\$this->connectService\(\)->staleModes\(\[[^]]*\],\.\.\.\$this->shopScope\(\)\)\)\{unset\(\$form_values\[\'MONEI_PRODUCTION_MODE\'\]\);foreach\(ConnectService::KEYSas\$keys\)\{unset\(\$form_values\[\$keys\[\'accountId\'\]\],\$form_values\[\$keys\[\'apiKey\'\]\]\);\}[^}]*break;\}/',
+            $save
+        );
+        $this->assertBefore('->staleModes(', '$this->validateApiCredentials($form_values)', $save, 'a stale save skips the check that calls MONEI');
         $this->assertStringContainsString('\'fields_value\'=>$this->settingsFormValues(),', $this->method(self::MODULE, 'renderForm'));
         $this->assertStringContainsString('return$values+$this->keyFingerprintValues();', $this->method(self::MODULE, 'settingsFormValues'));
     }

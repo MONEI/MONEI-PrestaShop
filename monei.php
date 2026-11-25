@@ -919,12 +919,19 @@ class Monei extends PaymentModule
                 $form_values = $this->getConfigFormValues();
 
                 // A connect or a disconnect in another tab changed the keys after this
-                // form was rendered: its fields would write the old keys and mode back.
+                // form was rendered: its key fields and mode would write the old values
+                // back. The other settings of the form still save.
                 if ($this->connectService()->staleModes([
                     'live' => (string) Tools::getValue('monei_key_fingerprint_live'),
                     'test' => (string) Tools::getValue('monei_key_fingerprint_test'),
                 ], ...$this->shopScope())) {
-                    return $this->displayWarning($this->l('The API keys changed in another tab, so nothing was saved. Reload the page.'));
+                    unset($form_values['MONEI_PRODUCTION_MODE']);
+                    foreach (ConnectService::KEYS as $keys) {
+                        unset($form_values[$keys['accountId']], $form_values[$keys['apiKey']]);
+                    }
+                    $this->warning[] = $this->l('The MONEI keys changed in another tab, so the key fields were not saved. Reload this page.');
+
+                    break;
                 }
 
                 // The form never shows a connected key: an empty field keeps it.
@@ -1459,11 +1466,19 @@ class Monei extends PaymentModule
         return $values + $this->keyFingerprintValues();
     }
 
+    private function isConnectedKey(string $key): bool
+    {
+        return strpos((string) Configuration::get($key), 'mk_') === 0;
+    }
+
+    private function apiKeyDescription(string $key, string $manual): string
+    {
+        return $this->isConnectedKey($key) ? $this->l('Set by Connect with MONEI. Leave empty to keep this key.') : $manual;
+    }
+
     private function apiKeyPlaceholder(string $key, string $example): string
     {
-        $stored = (string) Configuration::get($key);
-
-        return strpos($stored, 'mk_') === 0 ? '•••• ' . substr($stored, -4) : $example;
+        return $this->isConnectedKey($key) ? '•••• ' . substr((string) Configuration::get($key), -4) : $example;
     }
 
     /**
@@ -1733,8 +1748,10 @@ class Monei extends PaymentModule
                         'col' => 3,
                         'type' => 'text',
                         'prefix' => '<i class="icon icon-key"></i>',
-                        'desc' => $this->l('Your MONEI API Key. Available at your MONEI dashboard.'),
+                        'desc' => $this->apiKeyDescription('MONEI_API_KEY', $this->l('Your MONEI API Key. Available at your MONEI dashboard.')),
                         'name' => 'MONEI_API_KEY',
+                        // HelperForm renders only autocomplete="off": no password manager fills it.
+                        'autocomplete' => !$this->isConnectedKey('MONEI_API_KEY'),
                         'label' => $this->l('API Key'),
                         'placeholder' => $this->apiKeyPlaceholder('MONEI_API_KEY', 'pk_live_7h3m4n1f3st0k3yf0r3x4mpl3purp0s3'),
                         'class' => 'monei-production-field',
@@ -1753,8 +1770,10 @@ class Monei extends PaymentModule
                         'col' => 3,
                         'type' => 'text',
                         'prefix' => '<i class="icon icon-key"></i>',
-                        'desc' => $this->l('Your MONEI Test API Key. Available at your MONEI dashboard.'),
+                        'desc' => $this->apiKeyDescription('MONEI_TEST_API_KEY', $this->l('Your MONEI Test API Key. Available at your MONEI dashboard.')),
                         'name' => 'MONEI_TEST_API_KEY',
+                        // HelperForm renders only autocomplete="off": no password manager fills it.
+                        'autocomplete' => !$this->isConnectedKey('MONEI_TEST_API_KEY'),
                         'label' => $this->l('Test API Key'),
                         'placeholder' => $this->apiKeyPlaceholder('MONEI_TEST_API_KEY', 'pk_test_d3m0t3stk3yf0rd3v3l0pm3ntus4g3'),
                         'class' => 'monei-test-field',
