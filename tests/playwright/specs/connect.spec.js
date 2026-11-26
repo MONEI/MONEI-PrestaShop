@@ -2,7 +2,7 @@ const crypto = require('crypto');
 const { test, expect } = require('../utils/test');
 const { login, moduleConfigureUrl, openModuleConfiguration } = require('../utils/admin');
 const { ADMIN_PATH, baseUrl } = require('../utils/env');
-const { getConfig, mysql, setConfig } = require('../utils/ps-cli');
+const { getConfig, mysql, psEval, setConfig } = require('../utils/ps-cli');
 
 /**
  * Connect with MONEI: the admin checks of the start and disconnect branches of
@@ -78,6 +78,78 @@ const configureUrlWithToken = (token) => {
     return token === null ? url : `${url}&token=${token}`;
 };
 
+const NO_PERMISSION = 'You do not have permission to edit this.';
+
+/**
+ * ⚠️ PrestaShop 8 refuses an employee without edit on Modules or configure on the
+ * module before getContent, with this message. PrestaShop 9 runs getContent.
+ */
+const PS8_NO_PERMISSION = 'You do not have permission to configure this module.';
+
+const PS8 = psEval('echo _PS_VERSION_;').split('\n').pop().startsWith('8.');
+
+/**
+ * The refusal of a request without a valid admin or form token: the module's own
+ * on PrestaShop 9, PrestaShop's "Invalid security token" page on PrestaShop 8.
+ */
+const TOKEN_REFUSAL = /security token is not valid|Invalid token|Invalid security token/i;
+
+// A throwaway employee: the test creates and deletes it.
+const LIMITED = {
+    email: 'e2e-limited@monei.test',
+    password: `${crypto.randomBytes(12).toString('hex')}Aa1`,
+};
+
+/**
+ * An employee whose profile reads Modules, and nothing more unless asked.
+ * @return {string} "<id_profile>,<id_employee>"
+ */
+const createLimitedEmployee = () =>
+    psEval(
+        "$lang = (int) Configuration::get('PS_LANG_DEFAULT');" +
+            "$profile = new Profile(); $profile->name = [$lang => 'e2e limited']; $profile->add();" +
+            '$access = new Access();' +
+            "foreach (['AdminDashboard', 'AdminParentModulesSf', 'AdminModulesSf'] as $tab) {" +
+            "  $access->updateLgcAccess($profile->id, Tab::getIdFromClassName($tab), 'view', true);" +
+            '}' +
+            "$access->updateLgcModuleAccess($profile->id, Module::getModuleIdByName('monei'), 'view', true);" +
+            // A failed add must not leave the profile behind.
+            'try {' +
+            "$employee = new Employee(); $employee->firstname = 'Limited'; $employee->lastname = 'Employee';" +
+            `$employee->email = '${LIMITED.email}';` +
+            `$employee->passwd = (new PrestaShop\\PrestaShop\\Core\\Crypto\\Hashing())->hash('${LIMITED.password}');` +
+            '$employee->id_profile = $profile->id; $employee->id_lang = $lang; $employee->active = 1;' +
+            "$employee->default_tab = Tab::getIdFromClassName('AdminDashboard'); $employee->add();" +
+            '} catch (Throwable $e) { $profile->delete(); throw $e; }' +
+            "echo $profile->id . ',' . $employee->id;"
+    );
+
+/**
+ * Grant or revoke the two rights a connect needs: edit on Modules, configure on MONEI.
+ * @param {string}  idProfile      - Profile id
+ * @param {boolean} editModules    - Edit on Modules
+ * @param {boolean} configureMonei - Configure on the MONEI module
+ */
+const setLimitedRights = (idProfile, editModules, configureMonei) =>
+    psEval(
+        '$access = new Access();' +
+            `$access->updateLgcAccess(${idProfile}, Tab::getIdFromClassName('AdminModulesSf'), 'edit', ${editModules}, false);` +
+            `$access->updateLgcModuleAccess(${idProfile}, Module::getModuleIdByName('monei'), 'configure', ${configureMonei});`
+    );
+
+/**
+ * The configure URL with an admin token of the given employee. PrestaShop 9 swaps any
+ * token for its own; PrestaShop 8 checks it.
+ * @param {string} idEmployee - Employee id
+ * @return {string} Back office URL
+ */
+const configureUrlFor = (idEmployee) =>
+    `${ADMIN_PATH}/index.php?controller=AdminModules&configure=monei&token=${psEval(
+        `Context::getContext()->employee = new Employee(${idEmployee}); echo Tools::getAdminTokenLite('AdminModules');`
+    )
+        .split('\n')
+        .pop()}`;
+
 /**
  * Post a getContent branch three ways: with no employee session, and signed in with
  * a missing and with a wrong token.
@@ -98,7 +170,7 @@ const postWithoutTheAdminCheck = async (page, playwright, submit) => {
     await login(page);
     for (const token of [null, '0123456789abcdef0123456789abcdef']) {
         const response = await page.request.post(configureUrlWithToken(token), { form });
-        const refusal = (await response.text()).match(/security token is not valid|Invalid token/i);
+        const refusal = (await response.text()).match(TOKEN_REFUSAL);
         landings.push(`${response.status()} ${refusal ? 'refused' : 'not refused'}`);
     }
 
@@ -459,6 +531,163 @@ test.describe('Connect with MONEI', () => {
                 'the manual Test key stays'
             ).toBe(true);
         } finally {
+            restore();
+        }
+    });
+
+    test('an employee without edit on Modules or configure on MONEI can neither connect nor disconnect', async ({
+        browser,
+    }) => {
+        // ⚠️ PrestaShop 9 runs getContent for read access on Modules alone.
+        const [idProfile, idEmployee] = createLimitedEmployee().split('\n').pop().split(',');
+        const restore = keep([
+            'MONEI_TEST_ACCOUNT_ID',
+            'MONEI_TEST_API_KEY',
+            'MONEI_TEST_SIGNING_SECRET',
+        ]);
+        setConfig('MONEI_TEST_API_KEY', 'mk_test_e2e_not_a_key');
+        const context = await browser.newContext({ baseURL: baseUrl() });
+        const page = await context.newPage();
+
+        try {
+            await login(page, LIMITED);
+            const outcomes = {};
+            for (const [rights, editModules, configureMonei] of [
+                ['read-only Modules', false, true],
+                ['no configure on MONEI', true, false],
+            ]) {
+                setLimitedRights(idProfile, editModules, configureMonei);
+                await page.goto(configureUrlFor(idEmployee), { waitUntil: 'domcontentloaded' });
+                const token = PS8
+                    ? ''
+                    : await page.locator('input[name="monei_form_token"]').first().inputValue();
+                // The connected shop shows Disconnect to an admin.
+                await expect(page.locator('#monei-connect, #monei-disconnect'), rights).toHaveCount(
+                    0
+                );
+                const states = stateRows();
+                const credentials = credentialsDigest();
+                for (const submit of ['submitMoneiConnect', 'submitMoneiDisconnect']) {
+                    const response = await page.request.post(page.url(), {
+                        form: { [submit]: '1', monei_form_token: token },
+                        maxRedirects: 0,
+                    });
+                    const refused = (await response.text()).includes(
+                        PS8 ? PS8_NO_PERMISSION : NO_PERMISSION
+                    );
+                    outcomes[`${rights}: ${submit}`] =
+                        `${response.status()} ${refused ? 'refused' : 'not refused'}`;
+                    // After each submit: a Disconnect also deletes the state a Connect stored.
+                    expect(stateRows(), `${rights}, ${submit}: no state stored`).toBe(states);
+                    expect(credentialsDigest(), `${rights}, ${submit}: credentials unchanged`).toBe(
+                        credentials
+                    );
+                }
+            }
+
+            expect(outcomes).toEqual({
+                'read-only Modules: submitMoneiConnect': '200 refused',
+                'read-only Modules: submitMoneiDisconnect': '200 refused',
+                'no configure on MONEI: submitMoneiConnect': '200 refused',
+                'no configure on MONEI: submitMoneiDisconnect': '200 refused',
+            });
+        } finally {
+            await context.close();
+            restore();
+            psEval(
+                `(new Employee(${idEmployee}))->delete(); (new Profile(${idProfile}))->delete();`
+            );
+        }
+    });
+
+    test('an employee without edit on Modules or configure on MONEI cannot save the settings', async ({
+        browser,
+    }) => {
+        // ⚠️ PrestaShop 9 runs getContent for read access on Modules alone. The seeded
+        // test key stays, so without the check this save validates and writes.
+        const [idProfile, idEmployee] = createLimitedEmployee().split('\n').pop().split(',');
+        const settings = ['MONEI_PAYMENT_ACTION', 'MONEI_SHOW_LOGO', ...CREDENTIALS];
+        const restore = keep(settings);
+        const context = await browser.newContext({ baseURL: baseUrl() });
+        const page = await context.newPage();
+
+        try {
+            await login(page, LIMITED);
+            for (const [rights, editModules, configureMonei] of [
+                ['read-only Modules', false, true],
+                ['no configure on MONEI', true, false],
+            ]) {
+                setLimitedRights(idProfile, editModules, configureMonei);
+                const before = settings.map(getConfig);
+                const changed = before[0] === 'auth' ? 'sale' : 'auth';
+                await page.goto(configureUrlFor(idEmployee), { waitUntil: 'domcontentloaded' });
+                if (PS8) {
+                    await page.request.post(page.url(), {
+                        form: { submitMoneiModule: '1', MONEI_PAYMENT_ACTION: changed },
+                    });
+                    await page.reload({ waitUntil: 'domcontentloaded' });
+                } else {
+                    await page.locator('a[href="#panel-conf-1"]').click();
+                    await page.locator('select[name="MONEI_PAYMENT_ACTION"]').selectOption(changed);
+                    await page.locator('button[name="submitMoneiModule"]').click();
+                }
+
+                await expect(
+                    page
+                        .locator('.alert', { hasText: PS8 ? PS8_NO_PERMISSION : NO_PERMISSION })
+                        .first(),
+                    rights
+                ).toBeVisible();
+                expect(settings.map(getConfig), `${rights}: nothing stored`).toEqual(before);
+            }
+        } finally {
+            await context.close();
+            restore();
+            psEval(
+                `(new Employee(${idEmployee}))->delete(); (new Profile(${idProfile}))->delete();`
+            );
+        }
+    });
+
+    test('a settings save over GET changes nothing', async ({ page }) => {
+        const before = getConfig('MONEI_PAYMENT_ACTION');
+
+        await openModuleConfiguration(page);
+        const token = await page.locator('input[name="monei_form_token"]').first().inputValue();
+        // A link or an image with the page's own token: only the method check refuses it.
+        await page.goto(
+            `${page.url()}&submitMoneiModule=1&monei_form_token=${token}&MONEI_PAYMENT_ACTION=${before === 'auth' ? 'sale' : 'auth'}`,
+            { waitUntil: 'domcontentloaded' }
+        );
+
+        await expect(
+            page.locator('.alert', { hasText: 'The form was not sent correctly.' }).first()
+        ).toBeVisible();
+        expect(getConfig('MONEI_PAYMENT_ACTION')).toBe(before);
+    });
+
+    test('the callback runs in maintenance mode', async ({ playwright }) => {
+        const restore = keep([
+            'PS_SHOP_ENABLE',
+            'PS_MAINTENANCE_ALLOW_ADMINS',
+            'PS_MAINTENANCE_IP',
+        ]);
+        setConfig('PS_SHOP_ENABLE', '0');
+        setConfig('PS_MAINTENANCE_ALLOW_ADMINS', '0');
+        setConfig('PS_MAINTENANCE_IP', '');
+        // The broker's redirect carries no admin session.
+        const anonymous = await playwright.request.newContext({ baseURL: baseUrl() });
+
+        try {
+            const response = await anonymous.get(
+                `/index.php?fc=module&module=monei&controller=connect&code=forged-code&state=${'f'.repeat(43)}`
+            );
+
+            // The callback's own answer to a forged state, not the maintenance page's 503.
+            expect(response.status()).toBe(400);
+            expect(await response.text()).toContain('not valid');
+        } finally {
+            await anonymous.dispose();
             restore();
         }
     });

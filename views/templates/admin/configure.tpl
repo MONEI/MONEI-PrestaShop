@@ -71,6 +71,8 @@
                         {* Connect is the main flow: admin.js collapses the manual key fields while it is available. *}
                         <div class="panel" id="monei-connect-panel" data-manual-keys="{if $monei_connect.canConnect}closed{else}open{/if}">
                             <h3><i class="icon icon-link"></i> {l s='Connect with MONEI' mod='monei'}</h3>
+                            {* An employee without the rights to change the keys sees no buttons. *}
+                            {if $monei_connect.canChange}
                             <p>
                                 {if $monei_connect.canConnect}
                                     <form method="post" action="{$monei_connect.action|escape:'html':'UTF-8'}" target="_blank" style="display:inline">
@@ -87,6 +89,7 @@
                                     </form>
                                 {/if}
                             </p>
+                            {/if}
                             {if $monei_connect.keyLast4}
                                 <p id="monei-key-in-use">{l s='Key in use (%s): ending in' sprintf=[$monei_connect.mode] mod='monei'} {$monei_connect.keyLast4|escape:'html':'UTF-8'}</p>
                             {/if}

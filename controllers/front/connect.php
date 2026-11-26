@@ -14,6 +14,14 @@ if (!defined('_PS_VERSION_')) {
  */
 class MoneiConnectModuleFrontController extends ModuleFrontController
 {
+    /**
+     * The broker's redirect must reach postProcess() in maintenance mode too, or the
+     * code expires behind the maintenance page. The state is the gate.
+     */
+    protected function displayMaintenancePage()
+    {
+    }
+
     public function postProcess()
     {
         // The code is in this URL: it must never leave in a Referer.

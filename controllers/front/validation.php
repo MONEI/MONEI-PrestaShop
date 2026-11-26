@@ -49,7 +49,8 @@ class MoneiValidationModuleFrontController extends ModuleFrontController
             if ($decision['status'] === 401) {
                 Monei::logError('[MONEI] Webhook signature verification failed');
             } else {
-                Monei::logWarning('[MONEI] Webhook not processed [reason=' . $decision['reason'] . ']');
+                Monei::logWarning('[MONEI] Webhook not processed [reason=' . $decision['reason']
+                    . (isset($decision['detail']) ? ', detail=' . $decision['detail'] : '') . ']');
             }
 
             http_response_code($decision['status']);

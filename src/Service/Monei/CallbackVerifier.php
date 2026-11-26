@@ -15,7 +15,9 @@ use PsMonei\Repository\ConfigurationStoreInterface;
  *   The payment is fetched with the shop's key and checked against its
  *   monei2_payment row. So callbacks of orders made before the connect, after a
  *   rotation, or without v2 still settle, and a forged body changes nothing.
- * - Else (a manual pk_ key): v1 with that key.
+ * - Else (a manual pk_ key): v1 with that key, then the payment is fetched with
+ *   it, under the same quota. v1 does not check the timestamp, so a resent body
+ *   would settle as it was.
  *
  * Pure: the store, the clock, the row lookup and the fetch are injected, so the
  * unit suite can load it.
@@ -88,7 +90,7 @@ final class CallbackVerifier
      * @param string $body Raw request body
      * @param string|null $signature MONEI-Signature header, null when absent
      *
-     * @return array{status: int, payment: Payment|null, reason: string}
+     * @return array{status: int, payment: Payment|null, reason: string, detail?: string}
      */
     public function verify(string $body, ?string $signature): array
     {
@@ -106,7 +108,7 @@ final class CallbackVerifier
         $secret = $this->value(ConnectService::KEYS[$mode]['signingSecret'], $scope);
 
         if ($secret !== '' && $signature !== null && self::signatureValid($body, $signature, '', $secret)) {
-            return $this->signed($data, $scope);
+            return $this->otherMode($data, $scope) ?? self::fromBody($data);
         }
         if (self::isScopedKey($key)) {
             return $this->fetched($signature, $id, $row, $key, $scope);
@@ -115,23 +117,37 @@ final class CallbackVerifier
         if ($key === '' || $signature === null || !self::signatureValid($body, $signature, $key, null)) {
             return self::refused(401, 'signature');
         }
+        if (($refused = $this->otherMode($data, $scope)) !== null) {
+            return $refused;
+        }
+        if (!is_string($id) || !preg_match(self::ID_FORMAT, $id)) {
+            return self::refused(400, 'format');
+        }
+        if ($row !== null && !$row['monei']) {
+            return self::refused(200, 'module');
+        }
 
-        return $this->signed($data, $scope);
+        // A replayed v1 body would otherwise fetch once per request.
+        if (!$this->takeQuota($id, $scope)) {
+            return self::refused(503, 'quota');
+        }
+
+        return $this->checkedFetch($id, $row, $key, $scope);
     }
 
     /**
-     * A body that v2 or v1 proves. It still must be a callback of the shop's mode:
-     * anyone with the test key can sign a test payment made for a live cart.
+     * A signed body must still be a callback of the shop's mode: anyone with the test
+     * key can sign a test payment made for a live cart.
      *
      * @param int[] $scope
      */
-    private function signed(\stdClass $data, array $scope): array
+    private function otherMode(\stdClass $data, array $scope): ?array
     {
         if (isset($data->livemode) && is_bool($data->livemode) && $data->livemode !== $this->isLive($scope)) {
             return self::refused(200, 'livemode');
         }
 
-        return self::fromBody($data);
+        return null;
     }
 
     /**
@@ -158,12 +174,25 @@ final class CallbackVerifier
             return self::refused(503, 'quota');
         }
 
+        return $this->checkedFetch($id, $row, $key, $scope);
+    }
+
+    /**
+     * Fetch the payment and check it against its row. A v1 callback can come without
+     * a row; it then has no order and no stored status yet.
+     *
+     * @param array{orderId: string, status: string, monei: bool, paid: bool, idShopGroup: int, idShop: int}|null $row
+     * @param int[] $scope
+     */
+    private function checkedFetch(string $id, ?array $row, string $key, array $scope): array
+    {
+        $row = $row ?? ['orderId' => '', 'status' => '', 'paid' => false];
+
         try {
             $payment = ($this->fetch)($key, $id);
         } catch (\InvalidArgumentException $e) {
-            // The SDK's deserialize refuses a status it does not know. A retry gets
-            // the same answer, so it is not a 503.
-            return self::refused(200, 'status');
+            // A retry gets the same answer, so it is not a 503.
+            return self::unknownValue($e);
         } catch (\Throwable $e) {
             return self::refused(503, 'fetch');
         }
@@ -292,11 +321,19 @@ final class CallbackVerifier
         try {
             $payment = ObjectSerializer::deserialize($data, '\Monei\Model\Payment');
         } catch (\InvalidArgumentException $e) {
-            // A status this SDK does not know.
-            return self::refused(200, 'status');
+            return self::unknownValue($e);
         }
 
         return self::accepted($payment);
+    }
+
+    /**
+     * The SDK's deserialize refuses an enum value it does not know, such as a new
+     * status.
+     */
+    private static function unknownValue(\InvalidArgumentException $e): array
+    {
+        return self::refused(200, 'unknownValue') + ['detail' => $e->getMessage()];
     }
 
     private static function accepted(Payment $payment): array

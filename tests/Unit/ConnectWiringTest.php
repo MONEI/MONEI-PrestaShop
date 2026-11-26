@@ -50,9 +50,10 @@ class ConnectWiringTest extends TestCase
     private function branch(string $submit): string
     {
         $content = $this->method(self::MODULE, 'getContent');
-        $start = strpos($content, "Tools::isSubmit('$submit')");
+        // The branch that acts, not the permission branch before it, which names it too.
+        $start = strpos($content, "}elseif(Tools::isSubmit('$submit')");
         $this->assertNotFalse($start, "$submit branch not found");
-        $end = strpos($content, '}elseif(Tools::isSubmit(', $start);
+        $end = strpos($content, '}elseif(Tools::isSubmit(', $start + 1);
         $this->assertNotFalse($end, "$submit is not followed by another branch");
 
         return substr($content, $start, $end - $start);

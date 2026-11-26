@@ -848,8 +848,13 @@ class Monei extends PaymentModule
         /*
          * If values have been submitted in the form, process.
          */
-        if ($this->isFormSubmitted() && !$this->hasFormToken()) {
+        // Tools::isSubmit() also reads the query string: a link or an image would submit.
+        if ($this->isFormSubmitted() && Tools::strtoupper($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
+            $message .= $this->displayError($this->l('The form was not sent correctly. Reload the page and try again.'));
+        } elseif ($this->isFormSubmitted() && !$this->hasFormToken()) {
             $message .= $this->displayError($this->l('The security token is not valid. Reload the page and try again.'));
+        } elseif ($this->isFormSubmitted() && !$this->canConfigure()) {
+            $message .= $this->displayError($this->trans('You do not have permission to edit this.', [], 'Admin.Notifications.Error'));
         } elseif (Tools::isSubmit('submitMoneiConnect')) {
             if (($redirectUri = $this->connectRedirectUri()) === null) {
                 $message .= $this->displayError($this->l('Connect with MONEI is not available for this shop. Use manual keys.'));
@@ -1339,6 +1344,20 @@ class Monei extends PaymentModule
     }
 
     /**
+     * The access the legacy configure page requires on PrestaShop 8. PrestaShop 9
+     * calls getContent() for an employee with read access on Modules only, so every
+     * submit checks it here.
+     */
+    private function canConfigure(): bool
+    {
+        $employee = $this->context->employee;
+
+        return $employee instanceof Employee
+            && $this->getPermission('configure', $employee)
+            && $employee->can('edit', 'AdminModulesSf');
+    }
+
+    /**
      * The shop group and shop being edited, 0 for none, as Configuration::updateValue
      * reads them.
      *
@@ -1450,6 +1469,7 @@ class Monei extends PaymentModule
             'action' => $this->configureUrl(),
             'token' => $this->formToken(),
             'canConnect' => $this->connectRedirectUri() !== null,
+            'canChange' => $this->canConfigure(),
             'connected' => $connect->isConnected(...$this->shopScope()),
             'keyLast4' => $key === '' ? '' : substr($key, -4),
             'mode' => $live ? $this->l('Live') : $this->l('Test'),
