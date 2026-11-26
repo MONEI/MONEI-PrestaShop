@@ -553,6 +553,35 @@ class CallbackVerifierTest extends TestCase
     }
 
     /**
+     * A mixed shop: Live connected (mk_ + secret), Test on a manual pk_ key with no
+     * secret. validation.php skips its early 401 here, because a mode is connected.
+     *
+     * Bug: a test-mode v1 callback takes the connected Live key's path, or skips the
+     * fetch; or a test-mode callback without a header is fetched or settles, since
+     * only the verifier refuses it on this shop.
+     */
+    public function testAMixedShopSettlesATestV1ThroughAFetchAndRefusesNoHeader(): void
+    {
+        $store = self::store([
+            'MONEI_PRODUCTION_MODE' => '0',
+            'MONEI_API_KEY' => 'mk_live_key',
+            'MONEI_SIGNING_SECRET' => 'mksec_live',
+            'MONEI_TEST_API_KEY' => 'pk_test_manual',
+        ]);
+        $body = self::body($this->remote);
+        $verifier = $this->verifier($store);
+        $this->assertTrue($verifier->anyModeConnected(), 'the early 401 is off on this shop');
+
+        $signed = $verifier->verify($body, self::sign($body, 'v1', 'pk_test_manual'));
+        $this->assertSame('SUCCEEDED', $signed['payment']->getStatus());
+        $this->assertSame([['pk_test_manual', self::ID]], $this->fetches);
+
+        $headerless = $verifier->verify($body, null);
+        $this->assertSame([401, null, 'signature'], [$headerless['status'], $headerless['payment'], $headerless['reason']]);
+        $this->assertCount(1, $this->fetches, 'a callback without a header fetches nothing');
+    }
+
+    /**
      * Bug: validation refuses a callback without MONEI-Signature on a shop where only
      * one mode is connected.
      */
