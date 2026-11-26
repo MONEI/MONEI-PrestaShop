@@ -21,7 +21,8 @@ test.describe('settings: form token', () => {
         try {
             const anonymous = await playwright.request.newContext({ baseURL: baseUrl() });
             const noSession = await anonymous.post(url, { form });
-            const noSessionPath = new URL(noSession.url()).pathname;
+            // PrestaShop 9 lands on /login, PrestaShop 8 on controller=AdminLogin.
+            const noSessionUrl = noSession.url();
             await anonymous.dispose();
 
             await login(page);
@@ -32,13 +33,15 @@ test.describe('settings: form token', () => {
                 url.replace(/&token=[^&]*/, '&token=0123'),
             ]) {
                 const response = await page.request.post(target, { form });
-                const refused = /security token is not valid|Invalid token/i.test(
-                    await response.text()
-                );
+                // The module's refusal on PrestaShop 9, PrestaShop's own page on PrestaShop 8.
+                const refused =
+                    /security token is not valid|Invalid token|Invalid security token/i.test(
+                        await response.text()
+                    );
                 landings.push(`${response.status()} ${refused ? 'refused' : 'not refused'}`);
             }
 
-            expect(noSessionPath).toMatch(/login/);
+            expect(noSessionUrl).toMatch(/login/i);
             // The valid admin token alone does not do: only the form token does.
             expect(landings).toEqual(['200 refused', '200 refused', '200 refused']);
             expect(getConfig('MONEI_EXPRESS_LOCATIONS')).toBe(before);

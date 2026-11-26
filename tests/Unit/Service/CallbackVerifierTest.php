@@ -462,19 +462,22 @@ class CallbackVerifierTest extends TestCase
     }
 
     /**
-     * Bug: signed v1 callbacks spend the fetch quota, so the 6th callback of a payment
-     * in a minute answers 503.
+     * Bug: a replayed v1-signed body makes one MONEI request per callback, with no
+     * limit; or a v1 callback is dropped with 200 instead of settling. The 6th in a
+     * minute answers 503, so MONEI retries it.
      */
-    public function testV1CallbacksSpendNoFetchQuota(): void
+    public function testV1CallbacksFetchUnderThePaymentQuota(): void
     {
         $store = self::manualShop();
         $body = self::body($this->remote);
-        $statuses = [];
+        $decisions = [];
         for ($i = 0; $i < 6; ++$i) {
-            $statuses[] = $this->verifier($store)->verify($body, self::sign($body, 'v1', 'pk_test_manual'))['status'];
+            $decisions[] = $this->verifier($store)->verify($body, self::sign($body, 'v1', 'pk_test_manual'));
         }
 
-        $this->assertSame([200, 200, 200, 200, 200, 200], $statuses);
+        $this->assertSame('SUCCEEDED', $decisions[0]['payment']->getStatus());
+        $this->assertSame([200, 200, 200, 200, 200, 503], array_column($decisions, 'status'));
+        $this->assertCount(5, $this->fetches);
     }
 
     /**

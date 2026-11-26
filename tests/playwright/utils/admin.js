@@ -46,9 +46,9 @@ const moduleConfigureUrl = () =>
             ADMIN_USER +
             "') . '\"'" +
             ');' +
-            // ⚠️ PrestaShop 8 has no AdminModules tab: its legacy controller takes the
-            // id of AdminModulesSf. PrestaShop 9 replaces the token with its own.
-            "$id = Tab::getIdFromClassName('AdminModulesSf');" +
+            // As Tools::getAdminTokenLite: there is no AdminModules tab, and the cast
+            // makes its id 0. Concatenating false gives '', a token PrestaShop 8 refuses.
+            "$id = (int) Tab::getIdFromClassName('AdminModules');" +
             "$token = Tools::getAdminToken('AdminModules'.$id.$employeeId);" +
             "echo 'index.php?controller=AdminModules&configure=monei&token='.$token;"
     );

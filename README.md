@@ -23,6 +23,7 @@ Accept payments through [MONEI](https://monei.com) in your PrestaShop store with
 - [Development Commands](#development-commands)
 - [Module Structure](#module-structure)
 - [Configuration](#configuration)
+  - [Connect with MONEI](#connect-with-monei)
 - [Troubleshooting](#troubleshooting)
 - [Documentation](#documentation)
 
@@ -280,11 +281,35 @@ monei/
 
 ## Configuration
 
-1. **Get your API credentials** from [MONEI Dashboard → Settings → API Access](https://dashboard.monei.com/settings/api)
-2. **Configure the module** in PrestaShop admin → Modules → MONEI
-3. **Test mode**: Use test API keys for development and testing
+1. **Connect the shop** in PrestaShop admin → Modules → MONEI → Settings → **Connect with MONEI** (see below), or enter API keys from [MONEI Dashboard → Settings → API Access](https://dashboard.monei.com/settings/api)
+2. **Test mode**: turn **Real environment** off for test payments. A connect never switches a shop with a Live key to test mode
 4. **Payment methods**: Enable/disable specific payment methods as needed
 5. **Webhook URL**: Configure in MONEI Dashboard for real-time notifications
+
+### Connect with MONEI
+
+From 2.3.0, the shop gets its own API keys from MONEI, so you never copy a key.
+**Connect with MONEI** opens MONEI in a new tab. Sign in, select the account and
+approve. The shop gets a Test key at once, and a Live key when the account is
+approved. **Disconnect** removes the connected keys from the shop; a key stays
+active until you revoke it in the MONEI Dashboard. Guide:
+[docs.monei.com/e-commerce/prestashop](https://docs.monei.com/e-commerce/prestashop/#connect).
+
+- The shop needs a public HTTPS address. Otherwise the panel shows **Use manual
+  keys**, and the key fields stay open.
+- Connect, Disconnect and every settings save need **configure** on the MONEI
+  module and **edit** on Modules.
+- Callbacks: a connected (`mk_`) key verifies the `v2` signature with its signing
+  secret, or fetches the payment from MONEI. A manual `pk_` key verifies `v1`, then
+  fetches the payment.
+
+**Development broker.** The connect goes to `https://oauth.monei.com`. To use
+another broker, define `MONEI_CONNECT_BASE_URL` in `config/defines_custom.inc.php`
+or set it in the PHP environment:
+
+```php
+define('MONEI_CONNECT_BASE_URL', 'https://oauth.example.dev');
+```
 
 ## Developer Hooks
 

@@ -16,7 +16,8 @@ use PsMonei\Repository\ConfigurationStoreInterface;
  *   monei2_payment row. So callbacks of orders made before the connect, after a
  *   rotation, or without v2 still settle, and a forged body changes nothing.
  * - Else (a manual pk_ key): v1 with that key, then the payment is fetched with
- *   it. v1 does not check the timestamp, so a resent body would settle as it was.
+ *   it, under the same quota. v1 does not check the timestamp, so a resent body
+ *   would settle as it was.
  *
  * Pure: the store, the clock, the row lookup and the fetch are injected, so the
  * unit suite can load it.
@@ -126,7 +127,11 @@ final class CallbackVerifier
             return self::refused(200, 'module');
         }
 
-        // Signed, so no quota.
+        // A replayed v1 body would otherwise fetch once per request.
+        if (!$this->takeQuota($id, $scope)) {
+            return self::refused(503, 'quota');
+        }
+
         return $this->checkedFetch($id, $row, $key, $scope);
     }
 

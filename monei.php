@@ -848,7 +848,10 @@ class Monei extends PaymentModule
         /*
          * If values have been submitted in the form, process.
          */
-        if ($this->isFormSubmitted() && !$this->hasFormToken()) {
+        // Tools::isSubmit() also reads the query string: a link or an image would submit.
+        if ($this->isFormSubmitted() && Tools::strtoupper($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
+            $message .= $this->displayError($this->l('The form was not sent correctly. Reload the page and try again.'));
+        } elseif ($this->isFormSubmitted() && !$this->hasFormToken()) {
             $message .= $this->displayError($this->l('The security token is not valid. Reload the page and try again.'));
         } elseif ($this->isFormSubmitted() && !$this->canConfigure()) {
             $message .= $this->displayError($this->trans('You do not have permission to edit this.', [], 'Admin.Notifications.Error'));
@@ -863,7 +866,7 @@ class Monei extends PaymentModule
                 [$idShopGroup, $idShop] = $this->shopScope();
                 Tools::redirect($this->connectService()->begin($redirectUri, $idShopGroup, $idShop, $settingsUrl));
             }
-        } elseif (Tools::isSubmit('submitMoneiDisconnect') && Tools::strtoupper($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
+        } elseif (Tools::isSubmit('submitMoneiDisconnect')) {
             $this->connectService()->disconnect(...$this->shopScope());
             $message .= $this->displayConfirmation($this->l('MONEI disconnected. The keys stay active until you revoke them in the MONEI Dashboard.'));
         } elseif ((bool) Tools::isSubmit('submitMoneiModule')) {
@@ -970,13 +973,10 @@ class Monei extends PaymentModule
                 // A connect or a disconnect in another tab changed the keys after this
                 // form was rendered: its key fields and mode would write the old values
                 // back. The other settings of the form still save.
-                $renderedFingerprints = [];
-                foreach (['live', 'test'] as $mode) {
-                    if (Tools::getIsset('monei_key_fingerprint_' . $mode)) {
-                        $renderedFingerprints[$mode] = (string) Tools::getValue('monei_key_fingerprint_' . $mode);
-                    }
-                }
-                if ($this->connectService()->staleModes($renderedFingerprints, ...$this->shopScope())) {
+                if ($this->connectService()->staleModes([
+                    'live' => (string) Tools::getValue('monei_key_fingerprint_live'),
+                    'test' => (string) Tools::getValue('monei_key_fingerprint_test'),
+                ], ...$this->shopScope())) {
                     unset($form_values['MONEI_PRODUCTION_MODE']);
                     foreach (ConnectService::KEYS as $keys) {
                         unset($form_values[$keys['accountId']], $form_values[$keys['apiKey']]);
@@ -1469,6 +1469,7 @@ class Monei extends PaymentModule
             'action' => $this->configureUrl(),
             'token' => $this->formToken(),
             'canConnect' => $this->connectRedirectUri() !== null,
+            'canChange' => $this->canConfigure(),
             'connected' => $connect->isConnected(...$this->shopScope()),
             'keyLast4' => $key === '' ? '' : substr($key, -4),
             'mode' => $live ? $this->l('Live') : $this->l('Test'),

@@ -218,12 +218,10 @@ class ConnectWiringTest extends TestCase
         $save = $this->method(self::MODULE, 'postProcess');
 
         $this->assertMatchesRegularExpression(
-            '/if\(\$this->connectService\(\)->staleModes\(\$renderedFingerprints,\.\.\.\$this->shopScope\(\)\)\)\{unset\(\$form_values\[\'MONEI_PRODUCTION_MODE\'\]\);foreach\(ConnectService::KEYSas\$keys\)\{unset\(\$form_values\[\$keys\[\'accountId\'\]\],\$form_values\[\$keys\[\'apiKey\'\]\]\);\}[^}]*break;\}/',
+            '/if\(\$this->connectService\(\)->staleModes\(\[[^]]*\],\.\.\.\$this->shopScope\(\)\)\)\{unset\(\$form_values\[\'MONEI_PRODUCTION_MODE\'\]\);foreach\(ConnectService::KEYSas\$keys\)\{unset\(\$form_values\[\$keys\[\'accountId\'\]\],\$form_values\[\$keys\[\'apiKey\'\]\]\);\}[^}]*break;\}/',
             $save
         );
         $this->assertBefore('->staleModes(', '$this->validateApiCredentials($form_values)', $save, 'a stale save skips the check that calls MONEI');
-        // Only a posted fingerprint: getValue() gives '' for a field a pre-upgrade tab never had.
-        $this->assertStringContainsString("if(Tools::getIsset('monei_key_fingerprint_'.\$mode)){\$renderedFingerprints[\$mode]=", $save);
         $this->assertStringContainsString('\'fields_value\'=>$this->settingsFormValues(),', $this->method(self::MODULE, 'renderForm'));
         $this->assertStringContainsString('return$values+$this->keyFingerprintValues();', $this->method(self::MODULE, 'settingsFormValues'));
     }

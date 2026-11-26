@@ -78,9 +78,23 @@ const configureUrlWithToken = (token) => {
     return token === null ? url : `${url}&token=${token}`;
 };
 
-// A throwaway employee: the test creates and deletes it.
 const NO_PERMISSION = 'You do not have permission to edit this.';
 
+/**
+ * ⚠️ PrestaShop 8 refuses an employee without edit on Modules or configure on the
+ * module before getContent, with this message. PrestaShop 9 runs getContent.
+ */
+const PS8_NO_PERMISSION = 'You do not have permission to configure this module.';
+
+const PS8 = psEval('echo _PS_VERSION_;').split('\n').pop().startsWith('8.');
+
+/**
+ * The refusal of a request without a valid admin or form token: the module's own
+ * on PrestaShop 9, PrestaShop's "Invalid security token" page on PrestaShop 8.
+ */
+const TOKEN_REFUSAL = /security token is not valid|Invalid token|Invalid security token/i;
+
+// A throwaway employee: the test creates and deletes it.
 const LIMITED = {
     email: 'e2e-limited@monei.test',
     password: `${crypto.randomBytes(12).toString('hex')}Aa1`,
@@ -124,6 +138,19 @@ const setLimitedRights = (idProfile, editModules, configureMonei) =>
     );
 
 /**
+ * The configure URL with an admin token of the given employee. PrestaShop 9 swaps any
+ * token for its own; PrestaShop 8 checks it.
+ * @param {string} idEmployee - Employee id
+ * @return {string} Back office URL
+ */
+const configureUrlFor = (idEmployee) =>
+    `${ADMIN_PATH}/index.php?controller=AdminModules&configure=monei&token=${psEval(
+        `Context::getContext()->employee = new Employee(${idEmployee}); echo Tools::getAdminTokenLite('AdminModules');`
+    )
+        .split('\n')
+        .pop()}`;
+
+/**
  * Post a getContent branch three ways: with no employee session, and signed in with
  * a missing and with a wrong token.
  * @param {import('@playwright/test').Page}       page       - Page
@@ -143,7 +170,7 @@ const postWithoutTheAdminCheck = async (page, playwright, submit) => {
     await login(page);
     for (const token of [null, '0123456789abcdef0123456789abcdef']) {
         const response = await page.request.post(configureUrlWithToken(token), { form });
-        const refusal = (await response.text()).match(/security token is not valid|Invalid token/i);
+        const refusal = (await response.text()).match(TOKEN_REFUSAL);
         landings.push(`${response.status()} ${refusal ? 'refused' : 'not refused'}`);
     }
 
@@ -530,11 +557,14 @@ test.describe('Connect with MONEI', () => {
                 ['no configure on MONEI', true, false],
             ]) {
                 setLimitedRights(idProfile, editModules, configureMonei);
-                await page.goto(configureUrlWithToken(null), { waitUntil: 'domcontentloaded' });
-                const token = await page
-                    .locator('input[name="monei_form_token"]')
-                    .first()
-                    .inputValue();
+                await page.goto(configureUrlFor(idEmployee), { waitUntil: 'domcontentloaded' });
+                const token = PS8
+                    ? ''
+                    : await page.locator('input[name="monei_form_token"]').first().inputValue();
+                // The connected shop shows Disconnect to an admin.
+                await expect(page.locator('#monei-connect, #monei-disconnect'), rights).toHaveCount(
+                    0
+                );
                 const states = stateRows();
                 const credentials = credentialsDigest();
                 for (const submit of ['submitMoneiConnect', 'submitMoneiDisconnect']) {
@@ -542,7 +572,9 @@ test.describe('Connect with MONEI', () => {
                         form: { [submit]: '1', monei_form_token: token },
                         maxRedirects: 0,
                     });
-                    const refused = (await response.text()).includes(NO_PERMISSION);
+                    const refused = (await response.text()).includes(
+                        PS8 ? PS8_NO_PERMISSION : NO_PERMISSION
+                    );
                     outcomes[`${rights}: ${submit}`] =
                         `${response.status()} ${refused ? 'refused' : 'not refused'}`;
                     // After each submit: a Disconnect also deletes the state a Connect stored.
@@ -587,15 +619,23 @@ test.describe('Connect with MONEI', () => {
             ]) {
                 setLimitedRights(idProfile, editModules, configureMonei);
                 const before = settings.map(getConfig);
-                await page.goto(configureUrlWithToken(null), { waitUntil: 'domcontentloaded' });
-                await page.locator('a[href="#panel-conf-1"]').click();
-                await page
-                    .locator('select[name="MONEI_PAYMENT_ACTION"]')
-                    .selectOption(before[0] === 'auth' ? 'sale' : 'auth');
-                await page.locator('button[name="submitMoneiModule"]').click();
+                const changed = before[0] === 'auth' ? 'sale' : 'auth';
+                await page.goto(configureUrlFor(idEmployee), { waitUntil: 'domcontentloaded' });
+                if (PS8) {
+                    await page.request.post(page.url(), {
+                        form: { submitMoneiModule: '1', MONEI_PAYMENT_ACTION: changed },
+                    });
+                    await page.reload({ waitUntil: 'domcontentloaded' });
+                } else {
+                    await page.locator('a[href="#panel-conf-1"]').click();
+                    await page.locator('select[name="MONEI_PAYMENT_ACTION"]').selectOption(changed);
+                    await page.locator('button[name="submitMoneiModule"]').click();
+                }
 
                 await expect(
-                    page.locator('.alert', { hasText: NO_PERMISSION }).first(),
+                    page
+                        .locator('.alert', { hasText: PS8 ? PS8_NO_PERMISSION : NO_PERMISSION })
+                        .first(),
                     rights
                 ).toBeVisible();
                 expect(settings.map(getConfig), `${rights}: nothing stored`).toEqual(before);
@@ -609,27 +649,21 @@ test.describe('Connect with MONEI', () => {
         }
     });
 
-    test('a Disconnect over GET keeps the credentials', async ({ page }) => {
-        const restore = keep([
-            'MONEI_TEST_ACCOUNT_ID',
-            'MONEI_TEST_API_KEY',
-            'MONEI_TEST_SIGNING_SECRET',
-        ]);
-        setConfig('MONEI_TEST_API_KEY', 'mk_test_e2e_not_a_key');
+    test('a settings save over GET changes nothing', async ({ page }) => {
+        const before = getConfig('MONEI_PAYMENT_ACTION');
 
-        try {
-            await openModuleConfiguration(page);
-            const token = await page.locator('input[name="monei_form_token"]').first().inputValue();
+        await openModuleConfiguration(page);
+        const token = await page.locator('input[name="monei_form_token"]').first().inputValue();
+        // A link or an image with the page's own token: only the method check refuses it.
+        await page.goto(
+            `${page.url()}&submitMoneiModule=1&monei_form_token=${token}&MONEI_PAYMENT_ACTION=${before === 'auth' ? 'sale' : 'auth'}`,
+            { waitUntil: 'domcontentloaded' }
+        );
 
-            // A link or an image with the page's own token: only the method check refuses it.
-            await page.request.get(
-                `${page.url()}&submitMoneiDisconnect=1&monei_form_token=${token}`
-            );
-
-            expect(getConfig('MONEI_TEST_API_KEY')).toBe('mk_test_e2e_not_a_key');
-        } finally {
-            restore();
-        }
+        await expect(
+            page.locator('.alert', { hasText: 'The form was not sent correctly.' }).first()
+        ).toBeVisible();
+        expect(getConfig('MONEI_PAYMENT_ACTION')).toBe(before);
     });
 
     test('the callback runs in maintenance mode', async ({ playwright }) => {
