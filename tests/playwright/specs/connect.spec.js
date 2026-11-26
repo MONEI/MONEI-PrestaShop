@@ -79,6 +79,8 @@ const configureUrlWithToken = (token) => {
 };
 
 // A throwaway employee: the test creates and deletes it.
+const NO_PERMISSION = 'You do not have permission to edit this.';
+
 const LIMITED = {
     email: 'e2e-limited@monei.test',
     password: `${crypto.randomBytes(12).toString('hex')}Aa1`,
@@ -540,9 +542,7 @@ test.describe('Connect with MONEI', () => {
                         form: { [submit]: '1', monei_form_token: token },
                         maxRedirects: 0,
                     });
-                    const refused = (await response.text()).includes(
-                        'You do not have permission to connect or disconnect MONEI.'
-                    );
+                    const refused = (await response.text()).includes(NO_PERMISSION);
                     outcomes[`${rights}: ${submit}`] =
                         `${response.status()} ${refused ? 'refused' : 'not refused'}`;
                     // After each submit: a Disconnect also deletes the state a Connect stored.
@@ -559,6 +559,47 @@ test.describe('Connect with MONEI', () => {
                 'no configure on MONEI: submitMoneiConnect': '200 refused',
                 'no configure on MONEI: submitMoneiDisconnect': '200 refused',
             });
+        } finally {
+            await context.close();
+            restore();
+            psEval(
+                `(new Employee(${idEmployee}))->delete(); (new Profile(${idProfile}))->delete();`
+            );
+        }
+    });
+
+    test('an employee without edit on Modules or configure on MONEI cannot save the settings', async ({
+        browser,
+    }) => {
+        // ⚠️ PrestaShop 9 runs getContent for read access on Modules alone. The seeded
+        // test key stays, so without the check this save validates and writes.
+        const [idProfile, idEmployee] = createLimitedEmployee().split('\n').pop().split(',');
+        const settings = ['MONEI_PAYMENT_ACTION', 'MONEI_SHOW_LOGO', ...CREDENTIALS];
+        const restore = keep(settings);
+        const context = await browser.newContext({ baseURL: baseUrl() });
+        const page = await context.newPage();
+
+        try {
+            await login(page, LIMITED);
+            for (const [rights, editModules, configureMonei] of [
+                ['read-only Modules', false, true],
+                ['no configure on MONEI', true, false],
+            ]) {
+                setLimitedRights(idProfile, editModules, configureMonei);
+                const before = settings.map(getConfig);
+                await page.goto(configureUrlWithToken(null), { waitUntil: 'domcontentloaded' });
+                await page.locator('a[href="#panel-conf-1"]').click();
+                await page
+                    .locator('select[name="MONEI_PAYMENT_ACTION"]')
+                    .selectOption(before[0] === 'auth' ? 'sale' : 'auth');
+                await page.locator('button[name="submitMoneiModule"]').click();
+
+                await expect(
+                    page.locator('.alert', { hasText: NO_PERMISSION }).first(),
+                    rights
+                ).toBeVisible();
+                expect(settings.map(getConfig), `${rights}: nothing stored`).toEqual(before);
+            }
         } finally {
             await context.close();
             restore();

@@ -850,8 +850,8 @@ class Monei extends PaymentModule
          */
         if ($this->isFormSubmitted() && !$this->hasFormToken()) {
             $message .= $this->displayError($this->l('The security token is not valid. Reload the page and try again.'));
-        } elseif ((Tools::isSubmit('submitMoneiConnect') || Tools::isSubmit('submitMoneiDisconnect')) && !$this->canChangeKeys()) {
-            $message .= $this->displayError($this->l('You do not have permission to connect or disconnect MONEI.'));
+        } elseif ($this->isFormSubmitted() && !$this->canConfigure()) {
+            $message .= $this->displayError($this->trans('You do not have permission to edit this.', [], 'Admin.Notifications.Error'));
         } elseif (Tools::isSubmit('submitMoneiConnect')) {
             if (($redirectUri = $this->connectRedirectUri()) === null) {
                 $message .= $this->displayError($this->l('Connect with MONEI is not available for this shop. Use manual keys.'));
@@ -1345,9 +1345,10 @@ class Monei extends PaymentModule
 
     /**
      * The access the legacy configure page requires on PrestaShop 8. PrestaShop 9
-     * calls getContent() for an employee with read access on Modules only.
+     * calls getContent() for an employee with read access on Modules only, so every
+     * submit checks it here.
      */
-    private function canChangeKeys(): bool
+    private function canConfigure(): bool
     {
         $employee = $this->context->employee;
 
