@@ -22,7 +22,7 @@
         }
     },
     "require": {
-        "monei/monei-php-sdk": "^2.16.0",
+        "monei/monei-php-sdk": "^2.18.3",
         "prestashop/module-lib-service-container": "^2.0"
     },
     "require-dev": {
